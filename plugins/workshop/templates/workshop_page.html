@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+
+{#
+  The workshop as one document (see plugins/workshop/page.py for the why).
+  State is carried by a class AND an icon AND a title attribute — never colour
+  alone, which is invisible to ~8% of men and to anyone on a projector.
+#}
+
+{% macro chip(target, label, state, badge="") -%}
+  {% set icon = {"done": "✓", "current": "▶", "todo": "○",
+                 "locked": "🔒", "info": "📄"}[state] %}
+  {% set title = {"done": "Completed", "current": "In progress",
+                  "todo": "Not started", "locked": "Locked",
+                  "info": "Just something to read"}[state] %}
+  {# Chip labels can be long chapter titles: they ellipsis, so the full name
+     lives in the tooltip. State is icon + text, never colour alone. #}
+  <a class="ws-chip ws-{{ state }}" href="#{{ target }}" title="{{ label }} — {{ title }}">
+    <span class="ws-chip-icon" aria-hidden="true">{{ icon }}</span>
+    <span class="ws-chip-label">{{ label }}</span>
+    <span class="visually-hidden"> — {{ title }}</span>
+    {%- if badge %}<span class="ws-chip-badge">{{ badge }}</span>{% endif -%}
+  </a>
+{%- endmacro %}
+
+{% block content %}
+<div class="container ws-page" id="ws-workshop">
+
+  <div class="ws-head">
+    <h1 class="ws-title">{{ page_title or Configs.ctf_name }}</h1>
+    <div class="ws-overall" data-solved="{{ solved_count }}" data-total="{{ total_count }}">
+      <span class="ws-overall-count">{{ solved_count }} / {{ total_count }}</span> steps completed
+      <div class="ws-overall-bar">
+        <div class="ws-overall-fill"
+             style="width: {{ (100 * solved_count / total_count) if total_count else 0 }}%"></div>
+      </div>
+    </div>
+  </div>
+
+  <nav class="ws-stepper ws-stepper-parts" aria-label="Workshop parts">
+    {% for part in parts %}
+      {{ chip("part-" ~ part.index, part.name, part.state,
+              badge="%d/%d" % (part.done, part.total) if part.total else "") }}
+    {% endfor %}
+  </nav>
+
+  {% for part in parts %}
+    <section class="ws-part ws-{{ part.state }}" id="part-{{ part.index }}"
+             data-part="{{ part.index }}">
+      {# A part named after the page it is on says the same thing twice, which
+         happens whenever a document holds a single chapter. Keep the counter —
+         that is the part of this line carrying information. #}
+      <h2 class="ws-part-title{% if part.name == page_title %} ws-part-title-quiet{% endif %}">
+        {% if part.name != page_title %}{{ part.name }}{% endif %}
+        {% if part.total %}<span class="ws-part-count">{{ part.done }}/{{ part.total }}</span>{% endif %}
+      </h2>
+
+      {% if part.lead %}
+        {# The part's opening prose, lifted out of its first step so the step
+           reads as a task rather than as a task preceded by a lecture.
+
+           Foldable, but open: three of these carry a code block and run 24-28
+           lines, which pushes the first step below the fold — while hiding one
+           behind a click is exactly the bug this page had (PLAN.md §24). So it
+           opens by default and remembers being shut, per participant. #}
+        <details class="ws-part-lead" data-lead="{{ part.name }}" open>
+          <summary class="ws-part-lead-summary">Introduction</summary>
+          <div class="ws-part-lead-body challenge-desc">{{ part.lead }}</div>
+        </details>
+      {% endif %}
+
+      {% if part.steps | length > 1 %}
+        <nav class="ws-stepper ws-stepper-steps" aria-label="Steps of {{ part.name }}">
+          {% for step in part.steps %}
+            {{ chip("step-" ~ step.id, step.name, step.state) }}
+          {% endfor %}
+        </nav>
+      {% endif %}
+
+      {% for step in part.steps %}
+        <details class="ws-step ws-{{ step.state }}" id="step-{{ step.id }}"
+                 data-challenge-id="{{ step.id }}" data-state="{{ step.state }}"
+                 data-counts="{{ '1' if step.counts else '0' }}"
+                 {% if step.optional %}data-optional="1"{% endif %}
+                 {% if step.open %}open{% endif %}>
+          <summary class="ws-step-summary">
+            <span class="ws-step-icon" aria-hidden="true"></span>
+            <span class="ws-step-name">{{ step.name }}</span>
+            {# Bonus work has to look like bonus work. Without this the only
+               signal is the part counter reading 3/3 above seven steps, which
+               reads as a bug rather than as "these four are yours to skip". #}
+            {% if step.optional %}
+              <span class="ws-step-bonus"
+                    title="Optional — it does not count towards your progress">Bonus</span>
+            {% endif %}
+            {% if step.points %}<span class="ws-step-meta">{{ step.points }} pts</span>{% endif %}
+          </summary>
+          <div class="ws-step-body">
+            {% include "workshop_step_body.html" %}
+          </div>
+        </details>
+      {% endfor %}
+    </section>
+  {% endfor %}
+
+</div>
+
+{% if runtime %}
+  {# The only way to open the pane: fixed to the edge of the viewport so it is
+     reachable from anywhere in the page. Rendered hidden and revealed by
+     assets/runtime.js — the pane cannot work without that script anyway. #}
+  <button type="button" class="btn btn-primary ws-runtime-toggle ws-runtime-handle"
+          aria-expanded="false" aria-controls="ws-runtime" hidden>{{ runtime.title }}</button>
+
+  {# The runtime pane lives OUTSIDE the scrolling document on purpose: one
+     frame for the whole workshop, kept alive across steps (PLAN.md §14.3
+     rule 2). The iframe itself is created lazily by assets/runtime.js — a
+     workshop page must not boot an editor, or a VM, before it is asked to. #}
+  <aside class="ws-runtime ws-runtime-{{ runtime.placement }}" id="ws-runtime" hidden
+         data-runtime-id="{{ runtime.id }}"
+         data-runtime-src="{{ runtime.src }}"
+         data-runtime-adapter="{{ runtime.adapter }}"
+         data-runtime-title="{{ runtime.title }}"
+         data-runtime-size="{{ runtime.size }}"
+         data-runtime-open="{{ '1' if runtime.open else '0' }}"
+         {# What this subject's runtime needs to know — which VM bundle, in
+            practice. The host forwards it in `init`; the adapter applies it
+            (PLAN.md §19.2). #}
+         data-runtime-params="{{ runtime.params | tojson | forceescape }}">
+    <div class="ws-runtime-resizer" role="separator" aria-orientation="vertical"
+         tabindex="0" aria-label="Resize the {{ runtime.title }} pane"></div>
+    <div class="ws-runtime-bar">
+      <span class="ws-runtime-title">{{ runtime.title }}</span>
+      <button type="button" class="ws-runtime-close" aria-label="Hide {{ runtime.title }}">✕</button>
+    </div>
+    <div class="ws-runtime-body"></div>
+  </aside>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+  {{ super() }}
+  <script defer src="/plugins/workshop/assets/workshop_page.js"></script>
+  {% if runtime %}<script defer src="/plugins/workshop/assets/runtime.js"></script>{% endif %}
+{% endblock %}

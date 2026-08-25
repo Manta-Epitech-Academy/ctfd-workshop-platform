@@ -1,0 +1,218 @@
+{% extends "admin/base.html" %}
+
+{#
+  The answer sheet (PLAN.md §23). Instructor-facing, so every string is English
+  like the rest of the platform UI; step names come from the content and stay
+  in whatever language it was authored in.
+
+  Two tables, one page: what the answers are, and who has got to which one.
+  They belong together because the instructor uses them together — you look up
+  where somebody is stuck, then you look up the answer to that step.
+#}
+
+{% macro progress(done, total, percent) -%}
+  <span class="ws-an-bar" role="img"
+        aria-label="{{ done }} of {{ total }} steps done">
+    <span class="ws-an-bar-fill" style="width: {{ percent }}%"></span>
+  </span>
+  <span class="ws-an-count">{{ done }}/{{ total }}</span>
+{%- endmacro %}
+
+{% block content %}
+<div class="jumbotron">
+  <div class="container">
+    <h1>Answer sheet</h1>
+    <p class="lead mb-0">
+      Every step's answer as <em>this</em> instance will accept it, and how far each
+      participant has got.
+    </p>
+  </div>
+</div>
+
+<div class="container">
+  {% if per_instance %}
+    <div class="alert alert-warning">
+      <strong>These answers belong to this instance.</strong>
+      Instructor codes and runtime tokens are generated per instance on purpose, so a sheet
+      printed here will not work on another deployment or at the next session. Re-open this
+      page instead of reusing a printout. Answers marked <em>Answer</em> are authored in the
+      subject and are the same everywhere.
+    </div>
+  {% endif %}
+
+  {% if guessed %}
+    <div class="alert alert-info">
+      Some rows are labelled from the shape of the stored flag, because this instance was
+      synced before the validation mode was recorded. A six-character hex string is read as an
+      instructor code, anything else as an authored answer. Re-run the sync to replace the
+      guess with what the content actually says.
+    </div>
+  {% endif %}
+
+  <p class="text-muted">
+    {{ totals.answers }} answer{{ "" if totals.answers == 1 else "s" }} across
+    {{ totals.steps }} step{{ "" if totals.steps == 1 else "s" }}.
+    {{ totals.attendees }} participant{{ "" if totals.attendees == 1 else "s" }},
+    {{ totals.started }} started, {{ totals.finished }} finished.
+    <a href="/admin/workshop/answers.csv">Download the answers as CSV</a>
+    ·
+    <button type="button" class="btn btn-link p-0 align-baseline" id="ws-an-toggle"
+            aria-pressed="false">Hide answers</button>
+    <span class="text-muted"><small>— for when the screen is projected</small></span>
+  </p>
+
+  <h2 class="ws-an-h">The answers</h2>
+  {% for part in parts %}
+    <h3 class="ws-an-part">{{ part.title }}</h3>
+    <table class="table table-striped ws-an-table">
+      <thead>
+        <tr>
+          <th>Step</th><th>Kind</th><th>Answer</th>
+          <th class="ws-an-num">Points</th><th class="ws-an-num">Solved</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in part.rows %}
+          <tr>
+            <td>
+              <a href="/admin/challenges/{{ row.id }}">{{ row.name }}</a>
+              {% if row.optional %}<span class="badge badge-light">bonus</span>{% endif %}
+            </td>
+            <td class="text-muted">
+              {{ row.label }}{% if row.guessed %}<span title="inferred, not recorded">&nbsp;?</span>{% endif %}
+            </td>
+            <td>
+              {% if row.answer %}
+                <code class="ws-an-answer">{{ row.answer }}</code>
+              {% else %}
+                <span class="text-muted ws-an-dash">nothing to answer</span>
+              {% endif %}
+              {% if row.notes %}
+                <div class="text-muted"><small>{{ row.notes | join(" · ") }}</small></div>
+              {% endif %}
+            </td>
+            <td class="ws-an-num text-muted">{{ row.points }}</td>
+            <td class="ws-an-num text-muted">{{ row.solvers }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="text-muted">
+      No steps in this instance yet. Run the sync to import a subject.
+    </p>
+  {% endfor %}
+
+  <section id="ws-an-people-section">
+  <h2 class="ws-an-h ws-an-progress-h">Who is where</h2>
+  {% if attendees %}
+    <p class="text-muted">
+      Least progress first — this table exists to find whoever needs a hand.
+      "Stuck on" is the first step they can reach and have not solved. Progress is
+      out of the {{ totals.required }} step{{ "" if totals.required == 1 else "s" }}
+      that count; bonus steps and notes are left out.
+    </p>
+    <input type="search" class="form-control mb-2 ws-an-filter" id="ws-an-filter"
+           placeholder="Filter by name" aria-label="Filter participants by name">
+    <table class="table table-striped ws-an-table" id="ws-an-people">
+      <thead>
+        <tr>
+          <th>Participant</th><th>Progress</th><th>Stuck on</th><th>Last solved</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for a in attendees %}
+          <tr class="{{ 'table-warning' if a.done == 0 else '' }}">
+            <td>
+              <a href="/admin/users/{{ a.id }}">{{ a.name }}</a>
+              {% if a.banned %}<span class="badge badge-danger">banned</span>{% endif %}
+            </td>
+            <td class="ws-an-nowrap">{{ progress(a.done, a.total, a.percent) }}</td>
+            <td>
+              {% if a.finished %}
+                <span class="text-success">finished</span>
+              {% elif a.current %}
+                {{ a.current }}
+              {% else %}
+                <span class="text-muted">nothing available</span>
+              {% endif %}
+            </td>
+            <td class="text-muted">
+              {% if a.last_step %}
+                {{ a.last_step }}
+                {% if a.last_at %}<div><small>{{ a.last_at.strftime("%H:%M") }}</small></div>{% endif %}
+              {% else %}
+                <span class="ws-an-dash">not started</span>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="text-muted">Nobody has registered on this instance yet.</p>
+  {% endif %}
+  </section>
+</div>
+
+<style>
+  .ws-an-h { font-size: 1.3rem; margin: 1.6rem 0 0.6rem; }
+  .ws-an-progress-h { margin-top: 2.4rem; }
+  .ws-an-part { font-size: 1.05rem; opacity: 0.75; margin: 1.2rem 0 0.4rem; }
+  .ws-an-table td, .ws-an-table th { vertical-align: middle; }
+  .ws-an-num { text-align: right; font-variant-numeric: tabular-nums; }
+  .ws-an-nowrap { white-space: nowrap; }
+  .ws-an-answer { font-size: 0.95rem; word-break: break-word; }
+  .ws-an-dash { font-style: italic; }
+  .ws-an-filter { max-width: 22rem; }
+  .ws-an-table tbody tr[hidden] { display: none; }
+  .ws-an-bar {
+    display: inline-block; width: 6rem; height: 0.5rem; margin-right: 0.5rem;
+    border-radius: 0.25rem; background: var(--bs-border-color, #dee2e6);
+    overflow: hidden; vertical-align: middle;
+  }
+  .ws-an-bar-fill {
+    display: block; height: 100%; background: var(--bs-success, #198754);
+  }
+  .ws-an-count { font-variant-numeric: tabular-nums; font-size: 0.85rem; opacity: 0.75; }
+  /* Projected on a classroom wall, the answers are the one thing that must not
+     be readable over the instructor's shoulder. */
+  body.ws-an-hidden .ws-an-answer {
+    filter: blur(0.35rem); user-select: none; cursor: pointer;
+  }
+  body.ws-an-hidden .ws-an-answer:hover,
+  body.ws-an-hidden .ws-an-answer:focus { filter: none; }
+  @media print {
+    .jumbotron, #ws-an-toggle, #ws-an-people-section { display: none; }
+    .ws-an-table { font-size: 0.85rem; }
+  }
+</style>
+
+<script>
+  (function () {
+    // Blur the answers on demand. Deliberately not persisted and not a
+    // permission: it stops a shoulder, not an attacker, and anybody on this
+    // page is already an admin.
+    var toggle = document.getElementById("ws-an-toggle");
+    if (toggle) {
+      toggle.addEventListener("click", function () {
+        var hidden = document.body.classList.toggle("ws-an-hidden");
+        toggle.textContent = hidden ? "Show answers" : "Hide answers";
+        toggle.setAttribute("aria-pressed", String(hidden));
+      });
+    }
+
+    var filter = document.getElementById("ws-an-filter");
+    var table = document.getElementById("ws-an-people");
+    if (filter && table) {
+      filter.addEventListener("input", function () {
+        var needle = filter.value.trim().toLowerCase();
+        table.querySelectorAll("tbody tr").forEach(function (row) {
+          var name = (row.querySelector("td a") || {}).textContent || "";
+          row.hidden = needle && name.toLowerCase().indexOf(needle) === -1;
+        });
+      });
+    }
+  })();
+</script>
+{% endblock %}

@@ -1,0 +1,349 @@
+/* Workshop plugin styles, injected on every page via {{ Plugins.styles }}.
+   Keeps CTFd core/theme untouched (CLAUDE.md: plugin-only). */
+
+/* The core theme caps images in the description (.challenge-desc img) but not
+   in hints, which render in a separate container — so hint images overflow.
+   Cap and tidy images everywhere inside the challenge modal. */
+.challenge-hints img,
+.challenge-desc img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 0.75rem auto;
+}
+
+/* ------------------------------------------------------------------ *
+ * Single-page workshop view (/workshop)
+ * Colours come from Bootstrap's semantic variables so the page follows
+ * CTFd's own light/dark switcher instead of hardcoding one theme.
+ * ------------------------------------------------------------------ */
+.ws-page { max-width: 62rem; padding-bottom: 4rem; }
+.ws-head { padding: 1.5rem 0 0.75rem; }
+.ws-title { margin-bottom: 0.25rem; }
+.ws-overall { font-size: 0.9rem; color: var(--bs-secondary-color, #6c757d); }
+.ws-overall-count { font-weight: 600; color: var(--bs-body-color); }
+.ws-overall-bar {
+  height: 4px; background: var(--bs-border-color, #dee2e6);
+  margin-top: 0.4rem; overflow: hidden;
+}
+.ws-overall-fill {
+  height: 100%; background: var(--bs-success, #198754); transition: width 0.3s;
+}
+
+/* Steppers — sequential progress, not hierarchy: chips joined by "›" */
+.ws-stepper {
+  display: flex; flex-wrap: wrap; align-items: center;
+  gap: 0.15rem 0.35rem; font-size: 0.82rem;
+}
+.ws-stepper-parts {
+  /* CTFd's navbar is `fixed-top`, so sticking at 0 hides the stepper behind
+     it — exactly the thing that must stay visible while scrolling. */
+  position: sticky; top: var(--ws-navbar-height, 56px); z-index: 20;
+  background: var(--bs-body-bg, #fff);
+  border-bottom: 1px solid var(--bs-border-color, #dee2e6);
+  padding: 0.5rem 0; margin-bottom: 1rem;
+  max-height: 30vh; overflow-y: auto;
+}
+.ws-stepper-steps { margin: 0.35rem 0 0.75rem; opacity: 0.95; }
+.ws-chip {
+  display: inline-flex; align-items: center; gap: 0.3rem;
+  padding: 0.15rem 0.5rem; border: 1px solid var(--bs-border-color, #dee2e6);
+  border-radius: 2px; text-decoration: none; color: var(--bs-body-color);
+  max-width: 20rem; overflow: hidden;
+}
+/* Truncate the label, not the chip, so the border never cuts through text.
+   Full title stays available in the tooltip. */
+.ws-chip-label {
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;
+}
+.ws-chip-icon, .ws-chip-badge { flex: none; }
+.ws-chip:hover { text-decoration: none; border-color: var(--bs-primary, #0d6efd); }
+.ws-chip + .ws-chip::before { content: "›"; margin-right: 0.35rem; opacity: 0.45; }
+.ws-chip-icon { font-size: 0.8em; }
+.ws-chip-badge { opacity: 0.6; font-variant-numeric: tabular-nums; }
+.ws-chip.ws-done { color: var(--bs-success, #198754); border-color: var(--bs-success, #198754); }
+.ws-chip.ws-current {
+  color: var(--bs-primary, #0d6efd); border-color: var(--bs-primary, #0d6efd);
+  font-weight: 600; box-shadow: inset 0 -2px 0 var(--bs-primary, #0d6efd);
+}
+.ws-chip.ws-todo { opacity: 0.8; }
+.ws-chip.ws-locked { opacity: 0.5; }
+
+/* Parts */
+.ws-part { margin: 2rem 0; scroll-margin-top: 5rem; }
+.ws-part-title { font-size: 1.4rem; border-bottom: 1px solid var(--bs-border-color, #dee2e6); padding-bottom: 0.3rem; }
+.ws-part-count {
+  font-size: 0.8rem; font-weight: 400; opacity: 0.65;
+  float: right; font-variant-numeric: tabular-nums;
+}
+/* The heading is empty when the part is named after the page: it keeps only the
+   counter, so it collapses to a rule with a number on it. */
+.ws-part-title-quiet {
+  font-size: 0.9rem; padding-bottom: 0; min-height: 1.2rem; border-bottom: none;
+  margin-bottom: 0;
+}
+.ws-part-lead { margin: 0.6rem 0 0.9rem; }
+.ws-part-lead-body > :last-child { margin-bottom: 0; }
+/* Quiet by design: the fold is an escape hatch for a long introduction, not a
+   control the participant has to notice before they can read. */
+.ws-part-lead-summary {
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.1rem 0;
+  font-size: 0.85rem;
+  color: var(--bs-secondary-color, #6c757d);
+  list-style: none;
+}
+.ws-part-lead-summary::-webkit-details-marker { display: none; }
+.ws-part-lead-summary::before { content: "\25b8"; font-size: 0.85em; }
+.ws-part-lead[open] > .ws-part-lead-summary::before { content: "\25be"; }
+.ws-part-lead[open] > .ws-part-lead-summary { margin-bottom: 0.35rem; }
+
+/* Steps: accordions, state on the left edge */
+.ws-step {
+  border: 1px solid var(--bs-border-color, #dee2e6);
+  border-left: 3px solid var(--bs-border-color, #dee2e6);
+  margin: 0.5rem 0; scroll-margin-top: 5rem;
+}
+.ws-step.ws-done { border-left-color: var(--bs-success, #198754); }
+.ws-step.ws-current { border-left-color: var(--bs-primary, #0d6efd); }
+.ws-step.ws-locked { opacity: 0.65; }
+.ws-step-summary {
+  display: flex; align-items: center; gap: 0.5rem;
+  padding: 0.6rem 0.8rem; cursor: pointer; list-style: none;
+}
+.ws-step-summary::-webkit-details-marker { display: none; }
+.ws-step-summary:hover { background: var(--bs-tertiary-bg, #f8f9fa); }
+.ws-step-name { flex: 1; font-weight: 500; }
+.ws-step.ws-done .ws-step-name { font-weight: 400; }
+.ws-step-meta { font-size: 0.78rem; opacity: 0.6; white-space: nowrap; }
+/* Bonus work, marked as such. Outline rather than a filled badge: it is a
+   qualifier on the step, not a state — the icon still carries the state. The
+   points go quieter with it, since they buy nothing towards completion. */
+.ws-step-bonus {
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  padding: 0.05rem 0.4rem;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  opacity: 0.75;
+}
+.ws-step[data-optional] .ws-step-meta { opacity: 0.4; }
+.ws-step-icon::before { font-size: 0.9em; }
+.ws-step.ws-done .ws-step-icon::before { content: "✓"; color: var(--bs-success, #198754); }
+.ws-step.ws-current .ws-step-icon::before { content: "▶"; color: var(--bs-primary, #0d6efd); }
+.ws-step.ws-todo .ws-step-icon::before { content: "○"; opacity: 0.6; }
+.ws-step.ws-locked .ws-step-icon::before { content: "🔒"; }
+.ws-step.ws-info .ws-step-icon::before { content: "📄"; opacity: 0.7; }
+.ws-chip.ws-info { opacity: 0.85; }
+.ws-step-body { padding: 0 0.8rem 0.9rem; }
+.ws-statement { padding-top: 0.2rem; }
+/* Authored content brings its own headings; keep them under the part titles so
+   the page hierarchy stays part > step > statement. */
+.ws-statement h1 { font-size: 1.3rem; }
+.ws-statement h2 { font-size: 1.15rem; }
+.ws-statement h3, .ws-statement h4 { font-size: 1rem; }
+.ws-statement h1, .ws-statement h2, .ws-statement h3 { margin-top: 1rem; }
+
+/* Answer form */
+.ws-hint { margin: 0.75rem 0; }
+.ws-hint > summary { cursor: pointer; font-size: 0.9rem; }
+.ws-hint-body { padding: 0.5rem 0 0 1rem; border-left: 2px solid var(--bs-border-color, #dee2e6); }
+.ws-form { margin-top: 1rem; }
+.ws-choices { margin-bottom: 0.75rem; }
+.ws-form-actions { display: flex; align-items: center; gap: 0.75rem; }
+.ws-answer { max-width: 22rem; }
+.ws-feedback { font-size: 0.9rem; }
+.ws-feedback-correct { color: var(--bs-success, #198754); font-weight: 600; }
+.ws-feedback-incorrect, .ws-feedback-error { color: var(--bs-danger, #dc3545); }
+.ws-feedback-pending, .ws-feedback-empty { opacity: 0.7; }
+.ws-solved-note { color: var(--bs-success, #198754); font-weight: 600; margin-top: 0.5rem; }
+.ws-locked-note { padding: 0.4rem 0 0.6rem; font-size: 0.9rem; opacity: 0.8; }
+
+/* ------------------------------------------------------------------ *
+ * Workshop index (/workshop) — one card per part
+ * Only the state colour changes between cards; everything else is
+ * identical, so the eye lands on the one card that is actionable.
+ * ------------------------------------------------------------------ */
+.ws-index .ws-cards { margin-top: 1.25rem; }
+.ws-card { border-top: 3px solid var(--bs-border-color, #dee2e6); }
+.ws-card.ws-done { border-top-color: var(--bs-success, #198754); }
+.ws-card.ws-current {
+  border-top-color: var(--bs-primary, #0d6efd);
+  /* The one card to click: lifted rather than just tinted, so it reads as
+     "here" even in grayscale. */
+  box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.12);
+}
+.ws-card.ws-locked { opacity: 0.7; }
+.ws-card-state {
+  display: flex; align-items: center; gap: 0.4rem;
+  font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.03em;
+  color: var(--bs-secondary-color, #6c757d);
+}
+.ws-card.ws-done .ws-card-label { color: var(--bs-success, #198754); }
+.ws-card.ws-current .ws-card-label { color: var(--bs-primary, #0d6efd); font-weight: 600; }
+.ws-card-count { margin-left: auto; font-variant-numeric: tabular-nums; }
+.ws-card .card-title { margin-top: 0.5rem; }
+.ws-card-index {
+  display: block; font-size: 0.75rem; font-weight: 400;
+  color: var(--bs-secondary-color, #6c757d);
+}
+.ws-card-bar { margin-top: 0.6rem; }
+.ws-card-note { margin: 0.75rem 0 0; font-size: 0.9rem; }
+/* Bootstrap's .stretched-link overlays the card at z-index 1; the blocker link
+   has to sit above it or it cannot be clicked. */
+.ws-card-note a { position: relative; z-index: 2; }
+
+/* ------------------------------------------------------------------ *
+ * Runtime pane (PLAN.md §14) — an existing web app beside the subject
+ * ------------------------------------------------------------------ */
+:root { --ws-pane-width: 55%; }
+
+.ws-runtime {
+  /* Starts below CTFd's fixed navbar rather than covering it: the navbar stays
+     usable while the pane is open, and it keeps its full width — shrinking it
+     made it wrap to two rows, since `navbar-expand-md` collapses on viewport
+     width, which a margin does not change. */
+  position: fixed; top: var(--ws-navbar-height, 56px); right: 0; bottom: 0;
+  width: var(--ws-pane-width); z-index: 1030;
+  display: flex; flex-direction: column;
+  background: var(--bs-body-bg, #fff);
+  border-left: 1px solid var(--bs-border-color, #dee2e6);
+}
+/* A real split, not an overlay: the whole left side (navbar included) gets out
+   of the way, so the instructions stay fully readable next to the runtime.
+   `width: auto` matters — Bootstrap's .container sets `width: 100%`, and a
+   block with an explicit width ignores margin-right (over-constrained box),
+   which clips the text instead of reflowing it. */
+body.ws-has-pane .ws-page {
+  width: auto; max-width: none; margin-right: var(--ws-pane-width);
+}
+body.ws-has-pane { overflow-x: hidden; }
+
+.ws-runtime-bar {
+  display: flex; align-items: center; gap: 0.5rem;
+  padding: 0.35rem 0.6rem;
+  border-bottom: 1px solid var(--bs-border-color, #dee2e6);
+}
+.ws-runtime-title { font-weight: 600; font-size: 0.9rem; flex: 1; }
+.ws-runtime-close {
+  border: 0; background: none; font-size: 1rem; line-height: 1;
+  color: var(--bs-body-color); cursor: pointer;
+}
+.ws-runtime-body { flex: 1; min-height: 0; }
+.ws-runtime-frame { width: 100%; height: 100%; border: 0; display: block; }
+
+.ws-runtime-resizer {
+  position: absolute; left: -3px; top: 0; bottom: 0; width: 7px;
+  cursor: col-resize; background: transparent; z-index: 1;
+}
+.ws-runtime-resizer:hover, .ws-runtime-resizer:focus-visible {
+  background: var(--bs-primary, #0d6efd); opacity: 0.35; outline: none;
+}
+/* While dragging, the iframe would swallow mousemove — cover it. */
+.ws-runtime.ws-resizing::after {
+  content: ""; position: absolute; inset: 0; cursor: col-resize;
+}
+
+/* Advisory signal from the runtime — never a solve (rule 0) */
+.ws-runtime-hint {
+  font-size: 0.85rem; margin-bottom: 0.5rem; padding: 0.35rem 0.5rem;
+  border-left: 3px solid var(--bs-primary, #0d6efd);
+  background: var(--bs-tertiary-bg, #f8f9fa);
+}
+
+/* Narrow screens: a split is unusable, so the pane takes over. */
+@media (max-width: 900px) {
+  .ws-runtime { width: 100%; }
+  body.ws-has-pane .ws-page { margin-right: 0; }
+}
+
+/* Branching next-challenge buttons (challenge modal) */
+.ws-next { display: flex; flex-direction: column; align-items: center; }
+.ws-next-heading { font-weight: 600; margin-bottom: 0.25rem; }
+.ws-next-btn { min-width: 60%; }
+
+/* Parcours path graph */
+.ws-parcours-scroll { overflow: auto; border: 1px solid #566c86; padding: 8px; }
+.ws-parcours-legend { margin: 0.5rem 0; display: flex; gap: 1rem; font-size: 0.85rem; }
+.ws-lg::before {
+  content: ""; display: inline-block; width: 12px; height: 12px;
+  margin-right: 6px; vertical-align: middle; border: 2px solid;
+}
+/* Nodes are links to their challenge (locked ones are not clickable) */
+.ws-parcours-svg a.ws-node-link { cursor: pointer; text-decoration: none; }
+/* Brighten in place on hover: a fixed hover fill would repaint a solved (green)
+   node with the same colour as an available (blue) one and lose the state. */
+.ws-parcours-svg a.ws-node-link rect { transition: filter 0.1s, stroke-width 0.1s; }
+.ws-parcours-svg a.ws-node-link:hover rect { filter: brightness(1.8); stroke-width: 2.5; }
+.ws-parcours-svg a.ws-node-link:hover text { fill: #ffffff; }
+.ws-parcours-svg a.ws-node-link:focus-visible rect { stroke: #f4f4f4; stroke-width: 3; }
+.ws-parcours-svg .ws-node-locked { cursor: not-allowed; }
+
+.ws-parcours-hint { font-size: 0.85rem; opacity: 0.75; margin-bottom: 0.5rem; }
+
+.ws-lg-solved::before { background: #173a1f; border-color: #a7f070; }
+.ws-lg-open::before   { background: #12233f; border-color: #41a6f6; }
+.ws-lg-locked::before { background: #1a1c2c; border-color: #566c86; }
+.ws-lg-path::before   { background: #a7f070; border-color: #a7f070; }
+
+/* Fixed handle to reopen the runtime from anywhere in the page. Sits on the
+   right edge like a drawer tab; assets/runtime.js shows it only once the
+   in-flow toggle has scrolled away, so two toggles are never visible at once. */
+.ws-runtime-handle {
+  position: fixed; right: 0; bottom: 2.5rem; z-index: 1025;
+  border-radius: 3px 0 0 3px; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  padding-left: 0.9rem;
+}
+
+/* Ratings — CTFd's own per-challenge rating, kept deliberately quiet: one
+   muted line inside the completed step, never a dialog or a step of its own. */
+.ws-solved-note { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+.ws-rating { display: inline-flex; align-items: center; gap: 0.25rem; }
+/* flex-shrink would squeeze this label to one word per line once the reason
+   box appears next to it */
+.ws-rating-q {
+  font-size: 0.82rem; font-weight: 400; opacity: 0.7; margin: 0;
+  white-space: nowrap; flex: none;
+}
+.ws-rating-btn {
+  border: 0; background: none; padding: 0 0.15rem; line-height: 1;
+  font-size: 0.95rem; opacity: 0.45; cursor: pointer; transition: opacity 0.1s;
+}
+.ws-rating-btn:hover { opacity: 1; }
+.ws-rating-btn.ws-rating-chosen { opacity: 1; transform: scale(1.15); }
+.ws-rating-thanks { font-size: 0.8rem; opacity: 0.7; }
+
+/* The outro asks the same question, with room for a sentence. */
+.ws-rating-final { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.ws-rating-final .ws-rating-q { font-size: 1rem; opacity: 1; font-weight: 500; }
+.ws-rating-final .ws-rating-btn { font-size: 1.4rem; }
+.ws-rating-review { max-width: 22rem; }
+
+/* The reason box on an inline rating: revealed only once a thumb is given
+   (assets/workshop_page.js), and sized so the completed line stays a line. */
+.ws-solved-note .ws-rating-review {
+  flex: 0 1 20rem; min-width: 8rem; height: 1.6rem;
+  font-size: 0.8rem; padding: 0 0.4rem;
+}
+
+/* Index of a workshop with more than one subject: a section per subject, so
+   the starter/advanced shape is visible instead of eight equal cards
+   (PLAN.md §19). Each carries its own progress — see D5. */
+.ws-subject { margin-bottom: 2.2rem; }
+.ws-subject-title {
+  font-size: 1.15rem; display: flex; align-items: baseline; gap: 0.5rem;
+  border-bottom: 1px solid var(--bs-border-color, #dee2e6); padding-bottom: 0.35rem;
+}
+.ws-subject-role {
+  font-size: 0.7rem; letter-spacing: 0.04em; text-transform: uppercase;
+  opacity: 0.6; border: 1px solid currentColor; border-radius: 999px;
+  padding: 0.02rem 0.4rem;
+}
+.ws-subject-title .ws-card-count { margin-left: auto; font-size: 0.8rem; opacity: 0.7; }
+.ws-subject-bar { margin: 0.5rem 0 1rem; }
+.ws-subject.ws-locked .ws-subject-title { opacity: 0.7; }

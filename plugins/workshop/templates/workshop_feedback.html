@@ -1,0 +1,172 @@
+{% extends "admin/base.html" %}
+
+{#
+  The feedback report (PLAN.md §17). Instructor-facing, so every string is
+  English like the rest of the platform UI; the comments themselves are the
+  participants' own words, in whatever language they wrote them.
+
+  Anonymous by design: counts and comments, never names.
+#}
+
+{% macro split(row) -%}
+  <span class="ws-fb-split">
+    <span class="ws-fb-up">👍 {{ row.up }}</span>
+    <span class="ws-fb-down">👎 {{ row.down }}</span>
+  </span>
+{%- endmacro %}
+
+{% macro reach(row) -%}
+  {% if row.rated %}
+    <span class="ws-fb-reach">{{ row.rated }} of {{ row.solvers }} who got there
+      {%- if row.coverage is not none %} ({{ row.coverage }}%){% endif %}</span>
+  {% else %}
+    <span class="ws-fb-reach ws-fb-none">nobody rated it yet
+      {%- if row.solvers %} ({{ row.solvers }} could have){% endif %}</span>
+  {% endif %}
+{%- endmacro %}
+
+{% macro comments(row) -%}
+  {% if row.comments %}
+    <ul class="ws-fb-comments">
+      {% for c in row.comments %}
+        <li class="{{ 'ws-fb-neg' if c.value < 0 else 'ws-fb-pos' }}">
+          <span aria-hidden="true">{{ "👎" if c.value < 0 else "👍" }}</span>
+          <span class="visually-hidden">{{ "Negative" if c.value < 0 else "Positive" }}:</span>
+          {{ c.text }}
+        </li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+{%- endmacro %}
+
+{% block content %}
+<div class="jumbotron">
+  <div class="container">
+    <h1>Workshop feedback</h1>
+    <p class="lead mb-0">
+      What participants said, with no names attached — the useful question is which step is
+      weak, not who said so.
+    </p>
+  </div>
+</div>
+
+<div class="container">
+  {% if ratings_disabled %}
+    <div class="alert alert-warning">
+      Ratings are disabled in the CTFd configuration, so nothing new can be collected. Anything
+      below was gathered before that was turned off.
+    </div>
+  {% endif %}
+
+  <p class="text-muted">
+    {{ totals.ratings }} rating{{ "" if totals.ratings == 1 else "s" }} from
+    {{ totals.participants }} participant{{ "" if totals.participants == 1 else "s" }},
+    {{ totals.comments }} with a written comment.
+    <a href="/admin/workshop/feedback.csv">Download CSV</a>
+  </p>
+
+  <h2 class="ws-fb-h">The workshop</h2>
+  {% if final %}
+    <div class="card mb-4">
+      <div class="card-body">
+        <h5 class="card-title">{{ final.scope }} {{ split(final) }}</h5>
+        <p class="card-subtitle text-muted mb-1"><small>closed by “{{ final.name }}”</small></p>
+        <p class="card-subtitle text-muted mb-2">{{ reach(final) }}</p>
+        {{ comments(final) }}
+      </div>
+    </div>
+  {% else %}
+    <p class="text-muted mb-4">
+      No closing step carries the workshop verdict yet. Re-sync the subject: the sync is what
+      records which closing step ends it.
+    </p>
+  {% endif %}
+
+  {% if parts %}
+    <h2 class="ws-fb-h">Part by part</h2>
+    <p class="text-muted">In reading order, so a part that loses people reads as a shape.</p>
+    <table class="table table-striped">
+      <thead>
+        <tr><th>Part</th><th>Verdict</th><th>Who answered</th></tr>
+      </thead>
+      <tbody>
+        {% for row in parts %}
+          <tr>
+            <td>
+              {{ row.scope }}
+              <div class="text-muted"><small>{{ row.name }}</small></div>
+              {{ comments(row) }}
+            </td>
+            <td>{{ split(row) }}</td>
+            <td>{{ reach(row) }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% endif %}
+
+  <h2 class="ws-fb-h">Steps, worst first</h2>
+  {% if steps %}
+    <p class="text-muted">
+      The working list: what to rewrite before the next session.
+    </p>
+    <table class="table table-striped">
+      <thead>
+        <tr><th>Step</th><th>Part</th><th>Rating</th><th>Who answered</th></tr>
+      </thead>
+      <tbody>
+        {% for row in steps %}
+          <tr class="{{ 'table-warning' if row.down and row.down >= row.up else '' }}">
+            <td>
+              <a href="/admin/challenges/{{ row.id }}">{{ row.name }}</a>
+              {{ comments(row) }}
+            </td>
+            <td class="text-muted">{{ row.category }}</td>
+            <td>{{ split(row) }}</td>
+            <td>{{ reach(row) }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="text-muted">No step has been rated yet.</p>
+  {% endif %}
+
+  {% if unrated %}
+    <details class="ws-fb-unrated-box">
+      <summary>
+        <span class="ws-fb-h">Solved, never rated</span>
+        <span class="text-muted">— {{ unrated | length }} step{{ "" if unrated | length == 1 else "s" }},
+          unmeasured rather than good</span>
+      </summary>
+    <ul class="ws-fb-unrated">
+      {% for row in unrated %}
+        <li>
+          <a href="/admin/challenges/{{ row.id }}">{{ row.name }}</a>
+          <span class="text-muted">— {{ row.category }}, {{ row.solvers }} solved</span>
+        </li>
+      {% endfor %}
+    </ul>
+    </details>
+  {% endif %}
+</div>
+
+<style>
+  .ws-fb-h { font-size: 1.3rem; margin: 1.6rem 0 0.6rem; }
+  .ws-fb-split { white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .ws-fb-up { margin-right: 0.6rem; }
+  .ws-fb-reach { font-size: 0.85rem; opacity: 0.75; }
+  .ws-fb-none { font-style: italic; }
+  .ws-fb-comments { list-style: none; padding: 0; margin: 0.4rem 0 0; }
+  .ws-fb-comments li {
+    font-size: 0.9rem; padding: 0.25rem 0 0.25rem 0.6rem;
+    border-left: 2px solid var(--bs-border-color, #dee2e6);
+  }
+  .ws-fb-comments li.ws-fb-neg { border-left-color: var(--bs-danger, #dc3545); }
+  .ws-fb-comments li.ws-fb-pos { border-left-color: var(--bs-success, #198754); }
+  .ws-fb-unrated { padding-left: 1.1rem; margin-top: 0.5rem; }
+  .ws-fb-unrated-box { margin-top: 1.6rem; }
+  .ws-fb-unrated-box summary { cursor: pointer; }
+  .ws-fb-unrated-box summary .ws-fb-h { display: inline; margin: 0; }
+</style>
+{% endblock %}

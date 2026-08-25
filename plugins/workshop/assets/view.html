@@ -1,0 +1,84 @@
+{% extends "challenge.html" %}
+
+{#
+  Participant view for quiz challenges. Renders real controls from
+  challenge.quiz_spec instead of the flag text input:
+    single    radio buttons          spec: {"items": [{"letter": "A", "text": "..."}]}
+    multiple  checkboxes             spec: {"items": [...]}
+    match     one select per row     spec: {"left": [{"letter": "A", "text": "..."}],
+                                            "right": [{"letter": "a", "text": "..."}]}
+    freeform  text input             spec: none needed
+  Every control writes the server submission grammar ("B" / "A,D" / "A-c,B-a")
+  into the Alpine `submission` state; a hidden #challenge-input mirrors it for
+  the CTFd._internal.challenge.submit path. Missing spec falls back to the
+  stock text input so a quiz is never un-answerable.
+#}
+
+{% block input %}
+  <input id="challenge-id" class="challenge-id" type="hidden" value="{{ challenge.id }}">
+  <input id="challenge-input" name="submission" type="hidden" :value="submission">
+
+  {% set spec = challenge.quiz_spec or {} %}
+  {% set items = spec.get("items") or [] %}
+  {% set left = spec.get("left") or [] %}
+  {% set right = spec.get("right") or [] %}
+
+  {% if challenge.quiz_type == "single" and items %}
+    <div class="quiz-single">
+      {% for item in items %}
+        <div class="form-check">
+          <input class="form-check-input" type="radio" name="quiz-choice"
+                 id="quiz-choice-{{ item.letter }}" value="{{ item.letter }}"
+                 x-model="submission">
+          <label class="form-check-label" for="quiz-choice-{{ item.letter }}">
+            <strong>{{ item.letter }}.</strong> {{ item.text }}
+          </label>
+        </div>
+      {% endfor %}
+    </div>
+
+  {% elif challenge.quiz_type == "multiple" and items %}
+    <div class="quiz-multiple" x-data="{ picks: [] }">
+      {% for item in items %}
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox"
+                 id="quiz-choice-{{ item.letter }}" value="{{ item.letter }}"
+                 x-model="picks"
+                 @change="submission = picks.slice().sort().join(',')">
+          <label class="form-check-label" for="quiz-choice-{{ item.letter }}">
+            <strong>{{ item.letter }}.</strong> {{ item.text }}
+          </label>
+        </div>
+      {% endfor %}
+    </div>
+
+  {% elif challenge.quiz_type == "match" and left and right %}
+    <div class="quiz-match" x-data="{ pairs: {} }">
+      {% for item in left %}
+        <div class="row align-items-center mb-2">
+          <div class="col-6">
+            <strong>{{ item.letter }}.</strong> {{ item.text }}
+          </div>
+          <div class="col-6">
+            <select class="form-select"
+                    @change="pairs['{{ item.letter }}'] = $event.target.value;
+                             submission = Object.entries(pairs)
+                               .filter(([k, v]) => v)
+                               .map(([k, v]) => k + '-' + v).join(',')">
+              <option value="">—</option>
+              {% for r in right %}
+                <option value="{{ r.letter }}">{{ r.letter }}. {{ r.text }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+
+  {% else %}
+    {# freeform, or any quiz without a spec: plain text answer #}
+    <input class="challenge-input form-control" type="text"
+           placeholder="{% trans %}Answer{% endtrans %}"
+           @keyup.enter="submitChallenge()" x-model="submission">
+  {% endif %}
+{% endblock %}

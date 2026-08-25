@@ -1,0 +1,543 @@
+# Workshop content convention — proposal
+
+Status: implemented. **Published**, without the references to this repository's private design
+docs, at [kevin-cazal/workshop-content-tools](https://github.com/kevin-cazal/workshop-content-tools),
+together with `ws_parser.py` and a reusable GitHub Actions workflow subject repos call.
+
+That published `ws_parser.py` and `tools/ws_parser.py` here must stay identical — it is what makes
+"what CI accepts, the platform imports" true rather than aspirational. `tools/check_parser_sync.py`
+fails when they drift.
+
+Builds on the existing implementation:
+[`pypong_new`](https://github.com/Manta-Epitech-Academy/pypong_new) (example workshop),
+[`workshop-metadata-tools`](https://github.com/Manta-Epitech-Academy/workshop-metadata-tools)
+(schema 1.5 + validators), [`ref_comp`](https://github.com/Manta-Epitech-Academy/ref_comp)
+(competency framework + observables).
+
+## 1. Requirements (from the maintainer)
+
+Must:
+
+- Markdown, human readable and editable.
+- Metadata **invisible** when the `.md` is rendered by GitHub or any common renderer.
+- The convention must not limit the content writer.
+- Optional metadata attachable to a workshop section: rewards (points), skills
+  (competency-framework references).
+
+Should:
+
+- Repo update → platform reflects it immediately (webhook) or via one admin button.
+- Existing Notion content ported to individual GitHub repos later.
+
+## 2. Assessment of the existing implementation
+
+What it gets right (keep):
+
+- **Markdown stays 100 % clean** — all metadata in a separate `metadata.yaml`. This already
+  satisfies the invisibility requirement for section metadata.
+- One repo = one workshop, one manifest, schema-validated, reusable CI workflow.
+- Competency linkage is designed end to end: `skill_path` → framework → per-project observables.
+- `generate_readme.py` gives a good GitHub landing page for free.
+
+What breaks in practice (change):
+
+1. **The `toc` mirrors every heading title verbatim.** Rename a heading and the manifest is
+   stale; `check_toc.py` catches it, but the author must now fix the same string in two places.
+   The pypong manifest already carries frozen typos ("Limitez les mouvement",
+   "Dessinez  la balle") *because* they must match exactly. Title-as-key is inherently fragile.
+2. **Attachment by title cannot handle repeated headings.** `santa_shooter/starter1.md` has
+   "Sprite" ×3 and "Input" ×2. Position-based matching is the only fallback and it silently
+   shifts when a section is inserted.
+3. **The quiz marker is visible.** `> QUIZ.A2.3 Lecture de documentation` renders as a
+   blockquote line on GitHub — exactly the kind of artifact the requirements forbid.
+4. **No platform fields.** Nothing carries points/rewards, workshop mode
+   (self-serve / instructor-led), workspace kind, validation kind, or chapter topology
+   (linear vs free-choice) — all needed by the platform (PLAN.md §9).
+5. **"Which heading is an exercise" is implicit** (title starts with "Exercice…"?). The
+   Notion-era gotcha — prose-only headings mixed with real steps — has no explicit answer.
+
+Verdict: the architecture (md + sidecar manifest + shared tooling) is sound. The flaw is
+*where section-level metadata lives*. Fix: move it **into the markdown, invisibly**, and derive
+the TOC instead of authoring it.
+
+## 3. The convention
+
+### 3.0 Terminology (aligned with CLAUDE.md)
+
+| Term | Definition | Materialized as |
+|---|---|---|
+| **Subject** | One coherent content unit (PyPong, Santa Shooter, …). What `pypong_new` and earlier drafts called a "workshop". | **One git repo** with `subject.yaml` + md |
+| **Workshop** | A composition of subjects: one **starter** (always done first) plus zero or more **advanced** subjects, ordered or free-choice. | A **workshop repo** with `workshop.yaml` (§4.1) — or a single subject repo deployed directly (implicit one-subject workshop) |
+| **Session** | A workshop done at some place, at some moment, by identified people (usually instructor-led). A CTFd instance can also be **session-free**: anyone, anytime, self-serve. | **One CTFd instance** (see PLAN.md §10) |
+
+### 3.1 Repo layout (one subject = one repo)
+
+```
+my-subject/
+├── subject.yaml        # subject-level manifest (identity, runtime, platform config)
+├── intro.md             # content, any number of .md files
+├── main.md
+├── img/…                # images, referenced by relative path — never hotlinked (§3.8)
+├── README.md            # GENERATED — never edited by hand
+└── .github/workflows/verify-content.yaml   # calls the reusable CI
+```
+
+### 3.2 `subject.yaml` — subject-level only
+
+Everything that describes the *subject*, nothing that describes a *section*. No `toc` —
+structure is derived from the markdown by the parser.
+
+```yaml
+schema_version: "2.0"
+
+project:
+  name: "PyPong"
+  slug: "pypong"
+  summary: "Créez votre propre jeu Pong simplifié en Python avec TIC-80 !"
+  entrypoint: "intro.md"
+
+runtime:
+  engine: "TIC-80"          # tic80 | python | p5js | external | none → workspace panel
+  language: "python"        # Monaco language id
+
+platform:
+  mode_default: self_serve  # self_serve | instructor_led — admin can override per session
+  validation_default: checkpoint   # checkpoint | tests | flag | review
+  points_default: 25        # per exercise, when not overridden
+
+documents:                  # reading order; replaces both documents[] and toc[]
+  - intro.md
+  - main.md
+
+skills_framework: "https://github.com/Manta-Epitech-Academy/ref_comp"  # pinned ref optional
+```
+
+### 3.3 Section metadata — HTML comments anchored to headings
+
+HTML comments are invisible in GitHub, GitLab, VS Code preview, pandoc — every mainstream
+renderer. They live *next to the content they describe*, so renaming a heading, inserting a
+section, or reordering never desynchronizes anything.
+
+A `ws:` comment placed **immediately after a heading** attaches to that heading. YAML inside:
+
+```markdown
+### Exercice 1 : Faites bouger le pad dans l'autre direction
+<!-- ws:
+type: exercise
+points: 50
+skills: [PROG/02/A1]
+obs: [pypong.2]
+-->
+
+En vous inspirant du code précédent, vous devez faire en sorte que le pad
+puisse bouger à droite comme à gauche.
+```
+
+Fields (all optional — an empty `<!-- ws: type: exercise -->` is a valid minimal marker):
+
+| Field | Meaning | Default |
+|---|---|---|
+| `type` | `exercise` \| `chapter` \| `prose` | `prose` — **headings without a marker are plain prose**, which solves gotcha #5 explicitly |
+| `id` | stable slug for this node | slugified heading, scoped by parent slugs (`bullet/sprite`) — explicit `id` only needed when even the scoped slug collides; the linter enforces uniqueness |
+| `points` | reward on validation | `platform.points_default` |
+| `validation` | overrides `validation_default`: `checkpoint` \| `flag` \| `token` (`tests`, `review` are specified, not implemented) | inherited |
+| `token_id` | `validation: token` only: the exercise's id **inside its runtime**, which is what the token is derived from | none |
+| `skills` | competency refs, slash notation `DOMAIN/SKILL/LEVEL` | none |
+| `obs` | observable ids from `ref_comp` (`slug.N`) | none |
+| `topology` | on `type: chapter`: `linear` \| `free` | `linear` |
+| `requires` | explicit prerequisite ids, for cross-chapter gating | previous sibling (linear) / chapter entry (free) |
+| `optional` | on `type: exercise`: bonus work — unlocks with its neighbours, gates nothing, **counts towards nothing** | `false` |
+| `review` | instructor-led only: `non_blocking` \| `blocking` — whether an unreviewed submission gates progression (§3.5) | `non_blocking` |
+| `rewards` | open object for future extensions (badges, …) | none |
+
+Writer freedom: heading levels are **not** prescribed. A chapter is whatever heading carries
+`type: chapter`; an exercise is whatever heading carries `type: exercise`, at any depth.
+Everything between two markers belongs to the preceding node. A subject with zero markers is
+valid — it imports as a single read-only document (progression tracked per document).
+
+**Which headings name a part.** The exercises of a subject are grouped into *parts* (the
+challenge `category`, and the section headers of the workshop page). A part is opened by a
+chapter, or by any **unmarked** heading above level 3 — that is where every part of every
+existing subject comes from, and it stays that way.
+
+The exception is what `type: prose` is for. Writing it explicitly says *"a heading inside the
+current part"*, and such a heading no longer opens one:
+
+```markdown
+## Refactor du code            <- opens the part (unmarked)
+
+## Notion d'objet en Lua       <- explains something, mid-chapter
+<!-- ws: {type: prose} -->
+
+## Joueur                      <- still in "Refactor du code"
+<!-- ws: {type: exercise, id: refactor-joueur} -->
+```
+
+Without the marker, "Notion d'objet en Lua" would quietly rename the part for every exercise
+after it. That is the answer to a real ambiguity: an explanatory heading and a part heading are
+textually identical, so only the author can tell them apart — and now they can, in one line,
+without moving the heading or changing its level.
+
+### 3.3b What proves a step is done
+
+Two modes are implemented, and the difference is who knows the answer:
+
+- **`checkpoint`** (default) — the platform generates one code per exercise and writes the sheet
+  to `instructor_codes.<subject>.yaml`. The instructor reads a code out when they have seen the
+  work. Codes never rotate on a re-sync, so one already handed out stays valid.
+- **`flag`** — the answer *is* the flag, and the participant discovers it by doing the task. This
+  is how a CTF-shaped subject works (`shell1{exemple}`). The platform must not overwrite it, so
+  those exercises get no generated code and no "ask the instructor" note.
+
+- **`token`** — the *runtime* reveals the answer. A runtime that grades its own exercises can
+  show a completion token derived from the exercise's `token_id` and a secret the platform mints
+  per instance; the importer derives the same value and sets it as the flag. Nothing is authored
+  and nothing is stored in the repo: rerunning the sync on another instance produces different
+  tokens, so answers do not leak between sessions. What it proves is that somebody got the tests
+  to pass in the normal flow — a client-side runtime cannot prove more than that.
+
+Authored answers live in a sidecar, never in the markdown — a flag printed next to its own
+exercise is not a flag:
+
+```yaml
+# flags.yaml, beside quiz_answers.yaml
+flags:
+  011_mkdir: "shell1{mkdir ok}"
+  003_arguments: {value: "shell1{exemple}", case_insensitive: false}
+```
+
+Comparison is case-insensitive unless the entry says otherwise, which is what you want when the
+answer is a command or a path. The linter refuses a `validation: flag` exercise with no entry —
+it would import as a step nobody can solve — and an entry matching no exercise.
+
+**Protect the sidecar** the way the subject already protects its answers: a public repo should
+encrypt it (shell-1 keeps `flag.txt.gpg` and a `decrypt.sh`) or leave it out and supply it at
+sync time.
+
+### 3.4 Instructor-led summary — marked region, visible content
+
+The short "consigne courte" for instructor-led mode is *content*, not metadata, so it may be
+visible on GitHub. Invisible region markers select it:
+
+```markdown
+<!-- ws:resume -->
+- `btn(2)` gauche, `btn(3)` droite
+- limiter `padx` à l'écran
+<!-- /ws:resume -->
+```
+
+Self-serve mode renders the whole section; instructor-led renders only the `resume` region
+(fallback when absent: the full section — degrades gracefully). On GitHub the bullets render
+as a normal part of the doc.
+
+### 3.5 Instructor-led review flow
+
+In instructor-led mode, marking an exercise done is a **submission for review**, not a
+self-validation:
+
+```
+participant marks "done" → submission enters the instructor's review queue (pending)
+    → instructor approves (exercise validated, observables checked off)
+    → or rejects (exercise returns to "to redo", provisional points retracted)
+```
+
+**An unreviewed submission never blocks the participant** — progression unlocks immediately
+on submission — **unless the subject states otherwise** with `review: blocking` on the
+exercise (for gates where continuing on a wrong foundation would waste the participant's
+time, e.g. the last exercise of a starter chapter).
+
+The review queue is also where **competency observables get validated**: the instructor's
+review UI shows the exercise's `obs` entries as checkboxes, so grading and skill tracking
+happen in one gesture.
+
+Auto-checkable validations (`tests`, `flag`, quizzes §3.7) still auto-check in instructor-led
+mode; their result is attached to the submission so the instructor reviews outcomes, not
+syntax.
+
+### 3.6 Hints — native `<details>`, optional cost
+
+```markdown
+<!-- ws: type: hint, cost: 5 -->
+<details><summary>Indice</summary>
+
+La fonction `btn` prend en paramètre un nombre (3 : flèche droite).
+Table de correspondance : https://github.com/nesbox/TIC-80/wiki/key-map
+
+</details>
+```
+
+GitHub renders a collapsible — exactly the Notion toggle the current content loses on export.
+The platform converts it into a CTFd paid hint (`cost` points). Without the marker comment, a
+`<details>` block is just content and renders collapsed everywhere.
+
+### 3.7 Quizzes — body stays, marker goes invisible
+
+Keep the existing body syntax (`- A.` single / `* A.` multiple / match / freeform — the
+`quiz_lib.py` parser is reused as-is), but move the machine marker into a comment so nothing
+metadata-ish renders:
+
+```markdown
+<!-- ws: type: quiz, id: A2.3, skills: [PROG/02/A1] -->
+> Avec TIC-80, si je souhaite avoir l'état des touches haut et bas du
+> joueur 1, je dois utiliser dans mon code (2 réponses correctes)
+
+* A. btn(0)
+* B. btn(1)
+* C. btn("up")
+* D. btn("down")
+```
+
+On GitHub: a quoted question followed by options — legible content, no `QUIZ.A2.3` token.
+Correct answers stay out of the markdown (upstream rule). They live in **`quiz_answers.yaml`**
+at the subject repo root, keyed by quiz id, imported server-side at sync — optionally
+encrypted (age/sops) with a deploy-time key when lookup-ability matters (same trust model as
+`flag_env`).
+
+Each quiz imports as a **CTFd challenge of type `quiz`** (PLAN.md §12): single/multiple/match
+auto-grade in `attempt()`; `freeform` auto-grades against a **regular expression** (or list —
+any match wins) stored as its `quiz_answers.yaml` entry, case-insensitive by default. CI
+compiles every regex so a broken pattern fails the build.
+
+### 3.8 Images — repo-relative, never hotlinked
+
+**Rule: an image lives in the subject repo and is referenced by a path relative to the document
+that uses it.** Put them in `img/` (§3.1).
+
+```markdown
+![Le repère de la grille](img/origin.png)
+```
+
+Not this:
+
+```markdown
+![Le repère de la grille](https://raw.githubusercontent.com/org/subject/main/img/origin.png)
+```
+
+Both render identically on GitHub, which is exactly why the second one is easy to end up with.
+They behave very differently once the content is imported.
+
+A repo-relative path is **part of the content**, so it inherits everything the repo already
+guarantees. It is pinned by the same `ref` as the text that surrounds it (§4.1), so re-syncing a
+session at a tag gets the illustrations that text was written against. It survives the repo being
+renamed, moved or made private. And it needs no network beyond the CTFd instance itself — which
+matters, because a room is expected to serve from its own deployment rather than the public
+internet (PLAN.md §14.4).
+
+A hotlinked URL has none of that. It points at a branch head, so an image can change under a
+pinned session; it breaks when the source repo is renamed or made private; and it makes every
+participant's browser reach a third-party host, which is precisely what fails on a locked-down
+school network or a LAN-only deployment.
+
+**What the importer does.** `parse_subject` collects every repo-relative image reference,
+`sync_subject.py` uploads each one once as a CTFd file of type `standard`, and rewrites the links
+in every body it sends — page content, exercise statement and context, hints, trailing prose,
+quiz questions.
+
+| Detail | Why |
+|---|---|
+| Location is `ws-<subject>/<name>-<sha1[:8]>.<ext>` | Deterministic, so a re-sync uploads nothing; the content hash means an *edited* image gets a new URL instead of a cached stale one |
+| Type is `standard`, not `challenge` | Challenge files are gated by CTF time and challenge visibility (`CTFd/CTFd/views.py:400`) — an inline illustration would 403 outside the competition window |
+| Paths resolve relative to the **document**, not the repo root | That is how every markdown renderer resolves them, so what the author sees on GitHub is what imports |
+
+**What is deliberately left alone:** absolute `http(s)://` and protocol-relative URLs, `data:`
+URIs, and site-absolute paths (`/files/…`). Those already resolve, so the importer does not touch
+them. That is the escape hatch for an image that genuinely belongs to someone else — an official
+documentation diagram, say — where hotlinking is the honest thing to do. It should be the
+exception and worth a comment when used.
+
+The linter fails on a referenced image that does not exist, so a typo or a file that was never
+committed is caught in CI rather than discovered as a broken image mid-workshop.
+
+> Known debt: `content/pypong` hotlinks three images back at `pypong_new` on `main`, inherited
+> from the conversion. It works, and it is exactly the pattern this section argues against —
+> vendoring them into `content/pypong/img/` is a small cleanup nobody has done yet.
+
+### 3.9 What is generated (never hand-written)
+
+- `README.md` — from `subject.yaml` + derived outline (adapt `generate_readme.py`).
+- The challenge tree the platform imports — parsed directly from the md at sync time.
+- There is **no `toc` to check** — `check_toc.py`'s entire drift-error class disappears.
+
+The linter (CI, adapted from `workshop-metadata-tools`) validates instead:
+`subject.yaml` against the schema; `ws:` comments parse as YAML with known fields; ids unique;
+`skills` paths resolve against `ref_comp`; `obs` ids exist in the project's observables;
+`requires` targets exist; quiz bodies parse. **The platform importer and the CI linter share
+the same parser library** — what CI accepts, the platform imports, by construction.
+
+## 4. Composition and sync
+
+### 4.1 Workshop repo — `workshop.yaml`
+
+**Design goal: a workshop repo is almost self-sufficient to deploy an instance.** Reading the
+repo is enough to run the associated CTFd instance — `provision(repo_url, ref)` is the whole
+interface. Only three things stay outside the repo, on purpose:
+
+- **mode** (self-serve / instructor-led) — configured manually per instance for now
+- **secrets** (`flag_env` values) — never in a public repo
+- **attendees** — session-specific by nature
+
+```yaml
+schema_version: "2.0"
+
+workshop:
+  name: "Winter Camp — Game dev"
+  slug: "winter-gamedev"
+  summary: "Une journée game dev : PyPong pour démarrer, puis Santa Shooter."
+
+subjects:
+  - repo: Manta-Epitech-Academy/pypong
+    ref: v2026.01          # tag or commit id — never a branch head for a session
+    role: starter
+  - repo: Manta-Epitech-Academy/santa_shooter
+    ref: 8f3c2d1
+    role: advanced
+    order: 1               # optional; advanced subjects without order = free choice
+
+instance:                  # optional CTFd setup values; provisioner defaults otherwise
+  user_mode: users         # users | teams — painful to change after setup
+  scoreboard: hidden       # visible | hidden
+```
+
+**Vendored form.** A platform that vendors its content (as `content/<subject>` does) names
+directories instead of repos, and the importer accepts either:
+
+```yaml
+subjects:
+  - path: ../../pypong        # relative to workshop.yaml
+    role: starter
+  - path: ../../santa_shooter
+    role: advanced
+    order: 1
+```
+
+`repo` + `ref` is the deployment-time form and arrives with `provision(repo_url, ref)`; `path`
+is what an already-vendored tree uses today.
+
+**Single-subject shortcut:** most workshops are one subject. A subject repo is directly
+deployable — the provisioner treats `subject.yaml` as an implicit one-subject workshop
+(`role: starter`, instance defaults). A separate workshop repo is only needed to compose
+several subjects or override instance settings.
+
+Gating rule (from CLAUDE.md): **the starter must always be completed before any advanced
+subject.** At import, every advanced subject's entry challenges get the starter's final
+exercise(s) as CTFd prerequisites. Ordered advanced subjects chain the same way; unordered
+ones all hang off the starter.
+
+### 4.2 Sync: repo → instance
+
+**Intro and outro are steps.** The entrypoint document becomes the first step of the workshop and
+the trailing prose becomes the last one, so both ends of a subject live in the flow rather than on
+side pages.
+
+- **Intro — kind `ack`:** the text, then a single button ("I have read this"). Nothing is graded;
+  the point is a deliberate action after reading. It is a prerequisite of every otherwise-unlocked
+  step, so a participant cannot start without passing through it. Typed `ack` rather than given a
+  "dumb" static flag on purpose: a flag would have to be embedded in the page for the button to
+  send it, which reads like a leak and invites copy-paste.
+- **Outro — kind `rating`:** the text, then *how was this workshop?* (👍/👎 plus an optional
+  sentence). Asking for a bare acknowledgement at the end would be busywork; a satisfaction rating
+  is the one thing worth collecting there. It is gated by the last exercise. **The rating is the
+  submission**: grading it is what stores the feedback, so the step is solved at the moment the
+  feedback lands and not a millisecond earlier. Submitting nothing, or something that carries no
+  rating, leaves the step unsolved.
+
+Neither is worth points. But both **count towards the progress bar**: a workshop sits at
+"14 / 15" until the rating is given, and people do not abandon a bar that close to full — which
+is how the feedback actually gets collected. (A `rating` step therefore has to stay completable
+even when the `challenge_ratings` config is `disabled`; it falls back to a plain acknowledgement
+button, or the bar could never reach 100%.)
+
+**Ratings live in CTFd's own table**, reached two ways. `PUT /api/v1/challenges/<id>/ratings`
+stores 👍/👎 (`+1`/`-1`) plus an optional review, one per user per challenge — but it only accepts a
+rating for a **solved** challenge, so the closing step cannot use it: going through that endpoint
+would mean solving first, i.e. hitting 100% and only then, maybe, leaving feedback. The closing
+step therefore writes the same `Ratings` row from its own grading (`plugins/workshop/quiz.py`).
+Already-solved steps use the endpoint, which is exactly what it is for. Every solved step also carries a rating
+inline, kept deliberately quiet: one muted line — "Rate this step 👍 👎" — inside the completed
+note, never a dialog. It rates the *content*, and is what feeds content-quality feedback per
+exercise, so the wording stays about the step rather than about the reader's experience. Setting the `challenge_ratings` config to `disabled` removes all of it.
+
+
+```
+provision(workshop_repo_url, ref) / admin "Sync" (or webhook on session-free instances)
+    → read workshop.yaml (or subject.yaml → implicit one-subject workshop)
+    → pull each subject repo (shallow, at pinned ref)
+    → parse subject.yaml + md (shared parser)
+    → diff against DB by stable id
+    → upsert CTFd challenges (points, requirements/prerequisites, hints, flags)
+    → store rendered section content + resume regions in plugin tables
+```
+
+- Stable `id` is the reconciliation key: renames of headings don't orphan solves; removing a
+  section soft-hides its challenge (solves preserved).
+- Session instances sync at provisioning from pinned refs (reproducible); re-sync only via the
+  admin button. Session-free instances may follow a branch head via webhook — the "push and
+  it's live" mode.
+- Content edits (typo fixes) update in place; structural changes go through the same diff.
+
+## 5. Migration path
+
+1. `pypong_new`: mechanical — `metadata.yaml` loses its `toc` (titles already match headings,
+   a script emits the `ws:` comments from the existing toc + observables), quiz markers move
+   into comments, "- Indice" lists become `<details>` hints.
+2. Notion workshops: export to md (or pull via the public API — see PLAN.md §9), then add
+   markers. The Étape/Tutoriel/Mise-en-pratique structure maps directly.
+3. `ref_comp` unchanged — same slash notation, same observables files.
+4. `workshop-metadata-tools`: schema 2.0, drop `toc` + `check_toc.py`, add the comment parser
+   (also used by the platform), keep `quiz_lib.py` and the reusable workflow.
+
+## 6. Decisions (reviewed 2026-08-03)
+
+1. **Schema strictness** — warn on unknown `ws:` fields in CI, ignore them at import (newer
+   content tolerated by older platforms).
+2. **Pinning** — **decided: tags or commit ids** for sessions. Branch-head-following is
+   reserved for session-free / staging instances (§4.2).
+3. **Flags** — **decided: `flag_env`** field naming a secret the admin sets at sync time;
+   flags never live in the (public) content repo.
+4. **Per-exercise `resume` mode override** — **deferred** until a real workshop needs it.
+
+### 3.11 Topologies, in practice
+
+A chapter is a scope for a topology, not a challenge — it never becomes one. A document that
+marks no chapter behaves as a single linear chapter, so content written before topologies
+existed keeps exactly the shape it had.
+
+```markdown
+# Gameplay
+<!-- ws: {type: chapter, topology: free} -->
+
+Choisir un ou plusieurs défis, dans l'ordre de son choix.
+
+## Sinusoïde
+<!-- ws: {type: exercise, id: sinusoide} -->
+```
+
+**`linear`** (default) chains the chapter's exercises: each one requires the previous.
+
+**`free`** gives every exercise of the chapter the same single prerequisite — the chapter's
+*entry*, meaning whatever preceded it. All of them open at once and may be done in any order.
+The workshop page renders them as a menu: none of them is "the current step", because naming one
+would impose the reading order the author explicitly refused.
+
+**What a free chapter unlocks in turn** is its own **closing step**. "Choose one or more" leaves
+no last exercise to hang the next chapter off, and CTFd's prerequisites are a plain AND-list
+with no "N of M". So the closing step gates on the chapter entry too, and acknowledging it is
+the participant saying *"I'm done here"*. The cost is that a free chapter can be skipped
+wholesale by closing it immediately — acceptable for optional creative work, so do not put a
+chapter that must be completed behind `topology: free`.
+
+**`optional: true`** marks bonus work. It unlocks like its neighbours and can be done at any
+point after that, but it **gates nothing** — the next step reaches past it — and it **counts
+towards nothing**. That second half is the one that matters: without it, a participant who skips
+the bonuses can never reach 100%, and 100% is what the closing rating step hangs off. An
+optional step is never "current" either, so the page never points at skippable work over the
+required step that follows it.
+
+**`requires`** overrides all of the above for one exercise: an explicit list of exercise ids,
+evaluated as AND. Use it for cross-chapter gating. Two rules:
+
+- Give every `requires` target an explicit `id:`. Ids are otherwise derived from headings, so a
+  reworded heading silently breaks the graph. The linter rejects a target that does not resolve,
+  and rejects cycles.
+- `requires` sets that exercise's own prerequisites only. It does not remove the exercise from
+  the chain, so the *next* exercise still gates on it unless it is `optional`.

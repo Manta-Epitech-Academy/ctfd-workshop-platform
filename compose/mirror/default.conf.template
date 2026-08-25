@@ -1,0 +1,142 @@
+# A generic mirroring cache (PLAN.md §18.8).
+#
+#     GET /<any/path>  ->  upstream 1  ->  upstream 2  ->  …  ->  local copy
+#
+# Every upstream is tried in order, the first one that answers wins, and what it
+# answers is cached on disk. Nothing here knows what it is serving: the first
+# user is a ~330 MB v86 workshop bundle, but a runtime dist, a dataset or an
+# ISO would work the same way.
+#
+# Why it exists: a session must survive the CDN being down, a school network
+# blocking it, and — the case that actually ruins a workshop — the venue's
+# uplink dying, which the local copy covers.
+#
+# Configuration is environment only (see compose/mirror.env), substituted into
+# this template by the nginx image's own entrypoint:
+#
+#   MIRROR_UPSTREAM_1..4   base URLs, tried in order. Unused slots point at the
+#                          discard port by default, which refuses instantly and
+#                          falls through to the next link.
+#   MIRROR_RESOLVER        DNS for those hostnames (Docker's, then a public one)
+#   MIRROR_CACHE_SIZE      how much disk the cache may use
+#   MIRROR_MAX_AGE         what to tell browsers; the artifacts are immutable
+#
+# Stage a local copy (the last resort) into the mirror-local volume:
+#
+#   docker cp shell-rpg-256M.v86b <project>-mirror-1:/srv/mirror/
+
+# Upstream names are resolved per request, so an outage does not need a restart.
+resolver ${MIRROR_RESOLVER} ipv6=off valid=30s;
+resolver_timeout 5s;
+
+proxy_cache_path /var/cache/mirror levels=1:2 keys_zone=mirror:10m
+                 max_size=${MIRROR_CACHE_SIZE} inactive=90d use_temp_path=off;
+
+server {
+    listen 80;
+    server_name _;
+
+    # One cached object per path, whichever upstream provided it.
+    proxy_cache mirror;
+    proxy_cache_key "$uri";
+    proxy_cache_lock on;
+    proxy_cache_lock_timeout 1h;
+    proxy_cache_valid 200 90d;
+    # Fetch and cache the whole object rather than slices: these artifacts are
+    # immutable, and nginx serves Range requests out of a cached full response,
+    # so resumable downloads keep working.
+    proxy_set_header Range "";
+    proxy_http_version 1.1;
+    proxy_set_header Connection "";
+    # Upstream cache lifetimes are short (a CDN default of an hour); a mirror of
+    # immutable files should outlive that.
+    proxy_ignore_headers Cache-Control Expires Set-Cookie;
+    proxy_intercept_errors on;
+    recursive_error_pages on;
+    proxy_connect_timeout 5s;
+    proxy_read_timeout 300s;
+
+    add_header Accept-Ranges bytes always;
+    add_header Cache-Control "public, max-age=${MIRROR_MAX_AGE}, immutable" always;
+    # So a page on another origin can fetch what it mirrors — neither a CDN nor
+    # a GitHub release asset sends this, which is what makes them unfetchable
+    # from a workshop page (PLAN.md §18.7).
+    add_header Access-Control-Allow-Origin "*" always;
+    # Which link answered, and whether it came from cache. The first two things
+    # anyone debugging a room will want.
+    add_header X-Mirror-Source $mirror_source always;
+    add_header X-Mirror-Cache $upstream_cache_status always;
+
+    location = /healthz {
+        access_log off;
+        default_type text/plain;
+        return 200 "ok\n";
+    }
+
+    location / {
+        set $mirror_source "1";
+        error_page 301 302 307 308 = @follow1;
+        error_page 400 401 403 404 500 502 503 504 = @up2;
+        proxy_pass ${MIRROR_UPSTREAM_1}$uri;
+    }
+
+    # A GitHub release answers 302 towards a signed URL. Following it here keeps
+    # the response same-origin and cacheable instead of handing the browser a
+    # redirect it cannot fetch cross-origin.
+    location @follow1 {
+        set $mirror_source "1-redirect";
+        set $target $upstream_http_location;
+        error_page 400 401 403 404 500 502 503 504 = @up2;
+        proxy_pass $target;
+    }
+
+    location @up2 {
+        set $mirror_source "2";
+        error_page 301 302 307 308 = @follow2;
+        error_page 400 401 403 404 500 502 503 504 = @up3;
+        proxy_pass ${MIRROR_UPSTREAM_2}$uri;
+    }
+
+    location @follow2 {
+        set $mirror_source "2-redirect";
+        set $target $upstream_http_location;
+        error_page 400 401 403 404 500 502 503 504 = @up3;
+        proxy_pass $target;
+    }
+
+    location @up3 {
+        set $mirror_source "3";
+        error_page 301 302 307 308 = @follow3;
+        error_page 400 401 403 404 500 502 503 504 = @up4;
+        proxy_pass ${MIRROR_UPSTREAM_3}$uri;
+    }
+
+    location @follow3 {
+        set $mirror_source "3-redirect";
+        set $target $upstream_http_location;
+        error_page 400 401 403 404 500 502 503 504 = @up4;
+        proxy_pass $target;
+    }
+
+    location @up4 {
+        set $mirror_source "4";
+        error_page 301 302 307 308 = @follow4;
+        error_page 400 401 403 404 500 502 503 504 = @local;
+        proxy_pass ${MIRROR_UPSTREAM_4}$uri;
+    }
+
+    location @follow4 {
+        set $mirror_source "4-redirect";
+        set $target $upstream_http_location;
+        error_page 400 401 403 404 500 502 503 504 = @local;
+        proxy_pass $target;
+    }
+
+    # Last resort, and the one that saves a session when the venue's uplink is
+    # gone: a copy staged in the volume by whoever set the room up.
+    location @local {
+        set $mirror_source "local";
+        root /srv/mirror;
+        try_files $uri =404;
+    }
+}

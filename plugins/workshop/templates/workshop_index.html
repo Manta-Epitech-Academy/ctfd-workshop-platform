@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+
+{#
+  The workshop index (`/workshop`) — only rendered for a subject with several
+  parts; a single-part subject redirects straight to it (see page.py).
+
+  One Bootstrap card per part. State is carried by an icon AND a word AND the
+  card border — never colour alone, which is invisible to ~8% of men and to
+  anyone reading this off a projector. A locked card names the one thing that
+  opens it and links there, so the index is never a dead end.
+#}
+
+{# Icons match the steppers on the part pages; the words come from page.py so
+   the state and its label cannot drift apart. #}
+{% set ICON = {"done": "✓", "current": "▶", "todo": "○", "locked": "🔒", "info": "📄"} %}
+
+{% macro card_grid(cards) -%}
+  <div class="row row-cols-1 row-cols-md-2 g-4 ws-cards">
+    {% for card in cards %}
+      <div class="col">
+        <div class="card h-100 ws-card ws-{{ card.state }}">
+          <div class="card-body d-flex flex-column">
+
+            <div class="ws-card-state">
+              <span class="ws-card-icon" aria-hidden="true">{{ ICON[card.state] }}</span>
+              <span class="ws-card-label">{{ card.label }}</span>
+              {% if card.total %}
+                <span class="ws-card-count">{{ card.done }} / {{ card.total }}</span>
+              {% endif %}
+            </div>
+
+            <h2 class="card-title h5">
+              <span class="ws-card-index">Part {{ card.index }}</span>
+              {{ card.title }}
+            </h2>
+
+            {% if card.total %}
+              <div class="ws-overall-bar ws-card-bar">
+                <div class="ws-overall-fill"
+                     style="width: {{ 100 * card.done / card.total }}%"></div>
+              </div>
+            {% endif %}
+
+            {% if card.state == 'locked' %}
+              <p class="card-text ws-card-note">
+                {% if card.blocked_by %}
+                  {%- for b in card.blocked_by %}
+                    Finish “<a href="{{ b.href or '#' }}">{{ b.name }}</a>” to open this part.
+                  {%- endfor %}
+                {% else %}
+                  Not available yet.
+                {% endif %}
+              </p>
+            {% endif %}
+
+            {# mt-auto pins the button to the bottom, so buttons line up across
+               cards of different text length. #}
+            <div class="mt-auto pt-3">
+              {% if card.state == 'locked' %}
+                {# Still a link: a participant may want to read ahead, and the
+                   part page explains itself. Muted so it does not compete with
+                   the one card that is actually actionable — and deliberately
+                   NOT stretched-link, which would overlay the whole card and
+                   swallow the clicks on the blocker link above it. #}
+                <a class="btn btn-outline-secondary btn-sm"
+                   href="{{ card.href }}">{{ card.action }}</a>
+              {% else %}
+                <a class="btn btn-sm stretched-link
+                          {{ 'btn-primary' if card.state == 'current' else 'btn-outline-primary' }}"
+                   href="{{ card.href }}">{{ card.action }}</a>
+              {% endif %}
+            </div>
+
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{%- endmacro %}
+
+{% block content %}
+<div class="container ws-page ws-index">
+
+  <div class="ws-head">
+    <h1 class="ws-title">{{ page_title or Configs.ctf_name }}</h1>
+    <div class="ws-overall" data-solved="{{ solved_count }}" data-total="{{ total_count }}">
+      <span class="ws-overall-count">{{ solved_count }} / {{ total_count }}</span> steps completed
+      <div class="ws-overall-bar">
+        <div class="ws-overall-fill"
+             style="width: {{ (100 * solved_count / total_count) if total_count else 0 }}%"></div>
+      </div>
+    </div>
+  </div>
+
+  {% if groups %}
+    {# More than one subject: show the shape of the workshop, and give each
+       subject its own progress — a single bar would tell somebody who just
+       finished the starter that they are at 40% (PLAN.md §19, D5). #}
+    {% for group in groups %}
+      <section class="ws-subject ws-{{ group.state }}">
+        <h2 class="ws-subject-title">
+          <span class="ws-card-icon" aria-hidden="true">{{ ICON[group.state] }}</span>
+          {{ group.title }}
+          <span class="ws-subject-role">{{ "starter" if loop.first else "next" }}</span>
+          {% if group.total %}
+            <span class="ws-card-count">{{ group.done }} / {{ group.total }}</span>
+          {% endif %}
+        </h2>
+        {% if group.total %}
+          <div class="ws-overall-bar ws-subject-bar">
+            <div class="ws-overall-fill"
+                 style="width: {{ 100 * group.done / group.total }}%"></div>
+          </div>
+        {% endif %}
+        {{ card_grid(group.cards) }}
+      </section>
+    {% endfor %}
+  {% else %}
+    {{ card_grid(cards) }}
+  {% endif %}
+
+</div>
+{% endblock %}

@@ -1,0 +1,49 @@
+{% extends "admin/challenges/create.html" %}
+
+{% block header %}
+<div class="alert alert-secondary" role="alert">
+	Auto-graded quiz. Write the question in the description; put the propositions in
+	<code>quiz_spec</code> so the participant gets real controls (radios, checkboxes, selects).
+	Correct answers stay server-side and are never sent to the participant.
+</div>
+{% endblock %}
+
+{% block value %}
+<div class="form-group">
+	<label>Quiz kind</label>
+	<select name="quiz_type" class="custom-select">
+		<option value="single">single — one correct answer (radio buttons)</option>
+		<option value="multiple">multiple — several answers (checkboxes)</option>
+		<option value="match">match — associations (selects)</option>
+		<option value="freeform">freeform — free text graded by regex</option>
+	</select>
+</div>
+
+<div class="form-group">
+	<label>Propositions (JSON)<br>
+		<small class="form-text text-muted">
+			single/multiple: <code>{"items": [{"letter": "A", "text": "..."}]}</code> —
+			match: <code>{"left": [{"letter": "A", "text": "..."}], "right": [{"letter": "a", "text": "..."}]}</code> —
+			freeform: leave empty
+		</small>
+	</label>
+	<textarea name="quiz_spec" class="form-control" rows="3" placeholder='{"items": [{"letter": "A", "text": "..."}]}'></textarea>
+</div>
+
+<div class="form-group">
+	<label>Correct answers (JSON)<br>
+		<small class="form-text text-muted">
+			single: <code>{"answer": "B"}</code> —
+			multiple: <code>{"answers": ["A","D"]}</code> —
+			match: <code>{"pairs": {"A":"c","B":"a"}}</code> —
+			freeform: <code>{"patterns": ["^ritchie$"]}</code>
+		</small>
+	</label>
+	<textarea name="quiz_answers" class="form-control" rows="2" placeholder='{"answer": "B"}'></textarea>
+</div>
+
+<div class="form-group">
+	<label for="value">Value</label>
+	<input type="number" class="form-control" name="value" placeholder="Enter value" required>
+</div>
+{% endblock %}

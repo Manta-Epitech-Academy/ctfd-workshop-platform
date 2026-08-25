@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Mock runtime</title>
+  <style>
+    body { font: 14px/1.5 system-ui, sans-serif; margin: 1rem; }
+    button { display: block; margin: 0.4rem 0; padding: 0.3rem 0.6rem; }
+    code { background: #eee; padding: 0 0.2rem; }
+  </style>
+</head>
+<body>
+  <h1>Mock runtime</h1>
+  <p>
+    A runtime that does nothing but speak the protocol
+    (<code>docs/RUNTIME_PROTOCOL.md</code>). It exists so the pane, the
+    handshake and the advisory signals can be tested without booting a real
+    editor or a 256&nbsp;MB virtual machine — and as the smallest possible
+    example of wiring a new runtime in.
+  </p>
+  <div id="root">
+    <button type="button" id="emit-result">Send an advisory “looks done”</button>
+    <button type="button" id="emit-propose">Propose the answer “mock-answer”</button>
+    <p id="log">waiting for the host…</p>
+  </div>
+</body>
+</html>

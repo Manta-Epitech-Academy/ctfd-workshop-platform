@@ -1,0 +1,63 @@
+# The five production instances (PLAN.md §22).
+#
+# This first deploy is a demonstration that the platform is generic, not a
+# workshop session: one instance per subject, each showing something the others
+# do not. Nothing secret lives here — passwords, session keys and registration
+# codes are generated into deploy/secrets.yaml, which is gitignored.
+#
+#   python3 tools/provision.py render          # env files + nginx vhosts
+#   python3 tools/provision.py up <name>       # start the stack
+#   python3 tools/provision.py setup <name>    # wizard + instance settings
+#   python3 tools/provision.py sync <name>     # runtimes + content
+#
+# `ctf_name` and `ctf_description` are NOT set here: they are read from the
+# subject's own `project.name` / `project.summary` (or a workshop manifest's
+# `workshop.name` / `workshop.summary`), so the instance is titled by its
+# content rather than by a second copy of it that can drift.
+
+# The DNS suffix every instance sits under. Each instance is
+# <name>.<domain> — one A record per instance, CTFd at the root of it, no
+# APPLICATION_ROOT and no path rewriting.
+#
+# DuckDNS resolves this name as a wildcard: every sub-subdomain of it answers
+# with the same address, verified 2026-08-18 — no per-instance record to add.
+# The flip side is that a name nobody configured still reaches the server, so
+# deploy/nginx/default-server.conf refuses anything that is not a real vhost.
+domain: ealab.duckdns.org
+
+# Applied to every instance at setup, overridable per instance below.
+defaults:
+  user_mode: users          # individuals, not teams
+  scoreboard: true          # kept: it helps this audience more than it hurts
+  registration: code        # a shared registration code, generated per instance
+  verify_emails: false      # no mail server, and no addresses to verify
+
+# Ports are loopback-only and deliberately in the 908x range, clear of the
+# 808x dev instances in compose/*.env: a production stack and a development
+# one on the same machine would otherwise silently answer for each other.
+instances:
+  # The baseline: one subject, the TIC-80 editor beside the instructions.
+  - name: pypong
+    port: 9080
+    content: content/pypong
+
+  # A subject that brings its own runtime instead of reusing TIC-80.
+  - name: pacman
+    port: 9081
+    content: content/pacman
+
+  # The real workshop: four parts, optional bonuses, a free-choice chapter.
+  - name: santa
+    port: 9082
+    content: content/santa_shooter
+
+  # Multi-subject composition: Shell RPG gates Shell 1, both on one v86 dist.
+  - name: discover-linux
+    port: 9083
+    content: content/workshops/discover-linux
+    workshop: true
+
+  # A runtime that grades itself: validation by token, and a prerequisite DAG.
+  - name: miniasm
+    port: 9084
+    content: content/miniasm

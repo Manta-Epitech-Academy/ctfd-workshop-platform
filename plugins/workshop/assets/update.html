@@ -1,0 +1,42 @@
+{% extends "admin/challenges/update.html" %}
+
+{% block value %}
+<div class="form-group">
+	<label>Quiz kind</label>
+	<select name="quiz_type" class="custom-select">
+		<option value="single" {% if challenge.quiz_type == "single" %}selected{% endif %}>single — radio buttons</option>
+		<option value="multiple" {% if challenge.quiz_type == "multiple" %}selected{% endif %}>multiple — checkboxes</option>
+		<option value="match" {% if challenge.quiz_type == "match" %}selected{% endif %}>match — selects</option>
+		<option value="freeform" {% if challenge.quiz_type == "freeform" %}selected{% endif %}>freeform — regex-graded text</option>
+	</select>
+</div>
+
+<div class="form-group">
+	<label>Propositions (JSON)<br>
+		<small class="form-text text-muted">
+			single/multiple: <code>{"items": [{"letter": "A", "text": "..."}]}</code> —
+			match: <code>{"left": [...], "right": [...]}</code> — freeform: leave empty
+		</small>
+	</label>
+	<textarea name="quiz_spec" class="form-control" rows="3">{{ challenge.quiz_spec | tojson if challenge.quiz_spec else "" }}</textarea>
+</div>
+
+<div class="form-group">
+	<label>Correct answers (JSON)<br>
+		<small class="form-text text-muted">
+			single: <code>{"answer": "B"}</code> —
+			multiple: <code>{"answers": ["A","D"]}</code> —
+			match: <code>{"pairs": {"A":"c","B":"a"}}</code> —
+			freeform: <code>{"patterns": ["^ritchie$"]}</code>
+		</small>
+	</label>
+	<textarea name="quiz_answers" class="form-control" rows="2">{{ challenge.quiz_answers | tojson if challenge.quiz_answers else "" }}</textarea>
+</div>
+
+<div class="form-group">
+	<label for="value">Value<br>
+		<small class="form-text text-muted">Points awarded for a correct answer</small>
+	</label>
+	<input type="number" class="form-control chal-value" name="value" value="{{ challenge.value }}" required>
+</div>
+{% endblock %}

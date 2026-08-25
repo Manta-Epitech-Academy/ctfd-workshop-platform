@@ -1,0 +1,67 @@
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    # nginx < 1.25.1 does not have this directive; there, drop the line and
+    # write `listen 443 ssl http2;` above instead.
+    http2 on;
+    server_name @@HOST@@;
+
+    ssl_certificate     /etc/letsencrypt/live/@@HOST@@/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/@@HOST@@/privkey.pem;
+    include             /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam         /etc/letsencrypt/ssl-dhparams.pem;
+
+    # TLS is not a hardening detail for this application. MiniASM derives its
+    # completion tokens with `crypto.subtle` and the v86 runtime registers a
+    # service worker; neither exists outside a secure context. Served over
+    # plain HTTP those steps do not become weaker, they become unsolvable.
+    add_header Strict-Transport-Security "max-age=15768000" always;
+
+    # SAMEORIGIN, never DENY: the runtime pane is a same-origin iframe
+    # (PLAN.md §14.2), and DENY would leave participants staring at a blank
+    # panel where the editor should be.
+    add_header X-Frame-Options SAMEORIGIN always;
+    add_header X-Content-Type-Options nosniff always;
+    add_header Referrer-Policy same-origin always;
+
+    # Bounds the two things that legitimately POST a body: the workspace save
+    # (512 KB of keys, plugins/workshop/workspace.py) and the content sync's
+    # image uploads (largest asset in content/ is ~100 KB).
+    client_max_body_size 2m;
+
+    gzip on;
+    gzip_types text/css application/javascript application/json image/svg+xml application/wasm;
+    gzip_min_length 1024;
+
+    # Runtime dists are static, and large: 14 MB per cold visitor for TIC-80.
+    # Flask would stream every byte of that through the one gunicorn worker
+    # (plugins/workshop/runtime.py serves them in development). Off disk
+    # instead, and cacheable forever — the URL carries the build's commit sha,
+    # so a given path never changes content.
+    location /runtime/ {
+        alias @@RUNTIMES@@/;
+        index index.html;
+        access_log off;
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        try_files $uri $uri/ =404;
+    }
+
+    location / {
+        proxy_pass http://127.0.0.1:@@PORT@@;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_redirect  off;
+        proxy_buffering off;
+
+        # CTFd's notifications ride a WebSocket. $connection_upgrade comes from
+        # the map in workshop-shared.conf — a hardcoded "upgrade" would be sent
+        # on ordinary requests too.
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade    $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+    }
+}

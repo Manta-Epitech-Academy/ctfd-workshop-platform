@@ -1,0 +1,153 @@
+# Phase 0: stock CTFd, unmodified, straight from the submodule.
+# Adapted from CTFd/docker-compose.yml — paths point into the submodule,
+# runtime data lands in ./.data (gitignored), port 8080 to avoid the
+# ctfd_replication containers on 8000/8001. No nginx yet: Phase 0 talks
+# to CTFd directly; the reverse proxy arrives with the SPA (PLAN.md §3.1).
+#
+# One instance per workshop session (PLAN.md §10), so this file is
+# parameterized rather than copied: WS_PORT and WS_DATA pick the port and the
+# data directory, and `-p` gives the containers their own names. Defaults
+# reproduce the original single instance exactly, so `docker compose up -d`
+# still means "the 8080 one".
+#
+#   docker compose up -d                                  # 8080, ./.data
+#   docker compose --env-file compose/pacman.env \
+#                  -p ctfd-pacman up -d                    # see that file
+#
+# The same file serves production (PLAN.md §22). What differs is entirely in
+# the env file, not here:
+#
+#   WS_BIND         where the port is published. Defaults to 127.0.0.1, so an
+#                   instance is reachable only through the host's nginx. Set it
+#                   to 0.0.0.0 to reach a dev instance from another machine.
+#   WS_SECRET_KEY   Flask's session key. Unset, CTFd generates one into
+#                   /opt/CTFd/.ctfd_secret_key — the *image* layer, not a
+#                   volume (CTFd/CTFd/config.py:67), so it survives a restart
+#                   but not a recreate, and every participant is logged out the
+#                   next time the stack is touched. Always set it in production.
+#   WS_REVERSE_PROXY  `true` behind nginx, so ProxyFix reads X-Forwarded-*
+#                   and CTFd stops building http:// URLs and logging the
+#                   proxy's IP as everyone's.
+#   WS_DB_PASSWORD  the database password. **Honoured only when the data
+#                   directory is first initialized** — changing it later does
+#                   not change the account, it just stops CTFd connecting.
+services:
+  # A generic mirroring cache (PLAN.md §18.8): each upstream in turn, then a
+  # local copy, with what it fetches cached on disk. Opt-in — it only starts
+  # with `--profile mirror`, so every existing instance comes up unchanged.
+  mirror:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    profiles: ["mirror"]
+    ports:
+      # Loopback by default. Published wide, this is an open 8 GB cache with a
+      # permissive CORS header on the public internet (PLAN.md §22).
+      - "${MIRROR_BIND:-127.0.0.1}:${MIRROR_PORT:-8090}:80"
+    environment:
+      - MIRROR_UPSTREAM_1=${MIRROR_UPSTREAM_1:-http://127.0.0.1:9}
+      - MIRROR_UPSTREAM_2=${MIRROR_UPSTREAM_2:-http://127.0.0.1:9}
+      - MIRROR_UPSTREAM_3=${MIRROR_UPSTREAM_3:-http://127.0.0.1:9}
+      - MIRROR_UPSTREAM_4=${MIRROR_UPSTREAM_4:-http://127.0.0.1:9}
+      - MIRROR_CACHE_SIZE=${MIRROR_CACHE_SIZE:-8g}
+      - MIRROR_MAX_AGE=${MIRROR_MAX_AGE:-604800}
+      - MIRROR_RESOLVER=${MIRROR_RESOLVER:-127.0.0.11 1.1.1.1}
+    volumes:
+      - ./compose/mirror/default.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - mirror-cache:/var/cache/mirror
+      - mirror-local:/srv/mirror
+
+  ctfd:
+    build: ./CTFd
+    restart: unless-stopped
+    ports:
+      # Loopback by default: on a public host the published port would
+      # otherwise sit beside the TLS vhost as a plain-HTTP way in, and plain
+      # HTTP is not merely weaker here — crypto.subtle and service workers are
+      # unavailable outside a secure context, so MiniASM tokens and the v86
+      # boot both fail (PLAN.md §22).
+      - "${WS_BIND:-127.0.0.1}:${WS_PORT:-8080}:8000"
+    environment:
+      - UPLOAD_FOLDER=/var/uploads
+      - DATABASE_URL=mysql+pymysql://ctfd:${WS_DB_PASSWORD:-ctfd}@db/ctfd
+      - REDIS_URL=redis://cache:6379
+      - WORKERS=1
+      - LOG_FOLDER=/var/log/CTFd
+      - ACCESS_LOG=-
+      - ERROR_LOG=-
+      - SECRET_KEY=${WS_SECRET_KEY:-}
+      - REVERSE_PROXY=${WS_REVERSE_PROXY:-}
+      # The fork's preset admin (CTFd/CTFd/utils/security/auth.py:38): an admin
+      # account defined by configuration rather than by whatever the setup
+      # wizard happened to create, plus a fixed API token. Two things follow
+      # that matter for an unattended deploy — the credentials cannot be lost,
+      # and provisioning can call the API before anyone has logged in.
+      - PRESET_ADMIN_NAME=${WS_ADMIN_NAME:-}
+      - PRESET_ADMIN_EMAIL=${WS_ADMIN_EMAIL:-}
+      - PRESET_ADMIN_PASSWORD=${WS_ADMIN_PASSWORD:-}
+      - PRESET_ADMIN_TOKEN=${WS_ADMIN_TOKEN:-}
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+    volumes:
+      - ${WS_DATA:-./.data}/CTFd/logs:/var/log/CTFd
+      - ${WS_DATA:-./.data}/CTFd/uploads:/var/uploads
+      # CTFd code comes from the image, built from the pristine submodule
+      # (Dockerfile COPYs it). No checkout mount: a read-only /opt/CTFd would
+      # prevent creating the mountpoint for the plugin overlay below.
+      # Workshop plugin overlaid into the image's plugins dir (PLAN.md §4):
+      - ./plugins/workshop:/opt/CTFd/CTFd/plugins/workshop:ro
+    depends_on:
+      permissions:
+        condition: service_completed_successfully
+      db:
+        condition: service_started
+      cache:
+        condition: service_started
+    networks:
+      default:
+      internal:
+
+  permissions:
+    image: alpine:3.23
+    user: root
+    volumes:
+      - ${WS_DATA:-./.data}/CTFd/logs:/var/log/CTFd
+      - ${WS_DATA:-./.data}/CTFd/uploads:/var/uploads
+    command: chown -R 1001:1001 /var/uploads /var/log/CTFd
+
+  db:
+    image: mariadb:10.11
+    restart: unless-stopped
+    environment:
+      # Read once, when the data directory is created. An existing instance
+      # keeps whatever it was initialized with.
+      - MARIADB_ROOT_PASSWORD=${WS_DB_ROOT_PASSWORD:-ctfd}
+      - MARIADB_USER=ctfd
+      - MARIADB_PASSWORD=${WS_DB_PASSWORD:-ctfd}
+      - MARIADB_DATABASE=ctfd
+      - MARIADB_AUTO_UPGRADE=1
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+    volumes:
+      - ${WS_DATA:-./.data}/mysql:/var/lib/mysql
+    networks:
+      internal:
+    command: [mysqld, --character-set-server=utf8mb4, --collation-server=utf8mb4_unicode_ci, --wait_timeout=28800, --log-warnings=0]
+
+  cache:
+    image: redis:4
+    restart: unless-stopped
+    volumes:
+      - ${WS_DATA:-./.data}/redis:/data
+    networks:
+      internal:
+
+networks:
+  default:
+  internal:
+    internal: true
+
+volumes:
+  mirror-cache:
+  mirror-local:

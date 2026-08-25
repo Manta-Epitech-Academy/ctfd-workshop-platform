@@ -1,0 +1,4 @@
+[submodule "CTFd"]
+	path = CTFd
+	url = https://github.com/kevin-cazal/CTFd.git
+	branch = master

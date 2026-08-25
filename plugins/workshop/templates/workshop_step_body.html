@@ -1,0 +1,172 @@
+{# Body of one workshop step: statement, hints, answer form.
+
+   Rendered both inside workshop_page.html and standalone by
+   /api/v1/workshop/step/<id> (a step that unlocks while the page is open is
+   filled in place with this exact markup — one implementation, no drift).
+
+   Controls carry the answer in `value`; assets/workshop_page.js turns them
+   into the submission grammar the server grades ("B" / "A,D" / "A-c,B-a").
+   All platform strings English (CLAUDE.md); content stays in its own language.
+#}
+{% if step.body is none %}
+  <div class="ws-locked-note">
+    {% if step.blocked_by %}
+      {# The blocker is often on another part's page, so it is a link: naming a
+         step the participant cannot see from here is a dead end. #}
+      Finish
+      {%- for b in step.blocked_by %}
+        “<a href="{{ b.href or '#step-' ~ b.id }}">{{ b.name }}</a>”
+        {%- if not loop.last %},{% endif %}
+      {%- endfor %}
+      to unlock this step.
+    {% else %}
+      This step is not available yet.
+    {% endif %}
+  </div>
+{% else %}
+  <div class="ws-statement challenge-desc">{{ step.body.description }}</div>
+
+  {% for hint in step.body.hints %}
+    <details class="ws-hint" data-hint-id="{{ hint.id }}" data-cost="{{ hint.cost }}"
+             {% if hint.unlocked %}data-loaded="1"{% endif %}>
+      <summary>{% if hint.cost %}Hint ({{ hint.cost }} points){% else %}View hint{% endif %}</summary>
+      <div class="ws-hint-body challenge-hints">{{ hint.html or "" }}</div>
+    </details>
+  {% endfor %}
+
+  {% if step.body.quiz_type == 'info' %}
+    {# A closing note: nothing to submit, nothing to score. #}
+
+  {% elif step.body.quiz_type == 'rating' %}
+    {# Every part ends with one of these, so only the last may claim to be the
+       end of the workshop. The sync names it (`workshop_final_step`). #}
+    {% set rating_q = "How was this workshop?" if step.final else "How was this part?" %}
+    {# The closing step: the rating IS the submission, so the step is solved at
+       the moment the feedback lands — never before. Going through CTFd's
+       ratings endpoint instead would mean solving first (it refuses a rating
+       for an unsolved challenge), i.e. reaching 100% and only then, maybe,
+       leaving feedback. See plugins/workshop/quiz.py. #}
+    {% if step.solved %}
+      {# Already given — but still editable: someone who clicks 👍 first and
+         thinks of the reason afterwards must be able to add it. Updates go
+         through CTFd's own endpoint, which accepts them now that it is solved. #}
+      <div class="ws-rating ws-rating-final" data-challenge-id="{{ step.id }}"
+           data-value="{{ step.body.rating.value or '' }}">
+        <p class="ws-rating-q">{{ rating_q }}</p>
+        <button type="button" class="ws-rating-btn" data-rating="1" aria-label="Good">👍</button>
+        <button type="button" class="ws-rating-btn" data-rating="-1" aria-label="Not good">👎</button>
+        <input type="text" class="form-control ws-rating-review" maxlength="2000"
+               value="{{ step.body.rating.review }}"
+               placeholder="Anything to add? (optional)">
+        <button type="button" class="btn btn-outline-secondary btn-sm ws-rating-save">Save</button>
+        <span class="ws-rating-thanks" role="status" aria-live="polite"></span>
+      </div>
+    {% else %}
+      <form class="ws-form" data-challenge-id="{{ step.id }}" data-answer-kind="rating">
+        <div class="ws-rating ws-rating-final" data-value="">
+          <p class="ws-rating-q">{{ rating_q }}</p>
+          <button type="button" class="ws-rating-btn" data-rating="1" aria-label="Good">👍</button>
+          <button type="button" class="ws-rating-btn" data-rating="-1" aria-label="Not good">👎</button>
+          <input type="text" class="form-control ws-rating-review" maxlength="2000"
+                 placeholder="Anything to add? (optional)">
+        </div>
+        <div class="ws-form-actions">
+          <button type="submit" class="btn btn-primary ws-submit-btn">Send feedback</button>
+          <span class="ws-feedback" role="status" aria-live="polite"></span>
+        </div>
+      </form>
+    {% endif %}
+
+  {% elif step.solved %}
+    <div class="ws-solved-note">
+      <span>✓ Completed</span>
+      {% if step.body.rating.enabled %}
+        {# A rating of the step's content (it feeds content-quality feedback),
+           kept quiet: one muted line and two buttons until someone actually
+           rates. The reason box is revealed by the rating itself — a thumb
+           alone says which step is weak, never why. Saved on Enter or blur,
+           so revealing it adds no button and no dialog. #}
+        <span class="ws-rating" data-challenge-id="{{ step.id }}"
+              data-value="{{ step.body.rating.value or '' }}"
+              data-review="{{ step.body.rating.review }}">
+          <span class="ws-rating-q">Rate this step</span>
+          <button type="button" class="ws-rating-btn" data-rating="1"
+                  aria-label="Good">👍</button>
+          <button type="button" class="ws-rating-btn" data-rating="-1"
+                  aria-label="Poor">👎</button>
+          <input type="text" class="form-control form-control-sm ws-rating-review"
+                 maxlength="2000" value="{{ step.body.rating.review }}"
+                 placeholder="Why? (optional)" hidden>
+          <span class="ws-rating-thanks" role="status" aria-live="polite"></span>
+        </span>
+      {% endif %}
+    </div>
+  {% else %}
+    <form class="ws-form" data-challenge-id="{{ step.id }}"
+          data-answer-kind="{{ step.body.quiz_type if step.type == 'quiz' else 'flag' }}">
+      {% set spec = step.body.quiz_spec %}
+      {% set items = spec.get("items") or [] %}
+      {% set left = spec.get("left") or [] %}
+      {% set right = spec.get("right") or [] %}
+
+      {% if step.type == 'quiz' and step.body.quiz_type == 'ack' %}
+        {# Reading acknowledgement (intro / outro): no controls, just the act
+           of finishing. assets/workshop_page.js sends a constant. #}
+
+      {% elif step.type == 'quiz' and step.body.quiz_type == 'single' and items %}
+        <div class="ws-choices">
+          {% for item in items %}
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="q{{ step.id }}"
+                     id="q{{ step.id }}-{{ item.letter }}" value="{{ item.letter }}">
+              <label class="form-check-label" for="q{{ step.id }}-{{ item.letter }}">
+                <strong>{{ item.letter }}.</strong> {{ item.text }}
+              </label>
+            </div>
+          {% endfor %}
+        </div>
+
+      {% elif step.type == 'quiz' and step.body.quiz_type == 'multiple' and items %}
+        <div class="ws-choices">
+          {% for item in items %}
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" name="q{{ step.id }}"
+                     id="q{{ step.id }}-{{ item.letter }}" value="{{ item.letter }}">
+              <label class="form-check-label" for="q{{ step.id }}-{{ item.letter }}">
+                <strong>{{ item.letter }}.</strong> {{ item.text }}
+              </label>
+            </div>
+          {% endfor %}
+        </div>
+
+      {% elif step.type == 'quiz' and step.body.quiz_type == 'match' and left and right %}
+        <div class="ws-choices ws-match">
+          {% for item in left %}
+            <div class="row align-items-center mb-2">
+              <div class="col-6"><strong>{{ item.letter }}.</strong> {{ item.text }}</div>
+              <div class="col-6">
+                <select class="form-select ws-match-select" data-left="{{ item.letter }}">
+                  <option value="">—</option>
+                  {% for r in right %}
+                    <option value="{{ r.letter }}">{{ r.letter }}. {{ r.text }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+
+      {% else %}
+        <input class="form-control ws-answer" type="text" autocomplete="off"
+               placeholder="{% if step.type == 'quiz' %}Answer{% else %}Validation code{% endif %}">
+      {% endif %}
+
+      <div class="ws-form-actions">
+        <button type="submit" class="btn btn-primary ws-submit-btn">
+          {%- if step.body.quiz_type == 'ack' %}I have read this{% else %}Submit{% endif -%}
+        </button>
+        <span class="ws-feedback" role="status" aria-live="polite"></span>
+      </div>
+    </form>
+  {% endif %}
+{% endif %}

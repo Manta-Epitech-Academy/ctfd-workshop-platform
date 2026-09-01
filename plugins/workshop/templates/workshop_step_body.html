@@ -24,6 +24,16 @@
     {% endif %}
   </div>
 {% else %}
+  {% if step.body.summary %}
+    {# The author's own short version (convention §3.4). Folded open, never
+       instead of the statement: a step that says "reuse the code above" needs
+       the code above to be there (PLAN.md §25.7, §24.4). #}
+    <details class="ws-summary" data-step="{{ step.id }}" open>
+      <summary>In short</summary>
+      <div class="ws-summary-body challenge-desc">{{ step.body.summary }}</div>
+    </details>
+  {% endif %}
+
   <div class="ws-statement challenge-desc">{{ step.body.description }}</div>
 
   {% for hint in step.body.hints %}
@@ -103,15 +113,17 @@
     </div>
   {% else %}
     <form class="ws-form" data-challenge-id="{{ step.id }}"
-          data-answer-kind="{{ step.body.quiz_type if step.type == 'quiz' else 'flag' }}">
+          data-answer-kind="{{ step.body.answer_kind }}">
       {% set spec = step.body.quiz_spec %}
       {% set items = spec.get("items") or [] %}
       {% set left = spec.get("left") or [] %}
       {% set right = spec.get("right") or [] %}
 
-      {% if step.type == 'quiz' and step.body.quiz_type == 'ack' %}
-        {# Reading acknowledgement (intro / outro): no controls, just the act
-           of finishing. assets/workshop_page.js sends a constant. #}
+      {% if step.body.answer_kind in ('ack', 'done') %}
+        {# Nothing to type. A reading acknowledgement (intro / outro), or a
+           checkpoint step in a self-serve instance where there is no
+           instructor to give out a code — the click is the completion.
+           assets/workshop_page.js sends a constant. #}
 
       {% elif step.type == 'quiz' and step.body.quiz_type == 'single' and items %}
         <div class="ws-choices">
@@ -158,15 +170,23 @@
 
       {% else %}
         <input class="form-control ws-answer" type="text" autocomplete="off"
-               placeholder="{% if step.type == 'quiz' %}Answer{% else %}Validation code{% endif %}">
+               placeholder="{{ {'code': 'Validation code', 'token': 'Token'}.get(step.body.answer_kind, 'Answer') }}">
       {% endif %}
 
       <div class="ws-form-actions">
         <button type="submit" class="btn btn-primary ws-submit-btn">
-          {%- if step.body.quiz_type == 'ack' %}I have read this{% else %}Submit{% endif -%}
+          {%- if step.body.answer_kind == 'ack' %}I have read this
+          {%- elif step.body.answer_kind == 'done' %}Mark as done
+          {%- else %}Submit{% endif -%}
         </button>
         <span class="ws-feedback" role="status" aria-live="polite"></span>
       </div>
+      {% if step.body.note %}
+        {# Rendered here rather than imported into the statement: what to
+           submit depends on the instance's mode, and a sentence baked into the
+           content at sync time cannot follow a toggle (PLAN.md §25.6). #}
+        <p class="ws-answer-note">{{ step.body.note }}</p>
+      {% endif %}
     </form>
   {% endif %}
 {% endif %}

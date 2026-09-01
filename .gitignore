@@ -63,3 +63,7 @@ content/pypong/quiz_answers.yaml
 
 # Local scratch: the resume hint written by Claude Code.
 session
+
+# Vendored dependencies the CTFd image does not ship (tools/build_vendor.sh).
+plugins/workshop/vendor/
+plugins/workshop/assets/vendor/

@@ -1968,3 +1968,678 @@ and the fold must still work for that session.
 Uniform rather than thresholded: every lead folds, including the six-character one. A rule of
 "there is a fold control when the text is long enough" is one more thing for a 15-year-old to
 work out, and the constant would have no principled value.
+
+---
+
+## 25. Two usages, one platform: instructor-led and self-serve (2026-08-25)
+
+The platform has always claimed two usages — a room with an instructor, and somebody working alone
+at home. The word *mode* appears in three places already: `platform.mode_default` in every
+`subject.yaml`, §10 and §11 of this plan, and the `ws:resume` region the parser has extracted since
+the first commit. **Nothing downstream reads any of them.** There is no mode; there is a set of
+places where one was expected.
+
+### 25.1 The finding: self-serve does not work today
+
+| Subject | Exercises | Validation |
+|---|---|---|
+| pypong | 9 | `checkpoint` |
+| pacman | 16 | `checkpoint` |
+| santa_shooter | 31 | `checkpoint` |
+| shell_rpg | 1 | `checkpoint` |
+| shell_1 | 42 | `flag` |
+| miniasm | 25 | `token` |
+
+57 of 124 exercises are validated by a code the instructor reads out (§3.3b). Nobody outside a room
+can complete a single step of pypong, pacman or santa_shooter, and on discover-linux the one
+`checkpoint` step of shell_rpg is the gate standing in front of all 42 of shell_1 — one code
+withholds an entire subject. shell_1 (`flag`) and miniasm (`token`) already work unattended,
+because their answers are self-graded by construction.
+
+So four of the five production instances are instructor-only, whatever their URL suggests. That is
+the problem; the rest of this section is what falls out of fixing it.
+
+### 25.2 What the mode governs — and what it must not
+
+| Surface | instructor_led | self_serve |
+|---|---|---|
+| a `checkpoint` step | the code, read out in the room | one button, self-validated |
+| the validation note under a step | "ask the instructor for the code" | must not say that |
+| registration | a shared code off a slide | open, no code |
+| instructor console (§11 queue, §23.2 role) | eventually, yes | nothing to review |
+
+Unchanged by the mode, deliberately: the prerequisite DAG, points, `optional`/`free` semantics,
+`flag` and `token` answers, the runtimes, workspace persistence, hints and their costs, the rating
+step, the answer sheet. Naming that list is what keeps this one switch instead of two products.
+
+### 25.3 The mode is instance-wide data, flippable at runtime
+
+A CTFd config key **`workshop_mode`** ∈ `{instructor_led, self_serve}`, read at render and at
+submit time, never baked into content. Written at provisioning from `deploy/instances.yaml` and
+flippable afterwards from `/admin/workshop/settings`, beside Feedback and Answers.
+
+- **Default `instructor_led`. Resolved with the user 2026-08-25.** The workshop is an instructor-led
+  thing by nature; an instance that self-validates is a deliberate act, so it is the one that has to
+  be asked for. Precedence: `instances.yaml` `mode:` > the subject's `platform.mode_default` >
+  `instructor_led`.
+- **One instance, one mode. Resolved with the user 2026-08-25.** Not per subject and not per part:
+  §10 already puts one instance behind one session, and the mode describes the room, not the
+  content. A second mode costs a second instance, which is what §25.9 buys.
+- **Flippable rather than sync-baked**, because the operation that actually matters is the one
+  *after* a session: the instance stays up and becomes self-serve for whoever finishes at home. As a
+  config key that is a toggle and nothing is invalidated — the DAG, the solves and the codes all
+  stay where they are. As a sync-time bake it would be a re-import.
+
+### 25.4 What a `checkpoint` step does in each mode
+
+The step keeps its code either way; the mode decides whether the code is *required*.
+
+- **instructor_led** — a text field, compared to the instance's code. Today's behaviour, untouched.
+- **self_serve** — a single button, the `ack` control that already exists for the intro step.
+
+§21.3 settled the honesty question for miniasm's advisory case and it applies unchanged: the DAG
+still gates what comes next, so lying only cheats the liar. The code stays in the database while
+self-serve — never rendered, never sent to the client — which is what makes a flip back to
+instructor-led possible. Revealing it instead would make the switch one-way.
+
+### 25.5 Mechanically: a new quiz kind, and a migration
+
+**Resolved with the user 2026-08-25: option A, change the challenge type.**
+
+A checkpoint step is a `standard` challenge whose answer is a `Flags` row (`4b279a` and friends,
+minted per instance by the sync). `Challenges.type` decides which class handles a submission, and
+CTFd's standard class knows nothing about workshop modes. So the step has to be handled by plugin
+code — and the plugin already has exactly the right class. `quiz` (§12) is plugin-owned, keeps its
+answers in `quiz_answers`, a JSON column excluded from `read()`, and rides the standard
+`/challenges/attempt` endpoint, which is what keeps rate limiting, CTF-time, prerequisite checks,
+`Submissions`/`Solves` rows and the plugin hooks CTFd's rather than ours.
+
+So: **`quiz_type: "checkpoint"`**, one branch in `attempt()` — accept in self-serve, compare to the
+stored code in instructor-led, case-insensitive as the flag was.
+
+The cost is a migration on the four already-deployed subjects, and it is the reason the decision
+needed taking rather than assuming:
+
+1. `UPDATE challenges SET type='quiz'` on the step's row,
+2. `INSERT INTO quiz_challenge_model (id, quiz_type, quiz_answers)` carrying the flag's content over,
+3. drop the now-unused `Flags` row.
+
+The challenge id does not move, and solves, points, progress and prerequisites all reference the
+id — **so nobody loses work**. The sync does it, idempotently, as an explicit step. The lazy version
+of "change a step's type" is delete-and-re-import, which would take every solve on the instance
+with it; that is exactly what this must not be.
+
+Rejected — **option B**, leave the rows `standard` and add a plugin route that writes the solve
+directly when the button is pressed (the `_store_rating` precedent). No migration, but it reimplements
+rate limiting, CTF-time, the prerequisite check and the attempt record, and every one it forgets is a
+hole: solving a locked step, solving twice, solving after the end date. One migration written once
+beats a second submit path maintained forever.
+
+Two consequences worth writing down: `answers.py` reads a checkpoint answer from `quiz_answers`
+rather than `Flags` after this, and §23.4's checkpoint-vs-flag *inference* fallback disappears — a
+migrated row is self-describing.
+
+### 25.6 The note stops being baked into the content
+
+`sync_subject.py:50` appends *"validate the exercise with the code given by the instructor"* into the
+stored description at import. A sentence in `Challenges.html` cannot follow a toggle, so today it
+becomes a lie the moment the mode changes, and correcting it means a re-sync. It moves to the step
+template, chosen per kind and per mode at render time. Same class of mistake as §23.4 ("the mode had
+to become data") and §24 (content on the wrong side of a line). `TOKEN_NOTE` moves with it and
+becomes English on the way — it is platform copy, and CLAUDE.md puts platform copy in English.
+
+### 25.7 `ws:resume` becomes a summary, not a swap
+
+**Resolved with the user 2026-08-25: option (a).** Convention §3.4 says instructor-led renders *only*
+the resume region and self-serve renders the full prose. It was written before §13's single page and
+before §24, and it is precisely the shape §24 just fixed: the participant in the room is the one most
+likely to be pointed at a sentence the page is not showing them. pypong's own resume says *"s'inspirer
+du code précédent (`btn`, `padx`)"*, and the code it means is in the prose the swap would hide.
+
+What the content actually holds: pacman authored one for all 16 steps and they are a real
+condensation (2.2 KB against 18.4 KB of statement); pypong wrote 2 for 9 steps, and those are
+*longer* than the text they would replace; the other four subjects have none. A mode switch that
+visibly changes one subject and a fifth of another is not worth a rule about hiding statements.
+
+So the region is rendered in **both** modes, as a foldable box at the top of the step, `<details
+open>` with the fold remembered — the treatment §24.4 settled for part introductions. The author's
+bullets become a summary instead of a substitute, and 18 well-written resumes stop being parsed into
+nothing. The box label is platform copy, so it is English ("In short") over French content.
+
+### 25.8 Registration follows the mode
+
+**Resolved with the user 2026-08-25: self-serve needs no registration code.** A code exists to keep an
+instance on the open internet from filling with strangers, which is the correct goal for a session and
+the wrong one for a workshop meant to be found. So: `instructor_led` keeps `registration_code`;
+`self_serve` sets registration public with no code, e-mail verification still off (there is no mail
+server, §22.1). A self-serve instance holds a display name and a password hash, and nothing else worth
+protecting.
+
+### 25.9 A self-serve instance for every workshop — `self.<name>.ealab.duckdns.org`
+
+**Resolved with the user 2026-08-25.** Ten instances, not five: one instance one mode, so this is what
+a second mode costs. The five existing names keep their content, their codes and instructor-led mode;
+`self.pypong`, `self.pacman`, `self.santa`, `self.discover-linux` and `self.miniasm` are the same
+content in self-serve.
+
+Checked before promising any of it (2026-08-25):
+
+- **DNS** — the DuckDNS wildcard answers at any depth, not just one label: `self.pypong` and even
+  `nope.deep.ealab.duckdns.org` resolve to the server. No records to add, and `default-server.conf`
+  still refuses the names nobody configured.
+- **Certificates** — one per name, HTTP-01 webroot, as in §22/DEPLOY.md §4. A wildcard certificate
+  would not have covered a two-label-deep name anyway. Five more against Let's Encrypt's 50-per-week
+  limit on `ealab.duckdns.org`.
+- **Capacity** — 11 GB of RAM with 7.8 free and 22 GB of disk free; five stacks are ~1.2 GB. The
+  runtime dists, including the v86 bundles, are served off disk by the host nginx from one shared
+  path, so a second instance of discover-linux does not copy them.
+- Ports 9085–9089, continuing the 908x range that keeps this deploy clear of the box's other tenants.
+
+The answer sheet stays admin-only on both: in self-serve nobody needs the codes, but the mode can be
+flipped back, so the sheet keeps listing them and the page says which mode the instance is in.
+
+### 25.10 Slices
+
+- **M1** — `workshop_mode` config, the admin toggle, `mode:` in the manifest, registration derived
+  from it. No participant-visible change yet.
+- **M2** — `quiz_type: checkpoint`, the sync migration, the note moved to render time. This is what
+  makes self-serve real.
+- **M3** — the resume box (§25.7).
+- **M4** — the five self-serve instances (§25.9).
+- Later, unchanged by this: the instructor role tier (§23.2) and the review queue (§11), both behind
+  `mode == instructor_led`, and both still the next real work after this.
+
+---
+
+## 26. Syncing from the subject repo, from the admin panel (2026-08-26)
+
+The workflow this is for, stated by the user: **clone a subject repo, edit the content, push to
+GitHub, open the admin panel, press Sync.** No ssh, no `provision.py`, no second copy to keep in
+step by hand.
+
+That makes the **subject repo the single source of truth** for an instance's content, which is a
+change of direction worth naming: until now the platform imported `content/<subject>` vendored in
+this repo, and the subject repos were where the author worked. §26 inverts it — the vendored copy
+stays for the CLI, the validation suite and offline provisioning, and the *instance* follows the
+repo.
+
+### 26.1 What makes it possible now
+
+The public split of 2026-08-24 did it. All six subjects are public repos with a convention-2.0 root
+(`subject.yaml` beside the markdown), so an instance can fetch one with no credentials at all.
+Verified 2026-08-26: `api.github.com/repos/kevin-cazal/pypong_subject/tarball/main` → 6.8 KB,
+unpacking to `pypong_subject-main/`. `content/upstreams.yaml` still points at the retired private
+`*_new` repos and describes the world before that split; it is re-pointed as part of this.
+
+Three facts about the container, all checked rather than assumed:
+
+| | |
+|---|---|
+| worker class is **gevent** | a long job runs as a greenlet and does not starve the instance, and it may call the instance's own API |
+| **no PyYAML, no gpg**, but `requests`, `tar` and `cryptography` are there | the missing pieces are vendored, not installed into the image |
+| `PRESET_ADMIN_TOKEN` is in the environment of every production container | the job authenticates to itself with a token, no password handling |
+
+### 26.2 The page
+
+`/admin/workshop/sync`, admin-only, beside Answers and Workshop mode:
+
+- **the source** — `workshop_source` config, `{repo, ref}`, written at provisioning from
+  `deploy/instances.yaml` and editable here;
+- **where it stands** — the commit last imported against the tip of the ref right now, so the page
+  says whether pressing Sync will do anything;
+- **Sync** — fetch, lint, import, record the commit. The log is **polled**, not streamed: nginx
+  buffers SSE unless told otherwise, and polling has nothing to configure.
+- **the summary** — `N created / M updated`, with `created` called out on an already-synced
+  instance, because that is the signature of a renamed slug leaving a duplicate behind.
+
+Order matters: **lint the fetched content before touching the instance.** A broken push must fail
+on the page with the linter's message, not half-way through an import. (`sync()` calls `sys.exit`
+on lint problems, which in-process would take the greenlet down with a `SystemExit` nobody
+reports — so the page lints first and only then calls it.)
+
+### 26.3 Answers stay in the repo, and the passphrase never leaves the browser
+
+**Resolved with the user 2026-08-26.** Two subjects ship encrypted answers — `pypong_subject`
+(`quiz_answers.yaml.gpg`) and `shell-1_subject` (`flags.yaml.gpg`).
+
+The first idea was to let the instance supply answers it already holds, since every answer it ever
+imported is in its own database. The user killed it, correctly: **edit an encrypted flag and push,
+and that sync would keep the old answer and say nothing.** Two sources of truth, silently drifting.
+So the repo wins, always, and the encrypted file has to be opened somewhere.
+
+Not in the container. It has no `gpg`, and the obvious substitute does not work: PGPy 0.5.4 — the
+only pure-Python OpenPGP implementation on PyPI — calls `cryptography.utils.register_interface`,
+removed in cryptography 37, and the image ships 45. Vendoring an old cryptography beside it would
+shadow a security library for the whole CTFd process, which is not a trade worth making for an
+answers file.
+
+**So the admin's browser decrypts it.** The job fetches the tree, notices an unopened `.gpg`, and
+parks; the page hands the blob to `openpgp.js` (vendored as a dist, like a runtime), asks for the
+passphrase, decrypts locally, and posts back the plaintext the importer needs. Verified 2026-08-26
+against a file written by `tools/answers.sh`'s exact command
+(`gpg --symmetric --cipher-algo AES256`): OpenPGP.js 6.2.2 decrypts it and rejects a wrong
+passphrase with *"Modification detected"*. It needs WebCrypto, which needs a secure context —
+already a hard requirement here for other reasons ([[https-is-required-by-two-runtimes]]).
+
+This is stronger than what the user asked for. "Ask rather than store" was about not keeping the
+passphrase on the instance; this way **the passphrase never reaches the server at all**, and the
+`.gpg` files, `decrypt.sh`, `encrypt.sh` and `tools/answers.sh` are all untouched. What does reach
+the server is the plaintext answers — which it is about to store in its own database anyway.
+
+Without them the sync **refuses**: it never imports new content against old answers. The page
+remembers *that* a source needs a passphrase (`needs_passphrase` on the last-sync record), not the
+value, so the field is there the next time.
+
+### 26.4 A workshop is a repo too, and a subject is a workshop of one
+
+**Resolved with the user 2026-08-26: `kevin-cazal/discover-linux_subjects`**, a public wrapper
+holding `shell-rpg_subject` and `shell-1_subject` as **submodules** with `workshop.yaml` at its
+root. `git clone --recursive` then gives one working copy with both subjects in it, which is the
+workflow this section exists to serve.
+
+Two facts, verified 2026-08-26 on this repo's own tarball:
+
+- a GitHub tarball **does not** carry submodule contents — `CTFd/` arrives as a single empty
+  directory;
+- the API **does** report the pin: `contents/CTFd` returns `type: submodule`, its `sha`, and its
+  git URL.
+
+So the platform follows the pins itself, without git: fetch the wrapper's tarball for
+`workshop.yaml`, read each submodule's sha with one API call, fetch each subject's tarball at that
+sha. Reproducible, and no git binary in the container.
+
+`workshop.yaml` gains a per-subject `ref:` that overrides the pin — `ref: main` while a subject is
+being actively edited (one push, always the tip), the submodule pin when the workshop is frozen
+for a session. The footgun is worth stating in the wrapper's README: after editing a subject and
+pushing it, the wrapper still points at the old commit until the submodule bump is pushed too.
+
+The shape this buys: **`workshop_source` is one thing.** The plugin tells a subject from a
+workshop by what it finds at the root of the fetched tree — `subject.yaml` or `workshop.yaml` —
+so a single-subject instance is a workshop of one and there is no second code path and no second
+slice. The existing `path:` entries keep working for the CLI; the fetcher materializes a workshop
+into the tree layout `sync_workshop.py` already expects, so that tool does not change.
+
+### 26.5 What the container gets, and what it deliberately does not
+
+Two read-only additions: `./tools` mounted at `/opt/workshop/tools`, and the vendored
+dependencies the image lacks — PyYAML for the parser, `openpgp.js` for the page — built at deploy
+time by `tools/build_vendor.sh` and gitignored, exactly like `plugins/workshop/runtimes/`.
+
+Not given, on purpose: **git, and any write access to a checkout.** The instance is a read-only
+consumer of GitHub and of this repo. That is what keeps the design boring, and it is why the
+button cannot "pull and import" anything but what a tarball hands it.
+
+Also unchanged: the instance mints its checkpoint codes as before and the sync reads them back
+from the instance itself (§25.5), so a page-sync rotates nothing. `--codes` points at a temp file
+that is thrown away; the sheet that matters is `/admin/workshop/answers`.
+
+### 26.6 Consequences to accept
+
+- **The vendored `content/` stops being what an instance imports.** After a page-sync the live
+  instance is ahead of this repo. The page records the commit it imported, which is how that is
+  visible; `content/upstreams.yaml` is re-pointed at the `*_subject` repos so
+  `check_content_sync.py` keeps saying so too.
+- **Two instances per subject** since §25.9, so a content fix is two clicks — Sync on `santa`, Sync
+  on `self.santa`. The page syncs the instance it is served from and nothing else.
+- **Unauthenticated GitHub is 60 requests an hour per IP.** A sync costs 2 (subject) to 5
+  (workshop with two submodules), so this only matters if something loops; a `github_token` config
+  key is the fix if it ever does, not now.
+- **A hand-edited answer on the instance is overwritten** by the next sync, which is the point of
+  a single source of truth.
+
+### 26.7 Slices
+
+- **N1** — vendor + mounts + `workshop_source` at provisioning.
+- **N2** — the fetcher (ref → sha → tarball, submodule pins, sidecar decryption) and the page.
+- **N3** — the wrapper repo, and `workshop.yaml` accepting `repo:`/`ref:`.
+- **N4** — suite coverage, then the deploy (a compose change, so every instance is recreated once).
+
+## 28. Porting back2epitech — the workshop whose subject is a dataset (2026-08-31)
+
+`kevin-cazal/back2epitech` is the fifth workshop to port and the first that is **not** a
+runtime wrapped in instructions. Its pitch is *"développe un outil qui t'aidera à choisir ton
+métier en 2033"*: half a day, five phases, of which only one is code. The code phase builds a
+mini-Akinator in ~30 lines of Python over ten steps, and it reads **two CSV files the
+participant generated themselves, earlier the same day, by arguing with an LLM**.
+
+That last sentence is the whole port. Every other subject on this platform hands the participant
+a fixed artefact — a cart, a VM, a paper computer. Here the artefact is the participant's own
+data, it does not exist until phase 3, and phase 4 is worthless if it is malformed.
+
+### 28.1 What the source repo holds
+
+| File | Audience | Ports as |
+|---|---|---|
+| `guide.md` (770 lines) | **encadrants only**, says so on line 5 | not imported; the passages it addresses to participants are transposed into two subjects (§28.2, §28.6) |
+| `sujet.md` | participants | the code chapters, near-verbatim |
+| `main.py`, `etapes/etape01..10.py` | encadrants | nothing — they are the answer |
+| `verification.py` | encadrants ("pas pour les participants") | **nothing** — the `verification` step shows the expected shape instead (§28.3) |
+| `Results/*.csv`, `prompt*.txt` | example dataset, one group's output | a fallback dataset inside the runtime, not content |
+
+The five phases, and what each is made of:
+
+| Phase | Duration | What happens | Participant-facing today |
+|---|---|---|---|
+| Accueil | — | welcome | no |
+| Ice-breaking | 20-30 min | groups of 4-6, everyone introduces themselves | no |
+| Génération d'un dataset | 60-90 min | pairs prompt an LLM, get métiers → tags → questions → two CSV | **no, deliberately** |
+| Comment marchera notre algo | — | whiteboard: tags, écart, valeur absolue | no |
+| Mini-akinator | ~60 min | ten coding steps | **yes — `sujet.md`** |
+| Debrief | — | run it, talk about it | no |
+
+### 28.2 The rule this port has to respect
+
+`guide.md` states that phase 3 has no participant subject *on purpose*: "cet atelier est avant
+tout interactif, il est préférable d'engager la discussion". CLAUDE.md's rule — never invent
+workshop content — and that sentence point the same way: **the port does not write the missing
+subject.** What it does is give phase 3 the two things the platform needs and the paper does not
+have: a place for the participant to see *what they must end up with*, and a step the instructor
+can validate.
+
+So the dataset subject is a **transposition, not new pedagogy**. Everything in it is already in
+`guide.md` addressed to the participant — the artefacts, the three CSV constraints ("trois
+contraintes à faire demander à l'IA par les élèves"), the "1 / -1", the "8 à 12 tags", the
+prompt-improvement leads. What stays out is what is written *to the instructor*: the three
+prompts to compare as an exercise, and what to do with a group that goes fast.
+
+**Amended 2026-08-31, with the user.** The whiteboard sequence *is* transposed, as one step
+(`algo`), and the ice-breaking gets a subject of its own. The first draft of this section kept
+both out on the grounds that they are discussion; the correction is that a participant who was
+in the room still needs somewhere to read back why the smallest total wins, and the profile
+built during the ice-breaking is the raw material the tags are made of. The step does not
+replace the discussion — it says so in its own first line — it survives it.
+
+### 28.3 Three subjects, not one — restructured 2026-08-31 with the user
+
+The first draft imported this as **one** subject whose first part was the dataset. That was
+wrong in the way §19 already knows about: the three phases have different audiences, different
+durations, and different failure modes, and CTFd's own composition model (a starter, then
+ordered advanced subjects) says exactly what this workshop's own guide says — *the starter is
+always finished first*.
+
+So it is a **workshop of three subjects**, chained strictly:
+
+| # | Subject | Repo | Steps | What it is |
+|---|---|---|---|---|
+| starter | Faire connaissance | `back2epitech-icebreaking_subject` | 2 | phase 2, 20-30 min, no code |
+| advanced, order 1 | Le dataset | `back2epitech-dataset_subject` | 5 | phase 3 + the whiteboard |
+| advanced, order 2 | Mini-Akinator | `back2epitech-akinator_subject` | 14 | phase 4, `sujet.md` |
+
+The chain is linear rather than starter-plus-free-choice because each subject consumes what the
+previous one produced: the tags are made of the profile, and the code is worthless without the
+CSV. `sync_workshop.py` gates each subject on the previous one's **closing step** — the step
+where the participant says they are done — which is one edge that means something to the person
+clicking it (§19, D2).
+
+**A workshop chain fails open, and it did here.** `sync_workshop` gates each advanced subject on
+the previous one's closing step, and `previous_final = result["final_step"] or previous_final`
+kept the older value when a subject had none. Neither of the first two subjects had one on the
+first sync, so both `Le dataset` and `Mini-Akinator` imported with **no prerequisite at all** and
+the whole workshop was open from the first minute. Caught in the database, not in the sync output,
+which said nothing. Fixed twice over: the two subjects now end on a closing step, and
+`closing_of()` falls back to the subject's last required step and prints why. Nothing else in the
+platform assumed a closing step exists — `discover-linux` has always had one, which is why this
+never showed.
+
+**Faire connaissance is the starter for a reason that is not chronological.** Its `intro.md` is
+also the workshop's landing page (`sync_workshop.py:154` builds the index from the workshop name,
+its summary and the starter's entrypoint body), so the day's programme lives there.
+
+| Subject | Part | Steps |
+|---|---|---|
+| Faire connaissance | Faire connaissance | `presentation`, `indices` |
+| Le dataset | Demander à une IA | `premier-prompt`, `meilleur-prompt` |
+| | Comment marchera l'algo | `algo` |
+| | Les fichiers | `tags-questions`, `verification` |
+| Mini-Akinator | Le calcul | étapes 1-4 — **ends on the guide's first sync point** |
+| | Le classement | étapes 5-6 — **ends on the second** |
+| | Le questionnaire | étapes 7-10, closing on "Ça y est" |
+| | Si tu as le temps | 4 optional, `topology: free`, closing on the mémo |
+
+**The dataset's five steps**, fixed with the user 2026-08-31:
+
+| id | What the participant ends with |
+|---|---|
+| `premier-prompt` | a first list of métiers, and **the prompt that produced it, written down** |
+| `meilleur-prompt` | the same list, reworked: real métiers, sourced, spread across domains |
+| `algo` | why the tag is the bridge, why 1/0/-1, why the smallest total wins |
+| `tags-questions` | 8-12 tags, the métiers table, one question per tag, and the two CSV |
+| `verification` | files whose **shape** matches what the code will read |
+
+Two notes on those five. `premier-prompt` is only worth points because of what it keeps: the
+comparison between it and `meilleur-prompt` is the exercise, not either list on its own. And
+`verification` **does not port `verification.py`** — decided with the user. The upstream script
+is instructor material ("les élèves n'ont pas à comprendre comment on valide un CSV pour
+commencer à coder"), so the step shows the two files' expected shape, spells out the three
+constraints, and has the participant read the two files side by side. The gate stays the
+instructor's eyes.
+
+The three reference tables at the end of `sujet.md` — outils, structures, "si ça plante" — are
+**not** a document of their own. A document with no exercises gets no route
+(`sync_subject.py:826`), so `memo.md` would have imported as nothing at all; they are the trailing
+prose of `bonus.md`, which is exactly the closing step a `free` chapter needs anyway (§3.11).
+
+### 28.4 Instructor-led only, and no self-serve twin
+
+Every other subject got a `self.*` twin in §25.9. This one does not get one, and it is not an
+oversight: phases 2, 3 and the whiteboard are a room with a whiteboard and someone asking *"et si
+on avait pris 1 et 0 au lieu de 1 et -1 ?"*. A participant alone at home with these seven
+documents has the code chapter and nothing else — that is a different, smaller workshop, and if
+it is ever wanted it should be authored as one rather than fall out of a mode flag.
+
+`platform.mode_default: instructor_led`, one instance, no twin.
+
+### 28.5 The runtime: JupyterLite, self-hosted (decided 2026-08-31)
+
+The code phase needs, in a browser: CPython with `csv`, two files the participant supplies,
+`print` to a console, and **a working `input()`** — étapes 8 and 9 are *about* `input()`, and
+étape 9's acceptance test is literally "type `x`, the question must be asked again".
+
+Nothing this project already embeds does that:
+
+| Runtime | Verdict |
+|---|---|
+| `tic80` (PyPong is "Python") | TIC-80's Python is PocketPy inside a fantasy console: no `csv`, no file the participant supplies, no stdin |
+| `v86` (shell-1, shell-rpg) | a real Alpine would work, but its package list is `micropython`, not CPython — so it is a new VM image either way — and it means ~330 MB of bundle and a Linux terminal in front of a 15-year-old in their first hour of Python, to run 30 lines |
+| `pacman`, `miniasm` | not Python |
+
+So this port needs a new runtime. The decision is **not to write one**: it is to self-host
+**JupyterLite** with the Pyodide kernel, at `/runtime/pylab/<sha>/` like every other dist.
+
+#### 28.5a Why: the `input()` problem is already solved, in the open
+
+Blocking stdin in wasm normally means a worker plus `Atomics.wait` on a `SharedArrayBuffer`, and
+a `SharedArrayBuffer` needs `crossOriginIsolated`, which needs COOP + COEP on the **top-level**
+document — i.e. on CTFd's whole origin. §18.2 measured that v86 does not need that and left the
+origin alone on purpose; this must not be the feature that reverses it. That one constraint is
+what eliminates most of the field.
+
+`jupyterlite-pyodide-kernel` handles it both ways: `Atomics.wait` when cross-origin isolation is
+available, and a **service worker** when it is not — for the filesystem since 0.4.0, and for
+**stdin** since 0.6.0a6 (PR #183, May 2025). The mechanism, read in
+`packages/pyodide-kernel/src/comlink.worker.ts`, is a *synchronous* `XMLHttpRequest` from the
+kernel worker to `<baseUrl>/api/stdin/kernel`, intercepted by the service worker and routed to
+the browsing context, which shows the prompt and posts the reply back. That is exactly the trick
+this section's first draft listed as "option 3, known to work, fragile, only if 2 fails" —
+except written, shipped and maintained by someone else.
+
+Both halves are alive: JupyterLite 0.8.3 and `jupyterlite-pyodide-kernel` 0.8.5, released
+20 and 21 August 2026.
+
+Four more things settled it:
+
+- **6 MB, not 330.** `pyodide-core-314.0.6.tar.bz2` is 6 MB: the interpreter and the standard
+  library, which is all this workshop needs. The 333 MB full distribution is the scientific
+  packages, which are never loaded. `jupyter lite build --pyodide <local tarball>` bakes it in,
+  so nothing is fetched from a CDN and the whole runtime is served same-origin like the others.
+- **The audience's teachers already deploy it.** Basthon — French, Pyodide, working `input()`,
+  CSV loading, no account — was the obvious answer and is **archived**; its author moved to
+  Capytale, and Capytale now runs JupyterLite.
+- **`trinket.io`, which upstream's `guide.md` recommends, cannot run étape 1.** Its free Python
+  is Skulpt, a JS reimplementation whose standard library is math, random, turtle, time, re and
+  a few others: there is **no `csv` module**. This is true today, independently of this decision,
+  and it is worth telling the workshop's author. It is also the general argument against Skulpt
+  and Brython: the mémo's "si ça plante" table quotes real CPython messages
+  (`TypeError: unsupported operand type(s) for -: 'str' and 'int'`), and a reimplementation does
+  not produce them.
+- **PyScript was the near miss.** Same Pyodide underneath, but its interactive terminal — the
+  part that makes `input()` work — requires worker mode, which requires COI. Same wall.
+
+#### 28.5b What is actually built
+
+Almost nothing, which is the point:
+
+```
+tools/build_runtime.sh pylab      # new case: jupyter lite build --pyodide <pinned tarball>
+                                  #           --contents content/ (a starter notebook)
+plugins/workshop/assets/runtime/adapters/pylab.js
+                                  # announce ready, handle focus. No result, no propose.
+back2epitech_akinator/subject.yaml
+                                  # a runtime: block, pane side, open: false
+```
+
+Rule 0 costs nothing here: nothing in a notebook knows whether étape 5 is done, so the adapter
+sends no `result` and the participant validates steps exactly as they do today.
+
+**UI trimming stays on the supported path.** The brief in CLAUDE.md is to hide everything
+unnecessary, and JupyterLite answers most of it from the build: pick the Notebook (single
+document) app rather than Lab, disable extensions at build time, and ship an `overrides.json`
+that turns off the chrome the workshop does not use. That is configuration, not a fork.
+
+#### 28.5c Two caveats to verify before shipping, not after
+
+- **Firefox private browsing registers no service worker**, so no filesystem and no `input()`.
+  There is also a known Firefox bug where JupyterLite in an iframe cannot touch the filesystem
+  (jupyterlite#1341, open since March 2024) — but it is **cross-origin iframes only**, caused by
+  storage partitioning, and §14's rule of serving every runtime same-origin dodges it by
+  construction. Verify on the box; do not take the issue thread's word for it.
+- **§16 persistence does not work as-is.** JupyterLite keeps the file browser in IndexedDB, via
+  `@jupyterlite/localforage`, not in `localStorage` — so the `storageKeys` snapshot mechanism
+  has nothing to grab, and a participant who changes machine loses their notebook and their two
+  CSV files. Either a collector learns to read a named IndexedDB store, or this subject accepts
+  browser-local work in progress and says so. Measure it during the build; it is the one place
+  where this runtime is less integrated than tic80.
+
+#### 28.5d The content consequence, and it is small
+
+A notebook has no `main.py`. "Crée un fichier `main.py`" becomes "écris dans la première
+cellule", plus one line about dropping the two CSV files in the file panel. That is roughly three
+sentences, in `intro.md` and étape 1 of `back2epitech_akinator`. Everything else survives intact,
+including `FileNotFoundError` when a CSV is in the wrong place, because the notebook's working
+directory is its own folder on the drive.
+
+#### 28.5e The escape hatch, if the notebook framing is wrong: `pylab` as our own shell
+
+Not built, and not costed as a first choice — recorded because it is the only other shape that
+clears the `input()` wall, and because the day the notebook framing turns out to be wrong is not
+the day to start researching.
+
+The idea: keep the kernel, drop the JupyterLab UI. Our own three-pane app — an editor holding a
+literal `main.py`, a Run button, a console, a drop zone for the two CSV files — driving
+`@jupyterlite/pyodide-kernel` as an npm dependency. It keeps `main.py` literal, it satisfies the
+"hide everything unnecessary" brief completely rather than mostly, and it is the shape the rest
+of this platform's runtimes have.
+
+**What it actually costs, read out of the packages rather than guessed.** The kernel is not a
+kernel in a box. `comlink.worker.ts` blocks on a synchronous XHR to `<baseUrl>/api/stdin/kernel`,
+and the thing that answers is the service worker in **`@jupyterlite/apputils`**
+(`service-worker.ts`, `service-worker-manager.ts`), routing by a `browsingContextId` the host has
+to mint and thread through. The filesystem is `DriveFS` from **`@jupyterlite/services`**, mounted
+at `/drive` and talking to a contents manager over the same intercepted `/api` surface, backed by
+**`@jupyterlite/contents`** and **`@jupyterlite/localforage`**. So the dependency is not one
+package, it is *JupyterLite minus the JupyterLab UI*: the kernel, the server emulation, the
+drive, the service worker, and the wiring between them.
+
+Which reframes the trade honestly. This is not "a small app plus a library" against "a big UI" —
+it is **a fork of the shell** against **configuring the shell**, with the same five packages
+underneath either way. And none of that surface is documented as a public embedding API: it is
+internal to JupyterLite and free to move between minor versions, which is a maintenance bill on
+a component nobody here owns.
+
+The order that follows from that: ship the configured JupyterLite, watch a real room use it, and
+only then decide whether the notebook framing is a genuine problem or an unfamiliar one. If it
+is genuine, the intermediate step is more `overrides.json` and fewer extensions, not a shell.
+The shell is the last resort, and this section is here so it starts from what the packages
+actually require.
+
+### 28.6 What the instructor gets, and where the answers live
+
+`guide.md` is the trame, and it also contains **the finished code of all ten steps**. It is not
+workshop content and it is not imported. Two consequences:
+
+- The subject repo carries the participant documents only. The guide stays in
+  `kevin-cazal/back2epitech`, which is where instructors already look for it.
+- **That repo is public, so the answers are public.** Every other subject here keeps its answers
+  under GPG with the passphrase in `deploy/secrets.yaml` (the split of 2026-08-24). This one is
+  the exception, inherited rather than chosen. Flagged, not fixed by this port: fixing it means
+  `guide.md.gpg` + `etapes/` encrypted in the upstream repo, which is that repo's call.
+
+Validation is §23's codes, as on the other five instructor-led instances: `checkpoint` steps get
+generated codes in `instructor_codes.back2epitech.yaml`. §27's queue (still on the `instructor-review-queue` branch, P1+P2
+of it built) has no button and no console yet, so this instance inherits them the day P3/P4 land — and it is the
+subject that will want it most, because of `fichiers`.
+
+### 28.7 Repos
+
+| Repo | Visibility | Contents |
+|---|---|---|
+| `kevin-cazal/back2epitech_subjects` | public | the wrapper: `workshop.yaml` + the three subjects as submodules |
+| `kevin-cazal/back2epitech-icebreaking_subject` | public, fresh history | starter, 2 steps |
+| `kevin-cazal/back2epitech-dataset_subject` | public, fresh history | 5 steps |
+| `kevin-cazal/back2epitech-akinator_subject` | public, fresh history | 14 steps — `sujet.md` ported |
+| `kevin-cazal/back2epitech` | unchanged | the guide, the solutions, the example dataset |
+
+Fresh history is the requirement and also the right call: these are a *rewrite* of `sujet.md` and
+of parts of `guide.md` into a marked-up convention-2.0 tree, and carrying an unrelated document's
+commits into them buys nothing.
+
+The wrapper follows `discover-linux_subjects` exactly: submodules for the command line's `path`,
+`repo` + `ref: submodule` for the admin sync page, which is what an instance actually reads
+(§26). `content/back2epitech_*` and `content/workshops/back2epitech/` in this repo are the
+vendored copies, listed in `content/upstreams.yaml` so `tools/check_content_sync.py` sees drift.
+
+### 28.8 Deployment
+
+One instance, the eleventh, following §22 exactly:
+
+```yaml
+- name: back2epitech
+  port: 9090                       # first free above the 9080-9089 block
+  content: content/workshops/back2epitech
+  source: kevin-cazal/back2epitech_subjects
+  workshop: true                   # three subjects, chained (§28.3)
+```
+
+The mode is not set: `instructor_led` is the manifest default and every subject's
+`platform.mode_default` agrees, so there is nothing to override (§3.5b). No `self.*` twin (§28.4).
+
+`back2epitech.ealab.duckdns.org`, DuckDNS wildcard so no DNS record to add, host nginx vhost +
+its own certificate, `provision.py render / up / setup / sync`. Nothing new in the deploy path.
+
+### 28.9 Decided (say so if any is wrong)
+
+- **The dataset phase gets four checkpoint steps, not zero.** Zero would mean the platform has
+  nothing to show for the first three hours of the day and the instructor has nothing to
+  validate. Four is the minimum that matches the four artefacts the guide already names.
+- **The three prompts stay instructor-side.** Showing a participant the "good" prompt deletes the
+  exercise, which is comparing three of them. What `meilleur-prompt` gives instead is the guide's
+  *directions* for improving a prompt, which is what the instructor hands out anyway.
+- **The whiteboard is transcribed, as one step.** Reversed 2026-08-31 (§28.2). It is written as a
+  recap of a discussion that has already happened, not as a substitute for it, and its acceptance
+  criterion is being able to say it back without looking.
+- **`verification.py` is not ported.** The step shows the expected shape instead (§28.3).
+- **`sujet.md`'s hints become `ws:hint` at no cost.** They are scaffolding, not a paid clue.
+- **No quiz challenges.** The guide's good questions are discussion prompts; auto-grading them
+  turns a conversation into a form.
+- **Points 25 flat**, bonus steps `optional: true` (they count towards nothing, §3.3).
+
+### 28.10 Slices
+
+- **P1 — content and the instance.** Three subject repos plus the wrapper, vendored copies,
+  instance on 9090, no runtime declared. Complete and usable: participants run Python where the guide already
+  tells them to (their own install, trinket.io, jupyter). This is what ships first.
+- **P2 — `pylab`, a self-hosted JupyterLite (§28.5).** A `build_runtime.sh` case pinning
+  JupyterLite, the kernel and a local Pyodide tarball; the trimming config; a starter notebook in
+  `--contents`; the WRP adapter; the `runtime:` block in the akinator's `subject.yaml`; the three
+  sentences of §28.5d. Then measure the two caveats of §28.5c before calling it done.
+- **P3 — suite coverage** for the workshop composition and, if P2 lands, the runtime.

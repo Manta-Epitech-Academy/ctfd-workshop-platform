@@ -101,6 +101,52 @@
 .ws-part-lead[open] > .ws-part-lead-summary::before { content: "\25be"; }
 .ws-part-lead[open] > .ws-part-lead-summary { margin-bottom: 0.35rem; }
 
+/* The author's short version of a step (convention §3.4, PLAN.md §25.7). Same
+   quiet fold as a part introduction, and open for the same reason: it is
+   content somebody wrote, not a control to discover. It sits above the
+   statement and never replaces it. */
+.ws-summary {
+  margin: 0 0 0.75rem;
+  border-left: 2px solid var(--bs-border-color, #dee2e6);
+  padding-left: 0.7rem;
+}
+.ws-summary > summary {
+  cursor: pointer;
+  display: inline-flex; align-items: center; gap: 0.35rem;
+  padding: 0.1rem 0;
+  font-size: 0.8rem; letter-spacing: 0.03em; text-transform: uppercase;
+  color: var(--bs-secondary-color, #6c757d);
+  list-style: none;
+}
+.ws-summary > summary::-webkit-details-marker { display: none; }
+.ws-summary > summary::before { content: "\25b8"; font-size: 0.85em; }
+.ws-summary[open] > summary::before { content: "\25be"; }
+.ws-summary[open] > summary { margin-bottom: 0.3rem; }
+.ws-summary-body > :last-child { margin-bottom: 0; }
+.ws-summary-body ul { margin-bottom: 0; }
+
+/* What to submit, under the control that submits it. Written at render time
+   because it depends on the instance's mode (PLAN.md §25.6). */
+.ws-answer-note {
+  margin: 0.4rem 0 0;
+  font-size: 0.82rem;
+  color: var(--bs-secondary-color, #6c757d);
+}
+
+/* The admin sync page (PLAN.md §26). The log is the part that needs a rule:
+   an import prints a line per challenge, and 48 of them should scroll inside
+   the page rather than push everything else off it. */
+.ws-sync-log {
+  max-height: 22rem; overflow: auto;
+  background: var(--bs-light, #f8f9fa);
+  border: 1px solid var(--bs-border-color, #dee2e6);
+  padding: 0.6rem 0.8rem; font-size: 0.82rem; line-height: 1.45;
+  white-space: pre-wrap; word-break: break-word;
+}
+.ws-sync-h { font-size: 1.1rem; margin-bottom: 0.6rem; }
+.ws-sync-state th { width: 7rem; font-weight: 500; }
+.ws-sync-state td, .ws-sync-state th { border-top: 0; padding: 0.4rem 0.5rem; }
+
 /* Steps: accordions, state on the left edge */
 .ws-step {
   border: 1px solid var(--bs-border-color, #dee2e6);

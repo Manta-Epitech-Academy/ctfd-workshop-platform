@@ -8,6 +8,10 @@
 		<option value="multiple" {% if challenge.quiz_type == "multiple" %}selected{% endif %}>multiple — checkboxes</option>
 		<option value="match" {% if challenge.quiz_type == "match" %}selected{% endif %}>match — selects</option>
 		<option value="freeform" {% if challenge.quiz_type == "freeform" %}selected{% endif %}>freeform — regex-graded text</option>
+		<option value="checkpoint" {% if challenge.quiz_type == "checkpoint" %}selected{% endif %}>checkpoint — the instructor's code, or a button in self-serve</option>
+		<option value="ack" {% if challenge.quiz_type == "ack" %}selected{% endif %}>ack — read and acknowledge (a lone button)</option>
+		<option value="info" {% if challenge.quiz_type == "info" %}selected{% endif %}>info — a note, nothing to submit</option>
+		<option value="rating" {% if challenge.quiz_type == "rating" %}selected{% endif %}>rating — the closing "how did it go?" step</option>
 	</select>
 </div>
 
@@ -27,7 +31,8 @@
 			single: <code>{"answer": "B"}</code> —
 			multiple: <code>{"answers": ["A","D"]}</code> —
 			match: <code>{"pairs": {"A":"c","B":"a"}}</code> —
-			freeform: <code>{"patterns": ["^ritchie$"]}</code>
+			freeform: <code>{"patterns": ["^ritchie$"]}</code> —
+			checkpoint: <code>{"code": "4b279a"}</code> — ack/info/rating: leave empty
 		</small>
 	</label>
 	<textarea name="quiz_answers" class="form-control" rows="2">{{ challenge.quiz_answers | tojson if challenge.quiz_answers else "" }}</textarea>

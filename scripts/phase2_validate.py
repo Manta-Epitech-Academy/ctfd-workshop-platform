@@ -291,14 +291,19 @@ def main():
     detail = api(s, "GET", f"/challenges/{first}").json()["data"]
     check("padx=45" in detail["description"] and "btn(2)" in detail["description"],
           "exercise 1 carries its context (section intro + code sample)")
-    check("code given by the instructor" in detail["description"], "validation note present")
+    # The note under a step depends on the instance's mode, so it is rendered
+    # at request time and must NOT be in the stored description (PLAN.md §25.6).
+    check("instructor" not in detail["description"].lower(),
+          "no mode-dependent note is baked into the stored statement")
     check(len(detail.get("hints", [])) == 1, "exercise 1 hint attached")
-    # The authoring markers must never reach a participant. The context fence
-    # is the one comment that may: it is written by the sync, not by the author,
-    # and it is what lets the page lift a part's opening prose out of its first
-    # step while the description stays self-sufficient on CTFd's own board.
+    # The authoring markers must never reach a participant. Two fences may: the
+    # context one and the resume one, both written by the sync rather than by
+    # the author. They are what lets the page lift a part's opening prose and
+    # the step's short version out of the statement, while the description
+    # stays self-sufficient on CTFd's own board (PLAN.md §25.7).
     comments = [c.strip() for c in re.findall(r"<!--(.*?)-->", detail["description"], re.S)]
-    check(all(c in ("ws:context", "/ws:context") for c in comments),
+    check(all(c in ("ws:context", "/ws:context", "ws:resume", "/ws:resume")
+              for c in comments),
           f"no authoring markers leak in description (found {comments})")
 
     print("== Progression & quiz grading ==")
@@ -479,6 +484,140 @@ def main():
           and codes["pad-direction"] in csv_body.text,
           "the same answers download as CSV")
 
+    print("== Instructor-led and self-serve (PLAN.md §25) ==")
+    # A checkpoint step is a plugin-owned challenge now, because whether its
+    # code is required depends on the instance and only plugin code runs at
+    # submit time.
+    cp = admin.api("GET", f"/challenges/{ex_ids['pad-limites']}")
+    check(cp["type"] == "quiz" and cp["quiz_type"] == "checkpoint",
+          "a checkpoint step is a checkpoint challenge, not a standard one")
+    check(cp.get("quiz_answers") is None,
+          "and its code is not in the API response, for an admin either")
+    check(not admin.api("GET", f"/challenges/{cp['id']}/flags"),
+          "no static flag is left beside it: one answer, one place")
+
+    r = s.get(BASE + "/admin/workshop/settings", allow_redirects=False)
+    check(r.status_code in (302, 403), "a participant cannot reach the mode setting")
+    mode_page = admin.s.get(BASE + "/admin/workshop/settings").text
+    check("Workshop settings" in mode_page and 'value="self_serve"' in mode_page,
+          "the admin can see both modes")
+    # Nothing set this key: the wizard has no field for it and this instance
+    # was not provisioned by tools/provision.py. Default instructor_led is what
+    # an unconfigured instance has always in fact been (PLAN.md §25.3).
+    check(re.search(r'id="ws-mode-instructor"[^>]*checked', mode_page) is not None,
+          "an instance with nothing set reads as instructor-led")
+
+    def set_mode(mode):
+        nonce = get_nonce(admin.s, "/admin/workshop/settings")
+        admin.s.post(BASE + "/admin/workshop/settings",
+                     data={"workshop_mode": mode, "nonce": nonce})
+
+    def step_html(cid):
+        return s.get(BASE + f"/api/v1/workshop/step/{cid}").json()["data"]["html"]
+
+    target = ex_ids["pad-limites"]     # unlocked, unsolved by this attendee
+    body = step_html(target)
+    check('data-answer-kind="code"' in body and "ask the instructor" in body,
+          "instructor-led: the step asks for the code the instructor reads out")
+    check(codes["pad-limites"] not in body,
+          "and the code itself never reaches the page")
+    check(attempt(s, target, "done") == "incorrect",
+          "instructor-led: pressing a button is not a valid answer")
+
+    set_mode("self_serve")
+    body = step_html(target)
+    check('data-answer-kind="done"' in body and "Mark as done" in body,
+          "self-serve: the same step offers a button instead")
+    check("ask the instructor" not in body and 'class="form-control ws-answer"' not in body,
+          "self-serve: no code is asked for, and none is mentioned")
+    check(codes["pad-limites"] not in body,
+          "self-serve: the code is stored but still never revealed")
+    check(attempt(s, target, "done") == "correct",
+          "self-serve: the button solves the step")
+    sheet = admin.s.get(BASE + "/admin/workshop/answers").text
+    check("This instance is self-serve" in sheet and codes["pad-limites"] in sheet,
+          "the answer sheet says so, and still lists the codes for the way back")
+
+    set_mode("instructor_led")
+    check(attempt(s, ex_ids["pad-direction"], codes["pad-direction"]) == "already_solved",
+          "flipping back leaves every solve where it was")
+    check("This instance is self-serve"
+          not in admin.s.get(BASE + "/admin/workshop/answers").text,
+          "and the sheet reads as a session sheet again")
+
+    print("== Migrating a pre-§25 checkpoint step in place ==")
+    # What every already-deployed instance looks like: a standard challenge with
+    # a static flag. The migration must move it to the checkpoint type without
+    # touching the id, and therefore without touching the solve on it.
+    legacy = admin.api("POST", "/challenges", json={
+        "name": "Legacy checkpoint", "category": "Migration", "description": "old shape",
+        "value": 10, "type": "standard", "state": "visible"})
+    admin.api("POST", "/flags", json={"challenge_id": legacy["id"], "type": "static",
+                                      "content": "0ff1ce", "data": "case_insensitive"})
+    check(attempt(s, legacy["id"], "0ff1ce") == "correct",
+          "the old shape solves the old way")
+    solved_before = admin.api("GET", f"/challenges/{legacy['id']}/solves")
+    result = admin.api("POST", "/workshop/checkpoints/migrate",
+                       json={"challenge_ids": [legacy["id"]]})
+    check(result["migrated"] == [legacy["id"]], "the migration reports it converted it")
+    after = admin.api("GET", f"/challenges/{legacy['id']}")
+    check(after["type"] == "quiz" and after["quiz_type"] == "checkpoint",
+          "the challenge is now a checkpoint step")
+    check(after["id"] == legacy["id"], "with the same id, which is the whole point")
+    solved_after = admin.api("GET", f"/challenges/{legacy['id']}/solves")
+    check(len(solved_before) == 1 and len(solved_after) == 1,
+          "the solve on it survived the type change")
+    check(not admin.api("GET", f"/challenges/{legacy['id']}/flags"),
+          "and the flag it used to be answered by is gone")
+    codes_now = admin.api("GET", "/workshop/checkpoints")
+    check(codes_now[str(legacy["id"])] == "0ff1ce",
+          "the code was carried over, so a sheet handed out this morning still works")
+    # `admins_only` sends a browser to the login page and refuses an API call
+    # outright, so both shapes are checked — following the redirect would land
+    # on a 200 login page and prove nothing.
+    check(s.get(BASE + "/api/v1/workshop/checkpoints",
+                allow_redirects=False).status_code == 302
+          and s.get(BASE + "/api/v1/workshop/checkpoints",
+                    headers={"Content-Type": "application/json"},
+                    allow_redirects=False).status_code == 403,
+          "a participant cannot read the codes back")
+    check(admin.api("POST", "/workshop/checkpoints/migrate",
+                    json={"challenge_ids": [legacy["id"]]})["already"] == [legacy["id"]],
+          "running the migration twice is a no-op")
+    admin.api("DELETE", f"/challenges/{legacy['id']}")
+
+    print("== The sync page (PLAN.md §26) ==")
+    # The page itself, its access control and the shape of what it stores. The
+    # fetch is deliberately not exercised here: this suite must pass without a
+    # network, and what talks to GitHub is covered by its own walkthrough
+    # (a subject and a workshop, both imported from their real repositories).
+    for path in ("/admin/workshop/sync", "/api/v1/workshop/sync"):
+        r = s.get(BASE + path, allow_redirects=False)
+        check(r.status_code in (302, 403), f"a participant cannot reach {path}")
+    page_html = admin.s.get(BASE + "/admin/workshop/sync").text
+    check("Sync content" in page_html, "the sync page renders for an admin")
+    check("passphrase is used in your browser" in page_html,
+          "and says where an encrypted answers file is opened")
+    admin.api("PATCH", "/configs/workshop_source",
+              json={"value": json.dumps({"repo": "kevin-cazal/pypong_subject",
+                                         "ref": "main"})})
+    page_html = admin.s.get(BASE + "/admin/workshop/sync").text
+    check("kevin-cazal/pypong_subject" in page_html,
+          "the page names the repository this instance follows")
+    r = s.post(BASE + "/api/v1/workshop/sync", json={},
+               headers={"CSRF-Token": s.nonce, "Content-Type": "application/json"})
+    check(r.status_code in (302, 403), "a participant cannot start a sync")
+    # An instance with no source says so instead of starting a job that cannot
+    # do anything.
+    admin.api("PATCH", "/configs/workshop_source", json={"value": ""})
+    r = admin.s.post(BASE + "/api/v1/workshop/sync", json={},
+                     headers={"CSRF-Token": admin.nonce,
+                              "Content-Type": "application/json"})
+    check(r.status_code == 400 and "source repository" in r.text,
+          "with no source configured, starting a sync is refused")
+    check(admin.s.get(BASE + "/api/v1/workshop/sync").json()["data"]["state"] == "idle",
+          "and no job is left behind")
+
     print("== Work in progress, kept server-side (PLAN.md §16) ==")
     WS = "/workshop/workspace"
     check(requests.get(BASE + "/api/v1" + WS, allow_redirects=False).status_code
@@ -648,8 +787,7 @@ def main():
           "a closing step that is not the last asks about the part instead")
     admin.api("PATCH", "/configs/workshop_final_step", json={"value": str(outro_id)})
 
-    first_ex = next(c for c in admin.api("GET", "/challenges?view=admin")
-                    if c["type"] == "standard")
+    first_ex = {"id": ex_ids["pad-direction"]}
     page_before = s.get(BASE + "/workshop/pypong").text
     check('data-optional="1"' not in page_before,
           "nothing is marked bonus in a subject that declares none")

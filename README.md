@@ -4,8 +4,8 @@ CTFd as the backend for a **workshop** — guided, ordered exercises for beginne
 capture-the-flag. It is a CTFd **plugin** plus a content pipeline: nothing in CTFd's own source is
 modified, so upgrading CTFd stays a `git pull` of the submodule.
 
-Built for and running a real programme: six workshops, 147 exercises, five live instances,
-audience French *lycéens* aged 15 to 18.
+Built for and running a real programme: six workshops built from nine subjects, 145 exercises,
+ten live instances, audience French *lycéens* aged 15 to 18.
 
 ## What it gives you
 
@@ -22,8 +22,16 @@ audience French *lycéens* aged 15 to 18.
 - **A content pipeline.** A folder of Markdown becomes a live workshop; re-running the import
   updates in place and participants keep their solves.
 - **Work in progress kept server-side**, per participant, restored before the runtime boots.
-- **Two admin pages** the stock panel has no equivalent of: an answer sheet (every step's answer as
-  *this* instance will accept it, plus who is where) and a feedback report.
+- **Two usage modes, one platform.** The same content runs *instructor-led* — a room, at a time,
+  where a checkpoint step is validated by the code the instructor reads out — or *self-serve*,
+  where that step is a button because there is nobody to ask. The mode is an instance-wide
+  setting, read at render and submit time, so flipping it after a session is a toggle and not a
+  re-import.
+- **Sync from the subject repo, from the admin panel.** Clone, edit, push, press Sync: the
+  instance fetches a tarball from GitHub and runs the same importer the CLI runs. Encrypted
+  answers are decrypted in the browser, so the passphrase never reaches the server.
+- **Three admin pages** the stock panel has no equivalent of: an answer sheet (every step's answer
+  as *this* instance will accept it, plus who is where), a feedback report, and the sync page.
 
 ## What is not in this repo
 
@@ -34,22 +42,24 @@ audience French *lycéens* aged 15 to 18.
 - **Built runtime dists** (`plugins/workshop/runtimes/`). `tools/build_runtime.sh` rebuilds them
   from a pinned commit.
 
-This is a single-commit snapshot of the state that was deployed, not a fork with history.
+This is a snapshot of the state that was deployed, published one commit per snapshot, not a
+fork with history.
 
 ## Layout
 
 ```
 plugins/workshop/   the plugin — bind-mounted over CTFd/CTFd/plugins/workshop, never a core edit
 tools/              ws_parser (parser + linter), sync_subject, sync_workshop, provision,
-                    build_runtime, answers.sh
-scripts/            phase*_validate — the regression suite, 151 checks against a fresh instance
+                    build_runtime, build_vendor, answers.sh, backup.sh
+scripts/            phase*_validate — the regression suite, run against a fresh instance
                     content_visibility_check — every authored block on the page, in order
 docs/               CONTENT_CONVENTION.md (the authoring convention), CONTRIBUER.md (French,
-                    for content authors), DEPLOY.md (the production runbook)
+                    for content authors), DEPLOY.md (the production runbook),
+                    RUNTIME_PROTOCOL.md (how a web app becomes a runtime)
 compose/            one env file per instance: port and data directory
 deploy/             instances.yaml + the nginx vhost templates
 CTFd/               submodule -> kevin-cazal/CTFd, a fork of Manta-Epitech-Academy/CTFd
-PLAN.md             the design of record: 24 numbered decisions and why they went that way
+PLAN.md             the design of record: 27 numbered decisions and why they went that way
 ```
 
 ## Getting started
@@ -83,6 +93,14 @@ that was deployed. Authored answers are committed only GPG-encrypted.
 | [shell-rpg_subject](https://github.com/kevin-cazal/shell-rpg_subject) | [shell-rpg_runtime](https://github.com/kevin-cazal/shell-rpg_runtime) (v86) |
 | [shell-1_subject](https://github.com/kevin-cazal/shell-1_subject) | [shell-rpg_runtime](https://github.com/kevin-cazal/shell-rpg_runtime) (v86) |
 | [miniasm_subject](https://github.com/kevin-cazal/miniasm_subject) | [miniasm_runtime](https://github.com/kevin-cazal/miniasm_runtime) |
+| [back2epitech-icebreaking_subject](https://github.com/kevin-cazal/back2epitech-icebreaking_subject) | none |
+| [back2epitech-dataset_subject](https://github.com/kevin-cazal/back2epitech-dataset_subject) | none |
+| [back2epitech-akinator_subject](https://github.com/kevin-cazal/back2epitech-akinator_subject) | none |
+
+Subjects that run together as one workshop are chained by a `workshop.yaml` in their own repo:
+[discover-linux_subjects](https://github.com/kevin-cazal/discover-linux_subjects) (Shell RPG gates
+Shell 1) and [back2epitech_subjects](https://github.com/kevin-cazal/back2epitech_subjects) (three
+subjects in a strict chain).
 
 ## Two rules the code keeps
 

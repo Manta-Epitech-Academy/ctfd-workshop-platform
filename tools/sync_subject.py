@@ -10,9 +10,11 @@ Mapping (idempotent, keyed by an admin-only Topic `ws:<subject>:<slug>`):
                               press the button), which gates every root
   trailing prose           -> the closing step (`__outro__`, same mechanic),
                               gated by the last exercise
-  exercise                 -> standard challenge; description = context + body
-                              (+ resume shown only to instructors later);
-                              flag = per-exercise validation code
+  exercise                 -> `checkpoint` quiz challenge when the content
+                              validates by an instructor code, otherwise a
+                              standard challenge with a flag; description =
+                              context + the author's short version + body,
+                              each fenced for the page to lift out
   exercise hints           -> CTFd hints (cost from the marker)
   quiz                     -> `quiz` challenge (plugins/workshop) with spec +
                               answers from quiz_answers.yaml; requires its
@@ -21,10 +23,9 @@ Mapping (idempotent, keyed by an admin-only Topic `ws:<subject>:<slug>`):
   source reading order      -> Challenges.position (CTFd's native board order),
                               so the board is not sorted alphabetically
 
-Validation codes ("the code given by the instructor", checkpoint mechanic
-until the checkpoint type exists): read from --codes YAML if given, otherwise
-read back from the flags already in the instance, and only generated for an
-exercise that has neither. Codes therefore never rotate on a re-sync — once a
+Validation codes ("the code given by the instructor"): read from --codes YAML
+if given, otherwise read back from the checkpoint steps already in the
+instance, and only generated for an exercise that has neither. Codes therefore never rotate on a re-sync — once a
 code is handed to attendees it stays valid. The resolved sheet is written to
 the codes file; hand that file to the instructor.
 """
@@ -44,18 +45,14 @@ sys.path.insert(0, str(Path(__file__).parent))
 from ws_parser import (load_flags, load_quiz_answers, lint,  # noqa: E402
                        parse_subject, rewrite_asset_refs)
 
-# Platform-generated note appended to each exercise. English for now; i18n later
-# (CLAUDE.md). Workshop *content* stays in the audience's language.
-VALIDATION_NOTE = ("\n\n---\n\n*When your code works, validate the exercise with the "
-                   "code given by the instructor.*")
-# `validation: flag` needs no note: the answer is the point of the exercise, and
-# the statement already says what to submit. Adding "ask the instructor for a
-# code" there would be false.
-# `token` needs a word: the runtime shows the token, and a participant has to
-# know that pasting it here is what records the step.
-TOKEN_NOTE = ("\n\n---\n\n*Quand les tests passent, l'atelier affiche un jeton : "
-              "copie-le ici pour valider l'étape.*")
-VALIDATION_NOTES = {"checkpoint": VALIDATION_NOTE, "flag": "", "token": TOKEN_NOTE}
+# The note under a step ("ask the instructor for the code", "paste the token
+# here") is NOT written into the description any more. It depends on the
+# instance's mode, which is a toggle (PLAN.md §25.3), and a sentence baked into
+# `Challenges.html` cannot follow one: it would become a lie the moment the
+# mode changed, and correcting it would mean a re-sync. The workshop page
+# renders it at request time instead (templates/workshop_step_body.html). A
+# re-sync replaces the whole description, so a note baked in by an older run
+# disappears on its own.
 TOKEN_SECRET_CONFIG = "workshop_token_secret"
 # challenge id -> the validation mode the content asked for. Recorded because
 # it cannot be recovered from the instance afterwards: `checkpoint` and `flag`
@@ -66,12 +63,26 @@ VALIDATION_CONFIG = "workshop_validation"
 
 
 class CTFdAdmin:
-    """Minimal admin API client (session login + CSRF nonce)."""
+    """Minimal admin API client (session login + CSRF nonce, or a token).
 
-    def __init__(self, url, user, password):
+    `token=` is what the in-container sync page uses (PLAN.md §26): the
+    instance's preset admin token is in its environment, so the job needs no
+    password and no login round-trip. CTFd skips CSRF entirely for a request
+    carrying `Authorization`, and explicitly allows the multipart file upload
+    with one (utils/initialization/__init__.py:344), which is the only
+    non-JSON call this client makes.
+    """
+
+    def __init__(self, url, user=None, password=None, token=None):
         self.base = url.rstrip("/")
         self.s = requests.Session()
-        self._login(user, password)
+        if token:
+            self.s.headers["Authorization"] = f"Token {token}"
+            # Sent anyway by api()/upload(); ignored, since the header above is
+            # what CSRF checks for.
+            self.nonce = ""
+        else:
+            self._login(user, password)
 
     def _nonce(self, path="/"):
         r = self.s.get(self.base + path)
@@ -129,9 +140,14 @@ def doc_slug(doc):
 
 CONTEXT_OPEN = "<!-- ws:context -->"
 CONTEXT_CLOSE = "<!-- /ws:context -->"
+# The author's short version (convention §3.4) rides in the description the
+# same way, for the page to lift out and show above the statement. It is a
+# summary, never a replacement — PLAN.md §25.7.
+RESUME_OPEN = "<!-- ws:resume -->"
+RESUME_CLOSE = "<!-- /ws:resume -->"
 
 
-def fence_context(context_md, body_md):
+def fence_context(context_md, body_md, resume_md=""):
     """The exercise statement, with the prose it inherited marked as inherited.
 
     An exercise carries the prose that precedes it so it reads on its own —
@@ -141,10 +157,15 @@ def fence_context(context_md, body_md):
     lecture. Fencing it in HTML comments lets the page lift it out and render it
     above the steps, while the board still shows one self-sufficient statement:
     comments are invisible in every renderer, CTFd's included.
+
+    The author's short version travels the same way, fenced in its own markers
+    so the page can fold it above the statement in both modes.
     """
     parts = []
     if context_md:
         parts.append(f"{CONTEXT_OPEN}\n{context_md}\n{CONTEXT_CLOSE}")
+    if resume_md:
+        parts.append(f"{RESUME_OPEN}\n{resume_md}\n{RESUME_CLOSE}")
     if body_md:
         parts.append(body_md)
     return "\n\n".join(parts)
@@ -245,12 +266,28 @@ def upsert_challenge(ctfd, subject_slug, slug, payload, existing):
     return cid, created
 
 
-def current_flag(ctfd, cid):
-    """The validation code already live on a challenge, or None."""
-    for f in ctfd.api("GET", f"/challenges/{cid}/flags") or []:
-        if f["type"] == "static":
-            return f["content"]
-    return None
+def migrate_checkpoints(ctfd, challenge_ids):
+    """Convert pre-§25 checkpoint steps, then read every live code back.
+
+    Both halves go through plugin routes because CTFd's own API can do neither
+    (plugins/workshop/checkpoint.py): a challenge's type is not patchable in
+    place, and `quiz_answers` is excluded from every read schema — so the code
+    a re-sync must preserve is invisible to the API that would otherwise report
+    it.
+
+    Returns {challenge_id: code} for every checkpoint step on the instance,
+    which is what stops a re-sync minting a new code over a sheet that has
+    already been handed out.
+    """
+    if challenge_ids:
+        result = ctfd.api("POST", "/workshop/checkpoints/migrate",
+                          json={"challenge_ids": challenge_ids}) or {}
+        migrated = result.get("migrated") or []
+        if migrated:
+            print(f"checkpoints: {len(migrated)} step(s) converted from a static "
+                  f"flag to the checkpoint type, ids and solves untouched")
+    codes = ctfd.api("GET", "/workshop/checkpoints") or {}
+    return {int(cid): code for cid, code in codes.items()}
 
 
 def token_secret(ctfd):
@@ -326,13 +363,13 @@ def compute_token(secret, runtime_id, token_id):
     return scheme["flag"].format(digest=digest)
 
 
-def _answer_for(ex, codes, flags, tokens=None):
+def _answer_for(ex, flags, tokens=None):
     """(content, data) — what solves this exercise, and how it is compared.
 
-    Two validation modes are implemented (CONTENT_CONVENTION §3.2):
+    Only the flag-backed modes come through here. `checkpoint` does not: its
+    code lives on the challenge itself (PLAN.md §25.5), because whether the
+    code is required at all depends on the instance's mode.
 
-    `checkpoint`  a generated per-exercise code the instructor reads out. The
-                  interim mechanic until a checkpoint challenge type exists.
     `flag`        the answer itself, authored in flags.yaml — the participant
                   discovers it by doing the task, which is how a CTF-shaped
                   subject like shell-1 works. The platform must not overwrite
@@ -341,7 +378,7 @@ def _answer_for(ex, codes, flags, tokens=None):
     if ex.validation == "token":
         return tokens[ex.slug], "case_insensitive"
     if ex.validation != "flag":
-        return codes[ex.slug], "case_insensitive"
+        raise ValueError(f"{ex.slug}: {ex.validation!r} is not answered by a flag")
     entry = flags[ex.slug]
     if isinstance(entry, dict):
         # `case_insensitive: false` is for an answer where case carries meaning
@@ -552,6 +589,12 @@ def sync(subject_dir, url, admin_user, admin_pass, codes_path=None, *,
             if ex.validation == "token":
                 tokens[ex.slug] = compute_token(secret, runtime_id, ex.token_id)
         print(f"tokens: {len(tokens)} step(s) validated by what the runtime shows")
+    # Checkpoint steps of an instance synced before PLAN.md §25 are still
+    # `standard` challenges with a Flags row. Convert them before reading any
+    # code back — in place, so the ids and every solve on them survive.
+    live_codes = migrate_checkpoints(
+        ctfd, [existing[ex.slug] for ex in subject.exercises
+               if ex.validation == "checkpoint" and ex.slug in existing])
     changed_codes = False
     for ex in subject.exercises:
         if ex.validation != "checkpoint":
@@ -562,7 +605,7 @@ def sync(subject_dir, url, admin_user, admin_pass, codes_path=None, *,
             continue
         if codes.get(ex.slug):
             continue
-        codes[ex.slug] = (ex.slug in existing and current_flag(ctfd, existing[ex.slug])
+        codes[ex.slug] = (live_codes.get(existing.get(ex.slug))
                           or secrets.token_hex(3))
         changed_codes = True
     if changed_codes:
@@ -658,18 +701,33 @@ def sync(subject_dir, url, admin_user, admin_pass, codes_path=None, *,
                  json={"value": json.dumps(payload)})
         print(f"runtime: {rt['id']}@{rt['version']} -> /runtime/{rt['id']}/{rt['version']}/")
 
-    # 2. exercises -> standard challenges
+    # 2. exercises -> challenges. A `checkpoint` step is a `quiz` challenge of
+    # kind checkpoint (the plugin decides whether its code is required, which
+    # depends on the instance's mode); everything else stays a `standard`
+    # challenge answered by a flag. PLAN.md §25.5.
     ex_ids = {}
     for ex in subject.exercises:
-        description = fence_context(ex.context_md, ex.body_md)
-        cid, created = upsert_challenge(ctfd, subject.slug, ex.slug, {
+        description = fence_context(ex.context_md, ex.body_md, ex.resume_md)
+        payload = {
             "name": ex.title, "category": ex.category,
-            "description": description + VALIDATION_NOTES.get(ex.validation, ""),
-            "value": ex.points, "type": "standard",
+            "description": description,
+            "value": ex.points,
             "position": position_of[ex.order],  # source-reading order → board order
-        }, existing)
+        }
+        if ex.validation == "checkpoint":
+            payload.update({
+                "type": "quiz", "quiz_type": "checkpoint", "quiz_spec": None,
+                # The code lives on the challenge itself, in a column no API
+                # serializes — never in a Flags row a participant's submission
+                # is compared against by CTFd's own code.
+                "quiz_answers": {"code": codes[ex.slug]},
+            })
+        else:
+            payload["type"] = "standard"
+        cid, created = upsert_challenge(ctfd, subject.slug, ex.slug, payload, existing)
         ex_ids[ex.slug] = cid
-        set_flag(ctfd, cid, *_answer_for(ex, codes, flags, tokens))
+        if ex.validation != "checkpoint":
+            set_flag(ctfd, cid, *_answer_for(ex, flags, tokens))
         replace_hints(ctfd, cid, ex.hints)
         stats["created" if created else "updated"] += 1
 

@@ -87,7 +87,32 @@ def gate_for(entry, starter_final, previous_final):
     return previous_final if entry.get("order") is not None else starter_final
 
 
-def sync_workshop(workshop_dir, url, admin_user, admin_pass, codes_dir=None):
+def closing_of(result, name):
+    """The step the *next* subject waits for.
+
+    Normally the closing step of this subject's last document — the one where
+    the participant says they are done (PLAN.md §19, D2). A subject whose last
+    document ends on an exercise has none, and the caller used to fall back to
+    the previous subject's, which for the first subject is `None`: the next
+    subject then imported **with no prerequisite at all** and the whole workshop
+    was open from the first minute. It failed silently and it failed open, which
+    is the worst pair, so the fallback is now the subject's last required step
+    and it says so out loud.
+    """
+    if result["final_step"]:
+        return result["final_step"]
+    exercises = [e for e in result["subject"].exercises if not e.optional]
+    if not exercises:
+        return None
+    last = result["ex_ids"][exercises[-1].slug]
+    print(f"  note: {name} has no closing step, so the next subject waits on "
+          f"{exercises[-1].title!r} instead. Ending its last document with a few "
+          f"lines of prose would give it one.")
+    return last
+
+
+def sync_workshop(workshop_dir, url, admin_user, admin_pass, codes_dir=None, *,
+                  ctfd=None):
     manifest, subjects = load_manifest(workshop_dir)
     subjects = order_subjects(subjects)
 
@@ -101,12 +126,15 @@ def sync_workshop(workshop_dir, url, admin_user, admin_pass, codes_dir=None):
             print(f"FAIL {p}", file=sys.stderr)
         sys.exit(1)
 
-    ctfd = CTFdAdmin(url, admin_user, admin_pass)
+    # `ctfd` is passed in by the admin sync page, which authenticates with the
+    # instance's own preset admin token rather than a password (PLAN.md §26.5).
+    ctfd = ctfd or CTFdAdmin(url, admin_user, admin_pass)
     workshop = manifest.get("workshop") or {}
     print(f"== workshop: {workshop.get('name') or workshop_dir} "
           f"({len(subjects)} subjects) ==")
 
     documents, optional_ids, free_ids = [], set(), set()
+    totals = {"created": 0, "updated": 0}
     runtime, runtime_params = {}, {}
     position, starter_final, previous_final, final_step = 0, None, None, None
     entry_page = None
@@ -119,16 +147,19 @@ def sync_workshop(workshop_dir, url, admin_user, admin_pass, codes_dir=None):
         result = sync(str(entry["dir"]), url, admin_user, admin_pass, codes,
                       ctfd=ctfd, position_base=position, standalone=False,
                       gate_on=gate_for(entry, starter_final, previous_final))
+        for key, count in (result.get("stats") or {}).items():
+            totals[key] = totals.get(key, 0) + count
 
         subject = result["subject"]
         documents += result["documents"]
         optional_ids |= result["optional_ids"]
         free_ids |= result["free_ids"]
         position = result["last_position"]
-        previous_final = result["final_step"] or previous_final
+        closing = closing_of(result, entry["dir"].name)
+        previous_final = closing or previous_final
         final_step = result["final_step"] or final_step
         if role == "starter":
-            starter_final = result["final_step"]
+            starter_final = closing
             entry_page = subject
         # One dist serves every subject that shares a runtime; what differs is
         # data, and it travels per subject (PLAN.md §19.2).
@@ -165,7 +196,7 @@ def sync_workshop(workshop_dir, url, admin_user, admin_pass, codes_dir=None):
     print(f"workshop done: {len(subjects)} subjects, {len(documents)} parts, "
           f"{len(optional_ids)} optional and {len(free_ids)} free steps, "
           f"closing on challenge {final_step}")
-    return documents
+    return {"documents": documents, "subjects": len(subjects), "stats": totals}
 
 
 def main():

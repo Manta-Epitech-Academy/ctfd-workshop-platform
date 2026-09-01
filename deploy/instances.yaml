@@ -29,8 +29,19 @@ domain: ealab.duckdns.org
 defaults:
   user_mode: users          # individuals, not teams
   scoreboard: true          # kept: it helps this audience more than it hurts
-  registration: code        # a shared registration code, generated per instance
+  mode: instructor_led      # instructor_led | self_serve — PLAN.md §25
   verify_emails: false      # no mail server, and no addresses to verify
+
+# `source` is the repository an instance imports from when somebody presses Sync
+# on /admin/workshop/sync (PLAN.md §26). `content:` stays what the command line
+# imports from this checkout; the two are the same content, and the page records
+# which commit it took so drift is visible. Add `source_ref:` to follow a tag or
+# a branch other than `main`.
+#
+# `registration` is derived from the mode and is not set here: an instructor-led
+# instance gets the shared code (it is a session, not a public site), a
+# self-serve one is open. Set `registration: code|open` on an instance to
+# override that for a case neither shape fits.
 
 # Ports are loopback-only and deliberately in the 908x range, clear of the
 # 808x dev instances in compose/*.env: a production stack and a development
@@ -40,24 +51,80 @@ instances:
   - name: pypong
     port: 9080
     content: content/pypong
+    source: kevin-cazal/pypong_subject
 
   # A subject that brings its own runtime instead of reusing TIC-80.
   - name: pacman
     port: 9081
     content: content/pacman
+    source: kevin-cazal/pacman-ghost-ai_subject
 
   # The real workshop: four parts, optional bonuses, a free-choice chapter.
   - name: santa
     port: 9082
     content: content/santa_shooter
+    source: kevin-cazal/santa_shooter_subject
 
   # Multi-subject composition: Shell RPG gates Shell 1, both on one v86 dist.
   - name: discover-linux
     port: 9083
     content: content/workshops/discover-linux
+    source: kevin-cazal/discover-linux_subjects
     workshop: true
 
   # A runtime that grades itself: validation by token, and a prerequisite DAG.
   - name: miniasm
     port: 9084
     content: content/miniasm
+    source: kevin-cazal/miniasm_subject
+
+  # Three subjects in a strict chain, no runtime, and deliberately no self.*
+  # twin (PLAN.md §28.4): faire connaissance, then the dataset an LLM produces,
+  # then the code that reads it.
+  - name: back2epitech
+    port: 9090
+    content: content/workshops/back2epitech
+    source: kevin-cazal/back2epitech_subjects
+    workshop: true
+
+  # ---------------------------------------------------------------------
+  # The same five workshops in self-serve mode (PLAN.md §25.9): validated by
+  # a button instead of an instructor code, open registration, no session.
+  # One instance, one mode, so a second mode is a second instance — the five
+  # above keep their codes and their cohorts.
+  # ---------------------------------------------------------------------
+  - name: self-pypong
+    host: self.pypong.ealab.duckdns.org
+    port: 9085
+    content: content/pypong
+    source: kevin-cazal/pypong_subject
+    mode: self_serve
+
+  - name: self-pacman
+    host: self.pacman.ealab.duckdns.org
+    port: 9086
+    content: content/pacman
+    source: kevin-cazal/pacman-ghost-ai_subject
+    mode: self_serve
+
+  - name: self-santa
+    host: self.santa.ealab.duckdns.org
+    port: 9087
+    content: content/santa_shooter
+    source: kevin-cazal/santa_shooter_subject
+    mode: self_serve
+
+  - name: self-discover-linux
+    host: self.discover-linux.ealab.duckdns.org
+    port: 9088
+    content: content/workshops/discover-linux
+    source: kevin-cazal/discover-linux_subjects
+    workshop: true
+    mode: self_serve
+
+  - name: self-miniasm
+    host: self.miniasm.ealab.duckdns.org
+    port: 9089
+    content: content/miniasm
+    source: kevin-cazal/miniasm_subject
+    mode: self_serve

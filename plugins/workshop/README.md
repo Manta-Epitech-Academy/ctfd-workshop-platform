@@ -19,6 +19,7 @@ serialized to the client** (`read()` exposes only `quiz_type` and `quiz_spec`).
 | `multiple` | checkboxes | same `items` shape | `{"answers": ["A","D"]}` | `A,D` (order-free) |
 | `match` | one select per row | `{"left": [...], "right": [...]}` (same item shape) | `{"pairs": {"A":"c","B":"a"}}` | `A-c,B-a` (order-free, `:` ok) |
 | `freeform` | text input | none | `{"patterns": ["^regex$"], "case_sensitive": false}` | free text, any pattern matches |
+| `checkpoint` | text input, or a lone button | none | `{"code": "4b279a"}` | the instructor's code, or `done` in self-serve |
 
 Grading happens in `attempt()` (`quiz.py`); submissions go through the standard
 `/api/v1/challenges/attempt` endpoint, so solves, scoreboard, rate limiting, and
@@ -32,6 +33,40 @@ the stock text input, so it is never un-answerable.
 
 All plugin-visible strings are English; localization arrives later via CTFd's i18n
 (`{% raw %}{% trans %}{% endraw %}` markers are already in place in `view.html`).
+
+## The instance's mode (PLAN.md §25)
+
+`workshop_mode` — `instructor_led` (default) or `self_serve` — is a CTFd config key, set at
+provisioning and flippable at `/admin/workshop/settings`. It decides one thing: whether a
+`checkpoint` step asks for the code an instructor reads out, or offers a button because there
+is nobody to ask. `mode.py` is the only reader; `quiz.py` consults it at submit time and
+`page.py` at render time, so a flip needs no re-sync and moves no solve.
+
+The code is stored on the challenge either way and is never serialized to a client, which is
+what makes the flip reversible. `checkpoint.py` carries the two admin-only routes the importer
+needs: reading the codes back (`quiz_answers` is excluded from every read schema) and
+converting a pre-§25 instance in place — `standard` challenge plus a `Flags` row becomes a
+checkpoint challenge, same id, same solves.
+
+## Syncing from the subject repository (PLAN.md §26)
+
+`/admin/workshop/sync` imports the instance's workshop straight from GitHub: resolve the ref
+to a commit, fetch the tarball, lint, then run `tools/sync_subject.py` — the same importer the
+CLI runs, mounted read-only at `/opt/workshop/tools` rather than copied. `workshop_source`
+holds `{repo, ref}`; `workshop_last_sync` holds what the last import brought in.
+
+A workshop repo names its subjects by repo, and `ref: submodule` follows the pin the wrapper
+records. A tarball carries submodules empty, so the pin is read from the contents API instead
+— no git in the container, and none wanted.
+
+Encrypted answers (`flags.yaml.gpg`) are opened **in the admin's browser** with a vendored
+openpgp.js: the job parks, hands the blob to the page, and takes back the plaintext. The
+passphrase never reaches the server. PGPy would have been the server-side route and does not
+work — it calls `cryptography.utils.register_interface`, gone since cryptography 37, and the
+image ships 45.
+
+The job runs in a thread, which is a greenlet under the gevent worker, so an import neither
+blocks the instance nor deadlocks when it calls the instance's own API.
 
 ## Portability notes (for future CTFd upgrades)
 

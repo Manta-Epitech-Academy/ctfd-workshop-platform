@@ -30,6 +30,15 @@
 </div>
 
 <div class="container">
+  {% if self_serve %}
+    <div class="alert alert-secondary">
+      <strong>This instance is self-serve.</strong> The instructor codes below are stored
+      and still work if you switch it back, but nobody is asked for one: a step is
+      validated by its button. Change that on the
+      <a href="/admin/workshop/settings">Workshop mode</a> page.
+    </div>
+  {% endif %}
+
   {% if per_instance %}
     <div class="alert alert-warning">
       <strong>These answers belong to this instance.</strong>

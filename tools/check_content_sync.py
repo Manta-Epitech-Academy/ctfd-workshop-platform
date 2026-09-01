@@ -32,7 +32,12 @@ UPSTREAMS = CONTENT / "upstreams.yaml"
 # Anything else in a subject repo (README.md is generated, .github/ is CI) is
 # the repo's own business, not content the platform imports.
 TRACKED_SUFFIXES = (".md", ".yaml", ".yml")
-IGNORED = {"README.md", "upstreams.yaml"}
+# The decrypted answer files are working copies: the repos commit only the
+# `.gpg` (not a tracked suffix), and `tools/answers.sh decrypt` puts the
+# plaintext here. Comparing them would report every local decrypt as drift. The
+# encrypted form is no better as a comparison — gpg re-encrypts to different
+# bytes every time — so an answer change is one thing this check cannot see.
+IGNORED = {"README.md", "upstreams.yaml", "flags.yaml", "quiz_answers.yaml"}
 
 
 def _gh(args):

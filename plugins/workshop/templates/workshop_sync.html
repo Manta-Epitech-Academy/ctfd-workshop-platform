@@ -1,0 +1,135 @@
+{% extends "admin/base.html" %}
+
+{#
+  Sync this instance from its subject repository (PLAN.md §26). Admin-facing,
+  so every string is English like the rest of the platform UI.
+
+  The flow the page serves: clone the subject repo, edit, push, come here,
+  press Sync. Everything the importer needs comes from GitHub; the only thing
+  that ever comes from this page is the passphrase for an encrypted answers
+  file, and that never leaves the browser.
+#}
+
+{% macro sha(value) -%}
+  <code>{{ value[:7] if value else "—" }}</code>
+{%- endmacro %}
+
+{% block content %}
+<div class="jumbotron">
+  <div class="container">
+    <h1>Sync content</h1>
+    <p class="lead mb-0">
+      Import this workshop from its repository, as it stands on GitHub right now.
+    </p>
+  </div>
+</div>
+
+<div class="container">
+  {% for problem in problems %}
+    <div class="alert alert-warning">{{ problem }}</div>
+  {% endfor %}
+
+  <div class="row">
+    <div class="col-md-6">
+      <h3 class="ws-sync-h">Source</h3>
+      <form method="POST" action="/admin/workshop/sync/source" class="form-inline mb-2">
+        <input type="hidden" name="nonce" value="{{ Session.nonce }}">
+        <input type="text" class="form-control mr-2 mb-2" name="repo" size="34"
+               placeholder="owner/name_subject" value="{{ source.repo }}"
+               aria-label="Repository">
+        <input type="text" class="form-control mr-2 mb-2" name="ref" size="12"
+               placeholder="main" value="{{ source.ref }}" aria-label="Branch, tag or commit">
+        <button type="submit" class="btn btn-outline-secondary mb-2">Save</button>
+      </form>
+      <p class="text-muted">
+        A subject repository (<code>subject.yaml</code> at its root) or a workshop
+        (<code>workshop.yaml</code> naming its subjects). Public repositories only —
+        this instance fetches them with no credentials.
+      </p>
+    </div>
+
+    <div class="col-md-6">
+      <h3 class="ws-sync-h">Where this instance stands</h3>
+      <table class="table table-sm ws-sync-state">
+        <tr>
+          <th>Imported</th>
+          <td>
+            {% if last.commit %}
+              {{ sha(last.commit) }}
+              {% if last.message %}<span class="text-muted">{{ last.message }}</span>{% endif %}
+              <div class="text-muted"><small>
+                {{ last.created }} created, {{ last.updated }} updated
+                {%- if last.by %}, by {{ last.by }}{% endif %}
+              </small></div>
+            {% else %}
+              <span class="text-muted">nothing yet — this instance was synced from the
+              command line</span>
+            {% endif %}
+          </td>
+        </tr>
+        <tr>
+          <th>On GitHub</th>
+          <td>
+            {% if tip.error %}
+              <span class="text-muted">{{ tip.error }}</span>
+            {% elif tip.sha %}
+              {{ sha(tip.sha) }} <span class="text-muted">{{ tip.message }}</span>
+              {% if last.commit == tip.sha %}
+                <div class="text-success"><small>this instance is up to date</small></div>
+              {% else %}
+                <div class="text-warning"><small>the repository has moved on — Sync brings
+                  it in</small></div>
+              {% endif %}
+            {% else %}
+              <span class="text-muted">—</span>
+            {% endif %}
+          </td>
+        </tr>
+      </table>
+    </div>
+  </div>
+
+  <hr>
+
+  {# `data-job` is the sync already in flight, if there is one: opening this
+     page in a second tab, or coming back to it, picks the job up where it is
+     instead of pretending nothing is happening. #}
+  <div id="ws-sync" data-openpgp="/plugins/workshop/assets/vendor/openpgp.min.mjs"
+       data-nonce="{{ Session.nonce }}"
+       data-job="{{ job | tojson if job else '' }}">
+    <button type="button" class="btn btn-primary" id="ws-sync-go"
+            {{ "disabled" if not source.repo }}>Sync now</button>
+    <span class="ws-sync-status text-muted ml-2" role="status" aria-live="polite"></span>
+
+    {# Shown only when the fetched content carries encrypted answers. The
+       passphrase is used here, in this browser, and posted nowhere. #}
+    <div class="ws-sync-unlock mt-3" hidden>
+      <div class="alert alert-info mb-2">
+        This subject keeps its answers encrypted. The passphrase is used in your browser
+        to open them and is never sent to the server.
+      </div>
+      <div class="form-inline">
+        <input type="password" class="form-control mr-2" id="ws-sync-pass" size="30"
+               placeholder="Answers passphrase" aria-label="Answers passphrase"
+               autocomplete="off">
+        <button type="button" class="btn btn-secondary" id="ws-sync-unlock">Unlock and continue</button>
+        <span class="ws-sync-unlock-error text-danger ml-2"></span>
+      </div>
+    </div>
+
+    <div class="ws-sync-summary mt-3" hidden></div>
+    <pre class="ws-sync-log mt-3" hidden></pre>
+  </div>
+
+  <p class="text-muted mt-3">
+    <strong>The repository is the source of truth.</strong> Whatever it says wins, including
+    answers — a step edited by hand on this instance goes back to what the content says.
+    Checkpoint codes are the exception: they belong to this instance and are never rotated
+    by a sync. <code>N created</code> on an instance that was already synced means a step's
+    id changed and the old challenge is still here; the
+    <a href="/admin/challenges">challenge list</a> is where to look.
+  </p>
+</div>
+
+<script type="module" src="/plugins/workshop/assets/workshop_sync.js"></script>
+{% endblock %}

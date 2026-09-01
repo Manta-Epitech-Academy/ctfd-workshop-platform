@@ -33,7 +33,9 @@ from CTFd.models import Flags, Solves, Users, db
 from CTFd.utils import get_config
 from CTFd.utils.decorators import admins_only
 
-from .page import NON_TASK_KINDS, _documents, _optional_ids, _ordered_challenges
+from .mode import LABELS as MODE_NAMES, current_mode, is_self_serve
+from .page import (NON_TASK_KINDS, _documents, _optional_ids,
+                   _ordered_challenges, _validation_modes)
 
 workshop_answers = Blueprint("workshop_answers", __name__,
                              template_folder="templates")
@@ -65,20 +67,10 @@ PER_INSTANCE = ("checkpoint", "token")
 NO_ANSWER = ("info", "rating", "ack")
 
 
-def _validation_modes():
-    """challenge id -> the mode the content asked for, as the sync recorded it.
-
-    Empty on an instance synced before `workshop_validation` existed, which is
-    why every caller falls back to _infer_mode rather than trusting this.
-    """
-    raw = get_config("workshop_validation")
-    if not raw:
-        return {}
-    try:
-        modes = json.loads(raw)
-    except (TypeError, ValueError):
-        return {}
-    return {int(k): v for k, v in modes.items() if str(k).isdigit()}
+# `_validation_modes` (challenge id -> the mode the content asked for, as the
+# sync recorded it) lives in page.py, which reads the same map to decide what a
+# step's answer control is. Empty on an instance synced before that key
+# existed, which is why every caller here still falls back to _infer_mode.
 
 
 def _token_ids():
@@ -133,6 +125,11 @@ def _quiz_answer(challenge):
     answers = getattr(challenge, "quiz_answers", None)
     if kind in NO_ANSWER or answers is None:
         return ""
+    if kind == "checkpoint":
+        # The instructor's code. It is stored whatever the instance's mode is,
+        # and only *required* in instructor-led — see plugins/workshop/mode.py.
+        code = answers.get("code") if isinstance(answers, dict) else answers
+        return str(code or "")
     if kind == "single":
         value = answers.get("answer") if isinstance(answers, dict) else answers
         return str(value)
@@ -329,6 +326,12 @@ def collect():
         "recorded": bool(modes),
         "guessed": any(r["guessed"] for p in parts for r in p["rows"]),
         "per_instance": any(r["per_instance"] for p in parts for r in p["rows"]),
+        # Which usage this instance is set to (PLAN.md §25): in self-serve the
+        # codes below are stored but not asked for, and saying so here is what
+        # stops somebody reading one out to a room that does not need it.
+        "instance_mode": current_mode(),
+        "instance_mode_label": MODE_NAMES[current_mode()],
+        "self_serve": is_self_serve(),
         "totals": {
             "steps": sum(len(p["rows"]) for p in parts),
             "answers": len(answered),

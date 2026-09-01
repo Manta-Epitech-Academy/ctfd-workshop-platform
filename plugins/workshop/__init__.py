@@ -22,6 +22,9 @@ from .runtime import load_runtime
 from .workspace import load_workspace
 from .feedback import load_feedback
 from .answers import load_answers
+from .mode import load_mode
+from .checkpoint import load_checkpoint
+from .syncpage import load_syncpage
 from .quiz import QuizChallenge
 
 
@@ -64,6 +67,25 @@ def load(app):
     # CTFd has no third user type, so that tier has to be plugin-side.
     load_answers(app)
     register_admin_plugin_menu_bar("Answers", "/admin/workshop/answers")
+    # Instructor-led or self-serve (PLAN.md §25). One instance, one mode: it
+    # decides whether a checkpoint step asks for the instructor's code or
+    # offers a button, and what the page says under the step. Read at render
+    # and submit time, so flipping it after a session is a toggle rather than
+    # a re-import.
+    load_mode(app)
+    register_admin_plugin_menu_bar("Workshop mode", "/admin/workshop/settings")
+    # The two admin-only routes the importer needs for checkpoint steps: read
+    # the codes back (they live in a column no API serializes) and convert the
+    # `standard` challenges of an instance synced before §25 in place, without
+    # touching a single solve. See checkpoint.py.
+    load_checkpoint(app)
+    # Import this instance's workshop straight from its repository (PLAN.md
+    # §26): clone the subject repo, edit, push, press Sync. The importer is the
+    # same tools/sync_subject.py the CLI runs, mounted read-only; an encrypted
+    # answers file is opened in the admin's browser, so the passphrase never
+    # reaches the server. See syncpage.py and source.py.
+    load_syncpage(app)
+    register_admin_plugin_menu_bar("Sync content", "/admin/workshop/sync")
     register_plugin_assets_directory(app, base_path="/plugins/workshop/assets/")
     # Caps hint images (the theme only caps description images) — see
     # assets/workshop.css. Injected via {{ Plugins.styles }} in base.html.

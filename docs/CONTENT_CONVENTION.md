@@ -101,7 +101,7 @@ runtime:
   language: "python"        # Monaco language id
 
 platform:
-  mode_default: self_serve  # self_serve | instructor_led — admin can override per session
+  mode_default: instructor_led  # self_serve | instructor_led — the instance decides (§3.6)
   validation_default: checkpoint   # checkpoint | tests | flag | review
   points_default: 25        # per exercise, when not overridden
 
@@ -182,9 +182,13 @@ without moving the heading or changing its level.
 
 Two modes are implemented, and the difference is who knows the answer:
 
-- **`checkpoint`** (default) — the platform generates one code per exercise and writes the sheet
-  to `instructor_codes.<subject>.yaml`. The instructor reads a code out when they have seen the
-  work. Codes never rotate on a re-sync, so one already handed out stays valid.
+- **`checkpoint`** (default) — somebody has to say the work is done. The platform generates one
+  code per exercise and writes the sheet to `instructor_codes.<subject>.yaml`; the instructor
+  reads a code out when they have seen the work. Codes never rotate on a re-sync, so one already
+  handed out stays valid. **In a self-serve instance there is nobody to ask**, so the same step
+  offers a button instead and the participant validates it themselves — the code stays stored,
+  unrevealed, so the instance can be switched back (PLAN.md §25.4). The author writes
+  `checkpoint` either way: which of the two happens is the instance's setting, not the content's.
 - **`flag`** — the answer *is* the flag, and the participant discovers it by doing the task. This
   is how a CTF-shaped subject works (`shell1{exemple}`). The platform must not overwrite it, so
   those exercises get no generated code and no "ask the instructor" note.
@@ -214,10 +218,10 @@ it would import as a step nobody can solve — and an entry matching no exercise
 encrypt it (shell-1 keeps `flag.txt.gpg` and a `decrypt.sh`) or leave it out and supply it at
 sync time.
 
-### 3.4 Instructor-led summary — marked region, visible content
+### 3.4 The short version — marked region, shown as a summary
 
-The short "consigne courte" for instructor-led mode is *content*, not metadata, so it may be
-visible on GitHub. Invisible region markers select it:
+The short "consigne courte" is *content*, not metadata, so it may be visible on GitHub.
+Invisible region markers select it:
 
 ```markdown
 <!-- ws:resume -->
@@ -226,9 +230,14 @@ visible on GitHub. Invisible region markers select it:
 <!-- /ws:resume -->
 ```
 
-Self-serve mode renders the whole section; instructor-led renders only the `resume` region
-(fallback when absent: the full section — degrades gracefully). On GitHub the bullets render
-as a normal part of the doc.
+The platform renders it **in both modes**, as a foldable "In short" box above the statement —
+a summary, never a replacement. On GitHub the bullets render as a normal part of the doc.
+
+> Changed 2026-08-25 (PLAN.md §25.7). This region used to be specified as a *swap*:
+> instructor-led would render only the bullets and self-serve the full prose. That is the
+> same shape as the bug fixed in §24 — a step whose statement says "reuse the code above"
+> needs the code above to be on the page, and the participant sitting in a room is the one
+> most likely to be pointed at it. Nothing is withheld by the mode any more.
 
 ### 3.5 Instructor-led review flow
 
@@ -253,6 +262,29 @@ happen in one gesture.
 Auto-checkable validations (`tests`, `flag`, quizzes §3.7) still auto-check in instructor-led
 mode; their result is attached to the submission so the instructor reviews outcomes, not
 syntax.
+
+### 3.5b The instance's mode — instructor-led or self-serve
+
+The same subject serves a room with an instructor and somebody working alone at home. Which one
+an instance is, is **the instance's setting and not the content's**: `workshop_mode` in CTFd's
+config, flipped at `/admin/workshop/settings` or set at provisioning from
+`deploy/instances.yaml`. One instance, one mode (PLAN.md §25.3).
+
+`platform.mode_default` in `subject.yaml` is what provisioning falls back to when the manifest
+says nothing. Precedence: `instances.yaml` `mode:` > `platform.mode_default` > `instructor_led`.
+
+What changes with it, in full:
+
+| | instructor-led | self-serve |
+|---|---|---|
+| a `checkpoint` step | asks for the code the instructor reads out | one button, self-validated |
+| the note under the control | "ask the instructor for the validation code" | "nobody checks this for you" |
+| registration (at provisioning) | a shared code | open |
+| the review flow of §3.5 | applies | nothing to review |
+
+What does **not**: the order of the steps, what gates what, points, hints, the short version of
+§3.4, `flag` and `token` answers (they already prove themselves), and every solve already
+recorded. Flipping the mode changes what a step asks for, and nothing else.
 
 ### 3.6 Hints — native `<details>`, optional cost
 
@@ -372,7 +404,7 @@ the same parser library** — what CI accepts, the platform imports, by construc
 repo is enough to run the associated CTFd instance — `provision(repo_url, ref)` is the whole
 interface. Only three things stay outside the repo, on purpose:
 
-- **mode** (self-serve / instructor-led) — configured manually per instance for now
+- **mode** (self-serve / instructor-led) — an instance setting since PLAN.md §25 (§3.5b)
 - **secrets** (`flag_env` values) — never in a public repo
 - **attendees** — session-specific by nature
 
@@ -410,8 +442,18 @@ subjects:
     order: 1
 ```
 
-`repo` + `ref` is the deployment-time form and arrives with `provision(repo_url, ref)`; `path`
-is what an already-vendored tree uses today.
+`repo` + `ref` is what the **admin sync page** reads (PLAN.md §26): the instance fetches each
+subject from GitHub at that ref. `path` is what the command line reads from an already-vendored
+tree. A manifest may carry both, and `kevin-cazal/discover-linux_subjects` does — the subjects are
+git submodules, so `path` is the submodule directory a `--recursive` clone gives you and `repo`
+is where the instance fetches the same thing from.
+
+**`ref: submodule`** means "the commit this workshop repo pins for that subject", which is what a
+clone of the wrapper checks out. The platform reads the pin from GitHub's contents API rather than
+from git, because a repository tarball carries submodule directories empty. The alternative is a
+branch (`ref: main`, always that subject's tip — one push while a subject is being rewritten) or a
+tag or sha (frozen for a session). The trade is worth stating: with `submodule`, pushing to the
+subject repo changes nothing until the wrapper's pin is bumped and pushed too.
 
 **Single-subject shortcut:** most workshops are one subject. A subject repo is directly
 deployable — the provisioner treats `subject.yaml` as an implicit one-subject workshop

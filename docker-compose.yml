@@ -85,6 +85,9 @@ services:
       - PRESET_ADMIN_EMAIL=${WS_ADMIN_EMAIL:-}
       - PRESET_ADMIN_PASSWORD=${WS_ADMIN_PASSWORD:-}
       - PRESET_ADMIN_TOKEN=${WS_ADMIN_TOKEN:-}
+      # Where the mount above lands. The plugin puts it on sys.path; without
+      # it the sync page says so instead of failing at import time.
+      - WORKSHOP_TOOLS=/opt/workshop/tools
     logging:
       driver: json-file
       options: {max-size: "10m", max-file: "3"}
@@ -96,6 +99,12 @@ services:
       # prevent creating the mountpoint for the plugin overlay below.
       # Workshop plugin overlaid into the image's plugins dir (PLAN.md §4):
       - ./plugins/workshop:/opt/CTFd/CTFd/plugins/workshop:ro
+      # The platform's own tools, read-only, so the admin sync page imports a
+      # subject with the same parser and the same importer the CLI uses rather
+      # than a second copy of them (PLAN.md §26.5). Mounted outside the plugin
+      # directory because that one is itself a read-only bind: a nested mount
+      # would need a mountpoint the plugin does not have.
+      - ./tools:/opt/workshop/tools:ro
     depends_on:
       permissions:
         condition: service_completed_successfully

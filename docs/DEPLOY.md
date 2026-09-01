@@ -1,14 +1,17 @@
 # Deploying the workshop instances
 
-Five CTFd instances, one per subject, each on its own subdomain with CTFd at
-the root of it. The design decisions behind this are PLAN.md §22; this file is
-the sequence to actually run, in order, with what to check after each step.
+Ten CTFd instances on their own subdomains, with CTFd at the root of each: the
+five subjects **instructor-led** at `<name>.ealab.duckdns.org`, and the same
+five **self-serve** at `self.<name>.ealab.duckdns.org`. One instance, one mode
+(PLAN.md §25.3), so a second mode is a second instance. The design decisions
+behind this are PLAN.md §22 and §25; this file is the sequence to actually run,
+in order, with what to check after each step.
 
 Everything below is driven by two files:
 
 | File | What it holds | Committed? |
 |---|---|---|
-| `deploy/instances.yaml` | the five instances: name, port, content | yes |
+| `deploy/instances.yaml` | the ten instances: name, host, port, content, mode | yes |
 | `deploy/secrets.yaml` | session keys, DB and admin passwords, API tokens | **no** — generated, gitignored |
 
 `deploy/secrets.yaml` is generated on the first `provision.py` run and is the
@@ -21,9 +24,15 @@ only copy of the admin passwords. **Back it up somewhere before you need it.**
 - nginx **on the host** (not a container) and certbot.
 - Ports 80 and 443 free and reachable from the internet. Nothing else needs to
   be exposed: the instances publish to `127.0.0.1` only.
+- `pip3` and `curl` on the host, for `tools/build_vendor.sh` — the CTFd image
+  ships neither PyYAML nor an OpenPGP library, and the admin sync page needs
+  both (PLAN.md §26.5).
 - ~3 GB of disk for the images, ~45 MB of runtime dists, plus whatever the
   databases grow to (a few MB per instance for a workshop-sized cohort).
-- Roughly 250 MB of RAM per instance — five stacks is about 1.2 GB.
+- Roughly 250 MB of RAM per instance — ten stacks is about 2.5 GB. The runtime
+  dists are served off disk by the host nginx from one shared path, so a second
+  instance of the same subject costs RAM and a database, not another copy of a
+  330 MB machine image.
 
 Clone somewhere nginx can read, **not** under a home directory whose
 permissions stop `www-data` traversing it. `/srv/workshop` is a good choice:
@@ -58,12 +67,16 @@ Confirm it from the server before asking certbot for anything — a failed HTTP-
 rate limit, and Let's Encrypt allows only five duplicate-certificate requests per week:
 
 ```bash
-for i in pypong pacman santa discover-linux miniasm; do
-  printf '%-16s %s\n' "$i" "$(dig +short $i.ealab.duckdns.org)"
+for i in pypong pacman santa discover-linux miniasm \
+         self.pypong self.pacman self.santa self.discover-linux self.miniasm; do
+  printf '%-26s %s\n' "$i" "$(dig +short $i.ealab.duckdns.org)"
 done
 ```
 
-All five must print `<server-ip>`.
+All ten must print `<server-ip>`. The wildcard answers at **any** depth, not
+just one label — `self.pypong.ealab.duckdns.org` resolves without a record of
+its own (verified 2026-08-25). One certificate per name all the same: a
+wildcard certificate covers one label, so it would not have covered these.
 
 The wildcard has one consequence worth handling: a hostname nobody configured still reaches the
 server, and without a default server nginx hands those requests to whichever vhost loads first —
@@ -150,7 +163,8 @@ One certificate per name, webroot mode, so certbot never edits our generated
 vhosts:
 
 ```bash
-for i in pypong pacman santa discover-linux miniasm; do
+for i in pypong pacman santa discover-linux miniasm \
+         self.pypong self.pacman self.santa self.discover-linux self.miniasm; do
   sudo certbot certonly --webroot -w /var/www/certbot \
        -d "$i.ealab.duckdns.org" --non-interactive --agree-tos \
        --key-type ecdsa -m you@example.com
@@ -237,6 +251,7 @@ repository at the commit its subject pins, so this needs network and takes a
 few minutes per runtime:
 
 ```bash
+tools/build_vendor.sh                          # PyYAML + openpgp.js for the sync page
 python3 tools/provision.py runtimes            # tic80, pacman, v86, miniasm
 python3 tools/provision.py up
 python3 tools/provision.py setup               # wizard + registration code
@@ -251,6 +266,62 @@ Then read out what participants and you will need:
 ```bash
 python3 tools/provision.py secrets
 ```
+
+
+## 6b. Which mode an instance is in
+
+`provision.py setup` writes it from the manifest, so there is nothing extra to
+run: `mode: self_serve` on an instance means its checkpoint steps validate with
+a button and its registration is open, `instructor_led` (the default) means the
+instructor's code and a shared registration code.
+
+To change it on a **running** instance, use `/admin/workshop/settings` rather
+than re-provisioning. Nothing is re-imported, no solve moves, and the codes stay
+stored — which is what makes the usual move safe: run a session instructor-led,
+then flip the same instance to self-serve afterwards so the room can finish at
+home.
+
+```bash
+# what an instance is set to, without opening a browser
+curl -s -H "Authorization: Token <admin token>" -H 'Content-Type: application/json' \
+     https://pypong.ealab.duckdns.org/api/v1/configs/workshop_mode
+```
+
+An instance that has never had the key set reads as `instructor_led`, which is
+what every instance deployed before 2026-08-25 in fact was.
+
+**Registration follows the mode at provisioning only.** Flipping the setting
+does not open or close registration — that would be a surprising way to open the
+doors on a running instance. Change it in Config → Registration.
+
+
+## 6c. Syncing content from the admin panel
+
+`/admin/workshop/sync` imports the instance's workshop **from its repository on
+GitHub** (PLAN.md §26), which is the loop it exists for: clone the subject repo,
+edit, push, press Sync. `deploy/instances.yaml` names the repository per
+instance (`source:`, plus `source_ref:` for a tag or another branch), and
+`provision.py setup` writes it onto the instance.
+
+The page needs three things, and says so plainly when one is missing:
+
+- **`tools/build_vendor.sh` has run** — PyYAML for the parser and openpgp.js for
+  the browser-side decryption, both gitignored build artifacts;
+- **`./tools` is mounted** at `/opt/workshop/tools`, which comes from
+  `docker-compose.yml` — a container created before that line existed needs
+  `provision.py up` (which re-creates it), not just a restart;
+- **the preset admin credentials are in the environment**, which every instance
+  rendered by `provision.py` has.
+
+Two subjects keep their answers encrypted (`shell-1_subject`, `pypong_subject`).
+Syncing one of those stops and asks for the passphrase: the file is decrypted
+**in your browser** and the passphrase is never sent to the instance or stored
+anywhere. Without it the sync refuses rather than importing new content against
+old answers.
+
+The command line keeps working and is unchanged — `provision.py sync` imports
+from `content/` in this checkout. The two can disagree after a page sync, which
+is what the recorded commit on the page is for.
 
 
 ## 7. Verify before anyone arrives
@@ -300,7 +371,13 @@ this, and only this:
 cd /srv/workshop
 git pull
 docker restart ctfd-{pypong,pacman,santa,discover-linux,miniasm}-ctfd-1
+docker restart ctfd-self-{pypong,pacman,santa,discover-linux,miniasm}-ctfd-1
 ```
+
+A `git pull` that changes `docker-compose.yml` — the mount the sync page needs
+was added on 2026-08-26 — needs `python3 tools/provision.py up` instead, which
+re-creates the containers. That is safe here precisely because `SECRET_KEY` is
+in the generated env file, so nobody is logged out.
 
 The restart is not optional for a plugin change. `plugins/workshop/` is
 bind-mounted, but the module is imported once at boot, so an instance that has
@@ -318,14 +395,23 @@ python3 tools/provision.py sync
 
 It is idempotent: expect `0 created` and everything `updated`, and no
 validation code changes, because the sync reads existing codes back off the
-instance. `N created` on an instance that was already synced means a slug moved
+instance.
+
+The first sync after 2026-08-25 also prints `checkpoints: N step(s) converted`.
+That is the one-time move of checkpoint steps from a static flag to the
+checkpoint challenge type (PLAN.md §25.5). It edits the rows in place: the
+challenge ids do not move, so solves, points and prerequisites are untouched,
+and the codes are carried over — a sheet handed out that morning still works.
+It needs the **restarted** plugin, so do the restart above first; against an old
+plugin the sync stops with a 404 on `/api/v1/workshop/checkpoints`. `N created` on an instance that was already synced means a slug moved
 and you now have a duplicate challenge — see the Topic rename note below.
 
 Worth checking after, since it is what silently degrades:
 
 ```bash
-for i in pypong pacman santa discover-linux miniasm; do
-  printf '%-16s %s\n' "$i" \
+for i in pypong pacman santa discover-linux miniasm \
+         self.pypong self.pacman self.santa self.discover-linux self.miniasm; do
+  printf '%-26s %s\n' "$i" \
     "$(curl -s -o /dev/null -w '%{http_code}' https://$i.ealab.duckdns.org/admin/workshop/answers)"
 done
 ```
@@ -520,12 +606,25 @@ into instances nobody can log into.
 - **Validation codes must survive a re-sync.** `instructor_codes.<name>.yaml`
   is the source of truth; the sync only generates a code for an exercise that
   has none, so codes already handed out stay valid. Keep those files.
+- **A self-serve instance still stores its instructor codes.** They are not
+  asked for, not shown and not sent to any client — they are what makes
+  switching the instance back to instructor-led work. Do not delete them
+  because "self-serve does not need codes".
+- **The mode is not what opens registration.** `provision.py setup` derives one
+  from the other, but the runtime toggle only changes how a step is validated.
+  An instance flipped to self-serve keeps whatever registration it had.
 - **The codes an instance actually accepts are on the instance.**
   `/admin/workshop/answers` lists every step's answer as that instance will
   take it, plus how far each participant has got. That is the sheet to open in
   the room: checkpoint codes and runtime tokens are minted per instance, so a
   printout from another deployment is worthless. Admin login for now — CTFd has
   no instructor tier (PLAN.md §23.2).
+- **The sync page is a read-only consumer of GitHub.** It has no git, no write
+  access to any checkout, and no way to push. Editing content still happens in
+  the subject repo on your machine.
+- **Unauthenticated GitHub allows 60 requests an hour per IP.** A sync costs two
+  for a subject and five for a workshop of two submodules. Ten instances syncing
+  in a loop would hit it; nothing else will.
 - **Renaming a content slug orphans a challenge**, solves and all — the sync
   keys on the Topic `ws:<subject>:<slug>`. Rename the Topic first, do not
   delete the challenge after.

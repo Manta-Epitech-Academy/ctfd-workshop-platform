@@ -69,9 +69,26 @@ def load_manifest():
         sys.exit(f"no manifest at {MANIFEST}")
     data = yaml.safe_load(MANIFEST.read_text())
     domain = data.get("domain", "")
+    defaults = data.get("defaults", {})
     for inst in data["instances"]:
         inst.setdefault("workshop", False)
         inst["host"] = inst.get("host") or f"{inst['name']}.{domain}"
+        # PLAN.md §25: one instance, one mode. Instructor-led unless asked for,
+        # because an instance that self-validates is a deliberate act.
+        inst["mode"] = inst.get("mode") or defaults.get("mode") or "instructor_led"
+        if inst["mode"] not in ("instructor_led", "self_serve"):
+            sys.exit(f"{inst['name']}: unknown mode {inst['mode']!r}")
+        # A code is what keeps a session instance on the open internet from
+        # filling with strangers; a self-serve instance is meant to be found,
+        # so it has none. Overridable per instance for the odd case.
+        inst["registration"] = inst.get("registration") or (
+            "open" if inst["mode"] == "self_serve" else "code")
+        # Where the admin sync page fetches from (PLAN.md §26). `content:` is
+        # what the command line imports from this checkout; this is the same
+        # content as its own repository, which is what an instance follows once
+        # somebody presses Sync.
+        inst["source"] = (inst.get("source") or "").strip()
+        inst["source_ref"] = (inst.get("source_ref") or "main").strip()
     return data
 
 
@@ -308,10 +325,20 @@ def cmd_setup(manifest, sec, args):
         # Settings the wizard has no field for. The registration code is what
         # keeps an instance on the open internet from filling with strangers,
         # so it matters that this step runs, not just that the wizard did.
+        # A self-serve instance is meant to be found, so it carries none — and
+        # the empty string is what clears one already set (PLAN.md §25.8).
+        coded = inst["registration"] == "code"
         configs = {
-            "registration_code": sec["registration_code"],
+            "registration_code": sec["registration_code"] if coded else "",
             "verify_emails": bool(defaults.get("verify_emails", False)),
+            # How a checkpoint step is validated, read at render and submit
+            # time by the plugin (PLAN.md §25.3). Set here rather than baked
+            # into the content, so it stays a toggle afterwards.
+            "workshop_mode": inst["mode"],
         }
+        if inst["source"]:
+            configs["workshop_source"] = json.dumps(
+                {"repo": inst["source"], "ref": inst["source_ref"]})
         if not defaults.get("scoreboard", True):
             configs["score_visibility"] = "hidden"
 
@@ -321,7 +348,10 @@ def cmd_setup(manifest, sec, args):
                      "Content-Type": "application/json"})
         if r.status_code != 200:
             sys.exit(f"  settings failed: HTTP {r.status_code} {r.text[:200]}")
-        print(f"  settings applied — registration code {sec['registration_code']!r}")
+        print(f"  settings applied — {inst['mode']}, registration "
+              + (f"code {sec['registration_code']!r}" if coded else "open")
+              + (f", sync from {inst['source']}@{inst['source_ref']}"
+                 if inst["source"] else ""))
 
 
 # --------------------------------------------------------------------------

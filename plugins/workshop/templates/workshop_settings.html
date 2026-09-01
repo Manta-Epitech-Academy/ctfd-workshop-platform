@@ -1,0 +1,84 @@
+{% extends "admin/base.html" %}
+
+{#
+  The usage mode of this instance (PLAN.md §25). Admin-facing, so every string
+  is English like the rest of the platform UI.
+
+  One setting, deliberately: the mode changes how a `checkpoint` step is
+  validated and what the page says under it, and nothing else. Registration is
+  not touched here — see the note below.
+#}
+
+{% block content %}
+<div class="jumbotron">
+  <div class="container">
+    <h1>Workshop settings</h1>
+    <p class="lead mb-0">
+      How this instance is being used, and therefore how a step gets validated.
+    </p>
+  </div>
+</div>
+
+<div class="container">
+  {% if saved %}
+    <div class="alert alert-success">
+      Saved. The workshop pages follow the new mode straight away — no re-sync,
+      and nobody loses a solve.
+    </div>
+  {% endif %}
+
+  <form method="POST" class="ws-settings">
+    <input type="hidden" name="nonce" value="{{ Session.nonce }}">
+
+    <div class="form-group">
+      <div class="custom-control custom-radio mb-3">
+        <input type="radio" class="custom-control-input" id="ws-mode-instructor"
+               name="workshop_mode" value="instructor_led"
+               {{ "checked" if mode == "instructor_led" }}>
+        <label class="custom-control-label" for="ws-mode-instructor">
+          <strong>{{ labels.instructor_led }}</strong>
+          <div class="text-muted">
+            A room, at a time, with somebody teaching. A step validated by an
+            <em>instructor code</em> asks for that code, which you read out when you
+            have seen the work. The sheet is on the
+            <a href="/admin/workshop/answers">Answers</a> page.
+          </div>
+        </label>
+      </div>
+
+      <div class="custom-control custom-radio">
+        <input type="radio" class="custom-control-input" id="ws-mode-self"
+               name="workshop_mode" value="self_serve"
+               {{ "checked" if mode == "self_serve" }}>
+        <label class="custom-control-label" for="ws-mode-self">
+          <strong>{{ labels.self_serve }}</strong>
+          <div class="text-muted">
+            Whoever finds the URL, whenever. The same step is validated by a button,
+            because there is nobody to ask for a code. Steps whose answer the
+            participant finds by working (a flag, a token from the runtime) are
+            unaffected — they already prove themselves.
+          </div>
+        </label>
+      </div>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Save</button>
+  </form>
+
+  <hr>
+
+  <p class="text-muted">
+    <strong>The codes stay put either way.</strong> Switching to self-serve does not
+    delete or reveal an instructor code: it stops requiring it. That is what makes
+    switching back safe, which is the usual move once a session is over and the
+    instance stays up for people finishing at home.
+  </p>
+  <p class="text-muted">
+    <strong>Registration is not changed here.</strong> A session instance is normally
+    behind a registration code and a self-serve one is open, but flipping this setting
+    would be a surprising way to open the doors on a running instance. Set it in
+    <a href="/admin/config">Config &rarr; Registration</a>, or provision the instance
+    with the mode already set.
+  </p>
+</div>
+{% endblock %}

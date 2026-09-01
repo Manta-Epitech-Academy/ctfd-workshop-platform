@@ -14,7 +14,9 @@ Working on **`main`** (renamed from `mockup` on 2026-08-18). Phases 0, 1 and 2 o
 UI), §14 A–D (runtime embedding, including the pacman content migration), §15 (topologies),
 §16 (work in progress kept server-side), §17 (the feedback report), §18–§20 (phase E: the v86
 family, multi-subject workshops, shell-1's 42 challenges), §21 (phase F: the MiniASM port and
-`validation: token`) and **§22 (the production deploy layer)**.
+`validation: token`), **§22 (the production deploy layer)**, **§25 (the two usage modes:
+instructor-led and self-serve, one instance one mode)** and **§26 (syncing an instance from its
+subject repository, from the admin panel)**.
 A subject repo goes into a CTFd instance with one command, and a participant works through it
 on a single page with the TIC-80 editor beside the instructions.
 
@@ -27,6 +29,7 @@ token).
 ```
 plugins/workshop/   the CTFd plugin, bind-mounted over CTFd/CTFd/plugins/workshop
   quiz.py           `quiz` challenge type: single | multiple | match | freeform (regex)
+                    + checkpoint (the instructor's code, or a button in self-serve)
                     + ack (read-and-acknowledge) + rating (the closing feedback step)
   page.py           GET /workshop — the whole subject as one page, steps as accordions
   graph.py          GET /api/v1/workshop/graph — prerequisite DAG for the current user
@@ -34,10 +37,16 @@ plugins/workshop/   the CTFd plugin, bind-mounted over CTFd/CTFd/plugins/worksho
   workspace.py      work in progress per participant, restored before the frame boots
   feedback.py       /admin/workshop/feedback — what the ratings actually say
   answers.py        /admin/workshop/answers — every step's answer and who is where
+  mode.py           instructor-led or self-serve, and /admin/workshop/settings
+  checkpoint.py     read the codes back, and migrate a pre-§25 instance in place
+  source.py         where an instance's content comes from: a GitHub tarball,
+                    submodule pins resolved through the API
+  syncpage.py       /admin/workshop/sync — fetch the repo and import it, with
+                    encrypted answers opened in the admin's browser
   landing.py        / and the post-login default redirect to /workshop
   assets/, templates/
 deploy/             the production deploy (PLAN.md §22)
-  instances.yaml    the five instances: name, port, content. Committed.
+  instances.yaml    the ten instances: name, host, port, content, mode. Committed.
   nginx/            vhost templates + the shared websocket-upgrade map
   secrets.yaml      GENERATED, gitignored, and the only copy of the admin
                     passwords. Back it up.
@@ -48,13 +57,16 @@ tools/
   sync_subject.py   idempotent subject repo -> CTFd import
   sync_workshop.py  several subjects as one workshop, starter gating advanced
   build_runtime.sh  builds a runtime dist for its mount path (tic80, pacman, v86)
+  build_vendor.sh   PyYAML + openpgp.js, the two things the CTFd image lacks
   import_shell1.py  shell-1-challenges -> a convention 2.0 subject, re-runnable
   import_miniasm.py miniasm's own data -> a subject, read through node
 content/            subjects in convention 2.0: pypong, pacman, santa_shooter,
-                    shell_rpg, shell_1, miniasm
+                    shell_rpg, shell_1, miniasm. What the CLI imports; an
+                    instance synced from the admin panel follows the public
+                    `*_subject` repos instead (PLAN.md §26)
   workshops/        workshop.yaml manifests: discover-linux (Shell RPG then
                     Shell 1), tic80-double (PyPong then Santa Shooter)
-scripts/            phase0/1/2 validation — phase2 is the live one, 132 checks
+scripts/            phase0/1/2 validation — phase2 is the live one, 184 checks
   workshop_check.py multi-subject composition, against a composed instance
   secure_context_check.js  the deploy-day check: a MiniASM token derives over
                     https and cannot over plain http (needs Playwright)
@@ -172,20 +184,35 @@ instance, so **never run it bare**.
 
 ## The deploy is done
 
-Five instances are live over HTTPS since 2026-08-19, ahead of the 2026-08-21 target:
+Five instances went live over HTTPS on 2026-08-19, ahead of the 2026-08-21 target. Since
+2026-08-25 each one has a **self-serve twin** (PLAN.md §25.9) — one instance, one mode, so a
+second mode is a second instance:
 
-| | | |
-|---|---|---|
-| https://pypong.ealab.duckdns.org/ | 15 challenges | TIC-80 |
-| https://pacman.ealab.duckdns.org/ | 19 | pacman runtime |
-| https://santa.ealab.duckdns.org/ | 36 | TIC-80, four parts |
-| https://discover-linux.ealab.duckdns.org/ | 48 | v86, two subjects |
-| https://miniasm.ealab.duckdns.org/ | 29 | MiniASM, token validation |
+| Instructor-led (a code from the instructor) | Self-serve (a button) | | |
+|---|---|---|---|
+| https://pypong.ealab.duckdns.org/ | https://self.pypong.ealab.duckdns.org/ | 15 challenges | TIC-80 |
+| https://pacman.ealab.duckdns.org/ | https://self.pacman.ealab.duckdns.org/ | 19 | pacman runtime |
+| https://santa.ealab.duckdns.org/ | https://self.santa.ealab.duckdns.org/ | 36 | TIC-80, four parts |
+| https://discover-linux.ealab.duckdns.org/ | https://self.discover-linux.ealab.duckdns.org/ | 48 | v86, two subjects |
+| https://miniasm.ealab.duckdns.org/ | https://self.miniasm.ealab.duckdns.org/ | 29 | MiniASM, token validation |
 
 They run from `/srv/workshop` on `<server-ip>` (`debian` user, passwordless sudo), managed with
 `tools/provision.py`. Credentials: `python3 tools/provision.py secrets` on the server, backed by
 `deploy/secrets.yaml` — gitignored, and the **only** copy of the admin passwords. A second copy
-sits in the local `deploy/` directory. Registration is by a shared code, same code on all five.
+sits in the local `deploy/` directory. The left column is behind a shared registration code, the
+same one on all five; the right column is open, because a workshop meant to be found cannot be
+behind a code read off a slide.
+
+The five original instances were migrated in place on 2026-08-25: 57 checkpoint steps moved from
+a static flag to the checkpoint challenge type, ids and solves untouched, codes carried over
+(verified against `instructor_codes.*.yaml` afterwards).
+
+**2026-08-26: all ten run the sync page** (PLAN.md §26). Each one knows its subject repository and
+imports from GitHub when somebody presses Sync on `/admin/workshop/sync` — the loop is: clone the
+subject repo, edit, push, press Sync. Proven live on `self.santa` (0 created, 36 updated, from
+`3718284`) and on `self.pypong`, which stops for its encrypted answers and refuses to import
+without them. The containers were re-created for the `./tools` mount, so `provision.py up` is now
+part of an update that touches `docker-compose.yml`.
 
 `PLAN.md` §22.5 records what the server turned out to differ on; `docs/DEPLOY.md` has been
 corrected accordingly and is the file to follow for the next one.

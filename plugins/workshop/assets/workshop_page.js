@@ -31,6 +31,11 @@
     // Reading acknowledgement: the click is the answer. The server accepts it
     // without grading (quiz.py), so this constant carries no secret.
     if (kind === "ack") return "read";
+    // A checkpoint step in a self-serve instance: there is no instructor to
+    // give out a code, so pressing the button is the completion. The server
+    // accepts it only while the instance is self-serve (quiz.py, PLAN.md
+    // §25.4), so this constant carries no secret either.
+    if (kind === "done") return "done";
     // The closing rating: the feedback IS the submission, so the step cannot
     // be solved — and the bar cannot reach 100% — without it.
     if (kind === "rating") {
@@ -192,6 +197,9 @@
     var payload = await r.json();
     if (payload && payload.success) {
       step.querySelector(".ws-step-body").innerHTML = payload.data.html;
+      // A step filled in place carries its own folds; give them the state the
+      // participant last chose, like the ones rendered with the page.
+      restoreFolds(step);
       var name = step.querySelector(".ws-step-name");
       if (name) name.textContent = payload.data.name;
       step.querySelectorAll(".ws-rating").forEach(markRating);
@@ -317,20 +325,29 @@
   // exercise after an introduction routinely says to reuse the code in it. The
   // fold is for the participant who has already read a long one; shutting it
   // sticks, so it does not spring open again on every page.
+  // A step's short version (PLAN.md §25.7) folds the same way and for the same
+  // reason, so both go through one key.
+  var FOLDS = ".ws-part-lead[data-lead], .ws-summary[data-step]";
+
   function leadKey(lead) {
-    return "ws-lead:" + window.location.pathname + ":" + (lead.dataset.lead || "");
+    var id = lead.dataset.lead || ("step" + lead.dataset.step);
+    return "ws-lead:" + window.location.pathname + ":" + id;
   }
 
-  function rememberLeads() {
-    ROOT.querySelectorAll(".ws-part-lead[data-lead]").forEach(function (lead) {
+  function restoreFolds(scope) {
+    (scope || ROOT).querySelectorAll(FOLDS).forEach(function (lead) {
       try {
         if (window.localStorage.getItem(leadKey(lead)) === "shut") lead.open = false;
       } catch (e) { /* storage refused (private window): it stays open */ }
     });
+  }
+
+  function rememberLeads() {
+    restoreFolds(ROOT);
     // `toggle` does not bubble, hence the capture phase.
     ROOT.addEventListener("toggle", function (ev) {
       var lead = ev.target;
-      if (!lead.dataset || !lead.classList.contains("ws-part-lead")) return;
+      if (!lead.dataset || !lead.matches || !lead.matches(FOLDS)) return;
       try {
         if (lead.open) window.localStorage.removeItem(leadKey(lead));
         else window.localStorage.setItem(leadKey(lead), "shut");

@@ -38,6 +38,7 @@ from CTFd.utils.decorators.visibility import check_challenge_visibility
 from CTFd.utils.helpers import markup
 from CTFd.utils.user import get_current_user
 
+from .mode import is_self_serve
 from .runtime import declared_runtime
 
 workshop_page = Blueprint(
@@ -120,15 +121,25 @@ def _rating(challenge, user):
 # tools/sync_subject.py. HTML comments survive CTFd's renderer intact.
 CONTEXT_OPEN = "<!-- ws:context -->"
 CONTEXT_CLOSE = "<!-- /ws:context -->"
+# The author's own short version of a step (convention §3.4), fenced by the
+# sync the same way. It is shown *with* the statement and never instead of it
+# — PLAN.md §25.7 — so it rides in the body rather than beside it.
+RESUME_OPEN = "<!-- ws:resume -->"
+RESUME_CLOSE = "<!-- /ws:resume -->"
+
+
+def _split_fenced(html, open_tag, close_tag):
+    """(fenced, rest) — one marked region lifted out of a challenge body."""
+    if not html or open_tag not in html or close_tag not in html:
+        return "", html
+    before, rest = html.split(open_tag, 1)
+    inside, after = rest.split(close_tag, 1)
+    return inside.strip(), (before + after).strip()
 
 
 def _split_context(html):
     """(lead, statement) — the fenced opening prose, and the step's own body."""
-    if not html or CONTEXT_OPEN not in html or CONTEXT_CLOSE not in html:
-        return "", html
-    before, rest = html.split(CONTEXT_OPEN, 1)
-    lead, after = rest.split(CONTEXT_CLOSE, 1)
-    return lead.strip(), (before + after).strip()
+    return _split_fenced(html, CONTEXT_OPEN, CONTEXT_CLOSE)
 
 
 def _lead(challenge):
@@ -143,14 +154,67 @@ def _lead(challenge):
     return markup(_split_context(challenge.html)[0])
 
 
-def _body(challenge, user):
+# What the control under a step is, and what the line beside it says. Both
+# depend on the instance's mode for a checkpoint step, so both are decided here
+# at request time rather than written into the content at import (PLAN.md
+# §25.6). English, like every other platform string (CLAUDE.md).
+NOTES = {
+    "code": "When your work is finished, ask the instructor for the validation code.",
+    "done": "Nobody checks this for you: mark the step done once your work is finished.",
+    "token": "When the tests pass, the app shows a token — paste it here to "
+             "validate the step.",
+}
+
+
+def _answer_kind(challenge, validation):
+    """Which control this step gets, and therefore what the form sends.
+
+    `code` and `done` are the same challenge seen in the two modes: the
+    instructor's code is asked for in a room, and in a self-serve instance
+    there is nobody to ask, so pressing the button is the completion.
+    """
+    if challenge.type == "quiz":
+        kind = getattr(challenge, "quiz_type", None)
+        if kind == "checkpoint":
+            return "done" if is_self_serve() else "code"
+        return kind or "flag"
+    return "token" if validation == "token" else "flag"
+
+
+def _validation_modes():
+    """challenge id -> the validation mode the content asked for.
+
+    Written by the sync (`workshop_validation`), and the only way to tell a
+    `token` step from a `flag` one: both are standard challenges with a static
+    flag. Empty on an instance synced before that key existed, where every such
+    step simply reads as a flag — which is what it looks like anyway.
+    """
+    raw = get_config("workshop_validation")
+    if not raw:
+        return {}
+    try:
+        modes = json.loads(raw)
+    except (TypeError, ValueError):
+        return {}
+    return {int(k): v for k, v in modes.items() if str(k).isdigit()}
+
+
+def _body(challenge, user, validation=None):
     """Everything a participant needs to actually do the step."""
-    _, statement = _split_context(challenge.html)
+    lead, rest = _split_context(challenge.html)
+    summary, statement = _split_fenced(rest, RESUME_OPEN, RESUME_CLOSE)
+    kind = _answer_kind(challenge, validation)
     return {
         "description": markup(statement),
+        # The author's short version, folded open above the statement. A
+        # summary, never a substitute: §24 is what happens when a step's own
+        # words are withheld from the person reading it.
+        "summary": markup(summary),
         "hints": _hints(challenge, user.account_id),
         "quiz_type": getattr(challenge, "quiz_type", None),
         "quiz_spec": getattr(challenge, "quiz_spec", None) or {},
+        "answer_kind": kind,
+        "note": NOTES.get(kind, ""),
         "rating": _rating(challenge, user),
     }
 
@@ -163,6 +227,7 @@ def _steps(user):
     optional = _optional_ids()
     free = _free_ids()
     final_id = _final_step_id()
+    validation = _validation_modes()
 
     steps, current_taken = [], False
     for c in challenges:
@@ -216,7 +281,8 @@ def _steps(user):
                            for p in prereqs if p not in solved],
             # Teaching prose, not a statement: always rendered (see _lead).
             "lead": _lead(c),
-            "body": _body(c, user) if (unlocked or is_solved) else None,
+            "body": (_body(c, user, validation.get(c.id))
+                     if (unlocked or is_solved) else None),
         }
         steps.append(step)
     return steps

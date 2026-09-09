@@ -60,7 +60,12 @@
    (a number people are meant to feel good about), reused for step count
    instead of experience points, next to a thin rounded track rather than the
    plain grey rule this used to be. */
-.ws-overall { display: flex; align-items: center; gap: 0.9rem; }
+/* `flex` on the row itself, not just on the track inside it: a flex container
+   sized by its content contributes nothing for a `flex: 1` child with no
+   content of its own, so a shrink-to-fit `.ws-overall` measures badge + gap
+   and leaves the track exactly 0px wide. The basis is what makes it drop onto
+   its own full-width line under a long title rather than being squeezed. */
+.ws-overall { display: flex; align-items: center; gap: 0.9rem; flex: 1 1 16rem; }
 .ws-overall-badge {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   flex: none; min-width: 3.9rem; padding: 0.3rem 0.5rem;

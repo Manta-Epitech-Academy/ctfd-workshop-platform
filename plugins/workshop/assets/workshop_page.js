@@ -290,19 +290,12 @@
 
   /* ---------- navigation ---------- */
 
-  function navbarHeight() {
-    var nav = document.querySelector(".navbar.fixed-top");
-    return nav ? nav.getBoundingClientRect().height : 0;
-  }
-
-  function syncNavbarHeight() {
-    document.documentElement.style.setProperty(
-      "--ws-navbar-height", navbarHeight() + "px");
-  }
-
+  /* The app shell's header scrolls with the page (it is in normal flow, like
+     jump's), so the only thing an anchor has to clear is the part stepper,
+     which sticks to the top of the viewport on its own. */
   function stickyOffset() {
     var bar = ROOT.querySelector(".ws-stepper-parts");
-    return navbarHeight() + (bar ? bar.getBoundingClientRect().height : 0) + 16;
+    return (bar ? bar.getBoundingClientRect().height : 0) + 16;
   }
 
   function scrollTo(el) {
@@ -358,10 +351,8 @@
   function start() {
     ROOT = document.querySelector("#ws-workshop");
     if (!ROOT) return;
-    syncNavbarHeight();
     ROOT.querySelectorAll(".ws-rating").forEach(markRating);
     rememberLeads();
-    window.addEventListener("resize", syncNavbarHeight);
 
     ROOT.addEventListener("click", function (ev) {
       var save = ev.target.closest(".ws-rating-save");

@@ -17,36 +17,42 @@
  * Colours come from Bootstrap's semantic variables so the page follows
  * CTFd's own light/dark switcher instead of hardcoding one theme.
  * ------------------------------------------------------------------ */
-.ws-page { max-width: 62rem; padding-bottom: 4rem; }
+/* Width and gutters come from `main > .container` (epitech-theme.css), which
+   puts every page on the app shell's own width; only the tail padding is this
+   page's business. */
+.ws-page { padding-bottom: 4rem; }
 
-/* Header: a faint engineering-grid texture behind it (jump's BrandBackdrop),
-   never a blur or a gradient — BrandBackdrop's own comment is explicit that
-   the charte rules out both here. Two flat tinted rectangles, not jump's
-   five: this header is a strip, not a full-viewport hero, so the same
-   density would crowd it. */
-.ws-head-backdrop {
-  position: relative; overflow: hidden;
-  border-radius: var(--bs-border-radius-lg, 1rem);
-  padding: 1.5rem 1.25rem 1.1rem; margin: 1rem 0 1.5rem;
+/* A page title in jump's talent space is a plain left-aligned Anton line on the
+   page's own background: no card, no border, no texture. It used to carry a
+   tinted panel and a blueprint-grid backdrop here, which was wrong on both
+   counts — jump uses BrandBackdrop only on its full-screen ceremony pages
+   (onboarding, welcome, charte), never on the everyday shell. */
+.ws-head {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem;
+  margin: 0 0 1.5rem;
 }
-.ws-head-backdrop::before,
-.ws-head-backdrop::after {
-  content: ""; position: absolute; z-index: 0; pointer-events: none;
+/* jump's own back control, class for class: a muted glyph that picks up a muted
+   fill and the brand colour on hover. The negative left margin pulls the glyph's
+   padding back so the icon optically aligns with the title below it. */
+.ws-back {
+  display: inline-flex; align-items: center; justify-content: center; flex: none;
+  margin-left: -0.375rem; padding: 0.375rem;
+  border-radius: var(--bs-border-radius-sm, 0.5rem);
+  color: var(--bs-secondary-color); text-decoration: none;
+  transition: background-color 0.15s, color 0.15s;
 }
-.ws-head-backdrop::before {
-  top: -1.2rem; right: -1.5rem; width: 7rem; height: 4rem;
-  background: color-mix(in oklab, var(--bs-primary, #0d6efd) 10%, transparent);
+.ws-back:hover {
+  background: var(--bs-secondary-bg); color: var(--bs-primary); text-decoration: none;
 }
-.ws-head-backdrop::after {
-  bottom: -1.6rem; right: 5rem; width: 3.5rem; height: 3.5rem;
-  background: color-mix(in oklab, var(--bs-success, #198754) 12%, transparent);
-}
-.ws-head-backdrop > * { position: relative; z-index: 1; }
-.ws-head { padding: 0; }
+.ws-back i { font-size: 1.15rem; line-height: 1; }
+
 .ws-title {
-  margin-bottom: 0.6rem;
+  flex: 1 1 auto; min-width: 0; margin: 0;
   font-family: "Anton", sans-serif; text-transform: uppercase;
-  font-size: 1.7rem; line-height: 1.1;
+  font-size: 1.5rem; line-height: 1.1;
+  /* Grows the line box symmetrically so Anton's É does not get its accent
+     sliced — jump's own fix, and French part titles need it. */
+  padding: 0.375rem 0; margin-block: -0.375rem;
 }
 
 /* The "N / total" count as a bold figure in a tinted rounded badge, the unit
@@ -92,9 +98,10 @@
   gap: 0.15rem 0.35rem; font-size: 0.82rem;
 }
 .ws-stepper-parts {
-  /* CTFd's navbar is `fixed-top`, so sticking at 0 hides the stepper behind
-     it — exactly the thing that must stay visible while scrolling. */
-  position: sticky; top: var(--ws-navbar-height, 56px); z-index: 20;
+  /* Sticks flush to the top: the app shell's header is in normal flow and
+     scrolls away, so there is no fixed bar left to clear. This stepper is the
+     one thing on the page that must survive scrolling a long subject. */
+  position: sticky; top: 0; z-index: 20;
   background: var(--bs-body-bg, #fff);
   border-bottom: 1px solid var(--bs-border-color, #dee2e6);
   padding: 0.5rem 0; margin-bottom: 1rem;
@@ -349,11 +356,10 @@
 :root { --ws-pane-width: 55%; }
 
 .ws-runtime {
-  /* Starts below CTFd's fixed navbar rather than covering it: the navbar stays
-     usable while the pane is open, and it keeps its full width — shrinking it
-     made it wrap to two rows, since `navbar-expand-md` collapses on viewport
-     width, which a margin does not change. */
-  position: fixed; top: var(--ws-navbar-height, 56px); right: 0; bottom: 0;
+  /* Full height now: the shell's header scrolls with the page rather than being
+     pinned over it, so there is no fixed bar for the pane to start below. The
+     header stays reachable by scrolling up on the left-hand column. */
+  position: fixed; top: 0; right: 0; bottom: 0;
   width: var(--ws-pane-width); z-index: 1030;
   display: flex; flex-direction: column;
   background: var(--bs-body-bg, #fff);

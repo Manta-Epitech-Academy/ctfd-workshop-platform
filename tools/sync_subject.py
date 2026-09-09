@@ -813,13 +813,13 @@ def sync(subject_dir, url, admin_user, admin_pass, codes_path=None, *,
         ctfd.api("PATCH", f"/challenges/{cid}", json={
             "requirements": {"prerequisites": [gate], "anonymize": True}})
 
-    # 5. One route per document, so each part gets its own navbar entry:
-    #   <CTF name> | Parcours | <part 1> | … | <part N> | Users | Scoreboard | …
-    # The Page exists to produce the link — CTFd builds the user menu from Pages
-    # plus plugin-registered entries (CTFd/CTFd/plugins/__init__.py:153) — while
-    # the route itself is served by plugins/workshop/page.py, whose rule beats
-    # CTFd's `/<path:route>` catch-all. The Page body is a plain link, so the
-    # entry still goes somewhere sane if the plugin is ever unloaded.
+    # 5. One route per document. The Page exists to produce the *route*, not a
+    # navbar link — CTFd builds the user menu from Pages plus plugin-registered
+    # entries (CTFd/CTFd/plugins/__init__.py:153), and every part Page is
+    # `hidden` (below): it stays reachable, it just never shows there. Route
+    # itself is served by plugins/workshop/page.py, whose rule beats CTFd's
+    # `/<path:route>` catch-all. The Page body is a plain link, so the entry
+    # still goes somewhere sane if the plugin is ever unloaded.
     documents_cfg = []
     for doc in subject.documents:
         if not doc.exercises:
@@ -844,12 +844,22 @@ def sync(subject_dir, url, admin_user, admin_pass, codes_path=None, *,
             "title": doc.title, "route": route,
             "content": f"[{doc.title}](/{route})",
             "format": "markdown", "draft": False,
-            # One navbar entry per part is right for a single subject and wrong
-            # for a workshop: five parts wrap CTFd's fixed navbar onto three
-            # lines, which then covers the page heading. In a workshop the index
-            # is the hub (PLAN.md §19, D4), so the parts stay out of the menu —
-            # `hidden` keeps the route, it only drops the link.
-            "hidden": not standalone,
+            # Always hidden, standalone or not: a navbar entry per part wraps
+            # CTFd's fixed navbar onto several lines the moment a subject has
+            # more than one or two parts (Pac-Man's "Atelier 1"/"Atelier 2"
+            # did exactly this), and it never has to — the navbar-brand logo
+            # auto-redirects every signed-in participant through `/workshop`
+            # (landing.py) on every page, independent of any Page's `hidden`
+            # flag, and `/workshop` already renders a proper card index with
+            # per-part progress for 2+ documents (page.py, workshop_index.html)
+            # or forwards straight through for exactly one. Nobody is stranded
+            # either way, so there is no case left for the standalone
+            # exception to protect — dropping it also means a subject that is
+            # standalone today and grows a second part later doesn't silently
+            # regress into the same wrap. `hidden` keeps the route, it only
+            # drops the link; Parcours and Challenges stay in the navbar
+            # unconditionally as the two other ways in.
+            "hidden": True,
             "auth_required": True,
         })
         print(f"page: {doc.title!r} -> /{route} ({len(ids)} steps)")

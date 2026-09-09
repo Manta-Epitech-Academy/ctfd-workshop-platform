@@ -487,14 +487,20 @@ def _render(user, keep_ids=None, title=None, subject=None, next_doc=None):
         runtime=_runtime_for(subject),
         solved_count=solved_count,
         total_count=total_count,
-        # Only meaningful for a document-scoped view (`keep_ids` given by
-        # `workshop_document`): the single-page fallback (a subject synced
-        # before per-document routes existed) has no "next document" to name,
-        # and the index (`workshop_index.html`) already IS the switcher.
         # Finishing the last step of a document used to be a dead end — the
         # in-page stepper only ever links within the current document, and
         # hiding the per-document navbar links (sync_subject.py) removed the
-        # one accidental way most participants found the next part.
+        # one accidental way most participants found the next part. Only a
+        # document-scoped view (`keep_ids` given by `workshop_document`) has a
+        # "next" to name: the single-page fallback (a subject synced before
+        # per-document routes existed) has no next document, and the index
+        # (`workshop_index.html`) already IS the switcher.
+        document_scoped=keep_ids is not None,
+        # The *initial* state only. A solve never reloads this page
+        # (assets/workshop_page.js patches it in place), and the moment the cue
+        # is needed is the moment the last step turns green — so the section is
+        # rendered either way and the same counters that drive the progress bar
+        # decide whether it is showing.
         document_complete=(keep_ids is not None and total_count > 0
                            and solved_count == total_count),
         next_doc=next_doc,

@@ -113,11 +113,20 @@
     </section>
   {% endfor %}
 
-  {% if document_complete %}
+  {% if document_scoped %}
     {# The in-page stepper above only ever links within this document — see
        page.py's _render for why this exists: a participant who just finished
-       the last step here used to have no forward cue at all. #}
-    <section class="ws-next-doc" aria-live="polite">
+       the last step here used to have no forward cue at all.
+
+       Rendered on every document-scoped view and revealed by `hidden`, not
+       gated by `{% if %}`: solving a step patches the page in place rather
+       than reloading it, so a server-only section would appear on the next
+       page load — every time except the one that matters. The server still
+       owns what it says; assets/workshop_page.js owns only whether it shows,
+       off the counters it already computes. `aria-live` then announces it on
+       reveal, which is what it was there for. #}
+    <section class="ws-next-doc" aria-live="polite"
+             {% if not document_complete %}hidden{% endif %}>
       <div class="ws-next-doc-badge" aria-hidden="true">{{ "🏆" if not next_doc else "✓" }}</div>
       {% if next_doc %}
         <p class="ws-next-doc-lead">Part complete.</p>

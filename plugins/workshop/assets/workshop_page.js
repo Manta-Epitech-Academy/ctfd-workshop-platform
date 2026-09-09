@@ -281,6 +281,15 @@
       if (badge) badge.textContent = partDone + "/" + steps.length;
     });
 
+    // The forward cue out of a finished document. Server-rendered on every
+    // document-scoped view and hidden until it applies (templates/
+    // workshop_page.html), because the solve that completes the document never
+    // reloads the page — so the one moment it is needed is the one moment a
+    // server-only section would miss. Same counters as the bar above: the
+    // server decides what it says, this decides whether it shows.
+    var nextDoc = ROOT.querySelector(".ws-next-doc");
+    if (nextDoc) nextDoc.hidden = !(total > 0 && done === total);
+
     var overall = ROOT.querySelector(".ws-overall");
     if (!overall) return;
     overall.querySelector(".ws-overall-num").textContent = done + "/" + total;

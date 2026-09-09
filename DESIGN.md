@@ -26,6 +26,7 @@ picking a new number by eye.
 | `--bs-dark` | `#0b0e1a` (epi-grey-900, jump's "chrome") | same |
 | `--bs-body-bg` | `#f6f7fb` | `#0c0e13` |
 | `--bs-body-color` | `#181818` | `#f1f2f6` |
+| `--epi-card` / `--bs-card-bg` | `#ffffff` (jump's `--card`) | `#12151d` |
 | `--bs-border-color` | `#d9dce8` | `#262b38` |
 | `--bs-secondary-bg` / `--bs-tertiary-bg` | `#eceef5` | `#1b1f29` |
 | `--bs-secondary-color` | `#555b71` | `#8b90a3` |
@@ -54,6 +55,91 @@ cannot be trusted to fetch anything external).
   choice a heading states, not a default it inherits.
 - **Space Mono** — monospace contexts (code blocks, below).
 
+## The app shell
+
+The header is **not** CTFd's navbar restyled. `plugins/workshop/shell.py` replaces
+`components/navbar.html` outright, and the markup lives in
+`plugins/workshop/templates/navbar.html`.
+
+**Why a template override.** CTFd's shell is a dark `fixed-top` Bootstrap navbar above a dark
+centred `.jumbotron` hero. `jump`'s talent space has neither, and no palette gets you from one to
+the other — two CSS-only passes established that the expensive way. The markup had to change.
+
+**How, without touching `CTFd/`.** `override_template()` is CTFd's own plugin API
+(`CTFd/CTFd/plugins/__init__.py`); it writes into `app.overridden_templates`, which is the *first*
+loader of the Jinja `ChoiceLoader` (`CTFd/CTFd/__init__.py`), ahead of the theme loader. Keys are
+unprefixed logical names, so the override applies whichever theme an instance runs. Only the navbar
+partial is overridden — never `base.html`, which would mean owning `window.init`,
+`{{ Plugins.styles }}` and every upstream change to them.
+
+An override is silent by construction: if upstream renames the partial, ours keeps being served and
+nothing says so. `load_shell()` therefore checks the stock file still exists and logs a warning if
+not. **If you upgrade CTFd, read that warning.**
+
+**The shape** is ported from `jump/frontend/src/lib/components/talent/TalentPageHeader.svelte`:
+transparent header in normal flow (never sticky or fixed), content centred at `max-w-5xl` (64rem,
+`--epi-content-width`), wordmark left, ghost icon controls right, `h-8` boxes, `gap-1`.
+`main`'s `padding-top: 3.5rem` — which existed only to clear the fixed bar — is reset, and `body`
+becomes a flex column so the footer sits at the bottom instead of floating up a short page.
+
+**Nav items are the one thing `jump` gives no precedent for**, because its talent header carries no
+links at all: navigation there is card-based off one dashboard. Copying that literally was tried and
+rejected — this audience is lycéens, CTFd has destinations `jump` doesn't, and "reachable by URL"
+is not navigation. So the items are built from the two `jump` recipes that come closest, its
+back-arrow hover and its badge:
+
+- idle — `text-muted-foreground`, muted fill on hover
+- **current page** — a flat 10% `--bs-primary` tint behind solid brand text. **Never a saturated
+  fill**; that rule is the whole talent-space look and a filled pill would be the loudest block on
+  the page.
+- body font, never Anton. Anton stays display-only (see Typography).
+
+**Two things in the markup are load-bearing.** Delete either and something breaks quietly:
+
+1. `.theme-switch` wrapping an `<i class="fas ...">`. `color_mode_switcher.js` does
+   `querySelector(".theme-switch i.fas")` and dereferences it **without a null check**, on
+   `window.load`, before it binds the click handlers. Without that element every page throws a
+   TypeError and the theme toggle stops working entirely.
+2. The `Plugins.user_menu_pages` loop — the only route by which CTFd's Pages feature reaches the
+   nav. "Parcours" is one of those Pages (created by `tools/sync_subject.py`), and so is anything an
+   instructor adds later.
+
+**Header icons are Font Awesome, not `jump`'s Lucide.** A deliberate deviation, forced by point 1:
+the theme icon is contractually Font Awesome, and two icon sets inside one 32px cluster would look
+worse than either alone. Font Awesome is already loaded by core, so this also vendors nothing.
+
+**What the header carries**, and what left: nav is Workshop (added — it was previously reachable
+only by clicking the logo), the Pages loop, Scoreboard, Challenges. The right cluster is
+notifications, theme, and a named account menu holding Profile, Team, Settings, Admin Panel and
+Logout — six former navbar entries at `jump`'s three-control density. **Dropped**: the language
+picker (all platform strings are English until a later i18n phase, per `CLAUDE.md`) and the
+Users/Teams listings (a classmate roster is noise for this audience). The signed-out header shows
+**no nav**, because nothing in it is reachable before signing in and `jump`'s login screen has none
+either.
+
+**The wordmark ships as two assets** (`assets/brand/EPITECH-LOGO-{BLEU,BLANC}-2025.svg`, vendored
+from `jump/frontend/static/`) swapped by `[data-bs-theme]` in CSS, never one recoloured: the charte
+forbids effects on the logo, and a background-image means only the version in use is fetched. An
+instance that uploaded its own `ctf_logo` keeps it — the Epitech wordmark is the default, not an
+override of the admin's choice.
+
+**Page titles.** `.jumbotron` is restyled into a plain left-aligned Anton title row rather than
+re-templated, so no core page template is owned. A CTFd Page renders its markdown straight into the
+page container with no wrapper, so its leading `h1` gets the same treatment via
+`main > .container > h1:first-child` — every core template's own `h1` is inside a jumbotron, so that
+selector only ever matches an authored Page. Both carry `jump`'s accent-clip fix (`-my-1.5 py-1.5`):
+`truncate` is `overflow-hidden` and condensed uppercase Anton puts `É` above the cap line, so a tight
+line box slices the accent. French titles need it.
+
+**Alignment is a contract.** `--epi-content-width` is one number for the header, every page's
+top-level container, the page titles and the footer. It is checked by eye easily: the wordmark, the
+page title, and the first card or table on every page all start at the same x.
+
+**The admin panel is untouched by all of this** and that is not an accident: `themes/admin` loads
+its stylesheets from a separate registry (`get_registered_admin_stylesheets()`) and never sees
+`epitech-theme.css`, so its own fixed navbar and wider layout keep working. This is also why `main`
+and `.container` can safely be restyled by element/class rather than behind a scoping class.
+
 ## Bootstrap limitations — read this before touching a color
 
 A root-variable remap does **not** reach everything. Bootstrap bakes several component classes
@@ -73,10 +159,18 @@ Already handled in `epitech-theme.css`, and the reason each needed its own block
 - `.dropdown-menu`, `.list-group`, `.pagination`, `.progress-bar` — literal active-state
   backgrounds.
 - `.table-primary` — literal computed tint, not var-based.
-- `.challenge-button.challenge-solved` — hardcoded `#29c830` in **both** theme blocks of CTFd's
-  own `_challenge.scss`, totally independent of `--bs-success`. `jump` already answered "what is
-  solved green" (`--success: var(--epi-tech-ink)`); reused here instead of inventing a third
-  green.
+- `.challenge-button` (the challenge board's cards) — core ships them as `btn btn-dark` and then
+  pins `border: none`, a dated 15px glow, and a hardcoded `#29c830` solved fill inside per-theme
+  blocks (`[data-bs-theme=X] .challenge-button`, `_challenge.scss`), all independent of
+  `--bs-success`. Every property has to be overridden **at that same `0,2,0` specificity** or it
+  loses regardless of source order. They are now talent-space cards: `--epi-card` surface, real
+  border, `--epi-shadow-raised`, and a flat `--bs-success` tint for solved rather than a saturated
+  fill.
+
+  Known limitation, unchanged from stock: solved is signalled by **colour alone** on that board.
+  Fixing it needs a glyph in the markup, which lives in a core template this plugin deliberately
+  does not own. The workshop view — the page a participant actually works in — carries icon + text
+  + colour instead.
 
 **Not fixable in CSS at all**: the scoreboard/category charts are Chart.js-via-ECharts,
 `<canvas>`-rendered, colored per-name by a JS `colorHash()` — genuinely CSS-immune. Left at
@@ -96,14 +190,19 @@ move `jump` makes for the same reason: the neon `--epi-tech` green is only legib
 surface (1.33:1 on white per `jump`'s own contrast note), so code gets one always-dark surface
 instead of a palette that has to switch with the page.
 
-## "Always-dark furniture" — reused three times, not a system
+## "Always-dark furniture" — reused twice, not a system
 
 `jump` has a fuller concept here (`chrome`, `.on-dark`, ink inversion per space). This codebase
 has one audience, not four, so it borrows only the piece that's load-bearing: some surfaces are
 dark regardless of page theme, and stay legible with the vivid (non-ink) brand hues rather than
-the light-surface ink ones. Three places use it: the navbar (`--bs-dark`, always the epi-grey-900
-"chrome" value), code blocks (above), and the "Parcours" path graph (below). No fourth is planned;
-don't build a general mechanism for three call sites.
+the light-surface ink ones. Two places use it: code blocks (above) and the "Parcours" path graph
+(below). No third is planned; don't build a general mechanism for two call sites.
+
+**The navbar used to be the third, and it isn't any more** — see "The app shell" below. It was
+never furniture in `jump`'s sense; it was dark because CTFd shipped it dark, and `--bs-dark` was
+the closest token. `jump`'s talent header is transparent. `--bs-dark` is still remapped to the
+epi-grey-900 "chrome" value, because Bootstrap components reach for it, but no shell element
+reads it any more.
 
 ## The "Parcours" graph
 
@@ -140,9 +239,14 @@ not *on-brand*. What actually reads as "`jump`'s talent space" is a handful of c
 patterns, ported here as reusable classes rather than invented from scratch:
 
 - **`.epi-blueprint-grid`** — a faint engineering-grid texture (`--epi-blue` at 6% light / white at
-  4.5% dark, 48px cells), `jump`'s `BrandBackdrop`. Used behind the workshop page header. Never a
-  blur or a gradient glow — `BrandBackdrop`'s own comment in `jump` is explicit that the charte
-  rules out both; a texture is a surface, a glow is a light source, and the charte wants the former.
+  4.5% dark, 48px cells), `jump`'s `BrandBackdrop`. Never a blur or a gradient glow —
+  `BrandBackdrop`'s own comment in `jump` is explicit that the charte rules out both; a texture is a
+  surface, a glow is a light source, and the charte wants the former.
+
+  **Defined but deliberately unused.** It was briefly put behind the workshop page header, which was
+  wrong: in `jump` this appears *only* on full-screen ceremony pages (onboarding, welcome, charte)
+  and never on the everyday shell. Keep it for a future welcome or completion screen, which is what
+  it is for; do not reach for it to decorate a routine page header.
 - **`.epi-title-cursor`** — a trailing `_` glued to a heading with no whitespace, in the success
   "ink" color, `jump`'s `TitleCursor.svelte`. Used on the workshop title and each part title.
 - **Tinted pill badges, not outlines** — `.ws-chip` state pills, the `.ws-overall-badge` step

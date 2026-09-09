@@ -90,6 +90,9 @@ def load(app):
     # Caps hint images (the theme only caps description images) — see
     # assets/workshop.css. Injected via {{ Plugins.styles }} in base.html.
     register_plugin_stylesheet(url="/plugins/workshop/assets/workshop.css")
+    # Epitech brand reskin (colors, fonts, radius) — token contract in
+    # DESIGN.md. Loads after workshop.css so nothing here needs !important.
+    register_plugin_stylesheet(url="/plugins/workshop/assets/epitech-theme.css")
     # Makes free (cost-0) hints read as free and skip the unlock dialog, while
     # keeping CTFd's native HintUnlocks reveal tracking — see assets/hints.js.
     register_plugin_script(url="/plugins/workshop/assets/hints.js")

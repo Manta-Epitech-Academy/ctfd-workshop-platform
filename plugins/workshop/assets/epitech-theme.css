@@ -1,0 +1,362 @@
+/* Epitech brand reskin — injected via {{ Plugins.styles }} in base.html,
+   loaded after CTFd's own compiled bundle, never a CTFd/ edit.
+   Token values and the "why" behind every override below: DESIGN.md at the
+   repo root. That file is the contract; this is its one implementation. */
+
+/* ============================================================================
+   Fonts — self-hosted (see assets/fonts/LICENSE.md). No CDN: this repo's own
+   rule ("vendor, don't CDN", PLAN.md §18) exists because a live session on
+   school wifi cannot be trusted to fetch an external stylesheet.
+   ============================================================================ */
+@font-face {
+  font-family: "IBM Plex Sans Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 700;
+  src: url(fonts/ibm-plex-sans-latin-wght-normal.woff2) format("woff2-variations");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215,
+    U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Anton";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url(fonts/anton-latin-400-normal.woff2) format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215,
+    U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Space Mono";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url(fonts/space-mono-latin-400-normal.woff2) format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215,
+    U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Space Mono";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 700;
+  src: url(fonts/space-mono-latin-700-normal.woff2) format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215,
+    U+FEFF, U+FFFD;
+}
+
+html,
+body,
+.container {
+  font-family: "IBM Plex Sans Variable", sans-serif;
+}
+/* The one spot core still uses Raleway. Anton only here, on purpose: it has a
+   single weight and reads as a poster face, not a body heading — jump's own
+   layout.css learned this the hard way ("a browser fakes [bold] by smearing
+   the glyphs... a display face is a choice a heading states"). Scoped, not a
+   bare h1 rule. */
+.jumbotron .container {
+  font-family: "Anton", sans-serif;
+  text-transform: uppercase;
+}
+
+/* ============================================================================
+   Token remap — values ported verbatim from jump/frontend/src/routes/layout.css.
+   Bootstrap 5.3 does NOT redeclare --bs-primary/-success/-danger/-warning/-dark
+   between light and dark (same literal both modes in CTFd's compiled CSS); we
+   deliberately do, mirroring jump's own light/ink vs dark/neon split, because
+   the ink shades are calibrated for a light surface and stop being legible on
+   a dark one.
+   ============================================================================ */
+:root,
+[data-bs-theme="light"] {
+  --bs-primary: #013afb;
+  --bs-primary-rgb: 1, 58, 251;
+  --bs-link-color: #013afb;
+  --bs-link-color-rgb: 1, 58, 251;
+  --bs-link-hover-color: #013afb;
+
+  --bs-success: #007a46;
+  --bs-success-rgb: 0, 122, 70;
+  --bs-danger: #b5361a;
+  --bs-danger-rgb: 181, 54, 26;
+  --bs-warning: #8a5a00;
+  --bs-warning-rgb: 138, 90, 0;
+
+  /* jump's "chrome": one always-dark furniture colour, used here for the
+     navbar (.bg-dark), the jumbotron and unsolved challenge cards (.btn-dark) —
+     see the component-override block below for the two of those three that
+     Bootstrap bakes as literal hex rather than reading this variable. */
+  --bs-dark: #0b0e1a;
+  --bs-dark-rgb: 11, 14, 26;
+
+  --bs-body-bg: #f6f7fb;
+  --bs-body-color: #181818;
+  --bs-border-color: #d9dce8;
+  --bs-border-color-translucent: rgba(1, 58, 251, 0.12);
+  --bs-secondary-bg: #eceef5;
+  --bs-tertiary-bg: #f6f7fb;
+  --bs-secondary-color: #555b71;
+  --bs-tertiary-color: #555b71;
+}
+
+[data-bs-theme="dark"] {
+  --bs-primary: #809dfd;
+  --bs-primary-rgb: 128, 157, 253;
+  --bs-link-color: #809dfd;
+  --bs-link-color-rgb: 128, 157, 253;
+  --bs-link-hover-color: #809dfd;
+
+  --bs-success: #00ff97;
+  --bs-success-rgb: 0, 255, 151;
+  --bs-danger: #ff9878;
+  --bs-danger-rgb: 255, 152, 120;
+  --bs-warning: #ffd15c;
+  --bs-warning-rgb: 255, 209, 92;
+
+  --bs-dark: #0b0e1a;
+  --bs-dark-rgb: 11, 14, 26;
+
+  --bs-body-bg: #0c0e13;
+  --bs-body-color: #f1f2f6;
+  --bs-border-color: #262b38;
+  --bs-border-color-translucent: rgba(128, 157, 253, 0.15);
+  --bs-secondary-bg: #1b1f29;
+  --bs-tertiary-bg: #1b1f29;
+  --bs-secondary-color: #8b90a3;
+  --bs-tertiary-color: #8b90a3;
+}
+/* --bs-info intentionally untouched: jump defines no "info" role, and
+   inventing one here would be new design, not reuse. Left at CTFd's own
+   default in both themes (see DESIGN.md). */
+
+/* ============================================================================
+   Component-level overrides. Bootstrap bakes these as literal hex in their own
+   --bs-btn-*/--bs-*-active-bg vars at build time, so the root remap above
+   never reaches them — this list IS the fix, not decoration. See DESIGN.md
+   "Bootstrap limitations".
+   ============================================================================ */
+.btn-primary {
+  --bs-btn-color: #fff;
+  --bs-btn-bg: var(--bs-primary);
+  --bs-btn-border-color: var(--bs-primary);
+  --bs-btn-hover-bg: color-mix(in oklab, var(--bs-primary) 85%, black);
+  --bs-btn-hover-border-color: color-mix(in oklab, var(--bs-primary) 80%, black);
+  --bs-btn-active-bg: color-mix(in oklab, var(--bs-primary) 75%, black);
+  --bs-btn-active-border-color: color-mix(in oklab, var(--bs-primary) 70%, black);
+  --bs-btn-disabled-bg: var(--bs-primary);
+  --bs-btn-disabled-border-color: var(--bs-primary);
+}
+.btn-outline-primary {
+  --bs-btn-color: var(--bs-primary);
+  --bs-btn-border-color: var(--bs-primary);
+  --bs-btn-hover-bg: var(--bs-primary);
+  --bs-btn-hover-border-color: var(--bs-primary);
+  --bs-btn-active-bg: var(--bs-primary);
+  --bs-btn-active-border-color: var(--bs-primary);
+  --bs-btn-disabled-color: var(--bs-primary);
+  --bs-btn-disabled-border-color: var(--bs-primary);
+}
+/* .btn-dark also styles every unsolved challenge-board card
+   (challenges.html: .challenge-button.btn-dark) — one token, three surfaces
+   (navbar via .bg-dark below, jumbotron, and this). */
+.btn-dark {
+  --bs-btn-bg: var(--bs-dark);
+  --bs-btn-border-color: var(--bs-dark);
+  --bs-btn-hover-bg: color-mix(in oklab, var(--bs-dark) 80%, white);
+  --bs-btn-hover-border-color: color-mix(in oklab, var(--bs-dark) 80%, white);
+  --bs-btn-active-bg: color-mix(in oklab, var(--bs-dark) 70%, white);
+  --bs-btn-active-border-color: color-mix(in oklab, var(--bs-dark) 70%, white);
+  --bs-btn-disabled-bg: var(--bs-dark);
+  --bs-btn-disabled-border-color: var(--bs-dark);
+}
+.btn-success {
+  --bs-btn-bg: var(--bs-success);
+  --bs-btn-border-color: var(--bs-success);
+  --bs-btn-color: #fff;
+  --bs-btn-hover-bg: color-mix(in oklab, var(--bs-success) 85%, black);
+  --bs-btn-hover-border-color: color-mix(in oklab, var(--bs-success) 80%, black);
+  --bs-btn-active-bg: color-mix(in oklab, var(--bs-success) 75%, black);
+  --bs-btn-active-border-color: color-mix(in oklab, var(--bs-success) 70%, black);
+  --bs-btn-disabled-bg: var(--bs-success);
+  --bs-btn-disabled-border-color: var(--bs-success);
+}
+.btn-danger {
+  --bs-btn-bg: var(--bs-danger);
+  --bs-btn-border-color: var(--bs-danger);
+  --bs-btn-color: #fff;
+  --bs-btn-hover-bg: color-mix(in oklab, var(--bs-danger) 85%, black);
+  --bs-btn-hover-border-color: color-mix(in oklab, var(--bs-danger) 80%, black);
+  --bs-btn-active-bg: color-mix(in oklab, var(--bs-danger) 75%, black);
+  --bs-btn-active-border-color: color-mix(in oklab, var(--bs-danger) 70%, black);
+  --bs-btn-disabled-bg: var(--bs-danger);
+  --bs-btn-disabled-border-color: var(--bs-danger);
+}
+.btn-warning {
+  --bs-btn-bg: var(--bs-warning);
+  --bs-btn-border-color: var(--bs-warning);
+  --bs-btn-color: #fff;
+  --bs-btn-hover-bg: color-mix(in oklab, var(--bs-warning) 85%, black);
+  --bs-btn-hover-border-color: color-mix(in oklab, var(--bs-warning) 80%, black);
+  --bs-btn-active-bg: color-mix(in oklab, var(--bs-warning) 75%, black);
+  --bs-btn-active-border-color: color-mix(in oklab, var(--bs-warning) 70%, black);
+  --bs-btn-disabled-bg: var(--bs-warning);
+  --bs-btn-disabled-border-color: var(--bs-warning);
+}
+
+/* Solid outline, not Bootstrap's alpha box-shadow ring — same reasoning jump's
+   own layout.css gives: a box-shadow ring doesn't survive an overflow-hidden
+   ancestor (the challenge modal), an outline does. :focus (not :focus-visible)
+   to match the exact trigger Bootstrap itself uses, so mouse-click focus keeps
+   a visible ring too. */
+.form-control:focus,
+.form-select:focus {
+  border-color: var(--bs-primary);
+  outline: 2px solid var(--bs-primary);
+  outline-offset: 1px;
+  box-shadow: none;
+}
+.form-check-input:checked {
+  background-color: var(--bs-primary);
+  border-color: var(--bs-primary);
+}
+
+.dropdown-menu {
+  --bs-dropdown-link-active-bg: var(--bs-primary);
+}
+.list-group {
+  --bs-list-group-active-bg: var(--bs-primary);
+  --bs-list-group-active-border-color: var(--bs-primary);
+}
+.pagination {
+  --bs-pagination-active-bg: var(--bs-primary);
+  --bs-pagination-active-border-color: var(--bs-primary);
+}
+.progress-bar {
+  --bs-progress-bar-bg: var(--bs-primary);
+}
+.table-primary {
+  --bs-table-bg: color-mix(in oklab, var(--bs-primary) 15%, var(--bs-body-bg));
+  --bs-table-striped-bg: color-mix(in oklab, var(--bs-primary) 22%, var(--bs-body-bg));
+  --bs-table-active-bg: color-mix(in oklab, var(--bs-primary) 28%, var(--bs-body-bg));
+  --bs-table-hover-bg: color-mix(in oklab, var(--bs-primary) 20%, var(--bs-body-bg));
+  --bs-table-border-color: color-mix(in oklab, var(--bs-primary) 35%, var(--bs-body-bg));
+}
+
+/* Hardcoded #29c830 in both theme blocks in _challenge.scss, completely
+   independent of --bs-success — jump already answered "what is solved green"
+   (--success: var(--epi-tech-ink)); reuse it instead of a third green. */
+[data-bs-theme="light"] .challenge-button.challenge-solved {
+  background-color: #007a46;
+}
+[data-bs-theme="light"] .challenge-button.challenge-solved:hover {
+  background-color: color-mix(in oklab, #007a46 85%, black);
+}
+[data-bs-theme="dark"] .challenge-button.challenge-solved {
+  background-color: #00ff97;
+}
+[data-bs-theme="dark"] .challenge-button.challenge-solved:hover {
+  background-color: color-mix(in oklab, #00ff97 85%, white);
+}
+
+/* ============================================================================
+   Radius — jump's flat 2px charte default, one value. No per-space system:
+   CTFd has one audience here, not jump's four, so jump's two-tier radius has
+   nothing to key off. Not exhaustively audited for baked-literal exceptions
+   the way color was (see DESIGN.md) — verify visually.
+   ============================================================================ */
+:root {
+  --bs-border-radius: 0.125rem;
+  --bs-border-radius-sm: 0.125rem;
+  --bs-border-radius-lg: 0.125rem;
+  --bs-border-radius-xl: 0.125rem;
+  --bs-border-radius-xxl: 0.125rem;
+  /* --bs-border-radius-pill left alone: badges/pills are meant to stay round. */
+}
+
+/* ============================================================================
+   Code blocks. Highlighting here is "lolight" (.ll-*), NOT highlight.js
+   (.hljs-*) — jump's own hljs override targets the wrong classes on this
+   codebase and would be a silent no-op if copy-pasted. Forced dark background
+   in both themes, same reasoning jump's own layout.css gives: the neon
+   --epi-tech green is calibrated for a dark surface (1.33:1 on white), so
+   code renders on one always-dark surface instead of switching palettes with
+   the page — one of three places this reskin reuses that "always-dark
+   furniture" idea (see also .btn-dark above and the Parcours graph below).
+   ============================================================================ */
+pre,
+pre code {
+  background-color: #0b0e1a !important;
+  color: #f1f2f6;
+}
+.ll-nam,
+.ll-key,
+[data-bs-theme="dark"] .ll-nam,
+[data-bs-theme="dark"] .ll-key {
+  color: #00ff97;
+}
+.ll-str,
+[data-bs-theme="dark"] .ll-str {
+  color: #7dd3fc;
+}
+.ll-num,
+[data-bs-theme="dark"] .ll-num {
+  color: #fbbf24;
+}
+.ll-com,
+[data-bs-theme="dark"] .ll-com {
+  color: #64748b;
+  font-style: italic;
+}
+.ll-rex,
+[data-bs-theme="dark"] .ll-rex {
+  color: #ff1ef7;
+}
+.ll-pct,
+[data-bs-theme="dark"] .ll-pct {
+  color: #f1f2f6;
+}
+/* Inline code (not in a pre block) stays on the page's own surface — only
+   fenced code blocks get the always-dark treatment. */
+code:not(pre code) {
+  background-color: var(--bs-tertiary-bg);
+  color: var(--bs-primary);
+  border-radius: var(--bs-border-radius-sm);
+}
+
+/* ============================================================================
+   "Parcours" path graph — same always-dark-furniture treatment as code blocks
+   above. Same structural encoding (solved / open / locked / current path),
+   on-brand hex instead of the stock dark-arcade palette. Mirrors the literal
+   hex constants in assets/graph.js — the two files must stay in sync (see
+   DESIGN.md).
+   ============================================================================ */
+.ws-parcours-scroll {
+  border-color: #262b38;
+}
+.ws-parcours-svg a.ws-node-link:hover text {
+  fill: #ffffff;
+}
+.ws-parcours-svg :focus-visible rect {
+  stroke: #f1f2f6;
+}
+.ws-lg-solved::before {
+  background: #0b2318;
+  border-color: #00ff97;
+}
+.ws-lg-open::before {
+  background: #0e1a33;
+  border-color: #809dfd;
+}
+.ws-lg-locked::before {
+  background: #1b1f29;
+  border-color: #262b38;
+}
+.ws-lg-path::before {
+  background: #00ff97;
+  border-color: #00ff97;
+}

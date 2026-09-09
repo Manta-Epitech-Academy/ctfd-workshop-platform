@@ -174,7 +174,7 @@
 
     var svg = svgEl("svg", { width: W, height: H, class: "ws-parcours-svg" });
     var defs = svgEl("defs", {});
-    ["ws-arrow-taken #a7f070", "ws-arrow #94b0c2"].forEach(function (spec) {
+    ["ws-arrow-taken #00ff97", "ws-arrow #8b90a3"].forEach(function (spec) {
       var parts = spec.split(" ");
       var mk = svgEl("marker", {
         id: parts[0], markerWidth: 8, markerHeight: 8, refX: 7, refY: 3,
@@ -194,7 +194,7 @@
         // vertical flow: leave the bottom edge, enter the top edge
         svg.appendChild(svgEl("line", {
           x1: a.x + CW / 2, y1: a.y + CH, x2: b.x + CW / 2, y2: b.y,
-          stroke: taken ? "#a7f070" : "#94b0c2",
+          stroke: taken ? "#00ff97" : "#8b90a3",
           "stroke-width": taken ? 3 : 1.5,
           "stroke-opacity": taken ? 0.95 : 0.4,
           "marker-end": taken ? "url(#ws-arrow-taken)" : "url(#ws-arrow)",
@@ -206,8 +206,8 @@
     nodes.forEach(function (n) {
       var p = xy(n);
       var state = n.solved ? "solved" : (n.unlocked ? "open" : "locked");
-      var fill = { solved: "#173a1f", open: "#12233f", locked: "#1a1c2c" }[state];
-      var stroke = { solved: "#a7f070", open: "#41a6f6", locked: "#566c86" }[state];
+      var fill = { solved: "#0b2318", open: "#0e1a33", locked: "#1b1f29" }[state];
+      var stroke = { solved: "#00ff97", open: "#809dfd", locked: "#262b38" }[state];
       var g = svgEl("g", { class: "ws-node ws-" + state });
       g.appendChild(svgEl("rect", {
         x: p.x, y: p.y, width: CW, height: CH, rx: 0,
@@ -216,7 +216,7 @@
       }));
       var label = svgEl("text", {
         x: p.x + 12, y: p.y + CH / 2 + 4,
-        fill: state === "locked" ? "#566c86" : "#f4f4f4",
+        fill: state === "locked" ? "#8b90a3" : "#f1f2f6",
         "font-size": 12, "font-family": "monospace",
       });
       var name = n.name.length > 26 ? n.name.slice(0, 25) + "…" : n.name;

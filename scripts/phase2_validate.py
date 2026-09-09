@@ -373,9 +373,18 @@ def main():
     page = s.get(BASE + "/workshop")
     check(page.status_code == 200, "workshop page served to an attendee")
     check('id="ws-workshop"' in page.text, "workshop page renders its root")
-    # The sync creates one Page per part, which is what puts it in the navbar;
-    # there is no static "Workshop" entry (it would always sort after them).
-    check('href="/workshop/pypong"' in page.text, "navbar links to the part page")
+    # The sync creates one Page per part for its *route*, never for a navbar
+    # entry: every part Page is `hidden` (tools/sync_subject.py), which keeps
+    # the route and drops only the link, so a subject with several parts cannot
+    # wrap the header onto extra lines. The shell owns the item order outright
+    # and puts its own "Workshop" entry first, which is the way in now
+    # (plugins/workshop/templates/navbar.html).
+    part_page = next((p for p in admin.api("GET", "/pages")
+                      if p["route"] == "workshop/pypong"), None)
+    check(part_page is not None and part_page["hidden"] is True,
+          "the part Page keeps its route but stays out of the navbar")
+    check('class="epi-nav-link' in page.text and 'href="/workshop"' in page.text,
+          "the shell's own Workshop entry is what leads there instead")
     check("Prise en main de TIC-80" in page.text,
           "intro document folded into the page (no separate index visit)")
     check(page.text.count('class="ws-step ws-') >= len(ex_ids) + len(quiz_ids),
@@ -691,10 +700,10 @@ def main():
             attempt(s, cid, submissions[cid])
 
     def counter():
-        m = re.search(r'class="ws-overall-count">([^<]+)<', s.get(BASE + "/workshop").text)
+        m = re.search(r'class="ws-overall-num">([^<]+)<', s.get(BASE + "/workshop").text)
         return m.group(1).strip()
 
-    check(counter() == "14 / 15", "everything done but the feedback: the bar stops at 14/15")
+    check(counter() == "14/15", "everything done but the feedback: the bar stops at 14/15")
     check(attempt(s, outro_id, "") == "incorrect",
           "an empty rating does not solve the closing step")
     check(attempt(s, outro_id, "lovely") == "incorrect",
@@ -704,10 +713,10 @@ def main():
     # script does.
     check(attempt(s, outro_id, "0") == "incorrect",
           "a bare out-of-range value is refused, not a server error")
-    check(counter() == "14 / 15", "still 14/15 — 100% is unreachable without feedback")
+    check(counter() == "14/15", "still 14/15 — 100% is unreachable without feedback")
     check(attempt(s, outro_id, json.dumps({"value": 1, "review": "clear and well paced"}))
           == "correct", "the rating itself solves the step")
-    check(counter() == "15 / 15", "and only then does the workshop read 100%")
+    check(counter() == "15/15", "and only then does the workshop read 100%")
     detail = api(s, "GET", f"/challenges/{outro_id}").json()["data"]
     check(detail["rating"]["value"] == 1
           and detail["rating"]["review"] == "clear and well paced",
@@ -762,7 +771,7 @@ def main():
     print("== A part named after the page does not print the title twice ==")
     cid = ex_ids["pad-direction"]
     was = admin.api("GET", f"/challenges/{cid}")["category"]
-    title = re.search(r'class="ws-title">([^<]+)<', page).group(1).strip()
+    title = re.search(r'class="ws-title[^"]*">([^<]+)<', page).group(1).strip()
     admin.api("PATCH", f"/challenges/{cid}", json={"category": title})
     renamed = s.get(BASE + "/workshop/pypong").text
     heading = re.search(r'class="ws-part-title[^"]*">(.*?)</h2>', renamed, re.S).group(1)

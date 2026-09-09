@@ -468,23 +468,36 @@ def _runtime_for(subject):
     return runtime
 
 
-def _render(user, keep_ids=None, title=None, subject=None):
+def _render(user, keep_ids=None, title=None, subject=None, next_doc=None):
     steps = _steps(user)
     if keep_ids is not None:
         steps = [s for s in steps if s["id"] in keep_ids]
     documents = _documents()
     _resolve_links(steps, documents, {s["id"] for s in steps})
     _open_states(steps)
+    # Both halves of the ratio count the same population, or the outro would
+    # push it to "15 / 14".
+    solved_count = sum(1 for s in steps if s["counts"] and s["solved"])
+    total_count = sum(1 for s in steps if s["counts"])
     return render_template(
         "workshop_page.html",
         parts=_parts(steps, title),
         documents=documents,
         page_title=title,
         runtime=_runtime_for(subject),
-        # Both halves of the ratio count the same population, or the outro
-        # would push it to "15 / 14".
-        solved_count=sum(1 for s in steps if s["counts"] and s["solved"]),
-        total_count=sum(1 for s in steps if s["counts"]),
+        solved_count=solved_count,
+        total_count=total_count,
+        # Only meaningful for a document-scoped view (`keep_ids` given by
+        # `workshop_document`): the single-page fallback (a subject synced
+        # before per-document routes existed) has no "next document" to name,
+        # and the index (`workshop_index.html`) already IS the switcher.
+        # Finishing the last step of a document used to be a dead end — the
+        # in-page stepper only ever links within the current document, and
+        # hiding the per-document navbar links (sync_subject.py) removed the
+        # one accidental way most participants found the next part.
+        document_complete=(keep_ids is not None and total_count > 0
+                           and solved_count == total_count),
+        next_doc=next_doc,
     )
 
 
@@ -607,11 +620,14 @@ def workshop_document(doc_slug):
     Progress is counted within the part, so each one reads "3 / 10" on its own
     rather than as a slice of the whole subject.
     """
-    doc = next((d for d in _documents() if d["slug"] == doc_slug), None)
+    docs = _documents()
+    doc = next((d for d in docs if d["slug"] == doc_slug), None)
     if doc is None:
         abort(404)
+    doc_index = docs.index(doc)
+    next_doc = docs[doc_index + 1] if doc_index + 1 < len(docs) else None
     return _render(get_current_user(), keep_ids=set(doc["challenge_ids"]),
-                   title=doc["title"], subject=doc.get("subject"))
+                   title=doc["title"], subject=doc.get("subject"), next_doc=next_doc)
 
 
 @workshop_page.route("/api/v1/workshop/step/<int:challenge_id>", methods=["GET"])

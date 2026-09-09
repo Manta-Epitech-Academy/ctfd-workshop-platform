@@ -102,6 +102,22 @@
     </section>
   {% endfor %}
 
+  {% if document_complete %}
+    {# The in-page stepper above only ever links within this document — see
+       page.py's _render for why this exists: a participant who just finished
+       the last step here used to have no forward cue at all. #}
+    <section class="ws-next-doc" aria-live="polite">
+      {% if next_doc %}
+        <p class="ws-next-doc-lead">Part complete.</p>
+        <a class="btn btn-primary ws-next-doc-link" href="/workshop/{{ next_doc.slug }}">
+          Next part: {{ next_doc.title }} →
+        </a>
+      {% else %}
+        <p class="ws-next-doc-lead ws-next-doc-done">✓ Workshop complete — nice work.</p>
+      {% endif %}
+    </section>
+  {% endif %}
+
 </div>
 
 {% if runtime %}

@@ -392,4 +392,14 @@ body.ws-has-pane { overflow-x: hidden; }
 }
 .ws-subject-title .ws-card-count { margin-left: auto; font-size: 0.8rem; opacity: 0.7; }
 .ws-subject-bar { margin: 0.5rem 0 1rem; }
+
+/* The forward cue a finished document used to lack entirely — see page.py's
+   _render. Only rendered once every step of the current document is done. */
+.ws-next-doc {
+  margin: 2.5rem 0 1rem; padding-top: 1.5rem;
+  border-top: 1px solid var(--bs-border-color, #dee2e6);
+  text-align: center;
+}
+.ws-next-doc-lead { margin-bottom: 0.75rem; color: var(--bs-secondary-color, #6c757d); }
+.ws-next-doc-done { font-size: 1.1rem; font-weight: 600; color: var(--bs-success, #198754); }
 .ws-subject.ws-locked .ws-subject-title { opacity: 0.7; }

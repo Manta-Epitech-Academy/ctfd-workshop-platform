@@ -475,14 +475,16 @@ main {
   margin-inline: auto;
   padding: 1rem;
 }
-@media (min-width: 640px) {
+/* 768px, the same breakpoint the burger disappears at (`.epi-nav-toggle`
+   below), and it has to be: while the burger is still rendered the nav is a
+   `width: 100%` row that belongs on its own line, and a `nowrap` header has
+   nowhere to put it but squeezed to the right of the account menu. One split,
+   two states — a wrapping mobile header with a burger, or a single desktop
+   row without one. */
+@media (min-width: 768px) {
   .epi-header-inner {
     flex-wrap: nowrap;
     gap: 1rem;
-  }
-}
-@media (min-width: 768px) {
-  .epi-header-inner {
     padding-inline: 2rem;
   }
 }

@@ -18,16 +18,72 @@
  * CTFd's own light/dark switcher instead of hardcoding one theme.
  * ------------------------------------------------------------------ */
 .ws-page { max-width: 62rem; padding-bottom: 4rem; }
-.ws-head { padding: 1.5rem 0 0.75rem; }
-.ws-title { margin-bottom: 0.25rem; }
-.ws-overall { font-size: 0.9rem; color: var(--bs-secondary-color, #6c757d); }
-.ws-overall-count { font-weight: 600; color: var(--bs-body-color); }
-.ws-overall-bar {
-  height: 4px; background: var(--bs-border-color, #dee2e6);
-  margin-top: 0.4rem; overflow: hidden;
+
+/* Header: a faint engineering-grid texture behind it (jump's BrandBackdrop),
+   never a blur or a gradient — BrandBackdrop's own comment is explicit that
+   the charte rules out both here. Two flat tinted rectangles, not jump's
+   five: this header is a strip, not a full-viewport hero, so the same
+   density would crowd it. */
+.ws-head-backdrop {
+  position: relative; overflow: hidden;
+  border-radius: var(--bs-border-radius-lg, 1rem);
+  padding: 1.5rem 1.25rem 1.1rem; margin: 1rem 0 1.5rem;
+}
+.ws-head-backdrop::before,
+.ws-head-backdrop::after {
+  content: ""; position: absolute; z-index: 0; pointer-events: none;
+}
+.ws-head-backdrop::before {
+  top: -1.2rem; right: -1.5rem; width: 7rem; height: 4rem;
+  background: color-mix(in oklab, var(--bs-primary, #0d6efd) 10%, transparent);
+}
+.ws-head-backdrop::after {
+  bottom: -1.6rem; right: 5rem; width: 3.5rem; height: 3.5rem;
+  background: color-mix(in oklab, var(--bs-success, #198754) 12%, transparent);
+}
+.ws-head-backdrop > * { position: relative; z-index: 1; }
+.ws-head { padding: 0; }
+.ws-title {
+  margin-bottom: 0.6rem;
+  font-family: "Anton", sans-serif; text-transform: uppercase;
+  font-size: 1.7rem; line-height: 1.1;
+}
+
+/* The "N / total" count as a bold figure in a tinted rounded badge, the unit
+   underneath it in the mono overline treatment — jump's XP-badge recipe
+   (a number people are meant to feel good about), reused for step count
+   instead of experience points, next to a thin rounded track rather than the
+   plain grey rule this used to be. */
+.ws-overall { display: flex; align-items: center; gap: 0.9rem; }
+.ws-overall-badge {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  flex: none; min-width: 3.9rem; padding: 0.3rem 0.5rem;
+  border-radius: var(--bs-border-radius-lg, 1rem);
+  background: color-mix(in oklab, var(--bs-primary, #0d6efd) 12%, transparent);
+}
+.ws-overall-num {
+  font-size: 1.05rem; font-weight: 700; line-height: 1.15;
+  color: var(--bs-primary, #0d6efd); font-variant-numeric: tabular-nums;
+}
+.ws-overall-label {
+  font-family: "Space Mono", "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.6rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--bs-primary, #0d6efd); opacity: 0.85;
+}
+.ws-overall-track {
+  flex: 1; height: 4px; border-radius: 999px; overflow: hidden;
+  background: var(--bs-tertiary-bg, #f1f2f6);
 }
 .ws-overall-fill {
-  height: 100%; background: var(--bs-success, #198754); transition: width 0.3s;
+  height: 100%; border-radius: 999px;
+  background: var(--bs-success, #198754); transition: width 0.3s;
+}
+/* The plain variant: a card's own progress (ws-card-bar) or one subject
+   group's (ws-subject-bar) — a secondary figure, not the hero counter, so no
+   badge alongside it. */
+.ws-overall-bar {
+  height: 4px; border-radius: 999px; overflow: hidden;
+  background: var(--bs-tertiary-bg, #f1f2f6); margin-top: 0.4rem;
 }
 
 /* Steppers — sequential progress, not hierarchy: chips joined by "›" */
@@ -45,33 +101,46 @@
   max-height: 30vh; overflow-y: auto;
 }
 .ws-stepper-steps { margin: 0.35rem 0 0.75rem; opacity: 0.95; }
+/* Pill, not outline: a tinted fill per state, jump's badge recipe
+   (rounded-full + bg-{color}/10-15 + text-{color}) instead of a thin grey
+   border that reads as "unstyled Bootstrap" regardless of which color it
+   borrows. */
 .ws-chip {
   display: inline-flex; align-items: center; gap: 0.3rem;
-  padding: 0.15rem 0.5rem; border: 1px solid var(--bs-border-color, #dee2e6);
-  border-radius: 2px; text-decoration: none; color: var(--bs-body-color);
-  max-width: 20rem; overflow: hidden;
+  padding: 0.25rem 0.65rem; border: 1px solid transparent;
+  border-radius: 999px; text-decoration: none;
+  background: var(--bs-tertiary-bg, #f1f2f6); color: var(--bs-body-color);
+  font-weight: 600; max-width: 20rem; overflow: hidden;
 }
-/* Truncate the label, not the chip, so the border never cuts through text.
+/* Truncate the label, not the chip, so the fill never cuts through text.
    Full title stays available in the tooltip. */
 .ws-chip-label {
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;
 }
 .ws-chip-icon, .ws-chip-badge { flex: none; }
-.ws-chip:hover { text-decoration: none; border-color: var(--bs-primary, #0d6efd); }
+.ws-chip:hover { text-decoration: none; filter: brightness(0.97); }
+[data-bs-theme="dark"] .ws-chip:hover { filter: brightness(1.15); }
 .ws-chip + .ws-chip::before { content: "›"; margin-right: 0.35rem; opacity: 0.45; }
 .ws-chip-icon { font-size: 0.8em; }
-.ws-chip-badge { opacity: 0.6; font-variant-numeric: tabular-nums; }
-.ws-chip.ws-done { color: var(--bs-success, #198754); border-color: var(--bs-success, #198754); }
-.ws-chip.ws-current {
-  color: var(--bs-primary, #0d6efd); border-color: var(--bs-primary, #0d6efd);
-  font-weight: 600; box-shadow: inset 0 -2px 0 var(--bs-primary, #0d6efd);
+.ws-chip-badge { opacity: 0.7; font-variant-numeric: tabular-nums; }
+.ws-chip.ws-done {
+  color: var(--bs-success, #198754);
+  background: color-mix(in oklab, var(--bs-success, #198754) 14%, transparent);
 }
-.ws-chip.ws-todo { opacity: 0.8; }
-.ws-chip.ws-locked { opacity: 0.5; }
+.ws-chip.ws-current {
+  color: var(--bs-primary, #0d6efd);
+  background: color-mix(in oklab, var(--bs-primary, #0d6efd) 14%, transparent);
+  box-shadow: inset 0 0 0 1.5px var(--bs-primary, #0d6efd);
+}
+.ws-chip.ws-todo { opacity: 0.85; }
+.ws-chip.ws-locked { opacity: 0.55; }
 
 /* Parts */
 .ws-part { margin: 2rem 0; scroll-margin-top: 5rem; }
-.ws-part-title { font-size: 1.4rem; border-bottom: 1px solid var(--bs-border-color, #dee2e6); padding-bottom: 0.3rem; }
+.ws-part-title {
+  font-family: "Anton", sans-serif; text-transform: uppercase; font-size: 1.3rem;
+  border-bottom: 1px solid var(--bs-border-color, #dee2e6); padding-bottom: 0.4rem;
+}
 .ws-part-count {
   font-size: 0.8rem; font-weight: 400; opacity: 0.65;
   float: right; font-variant-numeric: tabular-nums;
@@ -147,23 +216,32 @@
 .ws-sync-state th { width: 7rem; font-weight: 500; }
 .ws-sync-state td, .ws-sync-state th { border-top: 0; padding: 0.4rem 0.5rem; }
 
-/* Steps: accordions, state on the left edge */
+/* Steps: rounded, elevated rows — jump's RoadmapSidebar step buttons
+   (numbered circle + title + type label), adapted from a persistent sidebar
+   to an accordion since this page is one scrolling document, not a
+   sidebar+pane split. State still reads without color (icon shape differs
+   per state), color is additive. */
 .ws-step {
   border: 1px solid var(--bs-border-color, #dee2e6);
-  border-left: 3px solid var(--bs-border-color, #dee2e6);
-  margin: 0.5rem 0; scroll-margin-top: 5rem;
+  border-radius: var(--bs-border-radius-lg, 1rem);
+  background: var(--bs-card-bg, var(--bs-body-bg));
+  box-shadow: var(--epi-shadow-raised);
+  margin: 0.65rem 0; scroll-margin-top: 5rem;
+  overflow: hidden; transition: box-shadow 0.15s, transform 0.1s;
 }
-.ws-step.ws-done { border-left-color: var(--bs-success, #198754); }
-.ws-step.ws-current { border-left-color: var(--bs-primary, #0d6efd); }
+.ws-step.ws-current {
+  border-color: var(--bs-primary, #0d6efd);
+  box-shadow: 0 0 0 1px var(--bs-primary, #0d6efd), var(--epi-shadow-raised);
+}
 .ws-step.ws-locked { opacity: 0.65; }
 .ws-step-summary {
-  display: flex; align-items: center; gap: 0.5rem;
-  padding: 0.6rem 0.8rem; cursor: pointer; list-style: none;
+  display: flex; align-items: center; gap: 0.7rem;
+  padding: 0.75rem 1rem; cursor: pointer; list-style: none;
 }
 .ws-step-summary::-webkit-details-marker { display: none; }
 .ws-step-summary:hover { background: var(--bs-tertiary-bg, #f8f9fa); }
-.ws-step-name { flex: 1; font-weight: 500; }
-.ws-step.ws-done .ws-step-name { font-weight: 400; }
+.ws-step-name { flex: 1; font-weight: 600; }
+.ws-step.ws-done .ws-step-name { font-weight: 500; opacity: 0.85; }
 .ws-step-meta { font-size: 0.78rem; opacity: 0.6; white-space: nowrap; }
 /* Bonus work, marked as such. Outline rather than a filled badge: it is a
    qualifier on the step, not a state — the icon still carries the state. The
@@ -179,15 +257,33 @@
   opacity: 0.75;
 }
 .ws-step[data-optional] .ws-step-meta { opacity: 0.4; }
+/* The numbered/state circle — RoadmapSidebar's own recipe: filled tint when
+   done, a ring when current, muted when locked, plain outline otherwise. */
+.ws-step-icon {
+  display: flex; align-items: center; justify-content: center; flex: none;
+  width: 1.85rem; height: 1.85rem; border-radius: 50%;
+  font-size: 0.85rem; border: 1.5px solid var(--bs-border-color, #dee2e6);
+}
 .ws-step-icon::before { font-size: 0.9em; }
+.ws-step.ws-done .ws-step-icon {
+  background: color-mix(in oklab, var(--bs-success, #198754) 16%, transparent);
+  border-color: transparent;
+}
 .ws-step.ws-done .ws-step-icon::before { content: "✓"; color: var(--bs-success, #198754); }
+.ws-step.ws-current .ws-step-icon {
+  border-color: var(--bs-primary, #0d6efd); border-width: 2px;
+}
 .ws-step.ws-current .ws-step-icon::before { content: "▶"; color: var(--bs-primary, #0d6efd); }
 .ws-step.ws-todo .ws-step-icon::before { content: "○"; opacity: 0.6; }
-.ws-step.ws-locked .ws-step-icon::before { content: "🔒"; }
+.ws-step.ws-locked .ws-step-icon {
+  background: var(--bs-tertiary-bg, #f1f2f6); border-color: transparent;
+}
+.ws-step.ws-locked .ws-step-icon::before { content: "🔒"; opacity: 0.7; }
 .ws-step.ws-info .ws-step-icon::before { content: "📄"; opacity: 0.7; }
 .ws-chip.ws-info { opacity: 0.85; }
-.ws-step-body { padding: 0 0.8rem 0.9rem; }
-.ws-statement { padding-top: 0.2rem; }
+.ws-step-body { padding: 0 1rem 1.1rem; border-top: 1px solid var(--bs-border-color, #dee2e6); }
+.ws-step-body:empty { border-top: none; }
+.ws-statement { padding-top: 0.9rem; }
 /* Authored content brings its own headings; keep them under the part titles so
    the page hierarchy stays part > step > statement. */
 .ws-statement h1 { font-size: 1.3rem; }
@@ -216,12 +312,15 @@
  * identical, so the eye lands on the one card that is actionable.
  * ------------------------------------------------------------------ */
 .ws-index .ws-cards { margin-top: 1.25rem; }
-.ws-card { border-top: 3px solid var(--bs-border-color, #dee2e6); }
+/* `.card` (epitech-theme.css) already gives every card rounded-xl + a real
+   shadow; `overflow: hidden` keeps this top accent bar from poking past the
+   now-rounded corners. */
+.ws-card { border-top: 3px solid var(--bs-border-color, #dee2e6); overflow: hidden; }
 .ws-card.ws-done { border-top-color: var(--bs-success, #198754); }
 .ws-card.ws-current {
   border-top-color: var(--bs-primary, #0d6efd);
-  /* The one card to click: lifted rather than just tinted, so it reads as
-     "here" even in grayscale. */
+  /* The one card to click: lifted further than the shared elevation, so it
+     reads as "here" even in grayscale. */
   box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.12);
 }
 .ws-card.ws-locked { opacity: 0.7; }
@@ -314,7 +413,10 @@ body.ws-has-pane { overflow-x: hidden; }
 .ws-next-btn { min-width: 60%; }
 
 /* Parcours path graph */
-.ws-parcours-scroll { overflow: auto; border: 1px solid #566c86; padding: 8px; }
+.ws-parcours-scroll {
+  overflow: auto; border: 1px solid #262b38; padding: 8px;
+  border-radius: var(--bs-border-radius-lg, 1rem);
+}
 .ws-parcours-legend { margin: 0.5rem 0; display: flex; gap: 1rem; font-size: 0.85rem; }
 .ws-lg::before {
   content: ""; display: inline-block; width: 12px; height: 12px;
@@ -394,12 +496,25 @@ body.ws-has-pane { overflow-x: hidden; }
 .ws-subject-bar { margin: 0.5rem 0 1rem; }
 
 /* The forward cue a finished document used to lack entirely — see page.py's
-   _render. Only rendered once every step of the current document is done. */
+   _render. Only rendered once every step of the current document is done.
+   A small "Mission Terminée" moment — trophy in a tinted circle, Anton on
+   the terminal state — not a full celebration screen: this sits inline in a
+   scrolling document, not its own route. */
 .ws-next-doc {
-  margin: 2.5rem 0 1rem; padding-top: 1.5rem;
-  border-top: 1px solid var(--bs-border-color, #dee2e6);
+  margin: 2.5rem 0 1rem; padding: 2rem 1.5rem;
+  border-radius: var(--bs-border-radius-lg, 1rem);
+  background: var(--bs-tertiary-bg, #f1f2f6);
   text-align: center;
 }
-.ws-next-doc-lead { margin-bottom: 0.75rem; color: var(--bs-secondary-color, #6c757d); }
-.ws-next-doc-done { font-size: 1.1rem; font-weight: 600; color: var(--bs-success, #198754); }
+.ws-next-doc-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 3.5rem; height: 3.5rem; margin-bottom: 0.75rem;
+  border-radius: 50%; font-size: 1.5rem;
+  background: color-mix(in oklab, var(--bs-success, #198754) 15%, transparent);
+}
+.ws-next-doc-lead { margin-bottom: 1rem; color: var(--bs-secondary-color, #6c757d); }
+.ws-next-doc-done {
+  font-family: "Anton", sans-serif; text-transform: uppercase;
+  font-size: 1.4rem; color: var(--bs-success, #198754);
+}
 .ws-subject.ws-locked .ws-subject-title { opacity: 0.7; }

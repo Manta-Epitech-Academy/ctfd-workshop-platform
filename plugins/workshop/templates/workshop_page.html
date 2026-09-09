@@ -25,13 +25,18 @@
 {% block content %}
 <div class="container ws-page" id="ws-workshop">
 
-  <div class="ws-head">
-    <h1 class="ws-title">{{ page_title or Configs.ctf_name }}</h1>
-    <div class="ws-overall" data-solved="{{ solved_count }}" data-total="{{ total_count }}">
-      <span class="ws-overall-count">{{ solved_count }} / {{ total_count }}</span> steps completed
-      <div class="ws-overall-bar">
-        <div class="ws-overall-fill"
-             style="width: {{ (100 * solved_count / total_count) if total_count else 0 }}%"></div>
+  <div class="ws-head-backdrop epi-blueprint-grid">
+    <div class="ws-head">
+      <h1 class="ws-title epi-title-cursor">{{ page_title or Configs.ctf_name }}</h1>
+      <div class="ws-overall" data-solved="{{ solved_count }}" data-total="{{ total_count }}">
+        <div class="ws-overall-badge">
+          <span class="ws-overall-num">{{ solved_count }}/{{ total_count }}</span>
+          <span class="ws-overall-label">Steps</span>
+        </div>
+        <div class="ws-overall-track">
+          <div class="ws-overall-fill"
+               style="width: {{ (100 * solved_count / total_count) if total_count else 0 }}%"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -50,7 +55,7 @@
          happens whenever a document holds a single chapter. Keep the counter —
          that is the part of this line carrying information. #}
       <h2 class="ws-part-title{% if part.name == page_title %} ws-part-title-quiet{% endif %}">
-        {% if part.name != page_title %}{{ part.name }}{% endif %}
+        {% if part.name != page_title %}<span class="epi-title-cursor">{{ part.name }}</span>{% endif %}
         {% if part.total %}<span class="ws-part-count">{{ part.done }}/{{ part.total }}</span>{% endif %}
       </h2>
 
@@ -107,13 +112,14 @@
        page.py's _render for why this exists: a participant who just finished
        the last step here used to have no forward cue at all. #}
     <section class="ws-next-doc" aria-live="polite">
+      <div class="ws-next-doc-badge" aria-hidden="true">{{ "🏆" if not next_doc else "✓" }}</div>
       {% if next_doc %}
         <p class="ws-next-doc-lead">Part complete.</p>
         <a class="btn btn-primary ws-next-doc-link" href="/workshop/{{ next_doc.slug }}">
           Next part: {{ next_doc.title }} →
         </a>
       {% else %}
-        <p class="ws-next-doc-lead ws-next-doc-done">✓ Workshop complete — nice work.</p>
+        <p class="ws-next-doc-lead ws-next-doc-done">Workshop complete, nice work.</p>
       {% endif %}
     </section>
   {% endif %}

@@ -283,7 +283,7 @@
 
     var overall = ROOT.querySelector(".ws-overall");
     if (!overall) return;
-    overall.querySelector(".ws-overall-count").textContent = done + " / " + total;
+    overall.querySelector(".ws-overall-num").textContent = done + "/" + total;
     overall.querySelector(".ws-overall-fill").style.width =
       (total ? (100 * done) / total : 0) + "%";
   }

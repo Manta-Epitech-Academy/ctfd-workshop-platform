@@ -264,18 +264,52 @@ body,
 }
 
 /* ============================================================================
-   Radius — jump's flat 2px charte default, one value. No per-space system:
-   CTFd has one audience here, not jump's four, so jump's two-tier radius has
-   nothing to key off. Not exhaustively audited for baked-literal exceptions
-   the way color was (see DESIGN.md) — verify visually.
+   Radius and elevation — the TALENT space's system, not the staff/charte flat
+   default. `.camper-layout`/`.talent-surface` in jump's layout.css: 0.75rem
+   for controls, 1rem for surfaces, and a real shadow instead of border-only.
+   This app has one audience (a workshop participant, not a staff member), so
+   it takes the soft/raised half of jump's system, not the square/flat one —
+   correcting the first pass, which used the wrong space's default.
+   `.card` resolves through `--bs-border-radius` in Bootstrap's own compiled
+   CSS (verified against main.e9ec7884.css locally, so is `.badge`/
+   `.form-control`), which is why control and surface radius can't both be one
+   variable: `--bs-card-border-radius` is overridden directly below instead.
    ============================================================================ */
 :root {
-  --bs-border-radius: 0.125rem;
-  --bs-border-radius-sm: 0.125rem;
-  --bs-border-radius-lg: 0.125rem;
-  --bs-border-radius-xl: 0.125rem;
-  --bs-border-radius-xxl: 0.125rem;
+  --bs-border-radius-sm: 0.5rem;
+  --bs-border-radius: 0.75rem;
+  --bs-border-radius-lg: 1rem;
+  --bs-border-radius-xl: 1rem;
+  --bs-border-radius-xxl: 1.5rem;
   /* --bs-border-radius-pill left alone: badges/pills are meant to stay round. */
+
+  /* jump's --elevation-raised, ported: a real card shadow in light, border
+     doing the work in dark (a drop shadow is invisible on a dark surface). */
+  --epi-shadow-raised: 0 1px 2px rgb(0 0 0 / 0.08);
+}
+[data-bs-theme="dark"] {
+  --epi-shadow-raised: none;
+}
+
+.card {
+  --bs-card-border-radius: 1rem;
+  box-shadow: var(--epi-shadow-raised);
+}
+.modal-content {
+  --bs-modal-border-radius: 1rem;
+}
+/* CTFd's board card: nothing sets border-radius today (square by omission,
+   so a plain override wins with no fight), but the dated 15px glow IS set,
+   scoped per theme (`[data-bs-theme=X] .challenge-button{box-shadow:...}`,
+   _challenge.scss) — matched here at the same specificity, or the glow wins
+   on specificity regardless of source order. See DESIGN.md
+   "Bootstrap limitations". */
+.challenge-button {
+  border-radius: 1rem;
+}
+[data-bs-theme="light"] .challenge-button,
+[data-bs-theme="dark"] .challenge-button {
+  box-shadow: var(--epi-shadow-raised);
 }
 
 /* ============================================================================
@@ -335,9 +369,6 @@ code:not(pre code) {
    hex constants in assets/graph.js — the two files must stay in sync (see
    DESIGN.md).
    ============================================================================ */
-.ws-parcours-scroll {
-  border-color: #262b38;
-}
 .ws-parcours-svg a.ws-node-link:hover text {
   fill: #ffffff;
 }
@@ -359,4 +390,41 @@ code:not(pre code) {
 .ws-lg-path::before {
   background: #00ff97;
   border-color: #00ff97;
+}
+
+/* ============================================================================
+   Brand primitives, ported from jump's layout.css and its talent-space
+   components — not invented here. This is what the first pass was missing:
+   it remapped colors but shipped none of the identity jump actually reads as
+   "Epitech" or "Jump" (see DESIGN.md's talent-space section for the survey
+   this is built from: rounded-xl elevated cards, flat low-opacity color
+   tints rather than saturated fills except on a CTA, Anton headings closed by
+   a "_" cursor, and a faint engineering-grid texture behind a hero, never a
+   blur or a gradient glow).
+   ============================================================================ */
+
+/* jump's blueprint-grid: --epi-blue at 6% light, white at 4.5% dark. Spelled
+   out rather than color-mix()'d, matching jump's own reasoning (a mix whose
+   var() a build step cannot resolve loses its alpha) — irrelevant to a
+   hand-written static file with no build step, but there is nothing to gain
+   by writing it the fragile way, and it keeps the two files comparable. */
+.epi-blueprint-grid {
+  background-image:
+    linear-gradient(rgba(1, 58, 251, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(1, 58, 251, 0.06) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+[data-bs-theme="dark"] .epi-blueprint-grid {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+}
+
+/* jump's TitleCursor.svelte: a "_" glued to a heading with no whitespace, in
+   the ink half of the success pair so it stays legible on both surfaces this
+   reskin uses (page body and the always-dark furniture alike). */
+.epi-title-cursor::after {
+  content: "_";
+  color: var(--bs-success);
+  margin-left: 0.05em;
 }

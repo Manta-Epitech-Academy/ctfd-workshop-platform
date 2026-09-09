@@ -14,6 +14,12 @@ already exist as standalone web apps instead of rebuilding them.
 `PLAN.md` is the design of record — read it before proposing architecture. §13 (participant UI)
 and §14 (runtime embedding) are the two most recent decisions.
 
+**Visual work: read [`DESIGN.md`](./DESIGN.md) first.** Token contract (colors, fonts, radius),
+the Bootstrap component classes that bake literal color and ignore a variable remap, and why code
+highlighting is `.ll-*` not `.hljs-*`. Its one implementation is
+`plugins/workshop/assets/epitech-theme.css` — plugin-injected, `CTFd/` untouched, same rule as the
+rest of this file.
+
 ## Repo layout
 
 ```

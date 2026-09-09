@@ -96,6 +96,11 @@ body,
 
   --bs-body-bg: #f6f7fb;
   --bs-body-color: #181818;
+  /* jump's `--card`. A card has to be a distinct surface from the page or the
+     border is doing all the work; Bootstrap defaults --bs-card-bg to the body
+     background, which makes every .card invisible against it. */
+  --epi-card: #ffffff;
+  --bs-card-bg: #ffffff;
   --bs-border-color: #d9dce8;
   --bs-border-color-translucent: rgba(1, 58, 251, 0.12);
   --bs-secondary-bg: #eceef5;
@@ -123,6 +128,8 @@ body,
 
   --bs-body-bg: #0c0e13;
   --bs-body-color: #f1f2f6;
+  --epi-card: #12151d;
+  --bs-card-bg: #12151d;
   --bs-border-color: #262b38;
   --bs-border-color-translucent: rgba(128, 157, 253, 0.15);
   --bs-secondary-bg: #1b1f29;
@@ -213,11 +220,13 @@ body,
    ancestor (the challenge modal), an outline does. :focus (not :focus-visible)
    to match the exact trigger Bootstrap itself uses, so mouse-click focus keeps
    a visible ring too. */
+/* offset 0, not 1px: with the border recoloured too, a detached ring reads as
+   two concentric outlines. Flush against the border they are one 3px ring. */
 .form-control:focus,
 .form-select:focus {
   border-color: var(--bs-primary);
   outline: 2px solid var(--bs-primary);
-  outline-offset: 1px;
+  outline-offset: 0;
   box-shadow: none;
 }
 .form-check-input:checked {
@@ -247,20 +256,46 @@ body,
   --bs-table-border-color: color-mix(in oklab, var(--bs-primary) 35%, var(--bs-body-bg));
 }
 
-/* Hardcoded #29c830 in both theme blocks in _challenge.scss, completely
-   independent of --bs-success — jump already answered "what is solved green"
-   (--success: var(--epi-tech-ink)); reuse it instead of a third green. */
-[data-bs-theme="light"] .challenge-button.challenge-solved {
-  background-color: #007a46;
+/* The challenge board's cards. Core ships them as `btn btn-dark` and then pins
+   `border: none` plus a dated 15px glow inside per-theme blocks
+   (`[data-bs-theme=X] .challenge-button`, _challenge.scss), so every property
+   here has to be matched at that same 0,2,0 specificity or it loses regardless
+   of source order.
+
+   A talent-space card is a light surface with a real border and a small
+   shadow — never a dark slab, which is what a page full of `btn-dark` blocks
+   was. Solved is a flat success tint over that same surface rather than the
+   hardcoded saturated #29c830 fill, which is both off-palette and the one
+   thing on the page shouting louder than the CTA.
+
+   Known limitation, unchanged from stock: solved is signalled by colour alone
+   here. Fixing it needs a glyph in the markup, which lives in a core template
+   this plugin deliberately does not own. The workshop view (the page a
+   participant actually works in) carries icon + text + colour instead. */
+[data-bs-theme="light"] .challenge-button,
+[data-bs-theme="dark"] .challenge-button {
+  border: 1px solid var(--bs-border-color);
+  background-color: var(--epi-card);
+  color: var(--bs-body-color);
+  box-shadow: var(--epi-shadow-raised);
 }
-[data-bs-theme="light"] .challenge-button.challenge-solved:hover {
-  background-color: color-mix(in oklab, #007a46 85%, black);
+[data-bs-theme="light"] .challenge-button:hover,
+[data-bs-theme="dark"] .challenge-button:hover {
+  border-color: var(--bs-primary);
+  background-color: var(--epi-card);
+  color: var(--bs-body-color);
 }
+[data-bs-theme="light"] .challenge-button.challenge-solved,
 [data-bs-theme="dark"] .challenge-button.challenge-solved {
-  background-color: #00ff97;
+  background-color: color-mix(in oklab, var(--bs-success) 12%, var(--epi-card));
+  border-color: color-mix(in oklab, var(--bs-success) 45%, var(--epi-card));
+  color: var(--bs-body-color);
 }
+[data-bs-theme="light"] .challenge-button.challenge-solved:hover,
 [data-bs-theme="dark"] .challenge-button.challenge-solved:hover {
-  background-color: color-mix(in oklab, #00ff97 85%, white);
+  background-color: color-mix(in oklab, var(--bs-success) 18%, var(--epi-card));
+  border-color: var(--bs-success);
+  color: var(--bs-body-color);
 }
 
 /* ============================================================================
@@ -298,18 +333,11 @@ body,
 .modal-content {
   --bs-modal-border-radius: 1rem;
 }
-/* CTFd's board card: nothing sets border-radius today (square by omission,
-   so a plain override wins with no fight), but the dated 15px glow IS set,
-   scoped per theme (`[data-bs-theme=X] .challenge-button{box-shadow:...}`,
-   _challenge.scss) — matched here at the same specificity, or the glow wins
-   on specificity regardless of source order. See DESIGN.md
-   "Bootstrap limitations". */
+/* Nothing sets a radius on the board card today (square by omission), so a
+   plain override wins with no fight. Its colour, border and shadow are a
+   different matter and are handled in the component block above. */
 .challenge-button {
   border-radius: 1rem;
-}
-[data-bs-theme="light"] .challenge-button,
-[data-bs-theme="dark"] .challenge-button {
-  box-shadow: var(--epi-shadow-raised);
 }
 
 /* ============================================================================
@@ -390,6 +418,410 @@ code:not(pre code) {
 .ws-lg-path::before {
   background: #00ff97;
   border-color: #00ff97;
+}
+
+/* ============================================================================
+   The app shell — see plugins/workshop/templates/navbar.html for the markup
+   and shell.py for how it replaces core's navbar without touching CTFd/.
+
+   Ported from jump's talent space (`TalentPageHeader.svelte`): a transparent
+   header in NORMAL FLOW, no background, no border, no shadow, its content
+   centred at the same width as the page body so the wordmark lines up with the
+   content beneath it. CTFd's own was a dark `fixed-top` bar, which is the
+   single loudest thing telling a participant they had left Jump.
+
+   The nav items are the one part jump has no precedent for (its talent header
+   carries no links at all), so they are built from the two things jump does
+   that come closest: the back arrow's hover treatment and the badge recipe of
+   a flat low-opacity tint over solid text. Never a saturated fill.
+   ============================================================================ */
+
+/* One number for the header, the page titles, the content and the footer, so
+   they cannot drift out of alignment with each other. jump's `max-w-5xl`. */
+:root {
+  --epi-content-width: 64rem;
+}
+
+/* One column, footer last, exactly the shape jump's talent dashboard uses
+   (`flex min-h-dvh flex-col`). It replaces core's absolute-positioned
+   sticky-footer hack (see `.footer` below), which cannot work once the header
+   joins the flow — and without it the footer floats up the middle of a short
+   page instead of sitting at the bottom. */
+body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+}
+/* The 3.5rem existed only to clear the fixed navbar (core's _jumbotron.scss
+   says so in a comment); in normal flow it is dead space. The 100px was the
+   space core reserved for that absolute footer. */
+main {
+  flex: 1 0 auto;
+  padding-top: 0;
+  margin-bottom: 0;
+}
+
+.epi-header {
+  background: transparent;
+  border: 0;
+}
+.epi-header-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  max-width: var(--epi-content-width);
+  margin-inline: auto;
+  padding: 1rem;
+}
+@media (min-width: 640px) {
+  .epi-header-inner {
+    flex-wrap: nowrap;
+    gap: 1rem;
+  }
+}
+@media (min-width: 768px) {
+  .epi-header-inner {
+    padding-inline: 2rem;
+  }
+}
+
+/* The wordmark ships as two assets and is swapped, never recoloured: the charte
+   forbids effects on the logo, and a background-image means the browser only
+   fetches the version the current theme actually applies. 8.27rem is 2rem at
+   the asset's own 2133x516 ratio. */
+.epi-brand {
+  display: flex;
+  align-items: center;
+  flex: none;
+  text-decoration: none;
+}
+.epi-brand-mark {
+  display: block;
+  width: 8.27rem;
+  height: 2rem;
+  background-image: url(brand/EPITECH-LOGO-BLEU-2025.svg);
+  background-repeat: no-repeat;
+  background-position: left center;
+  background-size: contain;
+}
+[data-bs-theme="dark"] .epi-brand-mark {
+  background-image: url(brand/EPITECH-LOGO-BLANC-2025.svg);
+}
+/* An instance that uploaded its own logo keeps it — the Epitech wordmark is
+   this platform's default, not an override of the admin's choice. */
+.epi-brand-custom {
+  display: block;
+  height: 2rem;
+  width: auto;
+}
+
+/* jump's own `hidden h-8 w-px bg-muted sm:block` rule, separating the brand
+   from whatever the page puts next to it. */
+.epi-header-divider {
+  display: none;
+}
+@media (min-width: 640px) {
+  .epi-header-divider {
+    display: block;
+    flex: none;
+    width: 1px;
+    height: 2rem;
+    background: var(--bs-secondary-bg);
+  }
+}
+
+.epi-nav-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 2rem;
+  height: 2rem;
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  border-radius: var(--bs-border-radius-sm);
+  color: var(--bs-secondary-color);
+  cursor: pointer;
+}
+.epi-nav-toggle:hover {
+  background: var(--bs-secondary-bg);
+  color: var(--bs-body-color);
+}
+
+/* Collapsed on narrow screens through Bootstrap's own collapse plugin, which is
+   already wired and already works; jump offers no precedent here because it has
+   no nav to collapse. The desktop rule matches `.collapse:not(.show)`'s own
+   specificity (0,2,0) and wins on source order, so no !important is needed. */
+.epi-nav {
+  order: 4;
+  width: 100%;
+}
+@media (min-width: 768px) {
+  .epi-nav-toggle {
+    display: none;
+  }
+  .epi-header .epi-nav {
+    display: flex;
+    order: 0;
+    width: auto;
+  }
+}
+.epi-nav-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0.5rem 0 0;
+  list-style: none;
+}
+@media (min-width: 768px) {
+  .epi-nav-list {
+    padding-top: 0;
+  }
+}
+.epi-nav-link {
+  display: block;
+  padding: 0.375rem 0.625rem;
+  border-radius: var(--bs-border-radius-sm);
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--bs-secondary-color);
+  text-decoration: none;
+  transition: background-color 0.15s, color 0.15s;
+}
+.epi-nav-link:hover {
+  background: var(--bs-secondary-bg);
+  color: var(--bs-body-color);
+  text-decoration: none;
+}
+/* The current page: a flat 10% tint behind solid brand text, jump's badge
+   recipe. A filled pill would be the one saturated block on the page. */
+.epi-nav-link-active,
+.epi-nav-link-active:hover {
+  color: var(--bs-primary);
+  background: color-mix(in oklab, var(--bs-primary) 10%, transparent);
+}
+.epi-nav-link-active:hover {
+  background: color-mix(in oklab, var(--bs-primary) 16%, transparent);
+}
+
+.epi-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex: none;
+}
+/* Whichever element is last before the actions carries the push right: the
+   burger on a narrow signed-in page, the actions themselves once the burger is
+   gone (wide viewport) or was never rendered (signed out). Putting `auto` on
+   both at once would split the free space between them instead. */
+.epi-header-anon .epi-header-actions {
+  margin-left: auto;
+}
+@media (min-width: 768px) {
+  .epi-header-actions {
+    margin-left: auto;
+  }
+}
+
+/* jump's ghost icon-button: 2rem box, muted glyph, muted fill on hover. */
+.epi-icon-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  border-radius: var(--bs-border-radius-sm);
+  color: var(--bs-secondary-color);
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+.epi-icon-btn:hover {
+  background: var(--bs-secondary-bg);
+  color: var(--bs-body-color);
+}
+.epi-icon-btn i {
+  font-size: 1rem;
+  line-height: 1;
+}
+/* The one place a saturated fill is right: an unread count is an alert, not a
+   category. Body-bg rather than white as the text colour, because the dark
+   theme's danger is a light salmon that white would disappear into. */
+.epi-icon-badge {
+  position: absolute;
+  top: -0.15rem;
+  right: -0.15rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1rem;
+  height: 1rem;
+  padding: 0 0.2rem;
+  border-radius: 999px;
+  background: var(--bs-danger);
+  color: var(--bs-body-bg);
+  font-size: 0.65rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* Named rather than an anonymous avatar: jump greets a talent by name, and on a
+   shared classroom machine the name is the fastest way to notice you are signed
+   in as somebody else. Six navbar entries collapse into this one control. */
+.epi-account-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  height: 2rem;
+  padding: 0 0.5rem;
+  border: 0;
+  background: none;
+  border-radius: var(--bs-border-radius-sm);
+  color: var(--bs-secondary-color);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+.epi-account-btn:hover,
+.epi-account-btn[aria-expanded="true"] {
+  background: var(--bs-secondary-bg);
+  color: var(--bs-body-color);
+}
+.epi-account-name {
+  max-width: 10rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Below this the name costs more than it tells you; the caret still says the
+   control opens something. */
+@media (max-width: 400px) {
+  .epi-account-name {
+    display: none;
+  }
+}
+.epi-account-caret {
+  font-size: 0.6rem;
+  opacity: 0.7;
+}
+.epi-account-menu {
+  --bs-dropdown-min-width: 11rem;
+}
+.epi-account-menu .dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: 0.875rem;
+}
+.epi-account-menu .dropdown-item i {
+  width: 1rem;
+  text-align: center;
+  opacity: 0.7;
+}
+/* jump's own `hover:text-destructive` on its logout control. */
+.epi-account-logout:hover {
+  color: var(--bs-danger);
+}
+
+.epi-auth-link {
+  padding: 0 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--bs-secondary-color);
+  text-decoration: none;
+}
+.epi-auth-link:hover {
+  color: var(--bs-body-color);
+  text-decoration: none;
+}
+
+/* ============================================================================
+   Page titles. Core's `.jumbotron` is a centred `--bs-dark` slab with 4rem of
+   padding, and it is the heading on /challenges, /scoreboard, /login and
+   /register. jump has nothing remotely like it: a page title there is a plain
+   left-aligned Anton line in the body colour. Restyled rather than
+   re-templated, so no core page template is owned.
+   ============================================================================ */
+.jumbotron {
+  padding: 0.5rem 0 0;
+  margin-bottom: 1.5rem;
+  background-color: transparent;
+  color: var(--bs-body-color);
+  text-align: left;
+}
+
+/* Every page's own top-level container, on the header's width and gutters, so a
+   title and a board line up with the wordmark above them instead of sitting
+   ~5rem wider. Bootstrap's `.container` is a stepped max-width that lands at
+   1140px, which is what made the challenge board visibly overhang the shell.
+   Safe to state this broadly: the admin theme loads its stylesheets from a
+   separate registry (`get_registered_admin_stylesheets`) and never sees this
+   file, so its own wider layout is untouched. */
+main > .container,
+main > .jumbotron > .container {
+  max-width: var(--epi-content-width);
+  padding-inline: 1rem;
+}
+@media (min-width: 768px) {
+  main > .container,
+  main > .jumbotron > .container {
+    padding-inline: 2rem;
+  }
+}
+/* jump's own accent-clip fix, and French page titles need it: Anton is
+   condensed uppercase and carries É above the cap line, so a tight line box
+   slices the accent. The symmetric padding/margin pair grows the clip box
+   without moving the element or changing its outer size. */
+.jumbotron h1 {
+  margin: -0.375rem 0;
+  padding: 0.375rem 0;
+  font-size: 1.5rem;
+  line-height: 1.1;
+}
+
+/* A CTFd Page renders its markdown straight into the page container
+   (themes/core/templates/page.html has no wrapper), so its leading heading IS
+   the page title but gets none of `.jumbotron h1`'s treatment — which is why
+   "Parcours" sat in the body face while "Challenges" was Anton. Every core
+   template's own h1 is inside a jumbotron, so this only ever matches an
+   authored Page. */
+main > .container > h1:first-child {
+  font-family: "Anton", sans-serif;
+  text-transform: uppercase;
+  font-size: 1.5rem;
+  line-height: 1.1;
+  margin: -0.375rem 0 1.5rem;
+  padding: 0.375rem 0;
+}
+
+/* Core hangs the footer off `position: absolute` with a 100px margin reserved
+   on `main` (its sticky-footer hack, and the reason for `z-index: -20`). With
+   the header in flow the whole page is one column, so the footer joins it. */
+.footer {
+  position: static;
+  height: auto;
+  line-height: 1.6;
+  z-index: auto;
+  padding: 1.5rem 1rem 2rem;
+}
+.footer .container {
+  max-width: var(--epi-content-width);
+}
+.footer small {
+  font-size: 0.875rem;
+  color: var(--bs-secondary-color);
 }
 
 /* ============================================================================

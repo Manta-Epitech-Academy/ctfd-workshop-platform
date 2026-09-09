@@ -25,6 +25,7 @@ from .answers import load_answers
 from .mode import load_mode
 from .checkpoint import load_checkpoint
 from .syncpage import load_syncpage
+from .shell import load_shell
 from .quiz import QuizChallenge
 
 
@@ -38,14 +39,17 @@ def load(app):
     # The participant-facing view: the whole workshop as one page, steps as
     # accordions with progress steppers, instead of a modal per challenge.
     load_page(app)
-    # No static "Workshop" entry: the sync creates one Page per document, so the
-    # navbar reads <CTF name> | Parcours | <part 1> … <part N> | Users | … . A
-    # fixed entry here would always sort *after* those (CTFd builds the menu as
-    # get_pages() + plugin entries) and would duplicate the only part of a
-    # single-document subject. `/workshop` stays the post-login landing page.
-    # ...and it is where a signed-in participant lands (`/` and post-login).
-    # The challenge board stays reachable at /challenges — see landing.py.
+    # `/workshop` is where a signed-in participant lands (`/` and post-login);
+    # the challenge board stays reachable at /challenges — see landing.py.
     load_landing(app)
+    # The Epitech/Jump app shell, replacing core's dark fixed-top navbar. It is
+    # what carries the "Workshop" nav entry: this used to be deliberately absent
+    # because a plugin menu entry always sorts *after* the per-document Pages the
+    # sync creates, leaving it in the wrong place. Those Pages are hidden from the
+    # navbar now (tools/sync_subject.py) and the shell owns the item order
+    # outright, so the entry can finally sit first, where it belongs — until now
+    # /workshop was reachable only by clicking the logo. See shell.py.
+    load_shell(app)
     # Serves the runtime dists at /runtime/<id>/<version>/ on CTFd's own origin
     # — same-origin is what makes localStorage, clipboard and adapter injection
     # work (PLAN.md §14.2). See runtime.py.

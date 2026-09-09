@@ -113,14 +113,57 @@ same solved/open/locked/current-path encoding, recolored to `--epi-tech`(-ink) /
 `--epi-grey-200`/`--epi-grey-900` instead of the stock dark-arcade palette it shipped with. A
 future color change to one needs the same change in the other; neither reads the other's values.
 
-## Radius
+## Radius and elevation — the talent space's system
 
-One flat value, `0.125rem` (jump's charte default), everywhere — `--bs-border-radius*`. No
-per-space tiering: `jump` has one because it has four audiences with different needs (a talent
-surface wants softer corners than a staff table); this codebase has one audience, so there is
-nothing for a second tier to key off. Not exhaustively audited for Bootstrap components that bake
-radius as a literal the way color does — verify visually (buttons, cards, inputs, badges) before
-trusting full variable coverage on a new component.
+`--bs-border-radius-sm/-/-lg/-xl` are `0.5/0.75/1/1rem`, `-xxl` is `1.5rem`, and `.card` /
+`.modal-content` / `.challenge-button` carry a real shadow (`--epi-shadow-raised`) in light mode.
+This is `jump`'s **talent-space** system (`.camper-layout`/`.talent-surface` in `layout.css`) —
+rounded-xl elevated cards, not `jump`'s flat `0.125rem` staff/charte default.
+
+The first pass used the flat charte default, reasoning "one audience, no multi-space system to
+justify a two-tier radius." That was wrong, corrected by direct feedback: the actual target isn't
+`jump`'s staff tooling, it's specifically **`jump`'s talent space** — the participant-facing side
+of `jump`, which is what this codebase's one audience (a workshop participant) actually maps to.
+So it takes the soft/raised half of `jump`'s two-tier system, not the flat/square half, even though
+there's only one tier here.
+
+`--bs-border-radius-pill` is left alone (badges/pills stay round in either system). Shadow is
+`none` in dark mode — a drop shadow reads as a smudge on a dark surface; `jump` does the same
+(border carries the "raised" cue there instead). Not exhaustively audited for every Bootstrap
+component that bakes radius as a literal the way color does — verify visually (buttons, cards,
+inputs, badges) before trusting full variable coverage on a new component.
+
+## Brand primitives — what a token remap alone doesn't buy
+
+Recoloring Bootstrap's own components (buttons, cards, tables) makes the page *on-brand-colored*,
+not *on-brand*. What actually reads as "`jump`'s talent space" is a handful of concrete visual
+patterns, ported here as reusable classes rather than invented from scratch:
+
+- **`.epi-blueprint-grid`** — a faint engineering-grid texture (`--epi-blue` at 6% light / white at
+  4.5% dark, 48px cells), `jump`'s `BrandBackdrop`. Used behind the workshop page header. Never a
+  blur or a gradient glow — `BrandBackdrop`'s own comment in `jump` is explicit that the charte
+  rules out both; a texture is a surface, a glow is a light source, and the charte wants the former.
+- **`.epi-title-cursor`** — a trailing `_` glued to a heading with no whitespace, in the success
+  "ink" color, `jump`'s `TitleCursor.svelte`. Used on the workshop title and each part title.
+- **Tinted pill badges, not outlines** — `.ws-chip` state pills, the `.ws-overall-badge` step
+  counter, the `.ws-next-doc-badge` completion icon: a `color-mix()` tint fill at ~12-16% opacity
+  plus solid text, `jump`'s recipe for "a badge that reads as brand-colored without being a
+  saturated block." A thin gray-or-colored outline (the first pass's approach) reads as unstyled
+  Bootstrap regardless of which hex it borrows.
+- **A bold number, not a fill-meter, for the hero counter** — `.ws-overall-num` is a large figure
+  in a tinted badge (`jump`'s XP-badge treatment, reused for a step count instead of experience
+  points), next to a thin rounded track, not a wide Bootstrap `.progress` bar. The old plain
+  `.ws-overall-bar` still exists as a secondary, quieter variant for a card's or a subject's own
+  progress — not the hero figure.
+- **A completion moment, not a bare sentence** — finishing every step of a document renders
+  `.ws-next-doc`: an icon in a tinted circle, an Anton headline for the terminal state, styled
+  after `jump`'s removed "dynamic activity" step-through feature (`(talent)/[activityId]/`,
+  removed ~470 commits back in `jump`'s history) — specifically its completion screen
+  (`StepValidationBlock`, trophy + `font-heading text-4xl uppercase` "Mission Terminée !"), the
+  concrete reference this correction is built from.
+
+None of this is invented: every recipe above is copied from a real `jump` talent-space component
+or from that removed step-through feature, not approximated from memory of "what feels like jump."
 
 ## What this deliberately isn't
 

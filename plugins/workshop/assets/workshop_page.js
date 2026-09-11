@@ -281,6 +281,10 @@
      Its keyword list misses `local`, which is on nearly every line of beginner
      Lua, and Python's `None`, `True` and `False` — the list carries `null`,
      `true` and `false` and is case-sensitive. */
+  /* Looked up with `=== 1`, not for truthiness: these are plain object literals,
+     so a token spelled `constructor`, `toString` or `valueOf` would otherwise
+     come back with a function off Object.prototype and be tagged a keyword.
+     Same reason the language lookup below tests for a string. */
   var EXTRA_KEYWORDS = { local: 1, nonlocal: 1, pass: 1, None: 1, True: 1, False: 1 };
 
   /* And it only knows `//` and `#` line comments, so `-- deplace le fantome`
@@ -321,7 +325,7 @@
     if (!scope || !window.lolight || typeof window.lolight.tok !== "function") return;
     scope.querySelectorAll("pre code").forEach(function (block) {
       var lang = (block.className.match(/language-([\w+#-]+)/) || [])[1];
-      var marker = LINE_COMMENT[lang];
+      var marker = typeof LINE_COMMENT[lang] === "string" ? LINE_COMMENT[lang] : "";
       var toks = window.lolight.tok(block.textContent);
       var out = document.createDocumentFragment();
       var inComment = false;
@@ -340,7 +344,7 @@
           continue;
         }
         if (marker && startsComment(toks, i, marker)) inComment = true;
-        else if (cls === "nam" && EXTRA_KEYWORDS[text]) cls = "key";
+        else if (cls === "nam" && EXTRA_KEYWORDS[text] === 1) cls = "key";
         span(out, inComment ? "com" : cls, text);
       }
       block.textContent = "";

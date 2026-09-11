@@ -464,6 +464,14 @@ pre code {
   background-color: var(--epi-grey-900) !important;
   color: #f1f2f6;
 }
+/* Same frame as a screenshot in the same body: both are always-dark panels in
+   a light document, and one of them having square corners next to the other's
+   rounded ones reads as two different systems. */
+pre {
+  border-radius: var(--bs-border-radius-lg);
+  padding: 1rem 1.1rem;
+  overflow-x: auto;
+}
 .ll-nam,
 .ll-key,
 [data-bs-theme="dark"] .ll-nam,

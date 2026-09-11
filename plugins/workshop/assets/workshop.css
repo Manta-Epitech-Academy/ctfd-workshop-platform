@@ -1,16 +1,118 @@
 /* Workshop plugin styles, injected on every page via {{ Plugins.styles }}.
    Keeps CTFd core/theme untouched (CLAUDE.md: plugin-only). */
 
+/* ------------------------------------------------------------------ *
+ * Authored content — the surface a participant actually reads
+ *
+ * Ported from jump's `.prose` block, whose own comment calls it "Notion-like
+ * with Epitech branding". Everything here applies to markdown somebody wrote
+ * in a subject repo: a step statement, a part introduction, a hint, the short
+ * version. It had no treatment at all before — the only rule in this file was
+ * a four-line image cap — so a table, a blockquote or an inline `code` came
+ * out as whatever Bootstrap happened to do.
+ * ------------------------------------------------------------------ */
+
 /* The core theme caps images in the description (.challenge-desc img) but not
-   in hints, which render in a separate container — so hint images overflow.
-   Cap and tidy images everywhere inside the challenge modal. */
+   in hints, which render in a separate container — so hint images overflow. */
 .challenge-hints img,
 .challenge-desc img {
   max-width: 100%;
   height: auto;
   display: block;
-  margin: 0.75rem auto;
+  margin: 1rem auto;
+  /* A dark mat in both themes. Subject media is pixel art from a game that only
+     exists on black: on a light ground every screenshot wears a halo. Same
+     reasoning as the code blocks, which are already always-dark for it.
+     jump's charte says images are square and shadowless — that was written
+     about photographs of people at campus events, and this is a framed screen.
+     Recorded as a deviation in DESIGN.md. */
+  background: var(--epi-grey-900);
+  border: 1px solid var(--bs-border-color, #dee2e6);
+  border-radius: var(--bs-border-radius-lg, 1rem);
+  /* A screenshot 750px tall pushed the first step of the part below the fold.
+     Capped by height rather than width so a wide diagram stays readable and a
+     tall one stops being the whole screen. */
+  max-height: 26rem;
+  width: auto;
+  object-fit: contain;
 }
+
+/* Headings inside authored content are the author's structure, not the page's:
+   they stay in the body face. Anton is display-only (DESIGN.md), and an
+   uppercase condensed `### Mise en application` would outrank the part title
+   above it. */
+.challenge-desc h1, .challenge-desc h2, .challenge-desc h3,
+.challenge-desc h4, .challenge-desc h5, .challenge-desc h6 {
+  font-family: inherit;
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 600;
+  line-height: 1.25;
+  margin-top: 1.6rem;
+}
+.challenge-desc > :first-child { margin-top: 0; }
+
+/* A measure. Running text at the full 64rem column is around 110 characters a
+   line, which is roughly twice what anyone reads comfortably — and this page is
+   a document a 15-year-old works through for two hours. Only the prose is
+   constrained: a code block, a table or a screenshot keeps the full width,
+   because those are read by scanning rather than line by line. */
+.challenge-desc > p,
+.challenge-desc > ul,
+.challenge-desc > ol,
+.challenge-desc > blockquote {
+  max-width: 68ch;
+}
+
+.challenge-desc a {
+  font-weight: 500;
+  color: var(--bs-primary);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in oklab, var(--bs-primary) 30%, transparent);
+  text-underline-offset: 2px;
+  transition: text-decoration-color var(--epi-dur-fast) var(--epi-ease-standard);
+}
+.challenge-desc a:hover { text-decoration-color: var(--bs-primary); }
+
+.challenge-desc blockquote {
+  border-left: 3px solid var(--bs-border-color, #dee2e6);
+  padding: 0 0 0 1rem;
+  margin: 1rem 0;
+  color: var(--bs-secondary-color);
+}
+.challenge-desc blockquote > :last-child { margin-bottom: 0; }
+
+/* Tables get real borders and a quiet header, Notion-style, and their own
+   scroll rather than pushing the page sideways. */
+.challenge-desc table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+  margin: 1rem 0;
+  display: block;
+  overflow-x: auto;
+}
+.challenge-desc thead th {
+  border: 1px solid var(--bs-border-color, #dee2e6);
+  background: var(--bs-secondary-bg);
+  padding: 0.45rem 0.7rem;
+  text-align: left;
+  font-weight: 600;
+  color: var(--bs-secondary-color);
+}
+.challenge-desc tbody td {
+  border: 1px solid var(--bs-border-color, #dee2e6);
+  padding: 0.45rem 0.7rem;
+}
+
+.challenge-desc hr {
+  border: 0;
+  border-top: 1px solid var(--bs-border-color, #dee2e6);
+  margin: 2rem 0;
+}
+
+.challenge-desc li + li { margin-top: 0.25rem; }
+.challenge-desc li > p { margin-bottom: 0.4rem; }
 
 /* ------------------------------------------------------------------ *
  * Single-page workshop view (/workshop)
@@ -174,11 +276,21 @@
 }
 
 /* Steppers — sequential progress, not hierarchy: chips joined by "›" */
+/* One line that scrolls, not a block that wraps. A part with eleven steps wrapped
+   onto three rows above the content, ate the first screen, and said the same
+   thing as the list of steps directly under it. This is a stepper, not a
+   breadcrumb (PLAN.md §13): a sequence reads as a line. */
 .ws-stepper {
-  display: flex; flex-wrap: wrap; align-items: center;
+  display: flex; align-items: center;
   gap: 0.15rem 0.35rem; font-size: 0.82rem;
+  overflow-x: auto; overflow-y: hidden;
+  scrollbar-width: thin;
+  /* Room for the chips' own focus ring, which an overflow container clips. */
+  padding-block: 0.15rem;
 }
+.ws-stepper > * { flex: none; }
 .ws-stepper-parts {
+  overflow-y: hidden;
   /* Sticks flush to the top: the app shell's header is in normal flow and
      scrolls away, so there is no fixed bar left to clear. This stepper is the
      one thing on the page that must survive scrolling a long subject. */
@@ -186,7 +298,6 @@
   background: var(--bs-body-bg, #fff);
   border-bottom: 1px solid var(--bs-border-color, #dee2e6);
   padding: 0.5rem 0; margin-bottom: 1rem;
-  max-height: 30vh; overflow-y: auto;
 }
 .ws-stepper-steps { margin: 0.35rem 0 0.75rem; opacity: 0.95; }
 /* Pill, not outline: a tinted fill per state, jump's badge recipe
@@ -281,8 +392,16 @@
   list-style: none;
 }
 .ws-part-lead-summary::-webkit-details-marker { display: none; }
-.ws-part-lead-summary::before { content: "\25b8"; font-size: 0.85em; }
-.ws-part-lead[open] > .ws-part-lead-summary::before { content: "\25be"; }
+/* Font Awesome, like every other glyph on this page. A bare geometric triangle
+   at the body font's weight read as a rendering fault, not as a control. */
+.ws-part-lead-summary::before {
+  content: "\f078";
+  font-family: "Font Awesome 6 Free"; font-weight: 900;
+  font-size: 0.62em;
+  transition: transform var(--epi-dur-fast) var(--epi-ease-standard);
+}
+.ws-part-lead:not([open]) > .ws-part-lead-summary::before { transform: rotate(-90deg); }
+.ws-part-lead-summary:hover { color: var(--bs-body-color); }
 .ws-part-lead[open] > .ws-part-lead-summary { margin-bottom: 0.35rem; }
 
 /* The author's short version of a step (convention §3.4, PLAN.md §25.7). Same
@@ -349,7 +468,37 @@
   border-color: var(--bs-primary, #0d6efd);
   box-shadow: 0 0 0 1px var(--bs-primary, #0d6efd), var(--epi-shadow-raised);
 }
-.ws-step.ws-locked { opacity: 0.65; }
+/* Arriving at a part at 0% used to mean eleven identical full-size cards with a
+   padlock on each: the first impression of every subject was a wall saying "you
+   may not". The steps all stay in the DOM — the syllabus is not a secret
+   (PLAN.md §13) and seeing what is coming is the point — they just stop
+   competing with the one step that can actually be worked on. Not a fold: that
+   would put a click between a participant and the shape of what they are about
+   to do. */
+.ws-step.ws-locked {
+  opacity: 1;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  margin: 0;
+}
+.ws-step.ws-locked > .ws-step-summary {
+  padding-block: 0.4rem;
+  color: var(--bs-secondary-color, #6c757d);
+}
+.ws-step.ws-locked .ws-step-name { font-weight: 500; }
+.ws-step.ws-locked .ws-step-icon {
+  width: 1.4rem; height: 1.4rem; background: none;
+  border: 1px solid var(--bs-border-color, #dee2e6);
+}
+/* The points say what a step is worth once it can be started. On one nobody can
+   start yet they are a price tag on a locked door. */
+.ws-step.ws-locked .ws-step-meta { display: none; }
+.ws-step.ws-locked + .ws-step.ws-locked {
+  border-top: 1px solid var(--bs-border-color, #dee2e6);
+}
+/* Opening one still shows what unlocks it: a quiet row, not a dead one. */
+.ws-step.ws-locked[open] > .ws-step-summary { color: var(--bs-body-color); }
 .ws-step-summary {
   display: flex; align-items: center; gap: 0.7rem;
   padding: 0.75rem 1rem; cursor: pointer; list-style: none;

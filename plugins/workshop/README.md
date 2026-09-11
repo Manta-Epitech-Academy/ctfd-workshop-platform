@@ -72,6 +72,26 @@ blocks the instance nor deadlocks when it calls the instance's own API.
 
 - Structure copied from `CTFd/plugins/dynamic_challenges` — if that plugin still works on
   a new CTFd version, this one almost certainly does too.
+- **Three core templates are overridden outright** (`shell.py`, via CTFd's own
+  `override_template`): `components/navbar.html`, `page.html` and `login.html`. An override is
+  silent by construction — if upstream renames or restructures one of these, `overridden_templates`
+  keeps serving ours and the only symptom is a page that quietly stops matching the theme. `load_shell`
+  checks each stock file still exists and logs a warning at boot, so **read the boot log after a CTFd
+  upgrade**. What each one depends on:
+  - `navbar.html` — `Plugins.user_menu_pages`, and a `.theme-switch` wrapping an `<i class="fas">`,
+    which `color_mode_switcher.js` dereferences with no null check.
+  - `page.html` — that `views.static_html` still passes `title` alongside `content`.
+  - `login.html` — `Forms.auth.LoginForm()`, `components/errors.html` and the `integrations.mlc()`
+    branch. The form is core's field for field; only the layout around it is ours, so an upstream
+    change to authentication does not have to be mirrored.
+- **The participant path is translated** through CTFd's own flask-babel. `load()` appends
+  `plugins/workshop/translations` to `BABEL_TRANSLATION_DIRECTORIES`, which works because
+  `Domain.translation_directories` reads that config at lookup time rather than at init, and
+  `get_translations` merges every directory in it. If a CTFd upgrade changes either of those two
+  behaviours, the plugin's strings fall back to English rather than breaking — but check it.
+- **`assets/vendor/` is a build artifact**, not committed: `tools/build_vendor.sh` fetches
+  openpgp.js and canvas-confetti at pinned versions with their sha256 verified. Without it the sync
+  page cannot decrypt answers and the workshop page simply draws no confetti.
 - Touch points with core, in full: `CHALLENGE_CLASSES` registry, `BaseChallenge` subclass
   API (`create/read/update/attempt`), `register_plugin_assets_directory`,
   `ChallengeCreateException/ChallengeUpdateException`, and the two admin template blocks

@@ -793,6 +793,67 @@ body.ws-has-pane { overflow-x: hidden; }
 .ws-subject-title .ws-card-count { margin-left: auto; font-size: 0.8rem; opacity: 0.7; }
 .ws-subject-bar { margin: 0.5rem 0 1rem; }
 
+/* ------------------------------------------------------------------ *
+ * Celebration — assets/celebrate.js draws these, this sizes them
+ *
+ * `epi-reward-float` is jump's `xp-float` keyframe, ported frame for frame:
+ * pop in with overshoot, settle, hover, float away. jump's DESIGN.md caps a
+ * state transition at 320ms and then says a one-shot celebration states its own
+ * duration — 2.2s is the original's, and the reason it is allowed.
+ * ------------------------------------------------------------------ */
+@keyframes ws-reward-float {
+  0%   { opacity: 0; transform: translate(-50%, 24px) scale(0.5); }
+  12%  { opacity: 1; transform: translate(-50%, 0) scale(1.25); }
+  24%  { transform: translate(-50%, 0) scale(1); }
+  70%  { opacity: 1; transform: translate(-50%, -12px) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -56px) scale(0.92); }
+}
+
+/* Anchored to the row that was just solved, not centred on the viewport: jump
+   floats its XP over the whole screen because it is celebrating the session,
+   and doing that 33 times in a row would be a punishment rather than a reward. */
+.ws-step-summary { position: relative; }
+.ws-reward {
+  position: absolute;
+  right: 3.5rem; top: 50%;
+  display: flex; align-items: center; gap: 0.4rem;
+  pointer-events: none;
+  white-space: nowrap;
+  animation: ws-reward-float 2.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  z-index: 3;
+}
+.ws-reward-figure {
+  font-family: "Anton", sans-serif;
+  font-size: 1.6rem; line-height: 1;
+  color: var(--bs-success);
+  font-variant-numeric: tabular-nums;
+}
+.ws-reward-unit {
+  font-family: "Space Mono", "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.65rem; font-weight: 700; letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--bs-success);
+}
+/* The subject's own sprite, when it declared one (cover.mascot). Every subject
+   already ships the art — the ghost, Pac-Man, the shooter — so this costs an
+   author one line and nothing else, and a subject that declares none simply
+   gets the figure. */
+.ws-reward-mascot {
+  width: 1.75rem; height: 1.75rem;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+/* The confetti canvas: above the runtime pane (z-index 1030) and on its own
+   compositing layer, or it paints behind the iframe. See celebrate.js. */
+#ws-confetti {
+  position: fixed; inset: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+  z-index: 2147483647;
+  transform: translateZ(0);
+}
+
 /* The forward cue a finished document used to lack entirely — see page.py's
    _render. Only rendered once every step of the current document is done.
    A small "Mission Terminée" moment — trophy in a tinted circle, Anton on

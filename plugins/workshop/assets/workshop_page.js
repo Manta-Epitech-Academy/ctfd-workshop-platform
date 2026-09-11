@@ -9,6 +9,20 @@
  */
 (function () {
   var ROOT = null;
+
+  // Read once from the JSON island the template renders. Falls back to an empty
+  // object so a page that predates it (or an older cached template) still runs.
+  var PAGE = (function () {
+    var el = document.getElementById("ws-page-data");
+    if (!el) return {};
+    try {
+      return JSON.parse(el.textContent) || {};
+    } catch (e) {
+      return {};
+    }
+  })();
+  var COVER = PAGE.cover || {};
+  var I18N = PAGE.i18n || {};
   var TITLE = { done: "Completed", current: "In progress", todo: "Not started",
                 locked: "Locked", info: "Just something to read" };
   var STATES = ["done", "current", "todo", "locked", "info"];
@@ -91,7 +105,30 @@
       var status = data.status || "error";
       if (status === "correct" || status === "already_solved") {
         feedback(form, "correct", data.message || "Correct");
-        await refresh(id);
+        // Everything the celebration needs is read BEFORE the refresh: it
+        // replaces .ws-step-body's innerHTML, which contains this very form.
+        // .ws-step-summary survives, which is why the points come from there
+        // and why the float is anchored to it.
+        var stepEl = form.closest(".ws-step");
+        var meta = stepEl && stepEl.querySelector(".ws-step-meta");
+        var points = meta ? parseInt(meta.textContent, 10) : 0;
+        // `correct` only, and here rather than anywhere else. This is the ONE
+        // place in the page where a real solve and "you had already solved
+        // this" are distinguishable: refresh() re-reads the graph and sees a
+        // solved set with no provenance, updateCounters() sees only data-state.
+        // It is also the only place that knows WHICH step — refresh()'s loop
+        // flips every step whose state moved, which on one solve can be several.
+        //
+        // The step's own moment fires BEFORE the refresh, not after: refresh()
+        // opens the step that just unlocked and scrolls to it, so a float
+        // created afterwards would pop on a row that is no longer on screen.
+        // It pops in ~260ms and the refresh's own round trip is longer than
+        // that, so it is seen and then the page moves on.
+        if (status === "correct" && window.wsCelebrate) {
+          window.wsCelebrate.step(stepEl, points, I18N.points, COVER.mascot);
+        }
+        var counts = await refresh(id);
+        if (status === "correct") celebrateCompletion(counts);
       } else {
         feedback(form, status, data.message || "Incorrect");
         button.disabled = false;
@@ -100,6 +137,24 @@
       feedback(form, "error", "Could not reach the server — try again.");
       button.disabled = false;
     }
+  }
+
+  /* ---------- the moment after a solve ---------- */
+
+  // Three intensities so the last one still counts: a figure floating off the
+  // row (fired in submit, above), confetti when the part is done, confetti
+  // twice when the whole workshop is. assets/celebrate.js owns the drawing;
+  // this owns only which one fires.
+  function celebrateCompletion(counts) {
+    var api = window.wsCelebrate;
+    if (!api || !counts || counts.total === 0) return;
+    if (counts.done !== counts.total) return;
+    // The server already decided what the completion block says;
+    // `.ws-next-doc-done` is the class it puts there when there is no next
+    // part, i.e. this was the last one.
+    var block = ROOT.querySelector(".ws-next-doc");
+    if (block && block.querySelector(".ws-next-doc-done")) api.workshop();
+    else api.part();
   }
 
   /* ---------- ratings (CTFd's own per-challenge rating) ---------- */
@@ -246,12 +301,13 @@
 
     // Counters read the states we just set, so they land immediately — the
     // bodies being fetched only affect the inside of steps.
-    updateCounters(solved);
+    var counts = updateCounters(solved);
     await Promise.all(pending);
     if (next && next.dataset.challengeId !== String(justSolvedId)) {
       next.open = true;
       scrollTo(next);
     }
+    return counts;
   }
 
   function updateCounters(solved) {
@@ -290,10 +346,15 @@
     if (nextDoc) nextDoc.hidden = !(total > 0 && done === total);
 
     var overall = ROOT.querySelector(".ws-overall");
-    if (!overall) return;
-    overall.querySelector(".ws-overall-num").textContent = done + "/" + total;
-    overall.querySelector(".ws-overall-fill").style.width =
-      (total ? (100 * done) / total : 0) + "%";
+    if (overall) {
+      overall.querySelector(".ws-overall-num").textContent = done + "/" + total;
+      overall.querySelector(".ws-overall-fill").style.width =
+        (total ? (100 * done) / total : 0) + "%";
+    }
+    // Handed back rather than only written into the DOM: submit() is the only
+    // place that knows a solve just happened (see its comment), and it needs
+    // these to decide between the three celebration tiers.
+    return { total: total, done: done };
   }
 
   /* ---------- navigation ---------- */

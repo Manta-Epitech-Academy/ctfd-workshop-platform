@@ -212,8 +212,33 @@
 {% endif %}
 {% endblock %}
 
+
 {% block scripts %}
   {{ super() }}
+
+  {#
+    Page data the scripts need but must not hardcode: the subject's mascot (a file
+    from its own repo) and the strings. One JSON island rather than data-
+    attributes scattered over the markup, and rather than a second translation
+    mechanism in JS — Jinja's `tojson` is HTML-safe, so it cannot break out of the
+    script element.
+  #}
+  <script type="application/json" id="ws-page-data">
+    {{ {"cover": cover or {},
+        "i18n": {"points": "pts"}} | tojson }}
+  </script>
+  {# Both before workshop_page.js and both `defer`, so they execute in document
+     order and the module is there when a solve fires. NOT registered through
+     `register_plugin_script`: that injects into {{ Plugins.scripts }} on every
+     core page — /login, /setup, /scoreboard would all download a confetti
+     bundle they can never fire — and that block is rendered AFTER this one, so
+     a globally-registered module would run after its caller.
+
+     confetti.browser.js is a gitignored build artifact: tools/build_vendor.sh
+     fetches it at a pinned version with its sha256 checked. Absent, the page
+     works and celebrate.js simply draws no burst. #}
+  <script defer src="/plugins/workshop/assets/vendor/confetti.browser.js"></script>
+  <script defer src="/plugins/workshop/assets/celebrate.js"></script>
   <script defer src="/plugins/workshop/assets/workshop_page.js"></script>
   {% if runtime %}<script defer src="/plugins/workshop/assets/runtime.js"></script>{% endif %}
 {% endblock %}

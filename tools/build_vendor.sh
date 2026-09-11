@@ -16,6 +16,8 @@
 #                                       decrypt an answers file in the browser.
 #                                       The passphrase never reaches the server
 #                                       (PLAN.md §26.3).
+#                                       canvas-confetti, for the workshop page's
+#                                       completion moments.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PY_DIR="$ROOT/plugins/workshop/vendor"
@@ -27,6 +29,10 @@ PYYAML="pyyaml==6.0.2"
 OPENPGP_VERSION="6.2.2"
 OPENPGP_URL="https://unpkg.com/openpgp@${OPENPGP_VERSION}/dist/openpgp.min.mjs"
 OPENPGP_SHA256="05fc93ab2c58a5187b94f990cf5a496c6a6a0459bc7207364ed8c97800c9cace"
+
+CONFETTI_VERSION="1.9.3"
+CONFETTI_URL="https://unpkg.com/canvas-confetti@${CONFETTI_VERSION}/dist/confetti.browser.js"
+CONFETTI_SHA256="e103ab02784339d56c93ca3debe2c5a299372cafc5215148d55283de046e86d1"
 
 # The image's interpreter, from CTFd/Dockerfile's base. If a CTFd upgrade moves
 # it, this is the line to change — a wheel built for the wrong tag imports as
@@ -62,4 +68,19 @@ else
   echo "vendor: openpgp.js already there (--force to redo)"
 fi
 
-echo "vendor: done. The container picks both up on its next restart."
+if [[ -n "$force" || ! -f "$JS_DIR/confetti.browser.js" ]]; then
+  mkdir -p "$JS_DIR"
+  echo "vendor: canvas-confetti $CONFETTI_VERSION"
+  curl -fsSL -o "$JS_DIR/confetti.browser.js.part" "$CONFETTI_URL"
+  got="$(sha256sum "$JS_DIR/confetti.browser.js.part" | cut -d' ' -f1)"
+  if [[ "$got" != "$CONFETTI_SHA256" ]]; then
+    rm -f "$JS_DIR/confetti.browser.js.part"
+    echo "canvas-confetti sha256 mismatch: expected $CONFETTI_SHA256, got $got" >&2
+    exit 1
+  fi
+  mv "$JS_DIR/confetti.browser.js.part" "$JS_DIR/confetti.browser.js"
+else
+  echo "vendor: canvas-confetti already there (--force to redo)"
+fi
+
+echo "vendor: done. The container picks these up on its next restart."

@@ -472,11 +472,27 @@ pre {
   padding: 1rem 1.1rem;
   overflow-x: auto;
 }
-.ll-nam,
+/* lolight is a language-agnostic tokenizer with exactly seven classes, so the
+   palette has to do all the separating and every class must land on its own
+   hue. Two of them used not to:
+
+     .ll-key was painted the same green as .ll-nam, so `if`, `and`, `local` and
+     a variable name were one colour — i.e. no keyword highlighting at all;
+     .ll-pct was #f1f2f6, the body colour of this surface, so every operator
+     was literally the same ink as the text around it. `pos.x > ghost.x` read
+     as one grey run, on a subject whose whole point is comparisons.
+
+   Keywords take the brand green because they are the skeleton of the snippet;
+   identifiers are the near-white default; operators and punctuation take the
+   warm accent, which is the third colour of the charte and the one thing on a
+   line of Lua a 15-year-old has to see. */
 .ll-key,
-[data-bs-theme="dark"] .ll-nam,
 [data-bs-theme="dark"] .ll-key {
   color: #00ff97;
+}
+.ll-nam,
+[data-bs-theme="dark"] .ll-nam {
+  color: #e8ebf5;
 }
 .ll-str,
 [data-bs-theme="dark"] .ll-str {
@@ -486,9 +502,11 @@ pre {
 [data-bs-theme="dark"] .ll-num {
   color: #fbbf24;
 }
+/* Comments carry the instruction ("-- deplace le fantome vers la droite"), so
+   they are quiet, not faint: #64748b was 4.0:1 on this surface. */
 .ll-com,
 [data-bs-theme="dark"] .ll-com {
-  color: #64748b;
+  color: #8a97ad;
   font-style: italic;
 }
 .ll-rex,
@@ -497,7 +515,7 @@ pre {
 }
 .ll-pct,
 [data-bs-theme="dark"] .ll-pct {
-  color: #f1f2f6;
+  color: #ff9d7a;
 }
 /* Inline code (not in a pre block) stays on the page's own surface — only
    fenced code blocks get the always-dark treatment. */

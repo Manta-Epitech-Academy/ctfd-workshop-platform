@@ -233,6 +233,11 @@
      fetches it at a pinned version with its sha256 checked. Absent, the page
      works and celebrate.js simply draws no burst. #}
   <script defer src="/plugins/workshop/assets/vendor/confetti.browser.js"></script>
+  {# The plugin's own copy of the highlighter the core theme uses. The core
+     highlights `pre code` once at load and keeps lolight module-local, so every
+     step body this page fetches after a solve came back unhighlighted. Same
+     pinned-and-checksummed mechanism, same gitignored output directory. #}
+  <script defer src="/plugins/workshop/assets/vendor/lolight.min.js"></script>
   <script defer src="/plugins/workshop/assets/celebrate.js"></script>
   <script defer src="/plugins/workshop/assets/workshop_page.js"></script>
   {% if runtime %}<script defer src="/plugins/workshop/assets/runtime.js"></script>{% endif %}

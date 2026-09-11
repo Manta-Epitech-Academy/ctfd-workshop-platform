@@ -245,6 +245,91 @@
     }
   }
 
+  /* ---------- syntax highlighting of injected bodies ---------- */
+
+  /* The core theme highlights `pre code` once, on DOMContentLoaded
+     (themes/core/assets/js/theme/highlight.js), and keeps lolight module-local.
+     Every body this page fills in after a solve therefore arrived as plain
+     text: measured on a real run, 0 `.ll-*` spans in each one — so from the
+     second step of a subject onwards there was no highlighting at all, which is
+     most of a workshop. The plugin carries its own pinned copy of the same
+     library (tools/build_vendor.sh) rather than reaching into the core bundle,
+     which would be a core edit. Absent, this is a no-op and the code is still
+     readable, just monochrome. */
+
+  /* Two things lolight's single, language-agnostic ruleset gets wrong on our
+     subjects, both repaired here rather than by shipping a second highlighter.
+
+     Its keyword list misses `local`, which is on nearly every line of beginner
+     Lua, and Python's `None`, `True` and `False` — the list carries `null`,
+     `true` and `false` and is case-sensitive. */
+  var EXTRA_KEYWORDS = { local: 1, nonlocal: 1, pass: 1, None: 1, True: 1, False: 1 };
+
+  /* And it only knows `//` and `#` line comments, so `-- deplace le fantome`
+     tokenized as two operators followed by live code. That is not cosmetic
+     here: one step of the Pac-Man subject exists to teach that `--` is a note
+     to the reader and not code, and the page was colouring it as code.
+
+     Keyed off the `language-*` class the markdown renderer puts on <code>, so
+     this never fires on a shell block, where `--force` is a flag. */
+  var LINE_COMMENT = { lua: "--", sql: "--", haskell: "--" };
+
+  // lolight splits punctuation one character at a time, so a two-character
+  // marker spans two tokens. Only punctuation can start one: a `--` inside a
+  // string arrives as a single `str` token and is left alone.
+  function startsComment(toks, i, marker) {
+    var text = "";
+    for (var j = i; j < toks.length && text.length < marker.length; j++) {
+      if (toks[j][0] !== "pct") return false;
+      text += toks[j][1];
+    }
+    return text === marker;
+  }
+
+  function span(parent, cls, text) {
+    var el = document.createElement("span");
+    el.className = "ll-" + cls;
+    el.textContent = text;
+    parent.appendChild(el);
+  }
+
+  /* Always re-tokenizes from textContent rather than skipping blocks that
+     already carry spans. lolight rebuilds from textContent too, so this is
+     idempotent, and it is what makes a block the core highlighted at load and
+     a block this page fetched after a solve come out identical. Absent (the
+     vendored file is a build artifact), it is a no-op and code stays
+     monochrome but readable. */
+  function highlight(scope) {
+    if (!scope || !window.lolight || typeof window.lolight.tok !== "function") return;
+    scope.querySelectorAll("pre code").forEach(function (block) {
+      var lang = (block.className.match(/language-([\w+#-]+)/) || [])[1];
+      var marker = LINE_COMMENT[lang];
+      var toks = window.lolight.tok(block.textContent);
+      var out = document.createDocumentFragment();
+      var inComment = false;
+      for (var i = 0; i < toks.length; i++) {
+        var cls = toks[i][0];
+        var text = toks[i][1];
+        if (inComment) {
+          // The newline that ends the comment arrives inside a whitespace
+          // token; everything before it belongs to the comment, the rest does
+          // not and keeps its own class.
+          var nl = text.indexOf("\n");
+          if (nl < 0) { span(out, "com", text); continue; }
+          if (nl > 0) span(out, "com", text.slice(0, nl));
+          span(out, cls, text.slice(nl));
+          inComment = false;
+          continue;
+        }
+        if (marker && startsComment(toks, i, marker)) inComment = true;
+        else if (cls === "nam" && EXTRA_KEYWORDS[text]) cls = "key";
+        span(out, inComment ? "com" : cls, text);
+      }
+      block.textContent = "";
+      block.appendChild(out);
+    });
+  }
+
   /* ---------- state refresh after a solve ---------- */
 
   function setChipState(target, state) {
@@ -265,6 +350,7 @@
       // A step filled in place carries its own folds; give them the state the
       // participant last chose, like the ones rendered with the page.
       restoreFolds(step);
+      highlight(step);
       var name = step.querySelector(".ws-step-name");
       if (name) name.textContent = payload.data.name;
       step.querySelectorAll(".ws-rating").forEach(markRating);
@@ -499,6 +585,14 @@
       var d = ev.target;
       if (d.classList && d.classList.contains("ws-hint") && d.open) revealHint(d);
     }, true);
+
+    // Twice, on purpose, and both passes are idempotent. The core's own
+    // highlighting also runs on DOMContentLoaded and the order between the two
+    // handlers is not ours to decide; if it lands second it rebuilds the block
+    // from its text and drops the keyword re-tagging, so `load` — which is
+    // strictly after every DOMContentLoaded handler — puts it back.
+    highlight(ROOT);
+    window.addEventListener("load", function () { highlight(ROOT); });
 
     openFromHash();
     // Back/forward between steps changes the hash without reloading.

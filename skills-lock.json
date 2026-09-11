@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "_comment": [
+    "Skills this repository develops against. They are NOT committed: .claude/* is",
+    "gitignored here and this repository is public, so vendoring 3.5 MB of a",
+    "third-party skill into it is a cost nobody asked for. This file records what to",
+    "fetch and what it hashed to, so a teammate ends up with the same thing.",
+    "Install into .claude/skills/<name>/."
+  ],
+  "skills": {
+    "emil-design-eng": {
+      "source": "emilkowalski/skills",
+      "sourceType": "github",
+      "skillPath": "skills/emil-design-eng/SKILL.md",
+      "computedHash": "e71de849347050c2c573c1cf24d742d5a13459557ecffa6e562f08006f46b5b7",
+      "why": "Motion decisions. Easing curves, durations, interruptibility, @starting-style, never animating from scale(0). The reference behind the motion tokens and the celebration layer (DESIGN.md)."
+    },
+    "impeccable": {
+      "source": "pbakaus/impeccable",
+      "sourceType": "github",
+      "skillPath": ".agents/skills/impeccable/SKILL.md",
+      "computedHash": "9d124382509eb15da0862f145bca0e53be00aaddb05272e4efc9a0832de048a9",
+      "why": "Design review and refinement playbooks (bolder, delight, animate, colorize, critique). Its `init` writes a PRODUCT.md and installs a detector hook; neither has been run here, deliberately — that is tooling, and DESIGN.md is already this project's brief."
+    }
+  }
+}

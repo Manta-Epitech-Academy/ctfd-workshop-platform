@@ -344,8 +344,15 @@
   border: 1.5px solid currentColor; border-radius: 50%;
   vertical-align: middle;
 }
-.ws-chip:hover { text-decoration: none; filter: brightness(0.97); }
-[data-bs-theme="dark"] .ws-chip:hover { filter: brightness(1.15); }
+.ws-chip {
+  transition: filter var(--epi-dur-fast) var(--epi-ease-standard),
+              transform var(--epi-dur-fast) var(--epi-ease-standard);
+}
+@media (hover: hover) and (pointer: fine) {
+  .ws-chip:hover { text-decoration: none; filter: brightness(0.97); }
+  [data-bs-theme="dark"] .ws-chip:hover { filter: brightness(1.15); }
+}
+.ws-chip:active { transform: scale(0.96); }
 .ws-chip + .ws-chip::before { content: "›"; margin-right: 0.35rem; opacity: 0.45; }
 .ws-chip-icon { font-size: 0.8em; }
 .ws-chip-badge { opacity: 0.7; font-variant-numeric: tabular-nums; }
@@ -422,9 +429,39 @@
   list-style: none;
 }
 .ws-summary > summary::-webkit-details-marker { display: none; }
-.ws-summary > summary::before { content: "\25b8"; font-size: 0.85em; }
-.ws-summary[open] > summary::before { content: "\25be"; }
+/* Font Awesome, rotated, exactly like the part introduction above: two folds
+   that behave the same must not be drawn with two different vocabularies. The
+   geometric triangles this used were also at the body font's weight, which read
+   as a glyph that failed to load. */
+.ws-summary > summary::before {
+  content: "\f078";
+  font-family: "Font Awesome 6 Free"; font-weight: 900;
+  font-size: 0.62em;
+  transition: transform var(--epi-dur-fast) var(--epi-ease-standard);
+}
+.ws-summary:not([open]) > summary::before { transform: rotate(-90deg); }
 .ws-summary[open] > summary { margin-bottom: 0.3rem; }
+@media (hover: hover) and (pointer: fine) {
+  .ws-summary > summary:hover { color: var(--bs-body-color); }
+}
+.ws-summary > summary:active,
+.ws-part-lead-summary:active { transform: scale(0.98); }
+.ws-summary > summary,
+.ws-part-lead-summary {
+  transition: color var(--epi-dur-fast) var(--epi-ease-standard),
+              transform var(--epi-dur-fast) var(--epi-ease-standard);
+}
+
+/* Opening a fold reveals its content, it does not blink it into place. Driven
+   by a class the script adds on a real toggle rather than by `[open]`, so the
+   folds already open when the page loads do not all animate at once. */
+@keyframes ws-fold-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: none; }
+}
+.ws-fold-open > :not(summary) {
+  animation: ws-fold-in var(--epi-dur-base) var(--epi-ease-standard);
+}
 .ws-summary-body > :last-child { margin-bottom: 0; }
 .ws-summary-body ul { margin-bottom: 0; }
 
@@ -564,14 +601,117 @@
 .ws-statement h1, .ws-statement h2, .ws-statement h3 { margin-top: 1rem; }
 
 /* Answer form */
-.ws-hint { margin: 0.75rem 0; }
-.ws-hint > summary { cursor: pointer; font-size: 0.9rem; }
-.ws-hint-body { padding: 0.5rem 0 0 1rem; border-left: 2px solid var(--bs-border-color, #dee2e6); }
+/* A hint is an ACTION — "montre-moi un coup de pouce" — so it looks like a
+   control, unlike the two folds below it, which are content somebody wrote.
+   It used to be the browser's default: a bare line of text with a small
+   triangle, which reads as a rendering fault rather than as something to press.
+   Nobody clicks a control they did not identify as one. */
+.ws-hint { margin: 0.9rem 0; }
+.ws-hint > summary {
+  cursor: pointer;
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  padding: 0.35rem 0.85rem;
+  border: 1px solid var(--bs-border-color, #dee2e6);
+  border-radius: 999px;
+  background: var(--bs-body-bg, #fff);
+  font-size: 0.85rem; font-weight: 600;
+  color: var(--bs-secondary-color, #6c757d);
+  list-style: none;
+  transition: background-color var(--epi-dur-fast) var(--epi-ease-standard),
+              border-color var(--epi-dur-fast) var(--epi-ease-standard),
+              color var(--epi-dur-fast) var(--epi-ease-standard),
+              transform var(--epi-dur-fast) var(--epi-ease-standard);
+}
+.ws-hint > summary::-webkit-details-marker { display: none; }
+.ws-hint > summary::before {
+  content: "\f0eb";
+  font-family: "Font Awesome 6 Free"; font-weight: 900;
+  font-size: 0.95em;
+  color: var(--bs-warning, #ffc107);
+}
+.ws-hint > summary::after {
+  content: "\f078";
+  font-family: "Font Awesome 6 Free"; font-weight: 900;
+  font-size: 0.6em; opacity: 0.7;
+  transform: rotate(-90deg);
+  transition: transform var(--epi-dur-fast) var(--epi-ease-standard);
+}
+.ws-hint[open] > summary::after { transform: rotate(0deg); }
+/* Hover is a guess on a touch screen, so the press state carries its own
+   weight; see the .btn rule in epitech-theme.css for the same reasoning. */
+@media (hover: hover) and (pointer: fine) {
+  .ws-hint > summary:hover {
+    background: var(--bs-tertiary-bg, #f1f2f6);
+    border-color: var(--bs-secondary-color, #6c757d);
+    color: var(--bs-body-color);
+  }
+}
+.ws-hint > summary:active { transform: scale(0.97); }
+.ws-hint-body {
+  padding: 0.65rem 0 0 1rem;
+  border-left: 2px solid var(--bs-border-color, #dee2e6);
+  margin-top: 0.5rem;
+}
 .ws-form { margin-top: 1rem; }
 .ws-choices { margin-bottom: 0.75rem; }
+/* The label is the target, not the 13px radio next to it, so the whole row has
+   to look pressable — on a phone the dot alone is under the 44px touch target
+   every guideline asks for. */
+.ws-choices .form-check {
+  border-radius: var(--bs-border-radius, 0.5rem);
+  padding-block: 0.3rem;
+  padding-inline-end: 0.5rem;
+  transition: background-color var(--epi-dur-fast) var(--epi-ease-standard);
+}
+.ws-choices .form-check-label { cursor: pointer; }
+@media (hover: hover) and (pointer: fine) {
+  .ws-choices .form-check:hover { background: var(--bs-tertiary-bg, #f1f2f6); }
+}
+.ws-choices .form-check:has(:checked) {
+  background: color-mix(in oklab, var(--bs-primary, #0d6efd) 10%, transparent);
+}
 .ws-form-actions { display: flex; align-items: center; gap: 0.75rem; }
-.ws-answer { max-width: 22rem; }
 .ws-feedback { font-size: 0.9rem; }
+
+/* A validation code and the button that sends it are one gesture, so they are
+   one line. The button used to sit on the row below the field — the template
+   emits the input, then the actions block — which read as two unrelated
+   controls and put the button a little further from the eye each time.
+
+   Done here rather than by moving the input in the template: the input is one
+   branch of a long if-chain that also renders radios, checkboxes and selects,
+   and those genuinely belong above the button. `:has` lets the form pick the
+   layout from what it actually contains.
+
+   It stays a flex WRAP: below ~420px the field alone is wider than the column,
+   and a button pushed off the side is worse than a button on its own row. */
+.ws-form:has(> .ws-answer) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+}
+.ws-form:has(> .ws-answer) > .ws-answer { flex: 1 1 12rem; max-width: 20rem; }
+.ws-form:has(> .ws-answer) > .ws-form-actions { flex: 0 1 auto; }
+/* What to submit is a footnote to the row, not part of it. */
+.ws-form:has(> .ws-answer) > .ws-answer-note { flex: 1 0 100%; margin-top: 0; }
+.ws-answer { max-width: 22rem; }
+
+/* A wrong code is the other half of the loop and it had nothing but a line of
+   red text, which is easy to miss when you are looking at the keyboard. Two
+   frames of movement, at the field, over in 260ms. Under reduced motion the
+   global rule flattens this to nothing and the red text still says it. */
+@keyframes ws-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-5px); }
+  40% { transform: translateX(4px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(2px); }
+}
+.ws-answer.ws-wrong {
+  animation: ws-shake 260ms var(--epi-ease-standard);
+  border-color: var(--bs-danger);
+}
 .ws-feedback-correct { color: var(--bs-success, #198754); font-weight: 600; }
 .ws-feedback-incorrect, .ws-feedback-error { color: var(--bs-danger, #dc3545); }
 .ws-feedback-pending, .ws-feedback-empty { opacity: 0.7; }
@@ -761,8 +901,18 @@ body.ws-has-pane { overflow-x: hidden; }
   border: 0; background: none; padding: 0 0.15rem; line-height: 1;
   font-size: 0.95rem; opacity: 0.45; cursor: pointer; transition: opacity var(--epi-dur-fast) var(--epi-ease-standard);
 }
-.ws-rating-btn:hover { opacity: 1; }
-.ws-rating-btn.ws-rating-chosen { opacity: 1; transform: scale(1.15); }
+.ws-rating-btn {
+  transition: opacity var(--epi-dur-fast) var(--epi-ease-standard),
+              transform var(--epi-dur-base) var(--epi-ease-emphatic);
+}
+@media (hover: hover) and (pointer: fine) {
+  .ws-rating-btn:hover { opacity: 1; transform: scale(1.12); }
+}
+.ws-rating-btn:active { transform: scale(0.92); }
+/* Emphatic easing overshoots, so the chosen thumb lands with a small bounce.
+   This is the one control in the page whose whole job is to be answered on
+   impulse; everywhere else the standard curve applies. */
+.ws-rating-btn.ws-rating-chosen { opacity: 1; transform: scale(1.25); }
 .ws-rating-thanks { font-size: 0.8rem; opacity: 0.7; }
 
 /* The outro asks the same question, with room for a sentence. */

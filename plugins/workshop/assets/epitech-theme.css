@@ -277,6 +277,27 @@ body,
   --bs-btn-disabled-color: var(--bs-primary);
   --bs-btn-disabled-border-color: var(--bs-primary);
 }
+/* Press feedback, once, for every button on the platform.
+
+   Bootstrap's :active only repaints the fill, which on a saturated brand colour
+   is close to invisible and says nothing on a touch screen, where there is no
+   hover to have told you the thing was a control. A 3% scale is the cheapest
+   signal that the interface heard the tap, and it is the one detail that
+   separates a page that feels alive from a page that feels like a form.
+
+   Only transform is transitioned, never `all`: the fill and border already have
+   Bootstrap's own transition, and animating layout properties here would cost a
+   relayout on every hover.
+
+   :not(:disabled) matters — the submit button is disabled for the length of the
+   request, and a disabled control that still reacts to a press is a lie. */
+.btn {
+  transition: transform var(--epi-dur-fast) var(--epi-ease-standard);
+}
+.btn:active:not(:disabled):not(.disabled) {
+  transform: scale(0.97);
+}
+
 /* .btn-dark also styles every unsolved challenge-board card
    (challenges.html: .challenge-button.btn-dark) — one token, three surfaces
    (navbar via .bg-dark below, jumbotron, and this). */

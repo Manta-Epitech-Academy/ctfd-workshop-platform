@@ -145,6 +145,21 @@
       } else {
         feedback(form, status, data.message || t("incorrect", "Incorrect"));
         button.disabled = false;
+        // The other half of the loop. A red line of text is easy to miss when
+        // you are looking at the keyboard; the field itself says it too, and
+        // takes the cursor back so a retype is one gesture.
+        var field = form.querySelector(".ws-answer");
+        if (field) {
+          field.classList.remove("ws-wrong");
+          // Reading offsetWidth restarts the animation: without it a second
+          // wrong code in a row would not replay it.
+          void field.offsetWidth;
+          field.classList.add("ws-wrong");
+          field.addEventListener("animationend", function () {
+            field.classList.remove("ws-wrong");
+          }, { once: true });
+          field.select();
+        }
       }
     } catch (e) {
       feedback(form, "error", t("netError", "Could not reach the server — try again."));
@@ -586,7 +601,17 @@
     // `toggle` does not bubble, so listen in the capture phase.
     ROOT.addEventListener("toggle", function (ev) {
       var d = ev.target;
-      if (d.classList && d.classList.contains("ws-hint") && d.open) revealHint(d);
+      if (!d.classList) return;
+      if (d.classList.contains("ws-hint") && d.open) revealHint(d);
+      // Reveal the content rather than blink it into place. Keyed off a real
+      // toggle and not off `[open]`, so the folds that are already open when
+      // the page loads do not all animate at once.
+      if (d.open && d.tagName === "DETAILS") {
+        d.classList.add("ws-fold-open");
+        d.addEventListener("animationend", function () {
+          d.classList.remove("ws-fold-open");
+        }, { once: true });
+      }
     }, true);
 
     // Twice, on purpose, and both passes are idempotent. The core's own

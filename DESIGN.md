@@ -38,13 +38,17 @@ because the "ink" shades (`epi-tech-ink`, `epi-together-ink`, `epi-warning-ink`)
 for a light surface and stop clearing contrast on a dark one — `jump` solved this once with a
 light/dark split; reuse it, don't re-solve it.
 
-**Three values are NOT in that table and never vary by theme**: `--epi-blue` (`#013afb`),
-`--epi-tech` (`#00ff97`) and `--epi-grey-900` (`#0b0e1a`). Everything in the table is a Bootstrap
+**Four values are NOT in that table and never vary by theme**: `--epi-blue` (`#013afb`),
+`--epi-tech` (`#00ff97`), `--epi-together` (`#ff5f3a`) and `--epi-grey-900` (`#0b0e1a`).
+Everything in the table is a Bootstrap
 *role* — `--bs-primary` means "the colour text and borders take on the current surface", and it is
 correctly a different blue per theme. A brand *surface* is the opposite job. `jump` states the rule:
 *"epiBlue never changes value. It is the logo. Dark surfaces use a separate darkPrimary for UI text
 and borders."* Paint the band, the login panel or the neon CTA with `--bs-primary` and they turn
-`#809dfd` in dark mode, next to a wordmark that stayed `#013afb`.
+`#809dfd` in dark mode, next to a wordmark that stayed `#013afb`. `--epi-together` is the same
+distinction one step further: `--bs-danger` already carries its *ink* variants (`#b5361a` /
+`#ff9878`, both calibrated for body text), and the reward float wants the surface value, which is
+neither of them.
 
 **`--bs-info` is a deliberate gap.** `jump` defines no "info" role. Inventing one here would be
 new design, not reuse — so it stays at CTFd's own default in both themes rather than guessing.
@@ -273,10 +277,16 @@ is. **In a fixed layer**, because `fillBody()` replaces the step body's `innerHT
 button included — and `refresh()` then scrolls to whatever unlocked: a float parented to the button
 is destroyed mid-animation, one parented to the page slides away with the scroll.
 
-It is a **dark token**, not bare text on the page, for the same reason code blocks are always dark:
-the neon green is 1.33:1 on white, so floating it over a light page would make the only feedback in
-the whole loop the least legible thing on screen. The end-of-part block is built from the same two
-colours, so the three rewards — token, block, confetti — read as one system.
+**The figure alone, in Anton, in `--epi-together`, lit by its own halo** — `jump`'s `XpFloat`, and
+nothing else. A plate behind it and an icon beside it were both tried and both removed: either one
+makes it read as a notification badge, which is the one thing a reward must not look like.
+
+That does run the figure at 2.86:1 against the light page, under the 3:1 large-text floor. It is
+`jump`'s own tradeoff and it is taken knowingly: a 2.2s celebration overlay carrying no information
+the page does not already show — the counter, the bar and the step glyph all move with it — and the
+halo is what separates it from the text underneath. The passing alternative is
+`--epi-together-ink` (`#b5361a` in light), which reads as brick rather than as a reward. If this
+ever has to carry information, that token is the one to switch to.
 
 Two mechanics worth not rediscovering:
 
@@ -312,11 +322,26 @@ Two rules that go with it:
 - **Hover effects sit behind `@media (hover: hover) and (pointer: fine)`.** A tap on a touch screen
   fires hover and leaves it stuck.
 
-A hint is an *action*, so it is drawn as a control: a pill with a lightbulb and a chevron. The two
-folds beside it — the part introduction and the author's short version — are content somebody
-wrote, so they stay quiet, but all three now use the same rotating Font Awesome chevron. A
-`<details>` opened by hand reveals its content over `--epi-dur-base`; the class that does it is set
-on a real `toggle`, never off `[open]`, so the folds already open at load do not all animate at
+**Every fold on the participant path is drawn as a control, and one rule does it.** Not the three
+we render — the part introduction, the author's short version, a hint — but every `<details>` on
+the page, including the ones a *subject author* writes in markdown: the Pac-Man subject opens part
+2 with a `<details><summary><b>Glossaire de la partie 2</b></summary>`, and left to the browser
+that is a line of text with a small triangle, which reads as a rendering fault rather than as
+something to press.
+
+So the look is keyed off the element, never off a class an author would have to know about:
+
+```css
+:is(#ws-workshop, .challenge-desc, .challenge-hints) summary:not(.ws-step-summary)
+```
+
+`.ws-step-summary` is the one exclusion — a step is a full-width row with its own state glyph and
+its own points, not a pill. The only per-fold addition anywhere is the hint's lightbulb, because a
+hint is the fold you open to ask for help. **Adding a fourth kind of fold should need no CSS at
+all**; if it does, that is the bug.
+
+A `<details>` opened by hand reveals its content over `--epi-dur-base`; the class that does it is
+set on a real `toggle`, never off `[open]`, so the folds already open at load do not all animate at
 once.
 
 A wrong answer shakes the field for 260ms and reselects it. A line of red text is easy to miss when
@@ -606,7 +631,7 @@ oversight, and nothing here should be "fixed" back without reading the reason.
 | The blueprint grid in a page band | `BrandBackdrop` only on full-screen ceremony pages | `blueprint-grid-inverse` inside the hero | the rule is about a page *backdrop*; `jump`'s own `PageHero` and `LoginBrandPanel` put the same texture inside a brand block |
 | Framed, matted media | photography is rectangles: no rounded corners, no shadow | subject screenshots get a dark mat, a border and a radius | that rule was written about photographs of people; subject media is pixel art that only exists on black and wears a halo on any lighter ground |
 | A mascot in the reward float | no precedent at all | `cover.mascot`, the subject's own sprite | the art already ships in every subject repo, so it costs an author one line; the one genuinely new thing here |
-| A glow on the reward token and the end-of-part block | no gradient / glow / blur on everyday surfaces | both carry a soft `--epi-tech` halo | the rule is about *everyday* surfaces and it still holds for every one of them. These two are the celebration surfaces the same paragraph exempts, they exist for 1.8s and once per part respectively, and the halo is what separates a reward from a notification |
+| A glow on the reward float and the end-of-part block | no gradient / glow / blur on everyday surfaces | the float carries `jump`'s own `--epi-together` halo, the block a soft `--epi-tech` one | the rule is about *everyday* surfaces and it still holds for every one of them. These two are the celebration surfaces the same paragraph exempts, they exist for 2.2s and once per part respectively, and the float's halo is `jump`'s, not an invention |
 
 **What is deliberately NOT deviated from**: the palette (no fifth hue), the ink rule, Anton as
 display-only, no gradient / glow / blur on everyday surfaces, 320ms as the ceiling for a state

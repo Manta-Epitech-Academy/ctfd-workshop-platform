@@ -93,18 +93,16 @@
     host.style.left = Math.round(rect.left + rect.width / 2) + "px";
     host.style.top = Math.round(Math.max(TOP_MARGIN, rect.top - 14)) + "px";
 
+    // The subject's sprite when it declared one, and nothing at all when it did
+    // not. A stand-in glyph was tried and removed: a generic icon beside the
+    // figure makes it read as a notification badge, which is the one thing this
+    // must not look like.
     if (mascot) {
       var img = document.createElement("img");
       img.className = "ws-reward-mascot";
       img.src = mascot;
       img.alt = "";
       host.appendChild(img);
-    } else {
-      // No subject sprite: a spark, so the pill is never just a number. Font
-      // Awesome solid, the one face the theme actually ships.
-      var glyph = document.createElement("span");
-      glyph.className = "ws-reward-spark";
-      host.appendChild(glyph);
     }
     var figure = document.createElement("span");
     figure.className = "ws-reward-figure";
@@ -125,13 +123,12 @@
     host.addEventListener("animationend", function () { host.remove(); });
 
     if (amount && !reducedMotion()) {
-      // The count-up is the satisfying beat in jump's XpFloat and it is kept,
-      // with the same ease-out so the number decelerates into place as the pill
-      // pops. Shorter than jump's 900ms: this fires 33 times in a session, not
-      // twice.
+      // The count-up is the satisfying beat in jump's XpFloat, kept at jump's
+      // own 900ms and its own ease-out, so the number decelerates into place as
+      // the figure settles out of its overshoot.
       var start = performance.now();
       var tick = function (now) {
-        var t = Math.min(1, (now - start) / 750);
+        var t = Math.min(1, (now - start) / 900);
         figure.textContent = "+" + Math.round((1 - Math.pow(1 - t, 3)) * amount);
         if (t < 1 && host.isConnected) requestAnimationFrame(tick);
       };

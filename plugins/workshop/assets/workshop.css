@@ -421,81 +421,19 @@
 }
 .ws-part-lead { margin: 0.6rem 0 0.9rem; }
 .ws-part-lead-body > :last-child { margin-bottom: 0; }
-/* Quiet by design: the fold is an escape hatch for a long introduction, not a
-   control the participant has to notice before they can read. */
-.ws-part-lead-summary {
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.1rem 0;
-  font-size: 0.85rem;
-  color: var(--bs-secondary-color, #6c757d);
-  list-style: none;
-}
-.ws-part-lead-summary::-webkit-details-marker { display: none; }
-/* Font Awesome, like every other glyph on this page. A bare geometric triangle
-   at the body font's weight read as a rendering fault, not as a control. */
-.ws-part-lead-summary::before {
-  content: "\f078";
-  font-family: "Font Awesome 6 Free"; font-weight: 900;
-  font-size: 0.62em;
-  transition: transform var(--epi-dur-fast) var(--epi-ease-standard);
-}
-.ws-part-lead:not([open]) > .ws-part-lead-summary::before { transform: rotate(-90deg); }
-.ws-part-lead-summary:hover { color: var(--bs-body-color); }
-.ws-part-lead[open] > .ws-part-lead-summary { margin-bottom: 0.35rem; }
 
-/* The author's short version of a step (convention §3.4, PLAN.md §25.7). Same
-   quiet fold as a part introduction, and open for the same reason: it is
-   content somebody wrote, not a control to discover. It sits above the
-   statement and never replaces it. */
-.ws-summary {
-  margin: 0 0 0.75rem;
+/* The author's short version of a step (convention §3.4, PLAN.md §25.7). Open
+   by default, like a part introduction and for the same reason: it is content
+   somebody wrote, not a control to discover. It sits above the statement and
+   never replaces it.
+
+   The rule marking it as an aside is on the BODY, not on the whole fold, so it
+   lines up with a hint body and so the summary pill is not sliced by a border
+   running past it. */
+.ws-summary { margin: 0 0 0.75rem; }
+.ws-summary-body {
   border-left: 2px solid var(--bs-border-color, #dee2e6);
   padding-left: 0.7rem;
-}
-.ws-summary > summary {
-  cursor: pointer;
-  display: inline-flex; align-items: center; gap: 0.35rem;
-  padding: 0.1rem 0;
-  font-size: 0.8rem; letter-spacing: 0.03em; text-transform: uppercase;
-  color: var(--bs-secondary-color, #6c757d);
-  list-style: none;
-}
-.ws-summary > summary::-webkit-details-marker { display: none; }
-/* Font Awesome, rotated, exactly like the part introduction above: two folds
-   that behave the same must not be drawn with two different vocabularies. The
-   geometric triangles this used were also at the body font's weight, which read
-   as a glyph that failed to load. */
-.ws-summary > summary::before {
-  content: "\f078";
-  font-family: "Font Awesome 6 Free"; font-weight: 900;
-  font-size: 0.62em;
-  transition: transform var(--epi-dur-fast) var(--epi-ease-standard);
-}
-.ws-summary:not([open]) > summary::before { transform: rotate(-90deg); }
-.ws-summary[open] > summary { margin-bottom: 0.3rem; }
-@media (hover: hover) and (pointer: fine) {
-  .ws-summary > summary:hover { color: var(--bs-body-color); }
-}
-.ws-summary > summary:active,
-.ws-part-lead-summary:active { transform: scale(0.98); }
-.ws-summary > summary,
-.ws-part-lead-summary {
-  transition: color var(--epi-dur-fast) var(--epi-ease-standard),
-              transform var(--epi-dur-fast) var(--epi-ease-standard);
-}
-
-/* Opening a fold reveals its content, it does not blink it into place. Driven
-   by a class the script adds on a real toggle rather than by `[open]`, so the
-   folds already open when the page loads do not all animate at once. */
-@keyframes ws-fold-in {
-  from { opacity: 0; transform: translateY(-4px); }
-  to   { opacity: 1; transform: none; }
-}
-.ws-fold-open > :not(summary) {
-  animation: ws-fold-in var(--epi-dur-base) var(--epi-ease-standard);
 }
 .ws-summary-body > :last-child { margin-bottom: 0; }
 .ws-summary-body ul { margin-bottom: 0; }
@@ -636,13 +574,24 @@
 .ws-statement h1, .ws-statement h2, .ws-statement h3 { margin-top: 1rem; }
 
 /* Answer form */
-/* A hint is an ACTION — "montre-moi un coup de pouce" — so it looks like a
-   control, unlike the two folds below it, which are content somebody wrote.
-   It used to be the browser's default: a bare line of text with a small
-   triangle, which reads as a rendering fault rather than as something to press.
-   Nobody clicks a control they did not identify as one. */
-.ws-hint { margin: 0.9rem 0; }
-.ws-hint > summary {
+/* ------------------------------------------------------------------ *
+ * Folds — ONE rule for every <details> on the participant path
+ *
+ * Whoever wrote it. Ours (the part introduction, the author's short version,
+ * a hint) and the subject author's, which arrive as plain `<details><summary>`
+ * out of the markdown — the Pac-Man subject opens part 2 with a glossary that
+ * way. Left to the browser they are a line of text with a small triangle,
+ * which reads as a rendering fault rather than as something to press, and
+ * nobody clicks a control they did not identify as one.
+ *
+ * So the look lives here, once, keyed off the element and not off a class an
+ * author would have to know about. The only per-fold addition anywhere below
+ * is the hint's lightbulb.
+ *
+ * `.ws-step-summary` is excluded: a step is a full-width row with its own
+ * state glyph and its own points, not a pill.
+ * ------------------------------------------------------------------ */
+:is(#ws-workshop, .challenge-desc, .challenge-hints) summary:not(.ws-step-summary) {
   cursor: pointer;
   display: inline-flex; align-items: center; gap: 0.5rem;
   padding: 0.35rem 0.85rem;
@@ -657,31 +606,51 @@
               color var(--epi-dur-fast) var(--epi-ease-standard),
               transform var(--epi-dur-fast) var(--epi-ease-standard);
 }
-.ws-hint > summary::-webkit-details-marker { display: none; }
-.ws-hint > summary::before {
-  content: "\f0eb";
-  font-family: "Font Awesome 6 Free"; font-weight: 900;
-  font-size: 0.95em;
-  color: var(--bs-warning, #ffc107);
+/* Authors write `<summary><b>Glossaire</b></summary>`, which markdown keeps.
+   The pill already carries the weight, so the inner tag must not add a second
+   one on top of it. */
+:is(#ws-workshop, .challenge-desc, .challenge-hints) summary:not(.ws-step-summary) b,
+:is(#ws-workshop, .challenge-desc, .challenge-hints) summary:not(.ws-step-summary) strong {
+  font-weight: inherit;
 }
-.ws-hint > summary::after {
+:is(#ws-workshop, .challenge-desc, .challenge-hints) summary:not(.ws-step-summary)::-webkit-details-marker {
+  display: none;
+}
+:is(#ws-workshop, .challenge-desc, .challenge-hints) summary:not(.ws-step-summary)::after {
   content: "\f078";
   font-family: "Font Awesome 6 Free"; font-weight: 900;
   font-size: 0.6em; opacity: 0.7;
   transform: rotate(-90deg);
   transition: transform var(--epi-dur-fast) var(--epi-ease-standard);
 }
-.ws-hint[open] > summary::after { transform: rotate(0deg); }
+:is(#ws-workshop, .challenge-desc, .challenge-hints) details[open] > summary:not(.ws-step-summary)::after {
+  transform: rotate(0deg);
+}
+:is(#ws-workshop, .challenge-desc, .challenge-hints) details[open] > summary:not(.ws-step-summary) {
+  margin-bottom: 0.6rem;
+}
 /* Hover is a guess on a touch screen, so the press state carries its own
    weight; see the .btn rule in epitech-theme.css for the same reasoning. */
 @media (hover: hover) and (pointer: fine) {
-  .ws-hint > summary:hover {
+  :is(#ws-workshop, .challenge-desc, .challenge-hints) summary:not(.ws-step-summary):hover {
     background: var(--bs-tertiary-bg, #f1f2f6);
     border-color: var(--bs-secondary-color, #6c757d);
     color: var(--bs-body-color);
   }
 }
-.ws-hint > summary:active { transform: scale(0.97); }
+:is(#ws-workshop, .challenge-desc, .challenge-hints) summary:not(.ws-step-summary):active {
+  transform: scale(0.97);
+}
+
+/* The one per-fold addition on the whole page: a hint is the fold you open to
+   ask for help, so it says so. */
+.ws-hint { margin: 0.9rem 0; }
+.ws-hint > summary::before {
+  content: "\f0eb";
+  font-family: "Font Awesome 6 Free"; font-weight: 900;
+  font-size: 0.95em;
+  color: var(--bs-warning, #ffc107);
+}
 .ws-hint-body {
   padding: 0.65rem 0 0 1rem;
   border-left: 2px solid var(--bs-border-color, #dee2e6);
@@ -1023,64 +992,56 @@ main > .container > .row > .col-md-12 > h3.text-muted:only-child::after,
  * state transition at 320ms and then says a one-shot celebration states its own
  * duration — 2.2s is the original's, and the reason it is allowed.
  * ------------------------------------------------------------------ */
+/* jump's `xp-float`, ported frame for frame — the pop with overshoot, the
+   settle, the gentle hover, the float away. Only the horizontal centring is
+   ours: the float is anchored over a control rather than over the viewport, so
+   every frame carries the -50% that centres it on that control. */
 @keyframes ws-reward-float {
-  0%   { opacity: 0; transform: translate(-50%, -100%) scale(0.85); }
-  14%  { opacity: 1; transform: translate(-50%, -110%) scale(1.06); }
-  26%  { transform: translate(-50%, -110%) scale(1); }
-  62%  { opacity: 1; transform: translate(-50%, -130%) scale(1); }
-  100% { opacity: 0; transform: translate(-50%, -190%) scale(0.95); }
+  0%   { opacity: 0; transform: translate(-50%, 24px) scale(0.5); }
+  12%  { opacity: 1; transform: translate(-50%, 0) scale(1.25); }
+  24%  { transform: translate(-50%, 0) scale(1); }
+  70%  { opacity: 1; transform: translate(-50%, -12px) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -56px) scale(0.92); }
 }
 
-/* Never from scale(0): nothing appears out of nothing, and a badge that grows
-   from a point reads as a glitch rather than as an award. 0.85 with opacity is
-   the smallest entrance that still has a shape. */
+/* The reward, as jump draws it: the figure alone, in Anton, in the warm brand
+   colour, lit by its own halo. No plate behind it and no icon beside it — both
+   were mine and both made it read as a notification badge rather than as
+   something being handed over.
 
-/* The reward is a dark token, not bare text on the page. The neon green is
-   calibrated for a dark surface — 1.33:1 on white — so floating it over a light
-   page would have made the one piece of feedback in the whole loop the least
-   legible thing on screen. Same "always-dark furniture" idea as the code
-   blocks and the media mat, and it reads as an object you were handed. */
+   It does mean the light theme runs the figure at 2.86:1 against the page,
+   under the 3:1 large-text floor. That is jump's own tradeoff and it is taken
+   knowingly: this is a 2.2s celebration overlay carrying no information the
+   page does not already show — the counter, the bar and the step icon all move
+   with it — and the halo is what separates it from the text underneath. The
+   alternative is `--epi-together-ink` (#b5361a light), which passes and reads
+   as brick rather than as a reward. */
 .ws-reward {
   position: fixed;
   z-index: 2147483000; /* above the runtime pane (1030), below the confetti */
-  display: inline-flex; align-items: center; gap: 0.45rem;
-  padding: 0.4rem 0.85rem;
-  border-radius: 999px;
-  background: var(--epi-grey-900);
-  border: 1px solid color-mix(in oklab, var(--epi-tech) 40%, transparent);
-  box-shadow:
-    0 10px 30px rgb(1 58 251 / 0.22),
-    0 0 22px color-mix(in oklab, var(--epi-tech) 30%, transparent);
+  display: inline-flex; align-items: baseline; gap: 0.3rem;
   pointer-events: none;
   white-space: nowrap;
-  transform: translate(-50%, -100%);
-  animation: ws-reward-float 1.8s var(--epi-ease-standard) forwards;
+  color: var(--epi-together);
+  filter: drop-shadow(0 0 25px rgb(255 95 58 / 0.55));
+  transform: translate(-50%, 0);
+  animation: ws-reward-float 2.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 .ws-reward-figure {
   font-family: "Anton", sans-serif;
-  font-size: 1.45rem; line-height: 1;
-  color: var(--epi-tech);
+  font-size: 2.5rem; line-height: 1; letter-spacing: -0.01em;
   font-variant-numeric: tabular-nums;
 }
 .ws-reward-unit {
-  font-family: "Space Mono", "IBM Plex Mono", ui-monospace, monospace;
-  font-size: 0.62rem; font-weight: 700; letter-spacing: 0.12em;
+  font-size: 1.15rem; font-weight: 700;
   text-transform: uppercase;
-  color: color-mix(in oklab, var(--epi-tech) 75%, white);
-}
-/* Only when the subject declared no sprite, so the token is never a bare
-   number. Font Awesome solid — the one face this theme ships. */
-.ws-reward-spark::before {
-  content: "\f0e7";
-  font-family: "Font Awesome 6 Free"; font-weight: 900;
-  font-size: 0.95rem;
-  color: var(--epi-tech);
 }
 /* The subject's own sprite, when it declared one (cover.mascot). Every subject
    already ships the art — the ghost, Pac-Man, the shooter — so this costs an
    author one line and nothing else. */
 .ws-reward-mascot {
-  width: 1.5rem; height: 1.5rem;
+  align-self: center;
+  width: 2.25rem; height: 2.25rem;
   object-fit: contain;
   image-rendering: pixelated;
 }
@@ -1097,8 +1058,8 @@ main > .container > .row > .col-md-12 > h3.text-muted:only-child::after,
     100% { opacity: 0; }
   }
   .ws-reward {
-    animation: ws-reward-fade 1.8s linear forwards !important;
-    animation-duration: 1.8s !important;
+    animation: ws-reward-fade 2.2s linear forwards !important;
+    animation-duration: 2.2s !important;
   }
 }
 

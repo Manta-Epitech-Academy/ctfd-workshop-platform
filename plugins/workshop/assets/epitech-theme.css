@@ -82,6 +82,10 @@ body,
 :root {
   --epi-blue: #013afb;
   --epi-tech: #00ff97;
+  /* The warm third colour. Already in this file twice as a literal — the
+     confetti mix — and now the reward float, which is jump's XpFloat and paints
+     with the surface value rather than with `--bs-danger`'s ink variants. */
+  --epi-together: #ff5f3a;
   /* jump's "chrome": the one near-black for surfaces that stay dark whatever
      the page theme is — code blocks, the media mat, the Parcours graph. */
   --epi-grey-900: #0b0e1a;

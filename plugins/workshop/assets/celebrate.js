@@ -61,18 +61,37 @@
     }
   }
 
-  /* The step-level moment: a figure that pops, hovers and floats away, anchored
-     to the row that was just solved rather than centred on the viewport. jump
-     centres its XP float because it celebrates the session; this celebrates one
-     line of a list, and a full-screen overlay 33 times would be a punishment.
+  /* The step-level moment.
 
-     The count-up is the satisfying beat in jump's original and it is kept, with
-     the same ease-out so the number decelerates into place as the badge pops. */
+     Anchored to the control that was just pressed, in a fixed layer on <body>,
+     and both halves of that are load-bearing:
+
+     - to the CONTROL, not to the step's summary row. The summary is the top of
+       a step whose body is a statement, a code block and often a hint, so by
+       the time somebody is typing a validation code the row is far above the
+       fold. Measured on a real solve before this changed: the float landed at
+       top: -1479px in a 1000px viewport, a screen and a half above the
+       participant. It was drawn every time and seen never.
+     - in a FIXED layer, not appended to the control. fillBody() replaces the
+       step body's innerHTML — the form, the button and anything inside it —
+       and refresh() then scrolls to whatever just unlocked. A float parented to
+       the button would be destroyed mid-animation, and one parented to the page
+       would slide off with the scroll.
+
+     Placed just above the control and rising, so it never covers the thing the
+     eye is already on. Clamped below the sticky stepper: a step near the top of
+     the viewport would otherwise throw it off-screen, which is the bug this is
+     fixing. */
+  var TOP_MARGIN = 84;
+
   function floatReward(anchor, amount, label, mascot) {
-    if (!anchor) return;
+    if (!anchor || !anchor.getBoundingClientRect) return;
+    var rect = anchor.getBoundingClientRect();
     var host = document.createElement("div");
     host.className = "ws-reward";
     host.setAttribute("aria-hidden", "true");
+    host.style.left = Math.round(rect.left + rect.width / 2) + "px";
+    host.style.top = Math.round(Math.max(TOP_MARGIN, rect.top - 14)) + "px";
 
     if (mascot) {
       var img = document.createElement("img");
@@ -80,28 +99,39 @@
       img.src = mascot;
       img.alt = "";
       host.appendChild(img);
+    } else {
+      // No subject sprite: a spark, so the pill is never just a number. Font
+      // Awesome solid, the one face the theme actually ships.
+      var glyph = document.createElement("span");
+      glyph.className = "ws-reward-spark";
+      host.appendChild(glyph);
     }
     var figure = document.createElement("span");
     figure.className = "ws-reward-figure";
-    figure.textContent = amount ? "+0" : "✓";
+    figure.textContent = amount ? "+0" : "\u2713";
     host.appendChild(figure);
-    if (label) {
+    if (label && amount) {
       var unit = document.createElement("span");
       unit.className = "ws-reward-unit";
       unit.textContent = label;
       host.appendChild(unit);
     }
 
-    anchor.appendChild(host);
-    // The element removes itself on animationend. The reduced-motion rule in
-    // the stylesheet shortens the animation to ~0ms rather than removing it,
-    // which is precisely so this still fires and nothing leaks.
+    document.body.appendChild(host);
+    // The element removes itself on animationend. Under prefers-reduced-motion
+    // the stylesheet swaps the rise for a plain fade of the same length rather
+    // than shortening it to nothing: reduced motion means gentler, not absent,
+    // and this is the only confirmation a solve gives.
     host.addEventListener("animationend", function () { host.remove(); });
 
     if (amount && !reducedMotion()) {
+      // The count-up is the satisfying beat in jump's XpFloat and it is kept,
+      // with the same ease-out so the number decelerates into place as the pill
+      // pops. Shorter than jump's 900ms: this fires 33 times in a session, not
+      // twice.
       var start = performance.now();
       var tick = function (now) {
-        var t = Math.min(1, (now - start) / 900);
+        var t = Math.min(1, (now - start) / 750);
         figure.textContent = "+" + Math.round((1 - Math.pow(1 - t, 3)) * amount);
         if (t < 1 && host.isConnected) requestAnimationFrame(tick);
       };
@@ -112,9 +142,9 @@
   }
 
   window.wsCelebrate = {
-    step: function (stepEl, points, label, mascot) {
-      var row = stepEl && stepEl.querySelector(".ws-step-summary");
-      floatReward(row, points, label, mascot);
+    // `anchor` is the control that was pressed — see floatReward.
+    step: function (anchor, points, label, mascot) {
+      floatReward(anchor, points, label, mascot);
     },
     part: function () {
       if (!reducedMotion()) burst();

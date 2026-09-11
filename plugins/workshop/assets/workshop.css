@@ -839,46 +839,82 @@ main > .container > .row > .col-md-12 > h3.text-muted:only-child::after,
  * duration — 2.2s is the original's, and the reason it is allowed.
  * ------------------------------------------------------------------ */
 @keyframes ws-reward-float {
-  0%   { opacity: 0; transform: translate(-50%, 24px) scale(0.5); }
-  12%  { opacity: 1; transform: translate(-50%, 0) scale(1.25); }
-  24%  { transform: translate(-50%, 0) scale(1); }
-  70%  { opacity: 1; transform: translate(-50%, -12px) scale(1); }
-  100% { opacity: 0; transform: translate(-50%, -56px) scale(0.92); }
+  0%   { opacity: 0; transform: translate(-50%, -100%) scale(0.85); }
+  14%  { opacity: 1; transform: translate(-50%, -110%) scale(1.06); }
+  26%  { transform: translate(-50%, -110%) scale(1); }
+  62%  { opacity: 1; transform: translate(-50%, -130%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -190%) scale(0.95); }
 }
 
-/* Anchored to the row that was just solved, not centred on the viewport: jump
-   floats its XP over the whole screen because it is celebrating the session,
-   and doing that 33 times in a row would be a punishment rather than a reward. */
-.ws-step-summary { position: relative; }
+/* Never from scale(0): nothing appears out of nothing, and a badge that grows
+   from a point reads as a glitch rather than as an award. 0.85 with opacity is
+   the smallest entrance that still has a shape. */
+
+/* The reward is a dark token, not bare text on the page. The neon green is
+   calibrated for a dark surface — 1.33:1 on white — so floating it over a light
+   page would have made the one piece of feedback in the whole loop the least
+   legible thing on screen. Same "always-dark furniture" idea as the code
+   blocks and the media mat, and it reads as an object you were handed. */
 .ws-reward {
-  position: absolute;
-  right: 3.5rem; top: 50%;
-  display: flex; align-items: center; gap: 0.4rem;
+  position: fixed;
+  z-index: 2147483000; /* above the runtime pane (1030), below the confetti */
+  display: inline-flex; align-items: center; gap: 0.45rem;
+  padding: 0.4rem 0.85rem;
+  border-radius: 999px;
+  background: var(--epi-grey-900);
+  border: 1px solid color-mix(in oklab, var(--epi-tech) 40%, transparent);
+  box-shadow:
+    0 10px 30px rgb(1 58 251 / 0.22),
+    0 0 22px color-mix(in oklab, var(--epi-tech) 30%, transparent);
   pointer-events: none;
   white-space: nowrap;
-  animation: ws-reward-float 2.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  z-index: 3;
+  transform: translate(-50%, -100%);
+  animation: ws-reward-float 1.8s var(--epi-ease-standard) forwards;
 }
 .ws-reward-figure {
   font-family: "Anton", sans-serif;
-  font-size: 1.6rem; line-height: 1;
-  color: var(--bs-success);
+  font-size: 1.45rem; line-height: 1;
+  color: var(--epi-tech);
   font-variant-numeric: tabular-nums;
 }
 .ws-reward-unit {
   font-family: "Space Mono", "IBM Plex Mono", ui-monospace, monospace;
-  font-size: 0.65rem; font-weight: 700; letter-spacing: 0.12em;
+  font-size: 0.62rem; font-weight: 700; letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--bs-success);
+  color: color-mix(in oklab, var(--epi-tech) 75%, white);
+}
+/* Only when the subject declared no sprite, so the token is never a bare
+   number. Font Awesome solid — the one face this theme ships. */
+.ws-reward-spark::before {
+  content: "\f0e7";
+  font-family: "Font Awesome 6 Free"; font-weight: 900;
+  font-size: 0.95rem;
+  color: var(--epi-tech);
 }
 /* The subject's own sprite, when it declared one (cover.mascot). Every subject
    already ships the art — the ghost, Pac-Man, the shooter — so this costs an
-   author one line and nothing else, and a subject that declares none simply
-   gets the figure. */
+   author one line and nothing else. */
 .ws-reward-mascot {
-  width: 1.75rem; height: 1.75rem;
+  width: 1.5rem; height: 1.5rem;
   object-fit: contain;
   image-rendering: pixelated;
+}
+
+/* Reduced motion asks for less movement, not for no feedback. The global rule
+   near the top of epitech-theme.css shortens every animation to 0.01ms, which
+   for this one would mean the only confirmation a solve gives never appears at
+   all. It keeps its full length and loses the rise. */
+@media (prefers-reduced-motion: reduce) {
+  @keyframes ws-reward-fade {
+    0%   { opacity: 0; }
+    12%  { opacity: 1; }
+    70%  { opacity: 1; }
+    100% { opacity: 0; }
+  }
+  .ws-reward {
+    animation: ws-reward-fade 1.8s linear forwards !important;
+    animation-duration: 1.8s !important;
+  }
 }
 
 /* The confetti canvas: above the runtime pane (z-index 1030) and on its own

@@ -134,8 +134,11 @@
         // created afterwards would pop on a row that is no longer on screen.
         // It pops in ~260ms and the refresh's own round trip is longer than
         // that, so it is seen and then the page moves on.
+        // Anchored to the button that was just pressed, not to the step's
+        // summary row: by the time a validation code is being typed the row is
+        // most of a screen above the fold, and the float was landing there.
         if (status === "correct" && window.wsCelebrate) {
-          window.wsCelebrate.step(stepEl, points, I18N.points, COVER.mascot);
+          window.wsCelebrate.step(button, points, I18N.points, COVER.mascot);
         }
         var counts = await refresh(id);
         if (status === "correct") celebrateCompletion(counts);

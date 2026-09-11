@@ -487,7 +487,19 @@
     // server-only section would miss. Same counters as the bar above: the
     // server decides what it says, this decides whether it shows.
     var nextDoc = ROOT.querySelector(".ws-next-doc");
-    if (nextDoc) nextDoc.hidden = !(total > 0 && done === total);
+    if (nextDoc) {
+      var show = total > 0 && done === total;
+      // Only on the transition. Setting the class whenever it is visible would
+      // replay the entrance on every counter update, and on a page loaded with
+      // the part already finished.
+      if (show && nextDoc.hidden) {
+        nextDoc.classList.add("ws-next-doc-in");
+        nextDoc.addEventListener("animationend", function () {
+          nextDoc.classList.remove("ws-next-doc-in");
+        }, { once: true });
+      }
+      nextDoc.hidden = !show;
+    }
 
     var overall = ROOT.querySelector(".ws-overall");
     if (overall) {

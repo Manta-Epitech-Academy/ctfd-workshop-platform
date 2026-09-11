@@ -162,13 +162,18 @@
        owns what it says; assets/workshop_page.js owns only whether it shows,
        off the counters it already computes. `aria-live` then announces it on
        reveal, which is what it was there for. #}
-    <section class="ws-next-doc" aria-live="polite"
+    {# The badge is a class, not a character: the state glyphs on this page are
+       drawn from Font Awesome so a two-colour system never has a four-colour
+       emoji dropped into it, and this is the largest one on the page. #}
+    <section class="ws-next-doc{% if not next_doc %} ws-next-doc-final{% endif %}"
+             aria-live="polite"
              {% if not document_complete %}hidden{% endif %}>
-      <div class="ws-next-doc-badge" aria-hidden="true">{{ "🏆" if not next_doc else "✓" }}</div>
+      <div class="ws-next-doc-badge" aria-hidden="true"></div>
       {% if next_doc %}
         <p class="ws-next-doc-lead">{% trans %}Part complete.{% endtrans %}</p>
-        <a class="btn btn-primary ws-next-doc-link" href="/workshop/{{ next_doc.slug }}">
-          {{ _("Next part: %(title)s", title=next_doc.title) }} →
+        <a class="btn ws-next-doc-link" href="/workshop/{{ next_doc.slug }}">
+          <span>{{ _("Next part: %(title)s", title=next_doc.title) }}</span>
+          <i class="ws-next-doc-arrow" aria-hidden="true"></i>
         </a>
       {% else %}
         <p class="ws-next-doc-lead ws-next-doc-done">{% trans %}Workshop complete, nice work.{% endtrans %}</p>

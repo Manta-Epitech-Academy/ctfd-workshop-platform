@@ -1118,20 +1118,103 @@ main > .container > .row > .col-md-12 > h3.text-muted:only-child::after,
    the terminal state — not a full celebration screen: this sits inline in a
    scrolling document, not its own route. */
 .ws-next-doc {
-  margin: 2.5rem 0 1rem; padding: 2rem 1.5rem;
+  margin: 2.5rem 0 1rem;
+  padding: 2.25rem 1.5rem;
   border-radius: var(--bs-border-radius-lg, 1rem);
-  background: var(--bs-tertiary-bg, #f1f2f6);
   text-align: center;
+  position: relative;
+  overflow: hidden;
+  /* A dark celebration surface in both themes, for the same reason the reward
+     token is one: the brand green it is built from is 1.33:1 on white, and this
+     is the loudest moment of the part. It also ties the three rewards together
+     — the token, this block and the confetti all speak the same two colours. */
+  background: var(--epi-grey-900);
+  color: #f1f2f6;
+  border: 1px solid color-mix(in oklab, var(--epi-tech) 22%, transparent);
 }
+/* jump's blueprint grid, inverted, at the same 48px pitch as the page band.
+   DESIGN.md keeps the texture for ceremony surfaces rather than routine page
+   furniture, and finishing a part is the ceremony. */
+.ws-next-doc::before {
+  content: "";
+  position: absolute; inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, rgb(255 255 255 / 0.045) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(255 255 255 / 0.045) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+.ws-next-doc > * { position: relative; }
 .ws-next-doc-badge {
   display: inline-flex; align-items: center; justify-content: center;
-  width: 3.5rem; height: 3.5rem; margin-bottom: 0.75rem;
-  border-radius: 50%; font-size: 1.5rem;
-  background: color-mix(in oklab, var(--bs-success, #198754) 15%, transparent);
+  width: 3.5rem; height: 3.5rem; margin-bottom: 0.9rem;
+  border-radius: 50%;
+  background: color-mix(in oklab, var(--epi-tech) 16%, transparent);
+  box-shadow: 0 0 26px color-mix(in oklab, var(--epi-tech) 22%, transparent);
 }
-.ws-next-doc-lead { margin-bottom: 1rem; color: var(--bs-secondary-color, #6c757d); }
+.ws-next-doc-badge::before {
+  content: "\f00c";
+  font-family: "Font Awesome 6 Free"; font-weight: 900;
+  font-size: 1.4rem;
+  color: var(--epi-tech);
+}
+/* The end of the whole workshop, not of a part: a trophy, and the one place
+   the badge changes. */
+.ws-next-doc-final .ws-next-doc-badge::before { content: "\f091"; }
+.ws-next-doc-lead {
+  margin-bottom: 1.1rem;
+  color: rgb(241 242 246 / 0.75);
+}
 .ws-next-doc-done {
   font-family: "Anton", sans-serif; text-transform: uppercase;
-  font-size: 1.4rem; color: var(--bs-success, #198754);
+  font-size: 1.6rem; letter-spacing: 0.01em;
+  color: var(--epi-tech);
+  margin-bottom: 0;
 }
+
+/* jump's buttonNeon: the charte's celebration CTA, and this is exactly that —
+   the one hopeful action on the surface. It used to be `.btn.btn-primary`,
+   i.e. the same blue as every Save button in the admin panel, at the single
+   most earned moment of the part. */
+.ws-next-doc-link {
+  --bs-btn-bg: var(--epi-tech);
+  --bs-btn-border-color: var(--epi-tech);
+  --bs-btn-color: var(--epi-blue);
+  --bs-btn-hover-bg: #33ffad;
+  --bs-btn-hover-border-color: #33ffad;
+  --bs-btn-hover-color: var(--epi-blue);
+  --bs-btn-active-bg: #00e689;
+  --bs-btn-active-border-color: #00e689;
+  --bs-btn-active-color: var(--epi-blue);
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  padding: 0.6rem 1.3rem;
+  font-weight: 700;
+  box-shadow: 0 0 28px color-mix(in oklab, var(--epi-tech) 26%, transparent);
+}
+.ws-next-doc-arrow::before {
+  content: "\f061";
+  font-family: "Font Awesome 6 Free"; font-weight: 900;
+  font-size: 0.85em;
+  display: inline-block;
+  transition: transform var(--epi-dur-base) var(--epi-ease-standard);
+}
+/* The arrow leads, which is the whole point of an arrow. Hover only: on a
+   touch screen the press state below is what answers. */
+@media (hover: hover) and (pointer: fine) {
+  .ws-next-doc-link:hover .ws-next-doc-arrow::before { transform: translateX(4px); }
+}
+
+/* The block is revealed by removing `hidden` after the last step of a part is
+   solved — no reload — so without this it simply blinks into existence at the
+   bottom of the page. The class is set by workshop_page.js at the moment of the
+   reveal, never by `[hidden]`, so a page loaded with the part already finished
+   does not replay it. */
+@keyframes ws-next-doc-in {
+  from { opacity: 0; transform: translateY(14px) scale(0.98); }
+  to   { opacity: 1; transform: none; }
+}
+.ws-next-doc.ws-next-doc-in {
+  animation: ws-next-doc-in var(--epi-dur-slow) var(--epi-ease-emphatic);
+}
+
 .ws-subject.ws-locked .ws-subject-title { opacity: 0.7; }

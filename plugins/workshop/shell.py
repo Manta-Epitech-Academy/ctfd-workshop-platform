@@ -36,9 +36,14 @@ from CTFd.plugins import override_template
 #                           the terms). Core wraps the body in a bare
 #                           `.container` and renders no title, so it was the one
 #                           surface with no brand band and nothing naming it.
+#   login.html              the handover from Jump. Core centres the form in an
+#                           otherwise empty page; this puts jump's brand panel
+#                           beside it. The form itself stays core's, field for
+#                           field, so an upstream auth change is not mirrored.
 OVERRIDES = {
     "components/navbar.html": "plugins/workshop/templates/navbar.html",
     "page.html": "plugins/workshop/templates/page.html",
+    "login.html": "plugins/workshop/templates/login.html",
 }
 
 

@@ -1080,6 +1080,133 @@ main > #ws-workshop > .container {
    its premise ("every core template's own h1 is inside a jumbotron") stopped
    being true the moment a Page got one. */
 
+/* ============================================================================
+   The login screen — the handover from Jump.
+
+   jump's `LoginBrandPanel.svelte`: a full-bleed epi-blue column with the
+   blueprint grid, half-opacity pixel squares and the charte's signature block,
+   the form beside it, the panel gone below `lg`. Markup in
+   plugins/workshop/templates/login.html.
+   ============================================================================ */
+/* `main` is `flex: 1 0 auto` in the body column, but it is not itself a flex
+   container, so a child cannot be told to fill it. Making it one only for this
+   page lets the panel run the full height of the viewport instead of stopping
+   at its content and leaving a white shelf under it. */
+main:has(> .epi-login) {
+  display: flex;
+}
+.epi-login {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: stretch;
+  min-height: 28rem;
+}
+
+.epi-login-panel {
+  display: none;
+}
+@media (min-width: 992px) {
+  .epi-login-panel {
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    flex: 1 1 44%;
+    padding: 3rem;
+    background-color: var(--epi-blue);
+    color: #ffffff;
+    background-image:
+      linear-gradient(rgb(255 255 255 / 0.045) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(255 255 255 / 0.045) 1px, transparent 1px);
+    background-size: 48px 48px;
+  }
+  /* Pixel squares, offset and overlapping, on the panel's own scale. */
+  .epi-login-panel::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image:
+      linear-gradient(rgb(255 255 255 / 0.15) 0 0),
+      linear-gradient(rgb(255 255 255 / 0.1) 0 0),
+      /* One accent square, the only non-white note: the charte's texture is
+         half-opacity brand rectangles, so it stays a tint and never a block. */
+      linear-gradient(rgb(0 255 151 / 0.55) 0 0);
+    background-repeat: no-repeat;
+    background-size: 6rem 4rem, 4rem 5rem, 3.5rem 2.5rem;
+    background-position: top 18% right 22%, top 24% right 8%, bottom 24% left 14%;
+    opacity: 0.4;
+  }
+}
+.epi-login-panel-body,
+.epi-login-signature {
+  position: relative;
+  z-index: 1;
+}
+.epi-login-kicker {
+  font-family: "Space Mono", "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--epi-tech);
+  margin: 0 0 0.75rem;
+}
+.epi-login-lead {
+  font-family: "Anton", sans-serif;
+  text-transform: uppercase;
+  font-size: 2.25rem;
+  line-height: 1.05;
+  margin: -0.375rem 0 0;
+  padding: 0.375rem 0;
+}
+.epi-login-desc {
+  margin: 1rem 0 0;
+  max-width: 28rem;
+  font-size: 1rem;
+  color: rgb(255 255 255 / 0.8);
+}
+.epi-login-signature {
+  font-family: "Space Mono", "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.75rem;
+  color: rgb(255 255 255 / 0.6);
+  margin: 0;
+}
+.epi-login-brace {
+  color: var(--epi-tech);
+}
+.epi-login-since {
+  margin-left: 0.5rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.epi-login-form {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1 1 56%;
+  padding: 3rem 1rem;
+}
+@media (min-width: 768px) {
+  .epi-login-form {
+    padding-inline: 2rem;
+  }
+}
+.epi-login-form-body {
+  width: 100%;
+  max-width: 24rem;
+}
+.epi-login-title {
+  font-family: "Anton", sans-serif;
+  text-transform: uppercase;
+  font-size: 1.5rem;
+  line-height: 1.1;
+  margin: -0.375rem 0 1.5rem;
+  padding: 0.375rem 0;
+}
+
 /* Core hangs the footer off `position: absolute` with a 100px margin reserved
    on `main` (its sticky-footer hack, and the reason for `z-index: -20`). With
    the header in flow the whole page is one column, so the footer joins it. */

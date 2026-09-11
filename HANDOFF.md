@@ -60,10 +60,14 @@ tools/
   build_vendor.sh   PyYAML + openpgp.js, the two things the CTFd image lacks
   import_shell1.py  shell-1-challenges -> a convention 2.0 subject, re-runnable
   import_miniasm.py miniasm's own data -> a subject, read through node
-content/            subjects in convention 2.0: pypong, pacman, santa_shooter,
-                    shell_rpg, shell_1, miniasm. What the CLI imports; an
-                    instance synced from the admin panel follows the public
-                    `*_subject` repos instead (PLAN.md §26)
+content/            NOT PRESENT in this checkout and tracked on no branch. It held
+                    the vendored subjects (pypong, pacman, santa_shooter,
+                    shell_rpg, shell_1, miniasm); they live in their own public
+                    `*_subject` repos now and an instance syncs from GitHub
+                    (PLAN.md §26). `scripts/phase2_validate.py` and
+                    `tools/check_content_sync.py` still expect the directory, so
+                    the suite's instance half does not run as written — reconcile
+                    before trusting a green run
   workshops/        workshop.yaml manifests: discover-linux (Shell RPG then
                     Shell 1), tic80-double (PyPong then Santa Shooter)
 scripts/            phase0/1/2 validation — phase2 is the live one, 184 checks

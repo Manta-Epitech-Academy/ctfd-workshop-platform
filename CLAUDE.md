@@ -26,7 +26,11 @@ rest of this file.
 CTFd/               git submodule → kevin-cazal/CTFd (fork of Manta-Epitech-Academy/CTFd), master
 plugins/workshop/   the CTFd plugin — bind-mounted into the image, never a core edit
 tools/              ws_parser.py (shared parser/linter), sync_subject.py (repo → CTFd import)
-content/            converted subject repos (content/pypong = pypong_new in convention 2.0)
+content/            GONE from this checkout, and not tracked on any branch — the subjects
+                    live in their own `*_subject` repos (deploy/instances.yaml lists them)
+                    and an instance imports from GitHub through /admin/workshop/sync.
+                    scripts/phase2_validate.py still syncs `content/pypong`, so its
+                    instance half cannot run here until that is reconciled.
 scripts/            phase*_validate.py — the regression suite, needs a FRESH instance
 docs/               CONTENT_CONVENTION.md — the authoring convention
 docker-compose.yml  stock CTFd on :8080 (8000/8001 are taken by ctfd_replication)

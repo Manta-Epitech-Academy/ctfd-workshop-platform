@@ -216,33 +216,11 @@
 {% block scripts %}
   {{ super() }}
 
-  {#
-    Page data the scripts need but must not hardcode: the subject's mascot (a file
-    from its own repo) and the strings. One JSON island rather than data-
-    attributes scattered over the markup, and rather than a second translation
-    mechanism in JS — Jinja's `tojson` is HTML-safe, so it cannot break out of the
-    script element.
-
-    Placeholders the BROWSER fills use brace syntax ({n}), not %(n)s: gettext
-    interpolates a printf placeholder as it translates, and with no variables to
-    substitute it raises KeyError before the page renders at all.
-  #}
+  {# Page-scoped data: the subject's cover, for the mascot in a reward float.
+     The strings live in the shell's own island (templates/navbar.html) so the
+     globally-registered scripts can read them too. #}
   <script type="application/json" id="ws-page-data">
-    {{ {"cover": cover or {},
-        "i18n": {
-          "points": _("pts"),
-          "pickFirst": _("Pick 👍 or 👎 first"),
-          "answerFirst": _("Pick or type an answer first."),
-          "checking": _("Checking…"),
-          "correct": _("Correct"),
-          "incorrect": _("Incorrect"),
-          "netError": _("Could not reach the server — try again."),
-          "thanks": _("Thanks!"),
-          "saveError": _("Could not save that — try again."),
-          "unlockHint": _("Unlock this hint for {n} points?"),
-          "loading": _("Loading…"),
-          "hintError": _("Could not load this hint."),
-        }} | tojson }}
+    {{ {"cover": cover or {}} | tojson }}
   </script>
   {# Both before workshop_page.js and both `defer`, so they execute in document
      order and the module is there when a solve fires. NOT registered through

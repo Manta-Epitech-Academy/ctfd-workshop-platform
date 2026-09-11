@@ -529,8 +529,8 @@ code:not(pre code) {
   border-color: #809dfd;
 }
 .ws-lg-locked::before {
-  background: #1b1f29;
-  border-color: #262b38;
+  background: #15181f;
+  border-color: #2f3543;
 }
 .ws-lg-path::before {
   background: #00ff97;

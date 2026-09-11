@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-09-11 17:33+0200\n"
+"POT-Creation-Date: 2026-09-11 17:38+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: fr\n"
@@ -47,6 +47,9 @@ msgstr ""
 msgid "Checking…"
 msgstr "Vérification…"
 
+msgid "Click a step to open it."
+msgstr "Clique sur une étape pour l'ouvrir."
+
 msgid "Completed"
 msgstr "Terminé"
 
@@ -55,6 +58,9 @@ msgstr "Continuer"
 
 msgid "Correct"
 msgstr "C'est bon"
+
+msgid "Could not load the path graph."
+msgstr "Impossible de charger le parcours."
 
 msgid "Could not load this hint."
 msgstr "Impossible de charger cet indice."
@@ -199,6 +205,9 @@ msgstr "Envoyer"
 msgid "Settings"
 msgstr ""
 
+msgid "Several ways on from here — pick one:"
+msgstr "Plusieurs suites possibles. Choisis :"
+
 msgid "Start"
 msgstr "Commencer"
 
@@ -266,6 +275,15 @@ msgstr "Atelier terminé. Beau travail."
 msgid "Workshop parts"
 msgstr "Parties de l'atelier"
 
+msgid "available"
+msgstr "accessible"
+
+msgid "done"
+msgstr "faite"
+
+msgid "locked"
+msgstr "verrouillée"
+
 msgid "next"
 msgstr "ensuite"
 
@@ -280,4 +298,7 @@ msgstr "pour ouvrir cette partie."
 
 msgid "to unlock this step."
 msgstr "pour débloquer cette étape."
+
+msgid "your path"
+msgstr "ton parcours"
 

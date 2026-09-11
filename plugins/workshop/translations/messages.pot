@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-09-11 17:33+0200\n"
+"POT-Creation-Date: 2026-09-11 17:38+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -45,6 +45,9 @@ msgstr ""
 msgid "Checking…"
 msgstr ""
 
+msgid "Click a step to open it."
+msgstr ""
+
 msgid "Completed"
 msgstr ""
 
@@ -52,6 +55,9 @@ msgid "Continue"
 msgstr ""
 
 msgid "Correct"
+msgstr ""
+
+msgid "Could not load the path graph."
 msgstr ""
 
 msgid "Could not load this hint."
@@ -197,6 +203,9 @@ msgstr ""
 msgid "Settings"
 msgstr ""
 
+msgid "Several ways on from here — pick one:"
+msgstr ""
+
 msgid "Start"
 msgstr ""
 
@@ -264,6 +273,15 @@ msgstr ""
 msgid "Workshop parts"
 msgstr ""
 
+msgid "available"
+msgstr ""
+
+msgid "done"
+msgstr ""
+
+msgid "locked"
+msgstr ""
+
 msgid "next"
 msgstr ""
 
@@ -277,5 +295,8 @@ msgid "to open this part."
 msgstr ""
 
 msgid "to unlock this step."
+msgstr ""
+
+msgid "your path"
 msgstr ""
 

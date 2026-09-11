@@ -732,10 +732,11 @@ body.ws-has-pane { overflow-x: hidden; }
 
 .ws-parcours-hint { font-size: 0.85rem; opacity: 0.75; margin-bottom: 0.5rem; }
 
-.ws-lg-solved::before { background: #173a1f; border-color: #a7f070; }
-.ws-lg-open::before   { background: #12233f; border-color: #41a6f6; }
-.ws-lg-locked::before { background: #1a1c2c; border-color: #566c86; }
-.ws-lg-path::before   { background: #a7f070; border-color: #a7f070; }
+/* Legend swatches live in epitech-theme.css, beside the rest of the
+   always-dark palette — they used to be duplicated here in the stock
+   arcade colours and were only invisible because that file loads second.
+   DESIGN.md asks for graph.js's literals and these to move together;
+   that is only checkable if there is one of them. */
 
 /* Fixed handle to reopen the runtime from anywhere in the page. Sits on the
    right edge like a drawer tab; assets/runtime.js shows it only once the
@@ -792,6 +793,42 @@ body.ws-has-pane { overflow-x: hidden; }
 }
 .ws-subject-title .ws-card-count { margin-left: auto; font-size: 0.8rem; opacity: 0.7; }
 .ws-subject-bar { margin: 0.5rem 0 1rem; }
+
+/* ------------------------------------------------------------------ *
+ * Empty states
+ *
+ * Ported from jump's EmptyState.svelte: a dashed frame, the icon in a raised
+ * circle, an Anton line with the terminal cursor, one italic line under it.
+ * CTFd's own is `<h3 class="text-center text-muted">` alone in the middle of a
+ * blank page — "Scoreboard is empty" as a shrug. The markup is core's, so this
+ * is entirely selector work.
+ * ------------------------------------------------------------------ */
+main > .container > .row > .col-md-12 > h3.text-muted:only-child,
+.ws-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  margin: 2rem auto;
+  padding: 3rem 1.5rem;
+  max-width: 34rem;
+  border: 2px dashed var(--bs-border-color, #dee2e6);
+  border-radius: var(--bs-border-radius-xl, 1rem);
+  background: color-mix(in oklab, var(--bs-secondary-bg) 35%, transparent);
+  font-family: "Anton", sans-serif;
+  text-transform: uppercase;
+  font-size: 1.25rem;
+  line-height: 1.15;
+  color: var(--bs-body-color) !important;
+}
+/* The brand's signature, the same one every page title carries. */
+main > .container > .row > .col-md-12 > h3.text-muted:only-child::after,
+.ws-empty::after {
+  content: "_";
+  color: var(--bs-success);
+  margin-left: -0.15em;
+}
 
 /* ------------------------------------------------------------------ *
  * Celebration — assets/celebrate.js draws these, this sizes them

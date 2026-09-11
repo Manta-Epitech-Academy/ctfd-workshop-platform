@@ -45,6 +45,42 @@
 
 {# The signed-out header has no nav and therefore no burger, so the class tells
    CSS which element has to carry the push-to-the-right. #}
+{#
+  Translated strings for the scripts that run on every page (assets/graph.js)
+  and for the workshop page's own (assets/workshop_page.js). It lives in the
+  shell rather than in each page because graph.js is registered globally and
+  renders the Parcours graph on an authored CTFd Page, which has no template of
+  ours to hang data off.
+
+  Server-rendered and already translated: there is exactly one translation
+  mechanism in this plugin, and it is gettext. Placeholders the browser fills
+  use {n} rather than %(n)s — gettext substitutes printf placeholders as it
+  translates and raises with nothing to substitute them with.
+#}
+<script type="application/json" id="ws-i18n">
+  {{ {
+    "points": _("pts"),
+    "pickFirst": _("Pick 👍 or 👎 first"),
+    "answerFirst": _("Pick or type an answer first."),
+    "checking": _("Checking…"),
+    "correct": _("Correct"),
+    "incorrect": _("Incorrect"),
+    "netError": _("Could not reach the server — try again."),
+    "thanks": _("Thanks!"),
+    "saveError": _("Could not save that — try again."),
+    "unlockHint": _("Unlock this hint for {n} points?"),
+    "loading": _("Loading…"),
+    "hintError": _("Could not load this hint."),
+    "graphHint": _("Click a step to open it."),
+    "graphDone": _("done"),
+    "graphOpen": _("available"),
+    "graphLocked": _("locked"),
+    "graphPath": _("your path"),
+    "graphError": _("Could not load the path graph."),
+    "graphBranch": _("Several ways on from here — pick one:"),
+  } | tojson }}
+</script>
+
 <header class="epi-header on-dark{% if not authed() %} epi-header-anon{% endif %}">
   <div class="epi-header-inner">
 

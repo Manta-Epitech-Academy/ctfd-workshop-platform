@@ -10,19 +10,20 @@
 (function () {
   var ROOT = null;
 
-  // Read once from the JSON island the template renders. Falls back to an empty
-  // object so a page that predates it (or an older cached template) still runs.
-  var PAGE = (function () {
-    var el = document.getElementById("ws-page-data");
+  // Read once from the JSON islands the templates render. Both fall back to an
+  // empty object, so a page served before they existed still runs and simply
+  // shows the English source text.
+  function island(id) {
+    var el = document.getElementById(id);
     if (!el) return {};
     try {
       return JSON.parse(el.textContent) || {};
     } catch (e) {
       return {};
     }
-  })();
-  var COVER = PAGE.cover || {};
-  var I18N = PAGE.i18n || {};
+  }
+  var COVER = island("ws-page-data").cover || {};
+  var I18N = island("ws-i18n");
 
   // Strings come from the server, already translated, through the JSON island —
   // there is no second translation mechanism in the browser. The fallback is

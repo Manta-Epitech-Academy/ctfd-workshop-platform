@@ -5,6 +5,21 @@
  * All strings English (i18n later, per CLAUDE.md). No CTFd core edit.
  */
 (function () {
+  // Translated strings from the shell's JSON island (templates/navbar.html),
+  // already resolved server-side. English source text is the fallback.
+  var I18N = (function () {
+    var el = document.getElementById("ws-i18n");
+    if (!el) return {};
+    try {
+      return JSON.parse(el.textContent) || {};
+    } catch (e) {
+      return {};
+    }
+  })();
+  function t(key, fallback) {
+    return I18N[key] || fallback;
+  }
+
   var CACHE = null;
   async function fetchGraph(force) {
     if (CACHE && !force) return CACHE;
@@ -82,7 +97,7 @@
     if (successors.length > 1) {
       var h = document.createElement("div");
       h.className = "ws-next-heading";
-      h.textContent = "Multiple paths ahead — pick one:";
+      h.textContent = t("graphBranch", "Several ways on from here — pick one:");
       container.appendChild(h);
     }
     successors.forEach(function (n) {
@@ -206,8 +221,12 @@
     nodes.forEach(function (n) {
       var p = xy(n);
       var state = n.solved ? "solved" : (n.unlocked ? "open" : "locked");
-      var fill = { solved: "#0b2318", open: "#0e1a33", locked: "#1b1f29" }[state];
-      var stroke = { solved: "#00ff97", open: "#809dfd", locked: "#262b38" }[state];
+      // Locked is the quiet one, not the loudest: twenty near-black slabs with a
+      // near-black border was the whole graph reading as a wall. Same encoding,
+      // same always-dark surface — DESIGN.md warns that these literals and
+      // .ws-parcours-* in workshop.css have to move together, and they still do.
+      var fill = { solved: "#0b2318", open: "#0e1a33", locked: "#15181f" }[state];
+      var stroke = { solved: "#00ff97", open: "#809dfd", locked: "#2f3543" }[state];
       var g = svgEl("g", { class: "ws-node ws-" + state });
       g.appendChild(svgEl("rect", {
         x: p.x, y: p.y, width: CW, height: CH, rx: 0,
@@ -251,15 +270,22 @@
     root.innerHTML = "";
     var hint = document.createElement("div");
     hint.className = "ws-parcours-hint";
-    hint.textContent = "Click a step to open it.";
+    hint.textContent = t("graphHint", "Click a step to open it.");
     root.appendChild(hint);
     var legend = document.createElement("div");
     legend.className = "ws-parcours-legend";
     legend.innerHTML =
-      "<span class='ws-lg ws-lg-solved'>done</span>" +
-      "<span class='ws-lg ws-lg-open'>available</span>" +
-      "<span class='ws-lg ws-lg-locked'>locked</span>" +
-      "<span class='ws-lg ws-lg-path'>your path</span>";
+      "<span class='ws-lg ws-lg-solved'></span>" +
+      "<span class='ws-lg ws-lg-open'></span>" +
+      "<span class='ws-lg ws-lg-locked'></span>" +
+      "<span class='ws-lg ws-lg-path'></span>";
+    var labels = [t("graphDone", "done"), t("graphOpen", "available"),
+                  t("graphLocked", "locked"), t("graphPath", "your path")];
+    // textContent rather than building the markup with the strings inline: a
+    // translation is data, and data does not go into innerHTML.
+    legend.querySelectorAll(".ws-lg").forEach(function (el, i) {
+      el.textContent = labels[i];
+    });
     root.appendChild(legend);
     var scroll = document.createElement("div");
     scroll.className = "ws-parcours-scroll";
@@ -274,7 +300,7 @@
     try {
       renderParcours(root, await fetchGraph(true));
     } catch (e) {
-      root.textContent = "Could not load the path graph.";
+      root.textContent = t("graphError", "Could not load the path graph.");
     }
   }
 

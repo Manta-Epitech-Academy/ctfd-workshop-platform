@@ -260,8 +260,23 @@ The float is `jump`'s `xp-float` keyframe ported frame for frame, count-up inclu
 `jump`'s `lib/actions/confetti.ts`, colours and all. `jump/DESIGN.md` caps a state transition at
 320ms and then says a one-shot celebration states its own duration — which is what the 2.2s is.
 
-**Anchored to the row, not centred on the viewport.** `jump` floats its XP over the whole screen
-because it is celebrating a session; doing that 33 times would be a punishment.
+**Anchored to the control that was pressed, in a fixed layer on `<body>`.** `jump` floats its XP
+over the whole screen because it is celebrating a session; doing that 33 times would be a
+punishment. The first version anchored it to the step's summary row instead, which is worse than
+either: a step is a statement, a code block and usually a hint, so by the time somebody is typing a
+validation code that row is most of a screen above the fold. Measured on a real solve, the float
+landed at `top: -1479px` in a 1000px viewport. It was drawn on every correct answer and seen on
+none.
+
+Both halves of the fix are load-bearing. **To the control**, because that is where the eye already
+is. **In a fixed layer**, because `fillBody()` replaces the step body's `innerHTML` — form and
+button included — and `refresh()` then scrolls to whatever unlocked: a float parented to the button
+is destroyed mid-animation, one parented to the page slides away with the scroll.
+
+It is a **dark token**, not bare text on the page, for the same reason code blocks are always dark:
+the neon green is 1.33:1 on white, so floating it over a light page would make the only feedback in
+the whole loop the least legible thing on screen. The end-of-part block is built from the same two
+colours, so the three rewards — token, block, confetti — read as one system.
 
 Two mechanics worth not rediscovering:
 
@@ -278,6 +293,54 @@ fired while the pane is open would be invisible — which is exactly when it mat
 
 `cover.mascot` puts the subject's own sprite in the float when it declares one. That is the one
 thing here with no `jump` precedent.
+
+**Reduced motion keeps the reward, and loses only the movement.** The global near-zero rule above
+would shorten the float to nothing, i.e. delete the single confirmation a solve gives. It carries
+its own `prefers-reduced-motion` block that keeps the full 1.8s and swaps the rise for a fade. The
+confetti, which is decoration rather than confirmation, is skipped entirely.
+
+## Everything that can be pressed says so
+
+`:active { transform: scale(0.97) }` on `.btn`, platform-wide, plus the same on chips, rating
+thumbs and the folds. Bootstrap's `:active` only repaints the fill, which on a saturated brand
+colour is close to invisible — and on a touch screen there was no hover to have said it first.
+
+Two rules that go with it:
+
+- **Only `transform` is transitioned, never `all`.** The fill and border already carry Bootstrap's
+  own transition, and animating layout properties on hover costs a relayout per frame.
+- **Hover effects sit behind `@media (hover: hover) and (pointer: fine)`.** A tap on a touch screen
+  fires hover and leaves it stuck.
+
+A hint is an *action*, so it is drawn as a control: a pill with a lightbulb and a chevron. The two
+folds beside it — the part introduction and the author's short version — are content somebody
+wrote, so they stay quiet, but all three now use the same rotating Font Awesome chevron. A
+`<details>` opened by hand reveals its content over `--epi-dur-base`; the class that does it is set
+on a real `toggle`, never off `[open]`, so the folds already open at load do not all animate at
+once.
+
+A wrong answer shakes the field for 260ms and reselects it. A line of red text is easy to miss when
+you are looking at the keyboard.
+
+## The steps stepper sticks, the parts stepper does not
+
+The part strip used to be the sticky one. It is the wrong bar to keep in front of somebody: a
+subject has two or three parts, so it says the same thing for twenty minutes and only moves a
+counter. What advances while they work is the step.
+
+So each part's `.ws-stepper-steps` is `position: sticky` **inside its own section** — it leads
+while you are in that part and is pushed out by the next one, which is what a stepper is for. It
+lifts off the page once pinned, the current chip is scrolled onto the strip on arrival and whenever
+a solve moves it, and a chip that gets checked off pops once.
+
+`position: sticky` gives no state to style, and **the usual `IntersectionObserver` trick does not
+apply here**: it calls an element "not fully intersecting" when the element is off-screen entirely,
+so with one bar per part every bar below the fold claims to be stuck. Measured — at scroll 0 it
+reported stuck on a bar 1204px down the page. One rect read per bar, coalesced into a frame, on a
+passive scroll listener.
+
+`stickyOffset()` measures the strip **of the part the anchor lands in**. Measuring a different
+part's leaves the target under the real one.
 
 ## The reading surface
 
@@ -371,6 +434,52 @@ Code blocks (`pre`/`pre code`) render on a forced-dark background in **both** th
 move `jump` makes for the same reason: the neon `--epi-tech` green is only legible on a dark
 surface (1.33:1 on white per `jump`'s own contrast note), so code gets one always-dark surface
 instead of a palette that has to switch with the page.
+
+### The plugin carries its own copy of lolight
+
+The core theme highlights `pre code` **once**, on `DOMContentLoaded`
+(`themes/core/assets/js/theme/highlight.js`), and keeps `lolight` module-local. The workshop page
+fills a step's body in place after a solve, so every code block from the second step of a subject
+onwards arrived as plain text — measured, 0 `.ll-*` spans in each body the page injected. That is
+most of a workshop.
+
+Re-exporting `lolight` from the core bundle would be a core edit, so `tools/build_vendor.sh`
+vendors the same version the theme depends on (2.6 KB, UMD, global `lolight`), and
+`workshop_page.js` re-tokenizes from `textContent`. Two things to know about that:
+
+- **It always re-tokenizes, it never skips blocks that already have spans.** `lolight` rebuilds
+  from `textContent` too, so the pass is idempotent, and that is what makes a block highlighted by
+  the core at load and a block fetched after a solve come out identical.
+- **It runs on `DOMContentLoaded` and again on `load`.** The core's own pass also runs on
+  `DOMContentLoaded` and the order between the two handlers is not ours; if the core lands second
+  it rebuilds the block and drops the extra tagging below. `load` is strictly after every
+  `DOMContentLoaded` handler.
+- Its own auto-run targets `.lolight`, a class nothing here uses, so loading it twice highlights
+  nothing twice.
+
+### Seven classes, so all seven have to differ
+
+`lolight` is a language-agnostic tokenizer with exactly seven classes, and the palette does all the
+separating. Two of them used to collide, and both are worth stating as rules:
+
+- **`.ll-key` must not equal `.ll-nam`.** They were both the brand green, so a keyword and a
+  variable name were one colour — no keyword highlighting at all.
+- **`.ll-pct` must not equal the surface's ink.** It was `#f1f2f6` on a `#0b0e1a` block, i.e. the
+  body colour of that very surface, so every operator was the same ink as the text around it.
+  `pos.x > ghost.x` read as one grey run, on a subject whose subject *is* comparisons. Operators
+  take the warm accent now, the third colour of the charte.
+
+### The two gaps `lolight` leaves, and where they are patched
+
+Its ruleset is one fixed regex shared by every language. `workshop_page.js` repairs two things
+after tokenizing, which is far less brittle than shipping a second highlighter:
+
+- **Missing keywords.** `local` is on nearly every line of beginner Lua; Python's `None`, `True`
+  and `False` miss because the list carries `null`, `true`, `false` and is case-sensitive.
+- **Line comments.** It only knows `//` and `#`, so `-- deplace le fantome` tokenized as two
+  operators followed by live code — on a subject that has a step explaining that `--` is a note and
+  not code. The fold is keyed off the `language-*` class the markdown renderer puts on `<code>`, so
+  it never fires on a shell block where `--force` is a flag.
 
 ## `.on-dark` — a surface that is dark whatever the theme is
 
@@ -497,6 +606,7 @@ oversight, and nothing here should be "fixed" back without reading the reason.
 | The blueprint grid in a page band | `BrandBackdrop` only on full-screen ceremony pages | `blueprint-grid-inverse` inside the hero | the rule is about a page *backdrop*; `jump`'s own `PageHero` and `LoginBrandPanel` put the same texture inside a brand block |
 | Framed, matted media | photography is rectangles: no rounded corners, no shadow | subject screenshots get a dark mat, a border and a radius | that rule was written about photographs of people; subject media is pixel art that only exists on black and wears a halo on any lighter ground |
 | A mascot in the reward float | no precedent at all | `cover.mascot`, the subject's own sprite | the art already ships in every subject repo, so it costs an author one line; the one genuinely new thing here |
+| A glow on the reward token and the end-of-part block | no gradient / glow / blur on everyday surfaces | both carry a soft `--epi-tech` halo | the rule is about *everyday* surfaces and it still holds for every one of them. These two are the celebration surfaces the same paragraph exempts, they exist for 1.8s and once per part respectively, and the halo is what separates a reward from a notification |
 
 **What is deliberately NOT deviated from**: the palette (no fifth hue), the ink rule, Anton as
 display-only, no gradient / glow / blur on everyday surfaces, 320ms as the ceiling for a state

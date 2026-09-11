@@ -90,8 +90,17 @@ blocks the instance nor deadlocks when it calls the instance's own API.
   `get_translations` merges every directory in it. If a CTFd upgrade changes either of those two
   behaviours, the plugin's strings fall back to English rather than breaking — but check it.
 - **`assets/vendor/` is a build artifact**, not committed: `tools/build_vendor.sh` fetches
-  openpgp.js and canvas-confetti at pinned versions with their sha256 verified. Without it the sync
-  page cannot decrypt answers and the workshop page simply draws no confetti.
+  openpgp.js, canvas-confetti and lolight at pinned versions with their sha256 verified. Without it
+  the sync page cannot decrypt answers, the workshop page draws no confetti, and code injected
+  after a solve stays monochrome.
+- **The plugin carries a second copy of lolight on purpose.** The core theme highlights `pre code`
+  once on `DOMContentLoaded` and does not expose the library, so every step body the workshop page
+  fetches after a solve would arrive unhighlighted. Pin it to whatever
+  `themes/core/package.json` asks for — today `"lolight": "^1.4.0"`, so 1.4.1 — and after a CTFd
+  upgrade check two things: that the core still tokenizes into `.ll-*` classes, and that its own
+  auto-run still targets `.lolight` (a class nothing here uses) rather than something this page
+  has. `workshop_page.js` re-tokenizes from `textContent` and is idempotent, so the two copies
+  cannot double-wrap each other.
 - Touch points with core, in full: `CHALLENGE_CLASSES` registry, `BaseChallenge` subclass
   API (`create/read/update/attempt`), `register_plugin_assets_directory`,
   `ChallengeCreateException/ChallengeUpdateException`, and the two admin template blocks

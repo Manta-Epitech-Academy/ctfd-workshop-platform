@@ -19,6 +19,17 @@
   var CANVAS_ID = "ws-confetti";
   var instance = null;
 
+  /* How long the step's moment lasts, i.e. how long the page owes it before
+     moving on. Returned by `step()` rather than hard-coded on the caller's
+     side, so the pause and the animation it is waiting for cannot drift apart.
+
+     COUNT_UP is the count-up's own duration: the figure has reached its final
+     value by then, which is the beat the moment is built around. With no number
+     to count (a step worth no points) or under reduced motion (no count-up at
+     all) there is only "has it been seen", which is shorter. */
+  var COUNT_UP_MS = 900;
+  var SEEN_MS = 450;
+
   /* Two things canvas-confetti gets wrong for us, both solved the way jump
      solves them:
 
@@ -85,7 +96,7 @@
   var TOP_MARGIN = 84;
 
   function floatReward(anchor, amount, label, mascot) {
-    if (!anchor || !anchor.getBoundingClientRect) return;
+    if (!anchor || !anchor.getBoundingClientRect) return 0;
     var rect = anchor.getBoundingClientRect();
     var host = document.createElement("div");
     host.className = "ws-reward";
@@ -128,20 +139,24 @@
       // the figure settles out of its overshoot.
       var start = performance.now();
       var tick = function (now) {
-        var t = Math.min(1, (now - start) / 900);
+        var t = Math.min(1, (now - start) / COUNT_UP_MS);
         figure.textContent = "+" + Math.round((1 - Math.pow(1 - t, 3)) * amount);
         if (t < 1 && host.isConnected) requestAnimationFrame(tick);
       };
       requestAnimationFrame(tick);
-    } else if (amount) {
-      figure.textContent = "+" + amount;
+      return COUNT_UP_MS;
     }
+    if (amount) figure.textContent = "+" + amount;
+    return SEEN_MS;
   }
 
   window.wsCelebrate = {
-    // `anchor` is the control that was pressed — see floatReward.
+    /* `anchor` is the control that was pressed — see floatReward. Returns how
+       many milliseconds this moment needs before the page may move, or 0 if
+       nothing was drawn. The caller decides what to do with that; this only
+       knows how long its own animation takes. */
     step: function (anchor, points, label, mascot) {
-      floatReward(anchor, points, label, mascot);
+      return floatReward(anchor, points, label, mascot);
     },
     part: function () {
       if (!reducedMotion()) burst();

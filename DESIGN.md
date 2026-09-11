@@ -288,6 +288,21 @@ halo is what separates it from the text underneath. The passing alternative is
 `--epi-together-ink` (`#b5361a` in light), which reads as brick rather than as a reward. If this
 ever has to carry information, that token is the one to switch to.
 
+**The reward and the move to the next step are a sequence, not a moment.** They used to fire
+together — the float popped while `refresh()` smooth-scrolled the page to whatever had just
+unlocked — and they diluted each other: two things asking for attention at once, with the float,
+which is fixed, hanging still while the whole page slid underneath it. It read as a system overlay
+rather than as a consequence of the click. You act, you are paid, *then* the page moves.
+
+Only the viewport move waits. Counters, chips and step bodies land immediately: they corroborate
+the reward instead of competing with it, and they are not what steals the moment.
+
+**How long it waits is the celebration's answer, not the page's.** `wsCelebrate.step()` returns the
+number of milliseconds its moment needs — the count-up's own duration, so the figure has reached
+its final value before anything else moves, or a shorter "has it been seen" when there is no number
+to count or motion is reduced. Hard-coding that on the caller's side is how a pause and the
+animation it is waiting for drift apart.
+
 Two mechanics worth not rediscovering:
 
 - **The hook is `submit()` and only `submit()`.** It is the one place where `correct` and
@@ -306,8 +321,14 @@ thing here with no `jump` precedent.
 
 **Reduced motion keeps the reward, and loses only the movement.** The global near-zero rule above
 would shorten the float to nothing, i.e. delete the single confirmation a solve gives. It carries
-its own `prefers-reduced-motion` block that keeps the full 1.8s and swaps the rise for a fade. The
+its own `prefers-reduced-motion` block that keeps the full 2.2s and swaps the rise for a fade. The
 confetti, which is decoration rather than confirmation, is skipped entirely.
+
+The scroll to the next step has to read the preference **in JavaScript**. An explicit
+`behavior: "smooth"` on `window.scrollTo` wins over the stylesheet's
+`scroll-behavior: auto !important` — the CSS property is only consulted when the JS behaviour is
+`"auto"` — so the global opt-out does not reach it, and somebody who asked for no motion was still
+getting the one animation on the page that moves their whole viewport.
 
 ## Everything that can be pressed says so
 
@@ -426,6 +447,11 @@ Already handled in `epitech-theme.css`, and the reason each needed its own block
   a solid outline (same reasoning `jump` gives: a box-shadow ring doesn't survive an
   `overflow-hidden` ancestor — the challenge modal, here — an outline does).
 - `.form-check-input:checked` — literal, used by quiz radio/checkbox options.
+- **`input, select { padding: .6rem !important }`** — CTFd's own rule, not Bootstrap's, and it
+  makes every field on the platform 45.19px tall while `.btn` keeps Bootstrap's `.375rem` and comes
+  out at 38. Harmless for as long as the two are on separate rows; the answer row puts a field and
+  its Submit side by side, so the button takes the same `padding-block: 0.6rem` there. There is no
+  way to land on the same height without matching an `!important` we do not own.
 - `.dropdown-menu`, `.list-group`, `.pagination`, `.progress-bar` — literal active-state
   backgrounds.
 - `.table-primary` — literal computed tint, not var-based.

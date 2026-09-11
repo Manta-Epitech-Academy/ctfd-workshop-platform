@@ -116,9 +116,9 @@
       if (status === "correct" || status === "already_solved") {
         feedback(form, "correct", data.message || t("correct", "Correct"));
         // Everything the celebration needs is read BEFORE the refresh: it
-        // replaces .ws-step-body's innerHTML, which contains this very form.
-        // .ws-step-summary survives, which is why the points come from there
-        // and why the float is anchored to it.
+        // replaces .ws-step-body's innerHTML, which contains this very form and
+        // the button the float is anchored to. .ws-step-summary survives, which
+        // is why the points are read from there.
         var stepEl = form.closest(".ws-step");
         var meta = stepEl && stepEl.querySelector(".ws-step-meta");
         var points = meta ? parseInt(meta.textContent, 10) : 0;
@@ -129,18 +129,24 @@
         // It is also the only place that knows WHICH step — refresh()'s loop
         // flips every step whose state moved, which on one solve can be several.
         //
-        // The step's own moment fires BEFORE the refresh, not after: refresh()
-        // opens the step that just unlocked and scrolls to it, so a float
-        // created afterwards would pop on a row that is no longer on screen.
-        // It pops in ~260ms and the refresh's own round trip is longer than
-        // that, so it is seen and then the page moves on.
-        // Anchored to the button that was just pressed, not to the step's
-        // summary row: by the time a validation code is being typed the row is
-        // most of a screen above the fold, and the float was landing there.
+        // It fires BEFORE the refresh, and it is anchored to the button that
+        // was just pressed rather than to the step's summary row: by the time a
+        // validation code is being typed that row is most of a screen above the
+        // fold, and the float used to land there, off screen.
+        //
+        // The reward and the move to the next step used to happen at the same
+        // instant, and they diluted each other: two things asking for attention
+        // at once, with the float — which is fixed — hanging still while the
+        // whole page slid underneath it, so it read as a system overlay rather
+        // than as a consequence of the click. They are a sequence now: you act,
+        // you are paid, then the page moves. The celebration says how long its
+        // own moment is (see celebrate.js) so the pause and the animation it is
+        // waiting for cannot drift apart.
+        var hold = 0;
         if (status === "correct" && window.wsCelebrate) {
-          window.wsCelebrate.step(button, points, I18N.points, COVER.mascot);
+          hold = window.wsCelebrate.step(button, points, I18N.points, COVER.mascot);
         }
-        var counts = await refresh(id);
+        var counts = await refresh(id, hold ? performance.now() + hold : 0);
         if (status === "correct") celebrateCompletion(counts);
       } else {
         feedback(form, status, data.message || t("incorrect", "Incorrect"));
@@ -408,7 +414,17 @@
     }
   }
 
-  async function refresh(justSolvedId) {
+  /* `holdScrollUntil` is a performance.now() timestamp, or 0. Everything else
+     in here lands immediately — counters, chips, bodies. Those corroborate the
+     reward rather than compete with it, and they are not what steals the
+     moment: moving the viewport is. */
+  function until(timestamp) {
+    var wait = timestamp ? timestamp - performance.now() : 0;
+    if (wait <= 0) return Promise.resolve();
+    return new Promise(function (done) { setTimeout(done, wait); });
+  }
+
+  async function refresh(justSolvedId, holdScrollUntil) {
     var r = await api("/api/v1/workshop/graph");
     var graph = (await r.json()).data;
     var solved = new Set(graph.solved);
@@ -452,6 +468,10 @@
     var counts = updateCounters(solved);
     await Promise.all(pending);
     if (next && next.dataset.challengeId !== String(justSolvedId)) {
+      // Opened together with the scroll rather than before it: the next step is
+      // below the fold either way, so revealing it early buys nothing and
+      // splits one event into two.
+      await until(holdScrollUntil);
       next.open = true;
       scrollTo(next);
     }
@@ -532,7 +552,16 @@
 
   function scrollTo(el) {
     var top = el.getBoundingClientRect().top + window.scrollY - stickyOffset(el);
-    window.scrollTo({ top: top, behavior: "smooth" });
+    // An explicit `behavior: "smooth"` WINS over the stylesheet's
+    // `scroll-behavior: auto !important`: the CSS property is only consulted
+    // when the JS behaviour is "auto". So the reduced-motion opt-out has to be
+    // read here, or somebody who asked for no motion gets the one animation on
+    // this page that moves their whole viewport.
+    var smooth = true;
+    try {
+      smooth = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    } catch (e) { /* no matchMedia: keep the default */ }
+    window.scrollTo({ top: top, behavior: smooth ? "smooth" : "auto" });
   }
 
   /* `position: sticky` gives no state to style, and the usual

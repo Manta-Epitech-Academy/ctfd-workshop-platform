@@ -697,6 +697,14 @@
 }
 .ws-form:has(> .ws-answer) > .ws-answer { flex: 1 1 12rem; max-width: 20rem; }
 .ws-form:has(> .ws-answer) > .ws-form-actions { flex: 0 1 auto; }
+/* The core theme forces `input, select { padding: .6rem !important }` while
+   `.btn` keeps Bootstrap's `.375rem`, so a field is 45.19px tall and the button
+   beside it is 38. That mismatch was invisible for as long as the two were on
+   separate rows; putting them on one is what exposed it. The button takes the
+   same 0.6rem, which is the only way to land on the same height without
+   fighting an `!important` we do not own. Scoped to the row that actually pairs
+   them — a rating step's button stands alone and has nothing to match. */
+.ws-form:has(> .ws-answer) .ws-submit-btn { padding-block: 0.6rem; }
 /* What to submit is a footnote to the row, not part of it. */
 .ws-form:has(> .ws-answer) > .ws-answer-note { flex: 1 0 100%; margin-top: 0; }
 .ws-answer { max-width: 22rem; }

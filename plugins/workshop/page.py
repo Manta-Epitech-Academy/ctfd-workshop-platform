@@ -415,6 +415,46 @@ def _documents():
     return [d for d in docs if d.get("slug") and d.get("challenge_ids")]
 
 
+def _subjects():
+    """How each subject presents itself (`workshop_subjects`, §3.2b).
+
+    `{slug: {title, summary, tagline, media, poster, mascot}}`, written by the
+    sync from the subject's own `cover:` block or derived from what it already
+    had. Empty for an instance synced before covers existed — the band then
+    renders with its title alone, which is what it did before.
+    """
+    raw = get_config("workshop_subjects")
+    if not raw:
+        return {}
+    try:
+        subjects = json.loads(raw)
+    except (TypeError, ValueError):
+        return {}
+    return subjects if isinstance(subjects, dict) else {}
+
+
+def _cover_for(subject, documents=None, doc_slug=None):
+    """The cover to show, most specific first.
+
+    A document may carry its own (a second part is not the same promise as the
+    subject's front page); otherwise the subject's, which is always at least
+    derived. The documents already record which subject they belong to, so the
+    join needs nothing new.
+    """
+    if doc_slug and documents:
+        doc = next((d for d in documents if d.get("slug") == doc_slug), None)
+        if doc and doc.get("cover"):
+            return doc["cover"]
+    cover = _subjects().get(subject) or {}
+    if doc_slug and cover:
+        # A part falls back to the subject's picture — the workshop keeps one
+        # face on every screen — but not to its tagline. That sentence is the
+        # front door's promise about the whole subject; repeated over each part
+        # it says the same thing three times and stops being read.
+        cover = {k: v for k, v in cover.items() if k != "tagline"}
+    return cover
+
+
 def _resolve_links(steps, documents, visible_ids):
     """Point every "finish X first" at the page where X can actually be done.
 
@@ -468,7 +508,8 @@ def _runtime_for(subject):
     return runtime
 
 
-def _render(user, keep_ids=None, title=None, subject=None, next_doc=None):
+def _render(user, keep_ids=None, title=None, subject=None, next_doc=None,
+            doc_slug=None):
     steps = _steps(user)
     if keep_ids is not None:
         steps = [s for s in steps if s["id"] in keep_ids]
@@ -484,6 +525,7 @@ def _render(user, keep_ids=None, title=None, subject=None, next_doc=None):
         parts=_parts(steps, title),
         documents=documents,
         page_title=title,
+        cover=_cover_for(subject, documents, doc_slug),
         runtime=_runtime_for(subject),
         solved_count=solved_count,
         total_count=total_count,
@@ -606,10 +648,18 @@ def workshop():
                                 doc_slug=documents[0]["slug"]))
 
     cards, steps = _index_cards(user, documents)
+    subjects = _subjects()
+    # The index belongs to the workshop, not to one subject, so it shows the
+    # starter's cover: it is the first thing anyone does, and it is what the
+    # instance is titled after. With several subjects each still gets its own
+    # section below (PLAN.md §19, D5).
+    first_subject = next((d.get("subject") for d in documents if d.get("subject")), None)
     return render_template(
         "workshop_index.html",
         cards=cards,
         groups=_subject_groups(cards),
+        subjects=subjects,
+        cover=subjects.get(first_subject) or {},
         page_title=get_config("ctf_name"),
         solved_count=sum(1 for s in steps if s["counts"] and s["solved"]),
         total_count=sum(1 for s in steps if s["counts"]),
@@ -633,7 +683,8 @@ def workshop_document(doc_slug):
     doc_index = docs.index(doc)
     next_doc = docs[doc_index + 1] if doc_index + 1 < len(docs) else None
     return _render(get_current_user(), keep_ids=set(doc["challenge_ids"]),
-                   title=doc["title"], subject=doc.get("subject"), next_doc=next_doc)
+                   title=doc["title"], subject=doc.get("subject"),
+                   next_doc=next_doc, doc_slug=doc_slug)
 
 
 @workshop_page.route("/api/v1/workshop/step/<int:challenge_id>", methods=["GET"])

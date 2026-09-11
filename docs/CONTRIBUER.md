@@ -47,6 +47,51 @@ documents:                       # l'ordre de lecture
 Ajoutez le bloc `runtime:` seulement si l'atelier a une application web à côté du texte
 (partie 4).
 
+### La vitrine de l'atelier
+
+En haut de l'atelier, la plateforme affiche une phrase et une image. Vous n'avez
+rien à faire pour en avoir une : sans rien déclarer, elle prend le `summary` de
+votre `subject.yaml` et la première image de votre document d'entrée. Aucun
+atelier n'arrive donc tout nu.
+
+Mais vous choisissez mieux qu'elle. Trois lignes dans `subject.yaml` :
+
+```yaml
+cover:
+  media: img/demo.gif        # une capture ou un GIF de votre jeu qui tourne
+  poster: img/demo.png       # une image fixe, si media est un GIF
+  tagline: "Ton fantôme ne bouge pas. À toi de lui apprendre à chasser."
+```
+
+La `tagline`, c'est ce que le jeune lit en premier. Écrivez ce qu'il aura
+construit à la fin, pas ce que l'atelier contient : « Ton fantôme ne bouge pas.
+À toi de lui apprendre à chasser » plutôt que « Introduction aux arbres de
+décision ». Une phrase, moins de 90 caractères.
+
+Le `poster` sert à ceux qui ont demandé à leur système de réduire les
+animations : un GIF ne peut pas être mis en pause, donc c'est l'image fixe qui
+leur est montrée à la place. Le linter vous le rappelle si vous mettez un GIF
+sans poster.
+
+Vous ne donnez jamais de taille ni de cadrage : la plateforme s'en occupe, et
+c'est ce qui fait que deux ateliers différents ont l'air du même produit.
+
+Chaque document peut avoir le sien, sous son titre de niveau 1, quand la partie
+promet autre chose que l'atelier entier :
+
+```markdown
+# Partie 2 : Machine à états finis
+<!-- ws:
+cover:
+  media: img/etats.png
+  tagline: "Ton fantôme change d'humeur : il patrouille, il chasse, il fuit."
+-->
+```
+
+Là, le chemin est relatif au document, comme pour vos images normales — celui de
+`subject.yaml` part de la racine du dépôt, puisqu'il n'appartient à aucun
+document.
+
 
 ## 2. Écrire les `.md`
 

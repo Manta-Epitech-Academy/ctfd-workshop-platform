@@ -969,7 +969,9 @@ main {
    band carries nothing but its name does not need decorating twice. The grid
    alone is the texture there. */
 @media (min-width: 768px) {
-  .epi-hero:not(.epi-hero-compact)::after {
+  /* A band that carries a picture needs no pixel squares: the art is the
+     texture, and the two land in the same corner. */
+  .epi-hero:not(.epi-hero-compact):not(.ws-hero-media-on)::after {
     content: "";
     position: absolute;
     top: 1rem;

@@ -83,11 +83,11 @@ def _import_tools():
     try:
         from sync_subject import CTFdAdmin, sync            # noqa: E402
         from sync_workshop import sync_workshop             # noqa: E402
-        from ws_parser import lint                          # noqa: E402
+        from ws_parser import lint_all                      # noqa: E402
     except ImportError as exc:
         raise SourceError(f"this instance cannot load the importer ({exc}). "
                           f"{'; '.join(missing_pieces()) or 'Check the mounts.'}") from exc
-    return CTFdAdmin, sync, sync_workshop, lint
+    return CTFdAdmin, sync, sync_workshop, lint_all
 
 
 def _admin_client(CTFdAdmin):
@@ -186,7 +186,7 @@ class SyncJob:
         self.note(f"FAILED: {message}")
 
     def _run(self):
-        CTFdAdmin, sync, sync_workshop, lint = _import_tools()
+        CTFdAdmin, sync, sync_workshop, lint_all = _import_tools()
         self._tmp = tempfile.mkdtemp(prefix="workshop-sync-")
         info = materialize(self.repo, self.ref, self._tmp, log=self.note)
         self.commit = info["sha"]
@@ -194,16 +194,22 @@ class SyncJob:
         if info["sidecars"]:
             self._collect_answers(info["sidecars"])
 
-        problems = []
+        problems, advice = [], []
         for subject in info["subjects"]:
-            problems += [f"{os.path.basename(subject['dir'])}: {p}"
-                         for p in lint(subject["dir"])]
+            name = os.path.basename(subject["dir"])
+            errs, warns = lint_all(subject["dir"])
+            problems += [f"{name}: {p}" for p in errs]
+            advice += [f"{name}: {w}" for w in warns]
         if problems:
             for p in problems:
                 self.note(f"FAIL {p}")
             raise SourceError(f"{len(problems)} problem(s) in the content — "
                               f"nothing was imported")
         self.note(f"lint: {len(info['subjects'])} subject(s) clean")
+        # Advice refuses nothing. It is shown here because this page is where
+        # the person who can act on it is standing.
+        for a in advice:
+            self.note(f"warn {a}")
 
         ctfd = _admin_client(CTFdAdmin)
         codes = os.path.join(self._tmp, "codes")

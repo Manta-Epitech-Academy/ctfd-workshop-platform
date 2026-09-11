@@ -42,8 +42,8 @@ import requests
 import yaml
 
 sys.path.insert(0, str(Path(__file__).parent))
-from ws_parser import (load_flags, load_quiz_answers, lint,  # noqa: E402
-                       parse_subject, rewrite_asset_refs)
+from ws_parser import (load_flags, load_quiz_answers, lint_all,  # noqa: E402
+                       parse_subject, rewrite_asset_refs, rewrite_cover_refs)
 
 # The note under a step ("ask the instructor for the code", "paste the token
 # here") is NOT written into the description any more. It depends on the
@@ -460,6 +460,42 @@ def apply_asset_rewrite(subject, mapping):
             h.content_md = rewrite_asset_refs(h.content_md, mapping)
     for q in subject.quizzes:
         q.question = rewrite_asset_refs(q.question, mapping)
+    # Not a markdown body — a `cover:` is plain dict values, so it needs a
+    # lookup rather than the image-syntax regex. It belongs here anyway: this
+    # function exists so that "a body added to the importer later cannot
+    # quietly ship broken image links", and the cover is exactly that.
+    subject.cover = rewrite_cover_refs(subject.cover, mapping)
+    for doc in subject.documents:
+        doc.cover = rewrite_cover_refs(doc.cover, mapping, document=doc.path)
+
+
+def derive_cover(subject):
+    """What the platform shows for a subject that declared no `cover:`.
+
+    The floor, not the ceiling. Every subject already carries a one-line
+    `project.summary` and almost every one opens with an image, so a subject
+    whose author has done nothing still gets a band with a sentence and a
+    picture in it — which is the whole point of normalising this: no subject can
+    be blank, and declaring a cover is an improvement rather than a prerequisite.
+
+    Only fills what is missing, so a cover that declares a tagline and no image
+    still gets the image.
+    """
+    cover = dict(subject.cover or {})
+    cover.setdefault("tagline", (subject.manifest.get("project") or {}).get("summary") or "")
+
+    if not cover.get("media"):
+        # The first image of the entrypoint document: the one the author put at
+        # the top of the page a participant reads first, which is as close to
+        # "the picture of this subject" as anything we can infer.
+        entry = (subject.manifest.get("project") or {}).get("entrypoint")
+        for asset in subject.assets:
+            if entry and entry in asset.documents:
+                cover["media"] = asset.ref
+                cover["derived"] = True
+                break
+
+    return {k: v for k, v in cover.items() if v}
 
 
 def strip_leading_title(body_md, title):
@@ -510,12 +546,16 @@ def replace_hints(ctfd, cid, hints):
             "challenge_id": cid, "content": h.content_md, "cost": h.cost})
 
 
-def write_instance_config(ctfd, documents_cfg, optional_ids, free_ids, final_step):
-    """The four instance-wide settings the workshop page reads back.
+def write_instance_config(ctfd, documents_cfg, optional_ids, free_ids, final_step,
+                          *, subjects_cfg=None):
+    """The instance-wide settings the workshop page reads back.
 
     Written in one place because they describe the *instance*, not a subject:
     a workshop of several subjects accumulates them and calls this once
     (PLAN.md §19.1), and a lone subject calls it with its own.
+
+    `subjects_cfg` is keyword-only and defaults to None so the signature stays
+    additive for anything that still calls this positionally.
     """
     # Parts, in board order, each naming the subject it belongs to.
     ctfd.api("PATCH", "/configs/workshop_documents",
@@ -533,6 +573,15 @@ def write_instance_config(ctfd, documents_cfg, optional_ids, free_ids, final_ste
     # subject: only that one asks how the workshop went (PLAN.md §17).
     ctfd.api("PATCH", "/configs/workshop_final_step",
              json={"value": json.dumps(final_step)})
+    # How each subject presents itself: its name, its accroche and its cover
+    # image (§3.2b). Keyed by subject slug rather than folded into
+    # `workshop_documents`, whose entries are per *document* — a subject's cover
+    # stored once per document would be the same blob N times and would raise
+    # "which one wins" the day two disagreed. The documents already carry
+    # `subject`, so the join exists.
+    if subjects_cfg is not None:
+        ctfd.api("PATCH", "/configs/workshop_subjects",
+                 json={"value": json.dumps(subjects_cfg)})
 
 
 def sync(subject_dir, url, admin_user, admin_pass, codes_path=None, *,
@@ -550,11 +599,16 @@ def sync(subject_dir, url, admin_user, admin_pass, codes_path=None, *,
     challenge the subject's intro must wait for, which is how an advanced
     subject sits behind the starter.
     """
-    problems = lint(subject_dir)
+    problems, advice = lint_all(subject_dir)
     if problems:
         for p in problems:
             print(f"FAIL {p}", file=sys.stderr)
         sys.exit(1)
+    # Advice, not a gate. It is printed on the way past because the admin sync
+    # page captures this stdout and shows it back — telling an author their
+    # subject has no accroche is only useful where they will read it.
+    for a in advice:
+        print(f"warn {a}")
 
     subject = parse_subject(subject_dir)
     answers = load_quiz_answers(subject_dir)
@@ -837,9 +891,16 @@ def sync(subject_dir, url, admin_user, admin_pass, codes_path=None, *,
         if doc.path in outro_ids:
             ids.append(outro_ids[doc.path])
         route = f"workshop/{route_slug}"
-        documents_cfg.append({"slug": route_slug, "title": doc.title, "route": route,
-                              "subject": subject.slug, "subject_title": subject.name,
-                              "challenge_ids": ids})
+        entry = {"slug": route_slug, "title": doc.title, "route": route,
+                 "subject": subject.slug, "subject_title": subject.name,
+                 "challenge_ids": ids}
+        # Only when the part declares one of its own. The subject's cover lives
+        # in `workshop_subjects`, keyed once — storing it again in every
+        # document would be the same blob N times and would raise "which one
+        # wins" the day two of them disagreed.
+        if doc.cover:
+            entry["cover"] = doc.cover
+        documents_cfg.append(entry)
         upsert_page(ctfd, route, {
             "title": doc.title, "route": route,
             "content": f"[{doc.title}](/{route})",
@@ -887,8 +948,15 @@ def sync(subject_dir, url, admin_user, admin_pass, codes_path=None, *,
     # In a workshop these four are the caller's to accumulate: each is
     # instance-wide, so a second subject writing them would erase the first
     # (PLAN.md §19.1).
+    cover = derive_cover(subject)
+    subject_cfg = {
+        "title": subject.name,
+        "summary": (subject.manifest.get("project") or {}).get("summary") or "",
+        **cover,
+    }
     if standalone:
-        write_instance_config(ctfd, documents_cfg, optional_ids, free_ids, final)
+        write_instance_config(ctfd, documents_cfg, optional_ids, free_ids, final,
+                              subjects_cfg={subject.slug: subject_cfg})
     if optional_ids:
         print(f"optional: {len(optional_ids)} step(s) excluded from the counters")
     if free_ids:
@@ -910,6 +978,9 @@ def sync(subject_dir, url, admin_user, admin_pass, codes_path=None, *,
         # subject waits for, and what ends the workshop if it is the last one.
         "final_step": final,
         "runtime": subject.manifest.get("runtime") or {},
+        # Declared or derived, already pointed at uploaded URLs. The workshop
+        # caller accumulates these the way it accumulates runtime params.
+        "cover": subject_cfg,
         "last_position": last_position,
         "stats": stats,
     }

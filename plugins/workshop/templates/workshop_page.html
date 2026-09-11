@@ -37,8 +37,9 @@
   {# Full-bleed by being a direct child of <main>, never by a negative margin:
      that trick needs `overflow-x: hidden` to compensate, and that would kill
      `position: sticky` on the parts stepper below. #}
-  <div class="epi-hero ws-hero">
+  <div class="epi-hero ws-hero{% if cover and cover.media %} ws-hero-media-on{% endif %}">
     <div class="epi-hero-inner ws-head">
+      <div class="ws-hero-copy">
       {# Only when there is an index to go back to. A single-document subject
          has `/workshop` redirect straight to this page, so the arrow would
          loop. #}
@@ -59,6 +60,25 @@
                style="width: {{ (100 * solved_count / total_count) if total_count else 0 }}%"></div>
         </div>
       </div>
+        {# The subject's own accroche and picture. Everything about HOW they are
+           laid out is here; the subject supplies a sentence and a file and never
+           a size, a crop or a class (docs/CONTENT_CONVENTION.md §3.2b). That is
+           what keeps four subjects looking like one platform. #}
+          {% if cover and cover.tagline %}
+            <p class="ws-hero-tagline">{{ cover.tagline }}</p>
+          {% endif %}
+      </div>
+      {% if cover and cover.media %}
+        {# Both frames are in the DOM and the media query picks one: a GIF cannot
+           be paused, so a participant who asked their system for reduced motion
+           would get the animation anyway. No JS for a swap CSS can do. #}
+        <figure class="ws-hero-media">
+          <img class="ws-hero-media-motion" src="{{ cover.media }}" alt="" loading="lazy">
+            {% if cover.poster %}
+            <img class="ws-hero-media-still" src="{{ cover.poster }}" alt="" loading="lazy">
+            {% endif %}
+        </figure>
+        {% endif %}
     </div>
   </div>
 

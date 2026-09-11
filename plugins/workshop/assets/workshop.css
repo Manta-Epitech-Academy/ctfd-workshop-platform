@@ -53,6 +53,56 @@
 .ws-hero .ws-back {
   color: rgb(255 255 255 / 0.74);
 }
+
+/* The subject's cover. The subject supplies a sentence and a file; the size,
+   the crop, the frame and the motion rule are all here, which is the whole
+   point — four subjects have to arrive looking like one platform, and the one
+   thing a content repo must never ship is layout. */
+.ws-hero-copy {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem;
+  flex: 1 1 22rem; min-width: 0;
+}
+.ws-hero-tagline {
+  flex: 1 1 100%; margin: 0;
+  font-size: 1.05rem; line-height: 1.45;
+  color: rgb(255 255 255 / 0.85);
+  max-width: 44rem;
+}
+.ws-hero-media {
+  flex: 0 1 20rem; margin: 0; min-width: 0;
+  border-radius: var(--bs-border-radius-lg, 1rem);
+  overflow: hidden;
+  border: 1px solid rgb(255 255 255 / 0.25);
+  /* A dark mat under the art in both themes. Subject media is pixel art from a
+     game that only exists on black — on any lighter ground it wears a halo.
+     jump's charte says images are square rectangles with no radius; that rule
+     was written for photographs of people at campus events, and this is a
+     framed screen. Recorded as a deviation in DESIGN.md. */
+  background: var(--epi-grey-900);
+  line-height: 0;
+}
+.ws-hero-media img {
+  display: block; width: 100%; height: auto;
+  aspect-ratio: 16 / 10; object-fit: cover;
+}
+/* Only one of the two frames is ever shown. A GIF has no pause, so honouring a
+   reduced-motion preference means showing a different file, not stopping this
+   one — and a `<picture>` cannot switch on that media feature, so the swap is
+   here. With no poster declared the animation is all there is, which is the
+   behaviour a subject that declared no still already had. */
+.ws-hero-media-still { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  .ws-hero-media:has(.ws-hero-media-still) .ws-hero-media-motion { display: none; }
+  .ws-hero-media-still { display: block; }
+}
+/* Side by side once there is room for both; stacked before that, with the
+   picture under the words rather than squeezed beside them. */
+.ws-hero-media-on .ws-head {
+  align-items: center;
+}
+@media (max-width: 767.98px) {
+  .ws-hero-media { flex-basis: 100%; }
+}
 .ws-hero .ws-back:hover {
   background: rgb(255 255 255 / 0.14); color: #ffffff;
 }

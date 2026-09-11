@@ -39,7 +39,8 @@
   margin-left: -0.375rem; padding: 0.375rem;
   border-radius: var(--bs-border-radius-sm, 0.5rem);
   color: var(--bs-secondary-color); text-decoration: none;
-  transition: background-color 0.15s, color 0.15s;
+  transition: background-color var(--epi-dur-fast) var(--epi-ease-standard),
+    color var(--epi-dur-fast) var(--epi-ease-standard);
 }
 .ws-back:hover {
   background: var(--bs-secondary-bg); color: var(--bs-primary); text-decoration: none;
@@ -87,7 +88,7 @@
 }
 .ws-overall-fill {
   height: 100%; border-radius: 999px;
-  background: var(--bs-success, #198754); transition: width 0.3s;
+  background: var(--bs-success, #198754); transition: width var(--epi-dur-slow) var(--epi-ease-standard);
 }
 /* The plain variant: a card's own progress (ws-card-bar) or one subject
    group's (ws-subject-bar) — a secondary figure, not the hero counter, so no
@@ -239,7 +240,8 @@
   background: var(--bs-card-bg, var(--bs-body-bg));
   box-shadow: var(--epi-shadow-raised);
   margin: 0.65rem 0; scroll-margin-top: 5rem;
-  overflow: hidden; transition: box-shadow 0.15s, transform 0.1s;
+  overflow: hidden; transition: box-shadow var(--epi-dur-fast) var(--epi-ease-standard),
+    transform var(--epi-dur-fast) var(--epi-ease-standard);
 }
 .ws-step.ws-current {
   border-color: var(--bs-primary, #0d6efd);
@@ -437,7 +439,7 @@ body.ws-has-pane { overflow-x: hidden; }
 .ws-parcours-svg a.ws-node-link { cursor: pointer; text-decoration: none; }
 /* Brighten in place on hover: a fixed hover fill would repaint a solved (green)
    node with the same colour as an available (blue) one and lose the state. */
-.ws-parcours-svg a.ws-node-link rect { transition: filter 0.1s, stroke-width 0.1s; }
+.ws-parcours-svg a.ws-node-link rect { transition: filter var(--epi-dur-fast) var(--epi-ease-standard), stroke-width var(--epi-dur-fast) var(--epi-ease-standard); }
 .ws-parcours-svg a.ws-node-link:hover rect { filter: brightness(1.8); stroke-width: 2.5; }
 .ws-parcours-svg a.ws-node-link:hover text { fill: #ffffff; }
 .ws-parcours-svg a.ws-node-link:focus-visible rect { stroke: #f4f4f4; stroke-width: 3; }
@@ -471,7 +473,7 @@ body.ws-has-pane { overflow-x: hidden; }
 }
 .ws-rating-btn {
   border: 0; background: none; padding: 0 0.15rem; line-height: 1;
-  font-size: 0.95rem; opacity: 0.45; cursor: pointer; transition: opacity 0.1s;
+  font-size: 0.95rem; opacity: 0.45; cursor: pointer; transition: opacity var(--epi-dur-fast) var(--epi-ease-standard);
 }
 .ws-rating-btn:hover { opacity: 1; }
 .ws-rating-btn.ws-rating-chosen { opacity: 1; transform: scale(1.15); }

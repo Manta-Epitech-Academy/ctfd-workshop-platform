@@ -65,6 +65,55 @@ body,
 }
 
 /* ============================================================================
+   Brand constants and motion — the values that must NOT vary with the theme.
+
+   Everything in the token remap below is a Bootstrap *role*: --bs-primary means
+   "the colour text and borders take on the current surface", and it is
+   correctly a different blue per theme. A brand *surface* is the opposite job.
+   The blue band, the login panel and the neon CTA are the logo's blue, and
+   jump's contract is explicit about it: "epiBlue never changes value. It is the
+   logo. Dark surfaces use a separate darkPrimary for UI text and borders."
+   Painting a brand surface with --bs-primary would repaint it #809dfd in dark
+   mode, which is not the Epitech blue and not what the logo beside it is.
+
+   So: three literals, declared once, never redeclared per theme.
+   ============================================================================ */
+:root {
+  --epi-blue: #013afb;
+  --epi-tech: #00ff97;
+  /* jump's "chrome": the one near-black for surfaces that stay dark whatever
+     the page theme is — code blocks, the media mat, the Parcours graph. */
+  --epi-grey-900: #0b0e1a;
+
+  /* Motion, ported verbatim from jump/frontend/src/routes/layout.css. 320ms is
+     the ceiling for a state transition. --epi-ease-emphatic overshoots and is
+     for brand reveals only (the reward float), which state their own duration
+     rather than living under the ceiling. */
+  --epi-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --epi-ease-emphatic: cubic-bezier(0.2, 0, 0.2, 1.2);
+  --epi-dur-fast: 120ms;
+  --epi-dur-base: 200ms;
+  --epi-dur-slow: 320ms;
+}
+
+/* Motion is a preference, not a detail, so it is opted out of once here rather
+   than at each call site — a new animation cannot forget to honour it.
+
+   Near-zero rather than `none`: an animation that never runs also never fires
+   `animationend`, and anything that removes its own element on that event would
+   leak it instead. 0.01ms runs, ends immediately, and is not perceptible. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ============================================================================
    Token remap — values ported verbatim from jump/frontend/src/routes/layout.css.
    Bootstrap 5.3 does NOT redeclare --bs-primary/-success/-danger/-warning/-dark
    between light and dark (same literal both modes in CTFd's compiled CSS); we
@@ -140,6 +189,61 @@ body,
 /* --bs-info intentionally untouched: jump defines no "info" role, and
    inventing one here would be new design, not reuse. Left at CTFd's own
    default in both themes (see DESIGN.md). */
+
+/* ============================================================================
+   .on-dark — a surface that is dark whatever the page theme is.
+
+   Ported from jump (layout.css). The reasoning there: the "ink" shades above
+   (--bs-success #007a46 and friends) are darkened until they clear AA on a
+   *light* surface, which is exactly what makes them illegible on a dark one —
+   the ink green is 1.9:1 on the chrome near-black. A component that had to take
+   a "tone" prop would be silently invisible on the one surface nobody tests.
+
+   Five surfaces use it: the app header, the page hero, the login brand panel,
+   code blocks and the Parcours graph. DESIGN.md used to say "two call sites,
+   don't build a general mechanism" — five is the condition that paragraph set
+   for revisiting it.
+
+   **Every derived role is restated here, and has to be.** A custom property
+   holding var(--other) is substituted on the element that *declares* it, not on
+   the element that reads it, so re-pointing an ink here never reaches a role
+   declared on :root. [data-bs-theme="dark"] gets away with this because it
+   lands on the root itself; .on-dark is a descendant and does not.
+   ============================================================================ */
+.on-dark {
+  --bs-success: #00ff97;
+  --bs-success-rgb: 0, 255, 151;
+  --bs-danger: #ff9878;
+  --bs-danger-rgb: 255, 152, 120;
+  --bs-warning: #ffd15c;
+  --bs-warning-rgb: 255, 209, 92;
+
+  /* --bs-body-bg is not decoration in this list. The notification badge paints
+     `color: var(--bs-body-bg)` on a --bs-danger fill (see the header block
+     further down): invert the danger without inverting the ground and the count
+     becomes light #f6f7fb on salmon #ff9878, which nobody can read.
+
+     Inverting these two also reaches the account dropdown, because Bootstrap
+     declares --bs-dropdown-bg: var(--bs-body-bg) and --bs-dropdown-link-color:
+     var(--bs-body-color), and the menu is a DOM descendant of the header. That
+     is deliberate and recorded in DESIGN.md: a menu opened from a dark bar is a
+     dark menu in both themes. The alternative is scoping .on-dark element by
+     element inside the header, which costs more than it buys. */
+  --bs-body-bg: #0c0e13;
+  --bs-body-color: #f1f2f6;
+
+  /* Neutrals become white at an opacity rather than a fixed grey, so one set of
+     values works on brand blue and on the near-black alike. The greys above are
+     mixed for a page background and go muddy on a saturated surface. */
+  --bs-secondary-color: rgba(255, 255, 255, 0.74);
+  --bs-tertiary-color: rgba(255, 255, 255, 0.74);
+  --bs-secondary-bg: rgba(255, 255, 255, 0.14);
+  --bs-tertiary-bg: rgba(255, 255, 255, 0.1);
+  --bs-border-color: rgba(255, 255, 255, 0.22);
+  --bs-border-color-translucent: rgba(255, 255, 255, 0.16);
+
+  color: #f1f2f6;
+}
 
 /* ============================================================================
    Component-level overrides. Bootstrap bakes these as literal hex in their own
@@ -352,7 +456,7 @@ body,
    ============================================================================ */
 pre,
 pre code {
-  background-color: #0b0e1a !important;
+  background-color: var(--epi-grey-900) !important;
   color: #f1f2f6;
 }
 .ll-nam,
@@ -594,7 +698,8 @@ main {
   font-weight: 500;
   color: var(--bs-secondary-color);
   text-decoration: none;
-  transition: background-color 0.15s, color 0.15s;
+  transition: background-color var(--epi-dur-fast) var(--epi-ease-standard),
+    color var(--epi-dur-fast) var(--epi-ease-standard);
 }
 .epi-nav-link:hover {
   background: var(--bs-secondary-bg);
@@ -647,7 +752,8 @@ main {
   color: var(--bs-secondary-color);
   text-decoration: none;
   cursor: pointer;
-  transition: background-color 0.15s, color 0.15s;
+  transition: background-color var(--epi-dur-fast) var(--epi-ease-standard),
+    color var(--epi-dur-fast) var(--epi-ease-standard);
 }
 .epi-icon-btn:hover {
   background: var(--bs-secondary-bg);
@@ -694,7 +800,8 @@ main {
   font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;
-  transition: background-color 0.15s, color 0.15s;
+  transition: background-color var(--epi-dur-fast) var(--epi-ease-standard),
+    color var(--epi-dur-fast) var(--epi-ease-standard);
 }
 .epi-account-btn:hover,
 .epi-account-btn[aria-expanded="true"] {

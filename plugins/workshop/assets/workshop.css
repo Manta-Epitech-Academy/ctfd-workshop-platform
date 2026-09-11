@@ -289,17 +289,42 @@
   padding-block: 0.15rem;
 }
 .ws-stepper > * { flex: none; }
+/* The parts stepper scrolls away with the rest of the page. It used to be the
+   sticky one, and that was the wrong bar to keep: a subject has two or three
+   parts, so it says the same thing for twenty minutes at a time. What actually
+   moves while somebody works is the step counter — 3/9, then 4/9 — and that is
+   the line worth keeping in front of them. */
 .ws-stepper-parts {
   overflow-y: hidden;
-  /* Sticks flush to the top: the app shell's header is in normal flow and
-     scrolls away, so there is no fixed bar left to clear. This stepper is the
-     one thing on the page that must survive scrolling a long subject. */
-  position: sticky; top: 0; z-index: 20;
-  background: var(--bs-body-bg, #fff);
   border-bottom: 1px solid var(--bs-border-color, #dee2e6);
   padding: 0.5rem 0; margin-bottom: 1rem;
 }
-.ws-stepper-steps { margin: 0.35rem 0 0.75rem; opacity: 0.95; }
+/* Sticks flush to the top: the app shell's header is in normal flow and scrolls
+   away, so there is no fixed bar left to clear. One per part and scoped to its
+   section, so it leads while you are inside that part and is pushed out by the
+   next one — which is what a stepper is for.
+
+   Requires that no ancestor has overflow-x: hidden, which is why the page band
+   is full-bleed by structure and never by a negative margin. */
+.ws-stepper-steps {
+  position: sticky; top: 0; z-index: 20;
+  /* No top margin: `top: 0` pins the margin edge, so any margin here leaves the
+     bar a few pixels down the viewport — enough that the observer below never
+     sees it stop intersecting, and the stuck state never fires. */
+  margin: 0 0 0.75rem;
+  padding: 0.45rem 0;
+  background: var(--bs-body-bg, #fff);
+  transition: box-shadow var(--epi-dur-base) var(--epi-ease-standard),
+              padding var(--epi-dur-base) var(--epi-ease-standard);
+}
+/* Set by the script the moment the bar leaves the flow (see workshop_page.js).
+   Without it the strip sits on top of the text with nothing between them and
+   reads as a rendering artefact; with it, it lifts off the page. */
+.ws-stepper-steps.ws-stuck {
+  padding: 0.35rem 0;
+  box-shadow: 0 0.5rem 0.75rem -0.5rem rgb(0 0 0 / 0.18);
+  border-bottom: 1px solid var(--bs-border-color, #dee2e6);
+}
 /* Pill, not outline: a tinted fill per state, jump's badge recipe
    (rounded-full + bg-{color}/10-15 + text-{color}) instead of a thin grey
    border that reads as "unstyled Bootstrap" regardless of which color it
@@ -353,6 +378,16 @@
   [data-bs-theme="dark"] .ws-chip:hover { filter: brightness(1.15); }
 }
 .ws-chip:active { transform: scale(0.96); }
+/* One beat when a step is checked off, on the chip as well as on the row, so
+   the strip that is pinned at the top of the screen reacts too instead of
+   silently swapping a colour. Emphatic easing, i.e. a small overshoot: this is
+   a reward, not a state change. */
+@keyframes ws-chip-pop {
+  0%   { transform: scale(1); }
+  45%  { transform: scale(1.14); }
+  100% { transform: scale(1); }
+}
+.ws-chip.ws-chip-pop { animation: ws-chip-pop 320ms var(--epi-ease-emphatic); }
 .ws-chip + .ws-chip::before { content: "›"; margin-right: 0.35rem; opacity: 0.45; }
 .ws-chip-icon { font-size: 0.8em; }
 .ws-chip-badge { opacity: 0.7; font-variant-numeric: tabular-nums; }

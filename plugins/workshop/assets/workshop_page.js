@@ -352,12 +352,41 @@
 
   function setChipState(target, state) {
     ROOT.querySelectorAll('.ws-chip[href="#' + target + '"]').forEach(function (chip) {
-      STATES.forEach(function (s) { chip.classList.remove("ws-" + s); });
+      var was = null;
+      STATES.forEach(function (s) {
+        if (chip.classList.contains("ws-" + s)) was = s;
+        chip.classList.remove("ws-" + s);
+      });
       chip.classList.add("ws-" + state);
       chip.title = TITLE[state];
       // The glyph is a ::before keyed off the state class, so swapping the
       // class above is the whole update — nothing here writes an icon.
+      if (state === "done" && was !== "done") {
+        chip.classList.remove("ws-chip-pop");
+        void chip.offsetWidth;
+        chip.classList.add("ws-chip-pop");
+        chip.addEventListener("animationend", function () {
+          chip.classList.remove("ws-chip-pop");
+        }, { once: true });
+      }
+      if (state === "current") revealChip(chip);
     });
+  }
+
+  /* The steps strip is one scrolling line, and it is the bar pinned to the top
+     of the screen, so the chip it is about is the one chip that has to be on
+     it. Scrolls the strip, never the page: `scrollIntoView` would have moved
+     the document as well, fighting the scroll refresh() just performed.
+     Measured from rects rather than offsetLeft, which is relative to whichever
+     ancestor happens to be positioned. */
+  function revealChip(chip) {
+    var strip = chip.closest(".ws-stepper");
+    if (!strip || strip.scrollWidth <= strip.clientWidth + 1) return;
+    var cr = chip.getBoundingClientRect();
+    var sr = strip.getBoundingClientRect();
+    var delta = (cr.left - sr.left) - (sr.width - cr.width) / 2;
+    if (Math.abs(delta) < 2) return;
+    strip.scrollBy({ left: delta, behavior: "smooth" });
   }
 
   async function fillBody(step) {
@@ -475,16 +504,49 @@
   /* ---------- navigation ---------- */
 
   /* The app shell's header scrolls with the page (it is in normal flow, like
-     jump's), so the only thing an anchor has to clear is the part stepper,
-     which sticks to the top of the viewport on its own. */
-  function stickyOffset() {
-    var bar = ROOT.querySelector(".ws-stepper-parts");
+     jump's), so the only thing an anchor has to clear is the steps stepper of
+     the part it lands in, which sticks to the top of the viewport on its own.
+     Per part, because that is how the bar is scoped: measuring a different
+     part's strip would leave the target under the real one. */
+  function stickyOffset(el) {
+    var part = el && el.closest ? el.closest(".ws-part") : null;
+    var bar = (part || ROOT).querySelector(".ws-stepper-steps");
     return (bar ? bar.getBoundingClientRect().height : 0) + 16;
   }
 
   function scrollTo(el) {
-    var top = el.getBoundingClientRect().top + window.scrollY - stickyOffset();
+    var top = el.getBoundingClientRect().top + window.scrollY - stickyOffset(el);
     window.scrollTo({ top: top, behavior: "smooth" });
+  }
+
+  /* `position: sticky` gives no state to style, and the usual
+     IntersectionObserver trick does not apply here: it calls a bar "not fully
+     intersecting" when the bar is off-screen entirely, and this page has one
+     bar per part, so every bar below the fold would claim to be stuck.
+     Measured — at scroll 0 the observer reported stuck on a bar sitting 1204px
+     down the page.
+
+     One rect read per bar, coalesced into a single frame, is both correct and
+     cheaper than the observer plus the position test it would still need. */
+  function watchStuck() {
+    var bars = Array.prototype.slice.call(
+      ROOT.querySelectorAll(".ws-stepper-steps"));
+    if (!bars.length) return;
+    var queued = false;
+    var update = function () {
+      queued = false;
+      bars.forEach(function (bar) {
+        // `top: 0` on the rule, so a pinned bar reports exactly 0; the epsilon
+        // is only there for subpixel layout.
+        bar.classList.toggle("ws-stuck", bar.getBoundingClientRect().top <= 0.5);
+      });
+    };
+    window.addEventListener("scroll", function () {
+      if (queued) return;
+      queued = true;
+      requestAnimationFrame(update);
+    }, { passive: true });
+    update();
   }
 
   function openFromHash() {
@@ -621,6 +683,12 @@
     // strictly after every DOMContentLoaded handler — puts it back.
     highlight(ROOT);
     window.addEventListener("load", function () { highlight(ROOT); });
+    watchStuck();
+    // Where the participant is, brought onto the strip on arrival too, not only
+    // when a solve moves it. A strip that opens on step 1 while the person is
+    // on step 7 is a strip about somebody else.
+    ROOT.querySelectorAll(".ws-stepper-steps .ws-chip.ws-current")
+        .forEach(revealChip);
 
     openFromHash();
     // Back/forward between steps changes the hash without reloading.

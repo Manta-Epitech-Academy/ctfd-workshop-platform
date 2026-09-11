@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{#
+  Override of the core theme's `page.html` (8 lines upstream: a bare
+  `.container` around `{{ content }}`). It exists for one reason: an authored
+  CTFd Page — "Parcours", a subject's index, the terms — had no `.jumbotron`,
+  so it was the one surface in the shell that got no brand band and started
+  flush against the header with nothing to say what it was.
+
+  Nothing else changes. `content` is still emitted exactly as core does, and the
+  scripts block still loads core's own `page.js`. See plugins/workshop/shell.py
+  for how this is registered without touching CTFd/.
+#}
+
+{% block content %}
+  {# ToS and privacy render through this template with no `title` (see
+     CTFd/views.py); they get the page body and no band rather than an empty
+     one. #}
+  {% if title %}
+    <div class="epi-hero epi-hero-compact">
+      <div class="epi-hero-inner">
+        <h1 class="epi-hero-title epi-title-cursor">{{ title }}</h1>
+      </div>
+    </div>
+  {% endif %}
+
+  <div class="container">
+    {{ content | safe }}
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  {{ Assets.js("assets/js/page.js") }}
+{% endblock %}

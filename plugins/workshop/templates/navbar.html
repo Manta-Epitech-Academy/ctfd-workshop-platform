@@ -45,7 +45,7 @@
 
 {# The signed-out header has no nav and therefore no burger, so the class tells
    CSS which element has to carry the push-to-the-right. #}
-<header class="epi-header{% if not authed() %} epi-header-anon{% endif %}">
+<header class="epi-header on-dark{% if not authed() %} epi-header-anon{% endif %}">
   <div class="epi-header-inner">
 
     {# The wordmark is the way home. `/` redirects a signed-in participant to

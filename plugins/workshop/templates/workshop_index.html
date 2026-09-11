@@ -79,10 +79,13 @@
 {%- endmacro %}
 
 {% block content %}
-<div class="container ws-page ws-index">
 
-  {# No back arrow: this IS the workshop's index, so there is nothing above it. #}
-  <div class="ws-head">
+{# The same band as every other page, at the comfortable density: this is the
+   workshop's front door, and for most participants the first Epitech screen
+   they see after leaving Jump. #}
+<div class="epi-hero ws-hero ws-hero-index">
+  <div class="epi-hero-inner ws-head">
+    {# No back arrow: this IS the workshop's index, so there is nothing above it. #}
     <h1 class="ws-title epi-title-cursor">{{ page_title or Configs.ctf_name }}</h1>
     <div class="ws-overall" data-solved="{{ solved_count }}" data-total="{{ total_count }}">
       <div class="ws-overall-badge">
@@ -95,6 +98,9 @@
       </div>
     </div>
   </div>
+</div>
+
+<div class="container ws-page ws-index">
 
   {% if groups %}
     {# More than one subject: show the shape of the workshop, and give each

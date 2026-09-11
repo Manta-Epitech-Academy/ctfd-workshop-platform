@@ -22,14 +22,39 @@
    page's business. */
 .ws-page { padding-bottom: 4rem; }
 
-/* A page title in jump's talent space is a plain left-aligned Anton line on the
-   page's own background: no card, no border, no texture. It used to carry a
-   tinted panel and a blueprint-grid backdrop here, which was wrong on both
-   counts — jump uses BrandBackdrop only on its full-screen ceremony pages
-   (onboarding, welcome, charte), never on the everyday shell. */
+/* The workshop's own band: the same `.epi-hero` primitive every other page
+   gets, carrying the title, the step counter and the progress track instead of
+   a bare title. `.ws-head` is its inner wrapper now, so it no longer needs a
+   bottom margin of its own — the band's padding is the spacing. */
 .ws-head {
   display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem;
-  margin: 0 0 1.5rem;
+  margin: 0;
+}
+
+/* On the band, the counter's own recipe stops working for the same reason the
+   nav's did: it is a --bs-primary tint behind --bs-primary text, and the
+   surface IS --bs-primary. Same shape — a flat tint behind solid text, never a
+   saturated block — restated in white, with the fill in the neon green because
+   epi-tech on epi-blue is the charte's own pairing and it reads as progress
+   rather than as another blue. */
+.ws-hero .ws-overall-badge {
+  background: rgb(255 255 255 / 0.15);
+}
+.ws-hero .ws-overall-num,
+.ws-hero .ws-overall-label {
+  color: #ffffff;
+}
+.ws-hero .ws-overall-track {
+  background: rgb(255 255 255 / 0.2);
+}
+.ws-hero .ws-overall-fill {
+  background: var(--epi-tech);
+}
+.ws-hero .ws-back {
+  color: rgb(255 255 255 / 0.74);
+}
+.ws-hero .ws-back:hover {
+  background: rgb(255 255 255 / 0.14); color: #ffffff;
 }
 /* jump's own back control, class for class: a muted glyph that picks up a muted
    fill and the brand colour on hover. The negative left margin pulls the glyph's
@@ -437,7 +462,8 @@
    `width: auto` matters — Bootstrap's .container sets `width: 100%`, and a
    block with an explicit width ignores margin-right (over-constrained box),
    which clips the text instead of reflowing it. */
-body.ws-has-pane .ws-page {
+body.ws-has-pane .ws-page,
+body.ws-has-pane .ws-hero {
   width: auto; max-width: none; margin-right: var(--ws-pane-width);
 }
 body.ws-has-pane { overflow-x: hidden; }

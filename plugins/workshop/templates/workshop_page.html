@@ -25,29 +25,44 @@
 {%- endmacro %}
 
 {% block content %}
-<div class="container ws-page" id="ws-workshop">
+{# `#ws-workshop` wraps BOTH the band and the page body, and has to. It is not a
+   layout hook, it is the scope root assets/workshop_page.js binds to, and
+   updateCounters() does `ROOT.querySelector(".ws-overall")` behind an early
+   return — so a band outside it would leave the step counter and the progress
+   bar frozen after a solve, with no error anywhere. The regression suite would
+   not catch it either: it reads the counter from a fresh GET, which is the
+   server's value, not the live DOM's. #}
+<div id="ws-workshop">
 
-  <div class="ws-head">
-    {# Only when there is an index to go back to. A single-document subject has
-       `/workshop` redirect straight to this page, so the arrow would loop. #}
-    {% if documents | length > 1 %}
-      <a class="ws-back" href="{{ url_for('workshop_page.workshop') }}"
-         aria-label="{% trans %}Back to the workshop{% endtrans %}">
-        <i class="fas fa-arrow-left" aria-hidden="true"></i>
-      </a>
-    {% endif %}
-    <h1 class="ws-title epi-title-cursor">{{ page_title or Configs.ctf_name }}</h1>
-    <div class="ws-overall" data-solved="{{ solved_count }}" data-total="{{ total_count }}">
-      <div class="ws-overall-badge">
-        <span class="ws-overall-num">{{ solved_count }}/{{ total_count }}</span>
-        <span class="ws-overall-label">Steps</span>
-      </div>
-      <div class="ws-overall-track">
-        <div class="ws-overall-fill"
-             style="width: {{ (100 * solved_count / total_count) if total_count else 0 }}%"></div>
+  {# Full-bleed by being a direct child of <main>, never by a negative margin:
+     that trick needs `overflow-x: hidden` to compensate, and that would kill
+     `position: sticky` on the parts stepper below. #}
+  <div class="epi-hero ws-hero">
+    <div class="epi-hero-inner ws-head">
+      {# Only when there is an index to go back to. A single-document subject
+         has `/workshop` redirect straight to this page, so the arrow would
+         loop. #}
+      {% if documents | length > 1 %}
+        <a class="ws-back" href="{{ url_for('workshop_page.workshop') }}"
+           aria-label="{% trans %}Back to the workshop{% endtrans %}">
+          <i class="fas fa-arrow-left" aria-hidden="true"></i>
+        </a>
+      {% endif %}
+      <h1 class="ws-title epi-title-cursor">{{ page_title or Configs.ctf_name }}</h1>
+      <div class="ws-overall" data-solved="{{ solved_count }}" data-total="{{ total_count }}">
+        <div class="ws-overall-badge">
+          <span class="ws-overall-num">{{ solved_count }}/{{ total_count }}</span>
+          <span class="ws-overall-label">Steps</span>
+        </div>
+        <div class="ws-overall-track">
+          <div class="ws-overall-fill"
+               style="width: {{ (100 * solved_count / total_count) if total_count else 0 }}%"></div>
+        </div>
       </div>
     </div>
   </div>
+
+  <div class="container ws-page">
 
   <nav class="ws-stepper ws-stepper-parts" aria-label="Workshop parts">
     {% for part in parts %}
@@ -141,6 +156,7 @@
     </section>
   {% endif %}
 
+  </div>
 </div>
 
 {% if runtime %}

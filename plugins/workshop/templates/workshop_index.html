@@ -10,9 +10,9 @@
   opens it and links there, so the index is never a dead end.
 #}
 
-{# Icons match the steppers on the part pages; the words come from page.py so
-   the state and its label cannot drift apart. #}
-{% set ICON = {"done": "✓", "current": "▶", "todo": "○", "locked": "🔒", "info": "📄"} %}
+{# No glyph in the markup: `.ws-card-icon::before` draws it from the state
+   class in workshop.css, one table for the cards, the chips and the step rows.
+   The words still come from page.py, so state and label cannot drift apart. #}
 
 {% macro card_grid(cards) -%}
   <div class="row row-cols-1 row-cols-md-2 g-4 ws-cards">
@@ -22,7 +22,7 @@
           <div class="card-body d-flex flex-column">
 
             <div class="ws-card-state">
-              <span class="ws-card-icon" aria-hidden="true">{{ ICON[card.state] }}</span>
+              <span class="ws-card-icon" aria-hidden="true"></span>
               <span class="ws-card-label">{{ card.label }}</span>
               {% if card.total %}
                 <span class="ws-card-count">{{ card.done }} / {{ card.total }}</span>
@@ -103,7 +103,7 @@
     {% for group in groups %}
       <section class="ws-subject ws-{{ group.state }}">
         <h2 class="ws-subject-title">
-          <span class="ws-card-icon" aria-hidden="true">{{ ICON[group.state] }}</span>
+          <span class="ws-card-icon" aria-hidden="true"></span>
           {{ group.title }}
           <span class="ws-subject-role">{{ "starter" if loop.first else "next" }}</span>
           {% if group.total %}

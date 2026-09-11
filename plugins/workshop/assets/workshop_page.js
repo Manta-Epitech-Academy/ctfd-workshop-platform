@@ -9,7 +9,6 @@
  */
 (function () {
   var ROOT = null;
-  var ICON = { done: "✓", current: "▶", todo: "○", locked: "🔒", info: "📄" };
   var TITLE = { done: "Completed", current: "In progress", todo: "Not started",
                 locked: "Locked", info: "Just something to read" };
   var STATES = ["done", "current", "todo", "locked", "info"];
@@ -187,8 +186,8 @@
       STATES.forEach(function (s) { chip.classList.remove("ws-" + s); });
       chip.classList.add("ws-" + state);
       chip.title = TITLE[state];
-      var icon = chip.querySelector(".ws-chip-icon");
-      if (icon) icon.textContent = ICON[state];
+      // The glyph is a ::before keyed off the state class, so swapping the
+      // class above is the whole update — nothing here writes an icon.
     });
   }
 

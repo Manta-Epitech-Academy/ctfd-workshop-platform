@@ -7,15 +7,17 @@
 #}
 
 {% macro chip(target, label, state, badge="") -%}
-  {% set icon = {"done": "✓", "current": "▶", "todo": "○",
-                 "locked": "🔒", "info": "📄"}[state] %}
+  {# No glyph in the markup: the icon is drawn by `.ws-chip-icon::before` per
+     state in workshop.css, so the state table lives in exactly one place and
+     the JS below only ever swaps a class. The span still has to exist — it is
+     what the CSS hangs the glyph on. #}
   {% set title = {"done": "Completed", "current": "In progress",
                   "todo": "Not started", "locked": "Locked",
                   "info": "Just something to read"}[state] %}
   {# Chip labels can be long chapter titles: they ellipsis, so the full name
      lives in the tooltip. State is icon + text, never colour alone. #}
   <a class="ws-chip ws-{{ state }}" href="#{{ target }}" title="{{ label }} — {{ title }}">
-    <span class="ws-chip-icon" aria-hidden="true">{{ icon }}</span>
+    <span class="ws-chip-icon" aria-hidden="true"></span>
     <span class="ws-chip-label">{{ label }}</span>
     <span class="visually-hidden"> — {{ title }}</span>
     {%- if badge %}<span class="ws-chip-badge">{{ badge }}</span>{% endif -%}

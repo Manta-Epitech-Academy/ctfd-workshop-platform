@@ -131,6 +131,33 @@
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;
 }
 .ws-chip-icon, .ws-chip-badge { flex: none; }
+/* State glyphs come from CSS alone, on the chips as on the step rows below.
+   They used to be emoji in four places at once — this macro, the index
+   template, workshop_page.js and the step rules — which is four copies of one
+   table that had to stay in sync, and the lock rendered as a four-colour emoji
+   inside a two-colour system. Font Awesome is already loaded by core, so this
+   vendors nothing, and the JS now only swaps a class.
+
+   Only the *solid* face ships (fa-solid-900.woff2; there is no regular file in
+   the theme), so "not started" is drawn as a ring rather than reached for as a
+   hollow-circle glyph, which would silently fall back to the wrong font. */
+.ws-chip-icon::before {
+  font-family: "Font Awesome 6 Free";
+  font-weight: 900;
+  font-size: 0.85em;
+  line-height: 1;
+}
+.ws-chip.ws-done .ws-chip-icon::before { content: "\f00c"; }
+.ws-chip.ws-current .ws-chip-icon::before { content: "\f04b"; }
+.ws-chip.ws-locked .ws-chip-icon::before { content: "\f023"; }
+.ws-chip.ws-info .ws-chip-icon::before { content: "\f15c"; }
+.ws-chip.ws-todo .ws-chip-icon::before {
+  content: "";
+  display: inline-block;
+  width: 0.55em; height: 0.55em;
+  border: 1.5px solid currentColor; border-radius: 50%;
+  vertical-align: middle;
+}
 .ws-chip:hover { text-decoration: none; filter: brightness(0.97); }
 [data-bs-theme="dark"] .ws-chip:hover { filter: brightness(1.15); }
 .ws-chip + .ws-chip::before { content: "›"; margin-right: 0.35rem; opacity: 0.45; }
@@ -278,22 +305,29 @@
   width: 1.85rem; height: 1.85rem; border-radius: 50%;
   font-size: 0.85rem; border: 1.5px solid var(--bs-border-color, #dee2e6);
 }
-.ws-step-icon::before { font-size: 0.9em; }
+.ws-step-icon::before {
+  font-family: "Font Awesome 6 Free";
+  font-weight: 900;
+  font-size: 0.78em;
+  line-height: 1;
+}
 .ws-step.ws-done .ws-step-icon {
   background: color-mix(in oklab, var(--bs-success, #198754) 16%, transparent);
   border-color: transparent;
 }
-.ws-step.ws-done .ws-step-icon::before { content: "✓"; color: var(--bs-success, #198754); }
+.ws-step.ws-done .ws-step-icon::before { content: "\f00c"; color: var(--bs-success, #198754); }
 .ws-step.ws-current .ws-step-icon {
   border-color: var(--bs-primary, #0d6efd); border-width: 2px;
 }
-.ws-step.ws-current .ws-step-icon::before { content: "▶"; color: var(--bs-primary, #0d6efd); }
-.ws-step.ws-todo .ws-step-icon::before { content: "○"; opacity: 0.6; }
+.ws-step.ws-current .ws-step-icon::before { content: "\f04b"; color: var(--bs-primary, #0d6efd); }
+/* "Not started" is the bare bordered circle: the ring is already drawn by
+   .ws-step-icon, so the glyph would only be a second circle inside it. */
+.ws-step.ws-todo .ws-step-icon::before { content: none; }
 .ws-step.ws-locked .ws-step-icon {
   background: var(--bs-tertiary-bg, #f1f2f6); border-color: transparent;
 }
-.ws-step.ws-locked .ws-step-icon::before { content: "🔒"; opacity: 0.7; }
-.ws-step.ws-info .ws-step-icon::before { content: "📄"; opacity: 0.7; }
+.ws-step.ws-locked .ws-step-icon::before { content: "\f023"; opacity: 0.7; }
+.ws-step.ws-info .ws-step-icon::before { content: "\f15c"; opacity: 0.7; }
 .ws-chip.ws-info { opacity: 0.85; }
 .ws-step-body { padding: 0 1rem 1.1rem; border-top: 1px solid var(--bs-border-color, #dee2e6); }
 .ws-step-body:empty { border-top: none; }
@@ -356,6 +390,32 @@
 /* Bootstrap's .stretched-link overlays the card at z-index 1; the blocker link
    has to sit above it or it cannot be clicked. */
 .ws-card-note a { position: relative; z-index: 2; }
+
+/* Card and subject-heading state icons, from the same CSS table as the chips
+   and the step rows. `.ws-card-icon` is used by both the card grid and the
+   per-subject heading, and each sits inside an element carrying `ws-<state>`. */
+.ws-card-icon::before {
+  font-family: "Font Awesome 6 Free";
+  font-weight: 900;
+  font-size: 0.85em;
+  line-height: 1;
+}
+.ws-card.ws-done .ws-card-icon::before,
+.ws-subject.ws-done .ws-card-icon::before { content: "\f00c"; }
+.ws-card.ws-current .ws-card-icon::before,
+.ws-subject.ws-current .ws-card-icon::before { content: "\f04b"; }
+.ws-card.ws-locked .ws-card-icon::before,
+.ws-subject.ws-locked .ws-card-icon::before { content: "\f023"; }
+.ws-card.ws-info .ws-card-icon::before,
+.ws-subject.ws-info .ws-card-icon::before { content: "\f15c"; }
+.ws-card.ws-todo .ws-card-icon::before,
+.ws-subject.ws-todo .ws-card-icon::before {
+  content: "";
+  display: inline-block;
+  width: 0.55em; height: 0.55em;
+  border: 1.5px solid currentColor; border-radius: 50%;
+  vertical-align: middle;
+}
 
 /* ------------------------------------------------------------------ *
  * Runtime pane (PLAN.md §14) — an existing web app beside the subject

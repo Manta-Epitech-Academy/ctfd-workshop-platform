@@ -330,6 +330,11 @@ def cmd_setup(manifest, sec, args):
         coded = inst["registration"] == "code"
         configs = {
             "registration_code": sec["registration_code"] if coded else "",
+            # The participant path is translated (plugins/workshop/translations)
+            # and CTFd ships its own French catalogue, so an instance speaks the
+            # audience's language by default. A participant can still override it
+            # per account in /settings — get_locale() checks the user first.
+            "default_locale": defaults.get("locale", "fr"),
             "verify_emails": bool(defaults.get("verify_emails", False)),
             # How a checkpoint step is validated, read at render and submit
             # time by the plugin (PLAN.md §25.3). Set here rather than baked

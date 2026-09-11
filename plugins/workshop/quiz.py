@@ -47,6 +47,8 @@ import re
 
 from flask import Blueprint
 
+from flask_babel import gettext as _
+
 from CTFd.exceptions.challenges import (
     ChallengeCreateException,
     ChallengeUpdateException,
@@ -139,7 +141,7 @@ def _store_rating(challenge, submission):
         value = None
     if value not in (1, -1):
         # No rating, no solve — this is what keeps the progress bar honest.
-        return False, "Pick 👍 or 👎 first"
+        return False, _("Pick 👍 or 👎 first")
 
     user = get_current_user()
     rating = Ratings.query.filter_by(user_id=user.id, challenge_id=challenge.id).first()
@@ -149,7 +151,7 @@ def _store_rating(challenge, submission):
         db.session.add(Ratings(user_id=user.id, challenge_id=challenge.id,
                                value=value, review=review))
     db.session.commit()
-    return True, "Thanks for the feedback!"
+    return True, _("Thanks for the feedback!")
 
 
 def _checkpoint_code(answers):
@@ -168,13 +170,13 @@ def _grade_checkpoint(challenge, submission):
     way the static flag it replaces did.
     """
     if is_self_serve():
-        return True, "Noted"
+        return True, _("Noted")
     code = _checkpoint_code(challenge.quiz_answers)
     if not code:
-        return False, "Misconfigured checkpoint, please report it"
+        return False, _("Misconfigured checkpoint, please report it")
     if submission.strip().lower() == code.lower():
-        return True, "Correct"
-    return False, "Incorrect"
+        return True, _("Correct")
+    return False, _("Incorrect")
 
 
 GRADERS = {
@@ -257,17 +259,17 @@ class QuizChallenge(BaseChallenge):
             return _grade_checkpoint(challenge, submission)
         if challenge.quiz_type == "ack":
             # Pressing the button IS the completion — there is nothing to grade.
-            return True, "Noted"
+            return True, _("Noted")
         if challenge.quiz_type == "rating":
             return _store_rating(challenge, submission)
         if challenge.quiz_type == "info":
-            return False, "This step is just something to read"
+            return False, _("This step is just something to read")
         grader = GRADERS.get(challenge.quiz_type)
         if grader is None or challenge.quiz_answers is None:
-            return False, "Misconfigured quiz, please report it"
+            return False, _("Misconfigured quiz, please report it")
         try:
             if grader(challenge.quiz_answers, submission):
-                return True, "Correct"
+                return True, _("Correct")
         except (AttributeError, TypeError, re.error):
-            return False, "Misconfigured quiz, please report it"
-        return False, "Incorrect"
+            return False, _("Misconfigured quiz, please report it")
+        return False, _("Incorrect")

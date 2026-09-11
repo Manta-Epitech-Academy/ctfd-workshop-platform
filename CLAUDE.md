@@ -150,12 +150,32 @@ Derive from existing classes from CTFd, do not re-invent the wheel.
 
 ### Document the feature you add to CTFd so it can be ported easily to future version of CTFd
 
-### All platform-generated strings in the CTFd interface must be in English
+### Platform strings: English in the source, French on the participant path
 
-Every string the platform itself emits into the CTFd UI (buttons, labels, alerts, plugin
-messages, injected notes) stays **English** for now. Proper i18n comes in a later phase and will
-localize them. This does **not** apply to workshop *content* authored in the subject repos, which
-stays in the audience's language (French) — that is data, not interface.
+Every string the platform emits is **written in English in the source** and translated through
+gettext. That has not changed: an English msgid is still what you type.
+
+What changed is that the i18n phase happened, for the participant path only — the workshop index,
+a part page, a step and its controls, the shell around them. Those are wrapped in `{% trans %}` /
+`gettext` and carry a French translation in `plugins/workshop/translations/`, and an instance is
+set to `fr` by default (`tools/provision.py`). The audience is French lycéens, under 18, arriving
+from Jump — which speaks to them in French, with emoji. English chrome around French content was
+the single loudest thing telling them they had left.
+
+Three rules follow:
+
+- **Add a string, wrap it.** `{% trans %}` in a template, `gettext` in a request, `lazy_gettext`
+  for anything built at import time (`page.py`'s `NOTES` and `CARD_TEXT`). A bare literal is
+  English forever and no linter will say so.
+- **The admin panel stays untranslated.** Its audience is us and the instructors, one locale is
+  one less thing to keep in sync, and none of it is in the catalogue.
+- **Strings CTFd already translates are left alone.** flask-babel merges catalogues, so
+  "Scoreboard", "Settings" and "Logout" take upstream's French for free. Our catalogue carries
+  only what CTFd does not have — plus `Finish`, where upstream's "Fin" means the end of a CTF and
+  ours means "termine this first".
+
+Workshop *content* is unaffected and stays in the audience's language: that is data, not
+interface.
 
 
 ## The frontend should be heavily focused on UI/UX

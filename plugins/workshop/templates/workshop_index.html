@@ -30,7 +30,7 @@
             </div>
 
             <h2 class="card-title h5">
-              <span class="ws-card-index">Part {{ card.index }}</span>
+              <span class="ws-card-index">{% trans %}Part{% endtrans %} {{ card.index }}</span>
               {{ card.title }}
             </h2>
 
@@ -45,10 +45,10 @@
               <p class="card-text ws-card-note">
                 {% if card.blocked_by %}
                   {%- for b in card.blocked_by %}
-                    Finish “<a href="{{ b.href or '#' }}">{{ b.name }}</a>” to open this part.
+                    {% trans %}Finish{% endtrans %} “<a href="{{ b.href or '#' }}">{{ b.name }}</a>” {% trans %}to open this part.{% endtrans %}
                   {%- endfor %}
                 {% else %}
-                  Not available yet.
+                  {% trans %}Not available yet.{% endtrans %}
                 {% endif %}
               </p>
             {% endif %}
@@ -91,7 +91,7 @@
     <div class="ws-overall" data-solved="{{ solved_count }}" data-total="{{ total_count }}">
       <div class="ws-overall-badge">
         <span class="ws-overall-num">{{ solved_count }}/{{ total_count }}</span>
-        <span class="ws-overall-label">Steps</span>
+        <span class="ws-overall-label">{% trans %}Steps{% endtrans %}</span>
       </div>
       <div class="ws-overall-track">
         <div class="ws-overall-fill"
@@ -131,7 +131,7 @@
         <h2 class="ws-subject-title">
           <span class="ws-card-icon" aria-hidden="true"></span>
           {{ group.title }}
-          <span class="ws-subject-role">{{ "starter" if loop.first else "next" }}</span>
+          <span class="ws-subject-role">{{ _("starter") if loop.first else _("next") }}</span>
           {% if group.total %}
             <span class="ws-card-count">{{ group.done }} / {{ group.total }}</span>
           {% endif %}

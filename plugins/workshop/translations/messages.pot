@@ -1,0 +1,281 @@
+# Translations template for PROJECT.
+# Copyright (C) 2026 ORGANIZATION
+# This file is distributed under the same license as the PROJECT project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2026-09-11 17:33+0200\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+#, python-format
+msgid "%(n)s pts"
+msgstr ""
+
+msgid "Admin Panel"
+msgstr ""
+
+msgid "Answer"
+msgstr ""
+
+msgid "Anything to add? (optional)"
+msgstr ""
+
+msgid "Available now"
+msgstr ""
+
+msgid "Back to the workshop"
+msgstr ""
+
+msgid "Bonus"
+msgstr ""
+
+msgid "Challenges"
+msgstr ""
+
+msgid "Checking…"
+msgstr ""
+
+msgid "Completed"
+msgstr ""
+
+msgid "Continue"
+msgstr ""
+
+msgid "Correct"
+msgstr ""
+
+msgid "Could not load this hint."
+msgstr ""
+
+msgid "Could not reach the server — try again."
+msgstr ""
+
+msgid "Could not save that — try again."
+msgstr ""
+
+msgid "Finish"
+msgstr ""
+
+msgid "Forgot your password?"
+msgstr ""
+
+msgid "Good"
+msgstr ""
+
+#, python-format
+msgid "Hint (%(n)s points)"
+msgstr ""
+
+msgid "Home"
+msgstr ""
+
+msgid "How was this part?"
+msgstr ""
+
+msgid "How was this workshop?"
+msgstr ""
+
+msgid "I have read this"
+msgstr ""
+
+msgid "In progress"
+msgstr ""
+
+msgid "In short"
+msgstr ""
+
+msgid "Incorrect"
+msgstr ""
+
+msgid "Introduction"
+msgstr ""
+
+msgid "Just something to read"
+msgstr ""
+
+msgid "Loading…"
+msgstr ""
+
+msgid "Locked"
+msgstr ""
+
+msgid "Login"
+msgstr ""
+
+msgid "Logout"
+msgstr ""
+
+msgid "Main"
+msgstr ""
+
+msgid "Mark as done"
+msgstr ""
+
+msgid "Misconfigured checkpoint, please report it"
+msgstr ""
+
+msgid "Misconfigured quiz, please report it"
+msgstr ""
+
+#, python-format
+msgid "Next part: %(title)s"
+msgstr ""
+
+msgid "Nobody checks this for you: mark the step done once your work is finished."
+msgstr ""
+
+msgid "Not available yet."
+msgstr ""
+
+msgid "Not good"
+msgstr ""
+
+msgid "Not started"
+msgstr ""
+
+msgid "Noted"
+msgstr ""
+
+msgid "Notifications"
+msgstr ""
+
+msgid "Optional — it does not count towards your progress"
+msgstr ""
+
+msgid "Part"
+msgstr ""
+
+msgid "Part complete."
+msgstr ""
+
+msgid "Pick or type an answer first."
+msgstr ""
+
+msgid "Pick 👍 or 👎 first"
+msgstr ""
+
+msgid "Poor"
+msgstr ""
+
+msgid "Preview"
+msgstr ""
+
+msgid "Profile"
+msgstr ""
+
+msgid "Rate this step"
+msgstr ""
+
+msgid "Read"
+msgstr ""
+
+msgid "Register"
+msgstr ""
+
+msgid "Review"
+msgstr ""
+
+msgid "Save"
+msgstr ""
+
+msgid "Scoreboard"
+msgstr ""
+
+msgid "Send feedback"
+msgstr ""
+
+msgid "Settings"
+msgstr ""
+
+msgid "Start"
+msgstr ""
+
+msgid "Steps"
+msgstr ""
+
+#, python-format
+msgid "Steps of %(part)s"
+msgstr ""
+
+msgid "Submit"
+msgstr ""
+
+msgid "Team"
+msgstr ""
+
+msgid "Thanks for the feedback!"
+msgstr ""
+
+msgid "Thanks!"
+msgstr ""
+
+msgid "This step is just something to read"
+msgstr ""
+
+msgid "This step is not available yet."
+msgstr ""
+
+msgid "Toggle navigation"
+msgstr ""
+
+msgid "Toggle theme"
+msgstr ""
+
+msgid "Token"
+msgstr ""
+
+#, python-brace-format
+msgid "Unlock this hint for {n} points?"
+msgstr ""
+
+msgid "Validation code"
+msgstr ""
+
+msgid "View hint"
+msgstr ""
+
+msgid ""
+"When the tests pass, the app shows a token — paste it here to validate "
+"the step."
+msgstr ""
+
+msgid "When your work is finished, ask the instructor for the validation code."
+msgstr ""
+
+msgid "Why? (optional)"
+msgstr ""
+
+msgid "Workshop"
+msgstr ""
+
+msgid "Workshop complete, nice work."
+msgstr ""
+
+msgid "Workshop parts"
+msgstr ""
+
+msgid "next"
+msgstr ""
+
+msgid "pts"
+msgstr ""
+
+msgid "starter"
+msgstr ""
+
+msgid "to open this part."
+msgstr ""
+
+msgid "to unlock this step."
+msgstr ""
+

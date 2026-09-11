@@ -7,6 +7,7 @@ session endpoint, workshop config, checkpoint validation, and the review queue
 Deployed by bind-mounting this directory into CTFd/CTFd/plugins/workshop
 (see docker-compose.yml) so the CTFd checkout stays pristine.
 """
+import os
 from CTFd.plugins import (
     register_admin_plugin_menu_bar,
     register_plugin_assets_directory,
@@ -29,7 +30,35 @@ from .shell import load_shell
 from .quiz import QuizChallenge
 
 
+def _load_translations(app):
+    """Add this plugin's message catalogue to the ones flask-babel reads.
+
+    CTFd ships a full French catalogue of its own and initialises Babel long
+    before plugins load (CTFd/__init__.py). That is not a problem:
+    `Domain.translation_directories` reads BABEL_TRANSLATION_DIRECTORIES at
+    lookup time, not at init, and `get_translations` MERGES every directory in
+    it — so appending here supplements CTFd's catalogue instead of shadowing it,
+    and a string CTFd already translates ("Scoreboard", "Settings", "Logout")
+    keeps its upstream translation for free.
+
+    Semicolon-separated, absolute paths honoured, both per flask-babel's own
+    parsing. `CTFd/` is untouched.
+    """
+    own = os.path.join(os.path.dirname(__file__), "translations")
+    if not os.path.isdir(own):
+        return
+    current = app.config.get("BABEL_TRANSLATION_DIRECTORIES", "translations")
+    parts = [p for p in current.split(";") if p]
+    if own not in parts:
+        parts.append(own)
+        app.config["BABEL_TRANSLATION_DIRECTORIES"] = ";".join(parts)
+
+
 def load(app):
+    # The participant-facing strings are translatable, and French is what an
+    # instance is set to by default (tools/provision.py). Registered first so
+    # every blueprint below renders through it.
+    _load_translations(app)
     # Creates the plugin's missing tables (quiz model). Idempotent — existing
     # tables are untouched. If a later phase alters a column, switch to
     # CTFd.plugins.migrations.upgrade() with a migrations/ directory.

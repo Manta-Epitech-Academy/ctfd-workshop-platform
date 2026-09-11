@@ -1,0 +1,283 @@
+# French translations for PROJECT.
+# Copyright (C) 2026 ORGANIZATION
+# This file is distributed under the same license as the PROJECT project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2026-09-11 17:33+0200\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: fr\n"
+"Language-Team: fr <LL@li.org>\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+#, python-format
+msgid "%(n)s pts"
+msgstr "%(n)s pts"
+
+msgid "Admin Panel"
+msgstr ""
+
+msgid "Answer"
+msgstr "Réponse"
+
+msgid "Anything to add? (optional)"
+msgstr "Un mot à ajouter ? (facultatif)"
+
+msgid "Available now"
+msgstr "À toi de jouer"
+
+msgid "Back to the workshop"
+msgstr "Retour à l'atelier"
+
+msgid "Bonus"
+msgstr "Bonus"
+
+msgid "Challenges"
+msgstr ""
+
+msgid "Checking…"
+msgstr "Vérification…"
+
+msgid "Completed"
+msgstr "Terminé"
+
+msgid "Continue"
+msgstr "Continuer"
+
+msgid "Correct"
+msgstr "C'est bon"
+
+msgid "Could not load this hint."
+msgstr "Impossible de charger cet indice."
+
+msgid "Could not reach the server — try again."
+msgstr "Le serveur ne répond pas. Réessaie."
+
+msgid "Could not save that — try again."
+msgstr "Impossible d'enregistrer. Réessaie."
+
+msgid "Finish"
+msgstr "Termine"
+
+msgid "Forgot your password?"
+msgstr ""
+
+msgid "Good"
+msgstr "Bien"
+
+#, python-format
+msgid "Hint (%(n)s points)"
+msgstr "Indice (%(n)s points)"
+
+msgid "Home"
+msgstr "Accueil"
+
+msgid "How was this part?"
+msgstr "Cette partie t'a plu ?"
+
+msgid "How was this workshop?"
+msgstr "Cet atelier t'a plu ?"
+
+msgid "I have read this"
+msgstr "J'ai lu"
+
+msgid "In progress"
+msgstr "En cours"
+
+msgid "In short"
+msgstr "En résumé"
+
+msgid "Incorrect"
+msgstr "Pas encore"
+
+msgid "Introduction"
+msgstr "Introduction"
+
+msgid "Just something to read"
+msgstr "Juste à lire"
+
+msgid "Loading…"
+msgstr "Chargement…"
+
+msgid "Locked"
+msgstr "Verrouillé"
+
+msgid "Login"
+msgstr ""
+
+msgid "Logout"
+msgstr ""
+
+msgid "Main"
+msgstr "Navigation"
+
+msgid "Mark as done"
+msgstr "J'ai fini"
+
+msgid "Misconfigured checkpoint, please report it"
+msgstr "Cette étape est mal configurée, préviens l'encadrant"
+
+msgid "Misconfigured quiz, please report it"
+msgstr "Ce quiz est mal configuré, préviens l'encadrant"
+
+#, python-format
+msgid "Next part: %(title)s"
+msgstr "Partie suivante : %(title)s"
+
+msgid "Nobody checks this for you: mark the step done once your work is finished."
+msgstr "Personne ne vérifie à ta place : coche l'étape quand ton travail est fini."
+
+msgid "Not available yet."
+msgstr "Pas encore accessible."
+
+msgid "Not good"
+msgstr "Pas terrible"
+
+msgid "Not started"
+msgstr "Pas commencé"
+
+msgid "Noted"
+msgstr "Noté"
+
+msgid "Notifications"
+msgstr ""
+
+msgid "Optional — it does not count towards your progress"
+msgstr "Facultatif, ça ne compte pas dans ta progression"
+
+msgid "Part"
+msgstr "Partie"
+
+msgid "Part complete."
+msgstr "Partie terminée."
+
+msgid "Pick or type an answer first."
+msgstr "Choisis ou écris une réponse d'abord."
+
+msgid "Pick 👍 or 👎 first"
+msgstr "Choisis 👍 ou 👎 d'abord"
+
+msgid "Poor"
+msgstr "Pas terrible"
+
+msgid "Preview"
+msgstr "Jeter un oeil"
+
+msgid "Profile"
+msgstr ""
+
+msgid "Rate this step"
+msgstr "Note cette étape"
+
+msgid "Read"
+msgstr "Lire"
+
+msgid "Register"
+msgstr ""
+
+msgid "Review"
+msgstr "Revoir"
+
+msgid "Save"
+msgstr "Enregistrer"
+
+msgid "Scoreboard"
+msgstr ""
+
+msgid "Send feedback"
+msgstr "Envoyer"
+
+msgid "Settings"
+msgstr ""
+
+msgid "Start"
+msgstr "Commencer"
+
+msgid "Steps"
+msgstr "étapes"
+
+#, python-format
+msgid "Steps of %(part)s"
+msgstr "Étapes de %(part)s"
+
+msgid "Submit"
+msgstr ""
+
+msgid "Team"
+msgstr ""
+
+msgid "Thanks for the feedback!"
+msgstr "Merci pour ton retour !"
+
+msgid "Thanks!"
+msgstr "Merci !"
+
+msgid "This step is just something to read"
+msgstr "Cette étape est juste à lire"
+
+msgid "This step is not available yet."
+msgstr "Cette étape n'est pas encore accessible."
+
+msgid "Toggle navigation"
+msgstr "Afficher le menu"
+
+msgid "Toggle theme"
+msgstr ""
+
+msgid "Token"
+msgstr "Jeton"
+
+#, python-brace-format
+msgid "Unlock this hint for {n} points?"
+msgstr "Débloquer cet indice pour {n} points ?"
+
+msgid "Validation code"
+msgstr "Code de validation"
+
+msgid "View hint"
+msgstr "Voir l'indice"
+
+msgid "When the tests pass, the app shows a token — paste it here to validate the step."
+msgstr ""
+"Quand les tests passent, l'application affiche un jeton. Colle-le ici pour valider "
+"l'étape."
+
+msgid "When your work is finished, ask the instructor for the validation code."
+msgstr "Quand ton travail est fini, demande le code de validation à l'encadrant."
+
+msgid "Why? (optional)"
+msgstr "Pourquoi ? (facultatif)"
+
+msgid "Workshop"
+msgstr "Atelier"
+
+msgid "Workshop complete, nice work."
+msgstr "Atelier terminé. Beau travail."
+
+msgid "Workshop parts"
+msgstr "Parties de l'atelier"
+
+msgid "next"
+msgstr "ensuite"
+
+msgid "pts"
+msgstr "pts"
+
+msgid "starter"
+msgstr "pour commencer"
+
+msgid "to open this part."
+msgstr "pour ouvrir cette partie."
+
+msgid "to unlock this step."
+msgstr "pour débloquer cette étape."
+

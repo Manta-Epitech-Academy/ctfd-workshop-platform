@@ -23,6 +23,14 @@
   })();
   var COVER = PAGE.cover || {};
   var I18N = PAGE.i18n || {};
+
+  // Strings come from the server, already translated, through the JSON island —
+  // there is no second translation mechanism in the browser. The fallback is
+  // the English source text, so a page rendered before the island existed still
+  // says something sensible rather than a key.
+  function t(key, fallback) {
+    return I18N[key] || fallback;
+  }
   var TITLE = { done: "Completed", current: "In progress", todo: "Not started",
                 locked: "Locked", info: "Just something to read" };
   var STATES = ["done", "current", "todo", "locked", "info"];
@@ -89,12 +97,13 @@
     var answer = collectAnswer(form);
     if (!answer.trim()) {
       feedback(form, "empty", form.dataset.answerKind === "rating"
-        ? "Pick 👍 or 👎 first" : "Pick or type an answer first.");
+        ? t("pickFirst", "Pick 👍 or 👎 first")
+        : t("answerFirst", "Pick or type an answer first."));
       return;
     }
     var button = form.querySelector(".ws-submit-btn");
     button.disabled = true;
-    feedback(form, "pending", "Checking…");
+    feedback(form, "pending", t("checking", "Checking…"));
     try {
       var r = await api("/api/v1/challenges/attempt", {
         method: "POST",
@@ -104,7 +113,7 @@
       var data = (body && body.data) || {};
       var status = data.status || "error";
       if (status === "correct" || status === "already_solved") {
-        feedback(form, "correct", data.message || "Correct");
+        feedback(form, "correct", data.message || t("correct", "Correct"));
         // Everything the celebration needs is read BEFORE the refresh: it
         // replaces .ws-step-body's innerHTML, which contains this very form.
         // .ws-step-summary survives, which is why the points come from there
@@ -130,11 +139,11 @@
         var counts = await refresh(id);
         if (status === "correct") celebrateCompletion(counts);
       } else {
-        feedback(form, status, data.message || "Incorrect");
+        feedback(form, status, data.message || t("incorrect", "Incorrect"));
         button.disabled = false;
       }
     } catch (e) {
-      feedback(form, "error", "Could not reach the server — try again.");
+      feedback(form, "error", t("netError", "Could not reach the server — try again."));
       button.disabled = false;
     }
   }
@@ -176,11 +185,11 @@
       box.dataset.value = String(value);
       box.dataset.review = review ? review.value : "";
       markRating(box);
-      if (thanks) thanks.textContent = "Thanks!";
+      if (thanks) thanks.textContent = t("thanks", "Thanks!");
       // Revealed by this very click: put the cursor where the reason goes.
       if (review && !review.value) review.focus();
     } catch (e) {
-      if (thanks) thanks.textContent = "Could not save that — try again.";
+      if (thanks) thanks.textContent = t("saveError", "Could not save that — try again.");
     }
   }
 
@@ -212,11 +221,12 @@
     var cost = parseInt(details.dataset.cost, 10) || 0;
     var body = details.querySelector(".ws-hint-body");
     if (cost > 0 &&
-        !window.confirm("Unlock this hint for " + cost + " points?")) {
+        !window.confirm(t("unlockHint", "Unlock this hint for {n} points?")
+                        .replace("{n}", cost))) {
       details.open = false;
       return;
     }
-    body.textContent = "Loading…";
+    body.textContent = t("loading", "Loading…");
     try {
       // POST /unlocks records the reveal in CTFd's HintUnlocks table — this is
       // how hint usage is tracked (free hints included, deliberately).
@@ -230,7 +240,7 @@
       body.innerHTML = content || (payload.data && payload.data.content) || "";
       details.dataset.loaded = "1";
     } catch (e) {
-      body.textContent = "Could not load this hint.";
+      body.textContent = t("hintError", "Could not load this hint.");
     }
   }
 

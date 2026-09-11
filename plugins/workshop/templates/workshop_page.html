@@ -53,7 +53,7 @@
       <div class="ws-overall" data-solved="{{ solved_count }}" data-total="{{ total_count }}">
         <div class="ws-overall-badge">
           <span class="ws-overall-num">{{ solved_count }}/{{ total_count }}</span>
-          <span class="ws-overall-label">Steps</span>
+          <span class="ws-overall-label">{% trans %}Steps{% endtrans %}</span>
         </div>
         <div class="ws-overall-track">
           <div class="ws-overall-fill"
@@ -84,7 +84,7 @@
 
   <div class="container ws-page">
 
-  <nav class="ws-stepper ws-stepper-parts" aria-label="Workshop parts">
+  <nav class="ws-stepper ws-stepper-parts" aria-label="{{ _("Workshop parts") }}">
     {% for part in parts %}
       {{ chip("part-" ~ part.index, part.name, part.state,
               badge="%d/%d" % (part.done, part.total) if part.total else "") }}
@@ -111,13 +111,13 @@
            behind a click is exactly the bug this page had (PLAN.md §24). So it
            opens by default and remembers being shut, per participant. #}
         <details class="ws-part-lead" data-lead="{{ part.name }}" open>
-          <summary class="ws-part-lead-summary">Introduction</summary>
+          <summary class="ws-part-lead-summary">{% trans %}Introduction{% endtrans %}</summary>
           <div class="ws-part-lead-body challenge-desc">{{ part.lead }}</div>
         </details>
       {% endif %}
 
       {% if part.steps | length > 1 %}
-        <nav class="ws-stepper ws-stepper-steps" aria-label="Steps of {{ part.name }}">
+        <nav class="ws-stepper ws-stepper-steps" aria-label="{{ _("Steps of %(part)s", part=part.name) }}">
           {% for step in part.steps %}
             {{ chip("step-" ~ step.id, step.name, step.state) }}
           {% endfor %}
@@ -138,9 +138,9 @@
                reads as a bug rather than as "these four are yours to skip". #}
             {% if step.optional %}
               <span class="ws-step-bonus"
-                    title="Optional — it does not count towards your progress">Bonus</span>
+                    title="{{ _("Optional — it does not count towards your progress") }}">{% trans %}Bonus{% endtrans %}</span>
             {% endif %}
-            {% if step.points %}<span class="ws-step-meta">{{ step.points }} pts</span>{% endif %}
+            {% if step.points %}<span class="ws-step-meta">{{ _("%(n)s pts", n=step.points) }}</span>{% endif %}
           </summary>
           <div class="ws-step-body">
             {% include "workshop_step_body.html" %}
@@ -166,12 +166,12 @@
              {% if not document_complete %}hidden{% endif %}>
       <div class="ws-next-doc-badge" aria-hidden="true">{{ "🏆" if not next_doc else "✓" }}</div>
       {% if next_doc %}
-        <p class="ws-next-doc-lead">Part complete.</p>
+        <p class="ws-next-doc-lead">{% trans %}Part complete.{% endtrans %}</p>
         <a class="btn btn-primary ws-next-doc-link" href="/workshop/{{ next_doc.slug }}">
-          Next part: {{ next_doc.title }} →
+          {{ _("Next part: %(title)s", title=next_doc.title) }} →
         </a>
       {% else %}
-        <p class="ws-next-doc-lead ws-next-doc-done">Workshop complete, nice work.</p>
+        <p class="ws-next-doc-lead ws-next-doc-done">{% trans %}Workshop complete, nice work.{% endtrans %}</p>
       {% endif %}
     </section>
   {% endif %}
@@ -222,10 +222,27 @@
     attributes scattered over the markup, and rather than a second translation
     mechanism in JS — Jinja's `tojson` is HTML-safe, so it cannot break out of the
     script element.
+
+    Placeholders the BROWSER fills use brace syntax ({n}), not %(n)s: gettext
+    interpolates a printf placeholder as it translates, and with no variables to
+    substitute it raises KeyError before the page renders at all.
   #}
   <script type="application/json" id="ws-page-data">
     {{ {"cover": cover or {},
-        "i18n": {"points": "pts"}} | tojson }}
+        "i18n": {
+          "points": _("pts"),
+          "pickFirst": _("Pick 👍 or 👎 first"),
+          "answerFirst": _("Pick or type an answer first."),
+          "checking": _("Checking…"),
+          "correct": _("Correct"),
+          "incorrect": _("Incorrect"),
+          "netError": _("Could not reach the server — try again."),
+          "thanks": _("Thanks!"),
+          "saveError": _("Could not save that — try again."),
+          "unlockHint": _("Unlock this hint for {n} points?"),
+          "loading": _("Loading…"),
+          "hintError": _("Could not load this hint."),
+        }} | tojson }}
   </script>
   {# Both before workshop_page.js and both `defer`, so they execute in document
      order and the module is there when a solve fires. NOT registered through

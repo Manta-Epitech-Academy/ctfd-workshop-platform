@@ -171,7 +171,11 @@ instance, so **never run it bare**.
   `content/pypong` is deliberately unmapped: it is a *conversion* of `pypong_new`, which is
   still schema 1.5 in another org, so comparing them would report the conversion as drift
   forever. It reports `skip`, which is not a pass.
-- **Every platform string is English** (CLAUDE.md). Workshop *content* stays French.
+- **Platform strings are English in the source and French on the participant path**
+  (CLAUDE.md). Wrap a new one in `{% trans %}` / `gettext` / `lazy_gettext`; the
+  catalogue is `plugins/workshop/translations`, and `tools/build_vendor.sh` is not
+  involved — it is compiled with `pybabel`, and `-k _l` matters or the lazily marked
+  strings extract as nothing. The admin panel stays English.
 - **`get_config` returns an int** when the stored value is all digits
   (`CTFd/utils/__init__.py:51`), so a config holding a bare id arrives already parsed while a
   config holding a JSON list arrives as a string. Mixing the two up fails silently: the reader
@@ -223,8 +227,9 @@ Ranked, from `PLAN.md`:
 
 1. **§11 — the instructor review queue.** Designed in detail, entirely unbuilt, and the missing
    half of instructor-led mode.
-2. Deferred: the checkpoint challenge type (validation codes are the interim mechanic), i18n, and
+2. Deferred: the checkpoint challenge type (validation codes are the interim mechanic) and
    §10 `provision(repo_url, ref)` in full — `tools/provision.py` is only its manual half.
+   (i18n was on this list and is done for the participant path — see CLAUDE.md.)
 
 Phases 3 (SPA) and 5 (TIC-80 track) stay **on hold** — see the notes in `PLAN.md` §6.
 

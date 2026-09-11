@@ -31,6 +31,8 @@ from itertools import groupby
 from flask import Blueprint, abort, jsonify, redirect, render_template, url_for
 
 from CTFd.models import Challenges, Hints, HintUnlocks, Ratings
+from flask_babel import lazy_gettext as _l
+
 from CTFd.utils import get_config
 from CTFd.utils.challenges import get_solve_ids_for_user_id
 from CTFd.utils.decorators import authed_only, during_ctf_time_only
@@ -157,12 +159,17 @@ def _lead(challenge):
 # What the control under a step is, and what the line beside it says. Both
 # depend on the instance's mode for a checkpoint step, so both are decided here
 # at request time rather than written into the content at import (PLAN.md
-# §25.6). English, like every other platform string (CLAUDE.md).
+# §25.6).
+#
+# `lazy_gettext`, not `gettext`: this dict is built at import time, outside any
+# request, so a translation resolved now would freeze to whatever locale the
+# worker booted in. The lazy proxy resolves per request, which is also what lets
+# one instance serve a French participant and an English one.
 NOTES = {
-    "code": "When your work is finished, ask the instructor for the validation code.",
-    "done": "Nobody checks this for you: mark the step done once your work is finished.",
-    "token": "When the tests pass, the app shows a token — paste it here to "
-             "validate the step.",
+    "code": _l("When your work is finished, ask the instructor for the validation code."),
+    "done": _l("Nobody checks this for you: mark the step done once your work is finished."),
+    "token": _l("When the tests pass, the app shows a token — paste it here to "
+                "validate the step."),
 }
 
 
@@ -549,12 +556,14 @@ def _render(user, keep_ids=None, title=None, subject=None, next_doc=None,
     )
 
 
+# Lazily translated for the same reason as NOTES above: built at import time,
+# read per request.
 CARD_TEXT = {
-    DONE: ("Completed", "Review"),
-    CURRENT: ("In progress", "Continue"),
-    TODO: ("Not started", "Start"),
-    INFO: ("Just something to read", "Read"),
-    LOCKED: ("Locked", "Preview"),
+    DONE: (_l("Completed"), _l("Review")),
+    CURRENT: (_l("In progress"), _l("Continue")),
+    TODO: (_l("Not started"), _l("Start")),
+    INFO: (_l("Just something to read"), _l("Read")),
+    LOCKED: (_l("Locked"), _l("Preview")),
 }
 
 
@@ -585,7 +594,7 @@ def _index_cards(user, documents):
         if card["state"] == CURRENT and not card["done"]:
             # Open, and nothing done in it yet: "In progress / Continue" would
             # be a lie about work that has not started.
-            card["label"], card["action"] = "Available now", "Start"
+            card["label"], card["action"] = _l("Available now"), _l("Start")
         card["subject"] = doc.get("subject") or ""
         card["subject_title"] = doc.get("subject_title") or ""
         cards.append(card)

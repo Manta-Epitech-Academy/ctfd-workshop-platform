@@ -31,6 +31,8 @@ defaults:
   scoreboard: true          # kept: it helps this audience more than it hurts
   mode: instructor_led      # instructor_led | self_serve — PLAN.md §25
   verify_emails: false      # no mail server, and no addresses to verify
+  locale: fr                # the audience is French lycéens; a participant can
+                            # still change it per account in /settings
 
 # `source` is the repository an instance imports from when somebody presses Sync
 # on /admin/workshop/sync (PLAN.md §26). `content:` stays what the command line

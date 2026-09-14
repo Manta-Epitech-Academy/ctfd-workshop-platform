@@ -421,7 +421,13 @@ def asset_location(subject_slug, asset):
 
 
 def upload_assets(ctfd, subject):
-    """Upload every referenced image once; return {markdown ref -> /files URL}.
+    """Upload every referenced image once; return {Asset.key -> /files URL}.
+
+    Keyed on `Asset.key`, not on `asset.ref`: the ref is the path as written,
+    and the same path written in subject.yaml and inside a document names two
+    different files (ws_parser.Asset). Keyed on the ref, one of the two would
+    silently take the other's URL, and a cover looking itself up by its own key
+    would find nothing at all.
 
     Type `standard`, not `challenge`: challenge files are gated by CTF time and
     challenge visibility (CTFd/CTFd/views.py:400), so an inline image would 403
@@ -434,7 +440,7 @@ def upload_assets(ctfd, subject):
         if not ctfd.api("GET", f"/files?location={location}"):
             ctfd.upload(asset.path, location)
             uploaded += 1
-        mapping[asset.ref] = f"/files/{location}"
+        mapping[asset.key] = f"/files/{location}"
     if subject.assets:
         print(f"images: {len(subject.assets)} referenced, {uploaded} uploaded, "
               f"{len(subject.assets) - uploaded} already present")
@@ -449,17 +455,23 @@ def apply_asset_rewrite(subject, mapping):
     """
     if not mapping:
         return
+    # `rewrite_asset_refs` matches on the path as written, so it needs the
+    # markdown view of the mapping: the images a document body can name, keyed
+    # by the string it names them with. A cover is not in here — it is a dict
+    # value, not image syntax, and it is resolved by key below.
+    md_map = {a.ref: mapping[a.key] for a in subject.assets
+              if a.in_markdown and a.key in mapping}
     for doc in subject.documents:
-        doc.body_md = rewrite_asset_refs(doc.body_md, mapping)
-        doc.trailing_md = rewrite_asset_refs(doc.trailing_md, mapping)
+        doc.body_md = rewrite_asset_refs(doc.body_md, md_map)
+        doc.trailing_md = rewrite_asset_refs(doc.trailing_md, md_map)
     for ex in subject.exercises:
-        ex.body_md = rewrite_asset_refs(ex.body_md, mapping)
-        ex.context_md = rewrite_asset_refs(ex.context_md, mapping)
-        ex.resume_md = rewrite_asset_refs(ex.resume_md, mapping)
+        ex.body_md = rewrite_asset_refs(ex.body_md, md_map)
+        ex.context_md = rewrite_asset_refs(ex.context_md, md_map)
+        ex.resume_md = rewrite_asset_refs(ex.resume_md, md_map)
         for h in ex.hints:
-            h.content_md = rewrite_asset_refs(h.content_md, mapping)
+            h.content_md = rewrite_asset_refs(h.content_md, md_map)
     for q in subject.quizzes:
-        q.question = rewrite_asset_refs(q.question, mapping)
+        q.question = rewrite_asset_refs(q.question, md_map)
     # Not a markdown body — a `cover:` is plain dict values, so it needs a
     # lookup rather than the image-syntax regex. It belongs here anyway: this
     # function exists so that "a body added to the importer later cannot
@@ -469,7 +481,7 @@ def apply_asset_rewrite(subject, mapping):
         doc.cover = rewrite_cover_refs(doc.cover, mapping, document=doc.path)
 
 
-def derive_cover(subject):
+def derive_cover(subject, mapping):
     """What the platform shows for a subject that declared no `cover:`.
 
     The floor, not the ceiling. Every subject already carries a one-line
@@ -480,6 +492,13 @@ def derive_cover(subject):
 
     Only fills what is missing, so a cover that declares a tagline and no image
     still gets the image.
+
+    `mapping` is `upload_assets`' {Asset.key -> /files URL}. A derived image is
+    borrowed from a document body, so it is already uploaded — but what the
+    parser holds is the repo-relative path it was written with, and putting THAT
+    in the config ships a cover the browser resolves against the page URL and
+    404s. It is resolved here rather than by a later pass because this is the
+    only place that knows which asset was borrowed.
     """
     cover = dict(subject.cover or {})
     cover.setdefault("tagline", (subject.manifest.get("project") or {}).get("summary") or "")
@@ -490,8 +509,8 @@ def derive_cover(subject):
         # "the picture of this subject" as anything we can infer.
         entry = (subject.manifest.get("project") or {}).get("entrypoint")
         for asset in subject.assets:
-            if entry and entry in asset.documents:
-                cover["media"] = asset.ref
+            if entry and entry in asset.documents and asset.key in mapping:
+                cover["media"] = mapping[asset.key]
                 cover["derived"] = True
                 break
 
@@ -620,7 +639,9 @@ def sync(subject_dir, url, admin_user, admin_pass, codes_path=None, *,
     stats = {"created": 0, "updated": 0}
 
     # Images first: every body sent below is rewritten to the uploaded URLs.
-    apply_asset_rewrite(subject, upload_assets(ctfd, subject))
+    # The mapping is kept — `derive_cover` further down resolves through it too.
+    asset_urls = upload_assets(ctfd, subject)
+    apply_asset_rewrite(subject, asset_urls)
 
     # Validation codes (instructor sheet). A code, once handed out, must survive
     # every later sync, so it is only ever generated for an exercise that has
@@ -948,7 +969,7 @@ def sync(subject_dir, url, admin_user, admin_pass, codes_path=None, *,
     # In a workshop these four are the caller's to accumulate: each is
     # instance-wide, so a second subject writing them would erase the first
     # (PLAN.md §19.1).
-    cover = derive_cover(subject)
+    cover = derive_cover(subject, asset_urls)
     subject_cfg = {
         "title": subject.name,
         "summary": (subject.manifest.get("project") or {}).get("summary") or "",

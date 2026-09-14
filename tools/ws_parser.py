@@ -133,10 +133,33 @@ class Asset:
 
     `ref` is the path exactly as written in the markdown, because that is what
     the importer has to substitute; `path` is where it lives on disk.
+
+    `key` identifies the FILE, which is not the same thing as the path written
+    to reach it: `img/x.gif` in subject.yaml and `img/x.gif` inside
+    `docs/part1.md` resolve from different roots and are two different files.
+    It is what the `assets` dict is keyed on and what the importer's upload
+    mapping is keyed on, so a lookup cannot drift from the entry it is looking
+    for. A markdown ref is its own key — that is what `rewrite_asset_refs`
+    substitutes on — and a cover ref is namespaced by `cover_asset_key`.
     """
     ref: str
     path: Path
     documents: list = field(default_factory=list)   # docs that reference it
+    key: str = ""
+
+    def __post_init__(self):
+        if not self.key:
+            self.key = self.ref
+
+    @property
+    def in_markdown(self):
+        """True for an image referenced from a document body.
+
+        Only these are substituted by `rewrite_asset_refs`, which matches on the
+        path as written; a cover is a plain dict value and goes through
+        `rewrite_cover_refs` instead.
+        """
+        return self.key == self.ref
 
     @property
     def exists(self):
@@ -218,12 +241,22 @@ def find_asset_refs(text):
 
 
 COVER_ASSET_KEYS = ("media", "poster", "mascot")
-# A cover path is namespaced so it cannot collide in the asset dict with an
-# identical-looking path written inside a document. The two resolve differently
-# (see cover_asset_refs) and the dict is keyed on the ref as written, so
-# `img/x.gif` in subject.yaml and `img/x.gif` inside `docs/part1.md` would
-# otherwise share one entry and one of the two would upload the wrong file.
+# A cover path is namespaced so it cannot collide with an identical-looking path
+# written inside a document. The two resolve differently (see cover_asset_refs),
+# so `img/x.gif` in subject.yaml and `img/x.gif` inside `docs/part1.md` are two
+# files; sharing one key would upload one of them under the other's URL.
 COVER_REF_PREFIX = "subject.yaml:"
+
+
+def cover_asset_key(ref, document=None):
+    """The `Asset.key` of a cover image, and therefore its upload-mapping key.
+
+    One function because the key is written by `parse_subject` and read back by
+    `rewrite_cover_refs`, through a mapping built in another module entirely
+    (tools/sync_subject.py). Spelled twice, the two spellings drift and every
+    cover silently keeps its unresolved repo path.
+    """
+    return COVER_REF_PREFIX + (document + ":" if document else "") + ref
 
 
 def cover_asset_refs(cover):
@@ -247,17 +280,18 @@ def rewrite_cover_refs(cover, mapping, document=None):
     these are plain dict values. Same contract though — a path with no mapping
     is left exactly as written rather than dropped.
 
+    `mapping` is keyed on `Asset.key`, so the lookup goes through
+    `cover_asset_key` — the same function `parse_subject` keyed the entry with.
     `document` names the document a per-part cover was declared in, which is
-    part of its asset key because the two resolve from different roots.
+    part of that key because the two resolve from different roots.
     """
     if not cover:
         return cover
-    prefix = COVER_REF_PREFIX + (document + ":" if document else "")
     out = dict(cover)
-    for key in COVER_ASSET_KEYS:
-        ref = out.get(key)
+    for field_name in COVER_ASSET_KEYS:
+        ref = out.get(field_name)
         if isinstance(ref, str) and _is_local_asset(ref):
-            out[key] = mapping.get(prefix + ref, ref)
+            out[field_name] = mapping.get(cover_asset_key(ref, document), ref)
     return out
 
 
@@ -452,7 +486,11 @@ def parse_subject(subject_dir):
 
     order = 0  # subject-wide source-reading counter (1-based positions)
 
-    assets = {}   # ref -> Asset, first-seen order (dicts keep insertion order)
+    assets = {}   # Asset.key -> Asset, first-seen order (dicts keep insertion)
+
+    def collect(asset):
+        """Record an asset under its own key, first-seen winning."""
+        return assets.setdefault(asset.key, asset)
 
     # The cover's images go in FIRST, before the document loop, for two reasons:
     # a subject whose only image is its cover still has to collect one, and
@@ -462,10 +500,8 @@ def parse_subject(subject_dir):
     # missing file, and an empty list would raise IndexError on exactly the
     # typo that check exists to catch.
     for ref in cover_asset_refs(cover):
-        key = COVER_REF_PREFIX + ref
-        if key not in assets:
-            assets[key] = Asset(ref=ref, path=subject_dir / ref,
-                                documents=["subject.yaml"])
+        collect(Asset(ref=ref, path=subject_dir / ref, documents=["subject.yaml"],
+                      key=cover_asset_key(ref)))
     # Subject-wide, not per document: the importer keys challenges on
     # `ws:<subject>:<slug>`, so the same slug in two documents would upsert one
     # challenge twice and silently lose a step.
@@ -478,12 +514,11 @@ def parse_subject(subject_dir):
         # Images are collected from the raw document: they may sit in a body, a
         # hint or trailing prose, and every one of those ends up in CTFd.
         for ref in find_asset_refs(text):
-            asset = assets.get(ref)
-            if asset is None:
-                # Relative to the document, which is how a markdown renderer
-                # resolves it — not to the repo root.
-                resolved = (subject_dir / doc_path).parent / ref
-                asset = assets[ref] = Asset(ref=ref, path=resolved)
+            # Relative to the document, which is how a markdown renderer
+            # resolves it — not to the repo root. A markdown ref is its own
+            # key: that is the string `rewrite_asset_refs` substitutes on.
+            asset = collect(Asset(ref=ref,
+                                  path=(subject_dir / doc_path).parent / ref))
             asset.documents.append(doc_path)
 
         sections = _split_sections(text, where)
@@ -496,14 +531,13 @@ def parse_subject(subject_dir):
         doc_meta = next((m for lv, _, m, _ in sections if lv == 1 and m), None)
         doc_cover = (doc_meta or {}).get("cover") or {}
         for ref in cover_asset_refs(doc_cover):
-            key = COVER_REF_PREFIX + doc_path + ":" + ref
-            if key not in assets:
-                # Relative to the document, like every other path written
-                # inside one — unlike subject.yaml's, which has no document to
-                # be relative to.
-                assets[key] = Asset(ref=ref,
-                                    path=(subject_dir / doc_path).parent / ref,
-                                    documents=[doc_path])
+            # Relative to the document, like every other path written inside
+            # one — unlike subject.yaml's, which has no document to be relative
+            # to. That difference is exactly what the key namespaces.
+            collect(Asset(ref=ref,
+                          path=(subject_dir / doc_path).parent / ref,
+                          documents=[doc_path],
+                          key=cover_asset_key(ref, doc_path)))
         doc = Document(path=doc_path, title=doc_title, body_md="",
                        cover=doc_cover)
         page_parts = []          # doc body with ws markup stripped

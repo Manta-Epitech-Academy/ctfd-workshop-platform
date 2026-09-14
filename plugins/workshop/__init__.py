@@ -7,6 +7,7 @@ session endpoint, workshop config, checkpoint validation, and the review queue
 Deployed by bind-mounting this directory into CTFd/CTFd/plugins/workshop
 (see docker-compose.yml) so the CTFd checkout stays pristine.
 """
+import os
 from CTFd.plugins import (
     register_admin_plugin_menu_bar,
     register_plugin_assets_directory,
@@ -25,10 +26,39 @@ from .answers import load_answers
 from .mode import load_mode
 from .checkpoint import load_checkpoint
 from .syncpage import load_syncpage
+from .shell import load_shell
 from .quiz import QuizChallenge
 
 
+def _load_translations(app):
+    """Add this plugin's message catalogue to the ones flask-babel reads.
+
+    CTFd ships a full French catalogue of its own and initialises Babel long
+    before plugins load (CTFd/__init__.py). That is not a problem:
+    `Domain.translation_directories` reads BABEL_TRANSLATION_DIRECTORIES at
+    lookup time, not at init, and `get_translations` MERGES every directory in
+    it — so appending here supplements CTFd's catalogue instead of shadowing it,
+    and a string CTFd already translates ("Scoreboard", "Settings", "Logout")
+    keeps its upstream translation for free.
+
+    Semicolon-separated, absolute paths honoured, both per flask-babel's own
+    parsing. `CTFd/` is untouched.
+    """
+    own = os.path.join(os.path.dirname(__file__), "translations")
+    if not os.path.isdir(own):
+        return
+    current = app.config.get("BABEL_TRANSLATION_DIRECTORIES", "translations")
+    parts = [p for p in current.split(";") if p]
+    if own not in parts:
+        parts.append(own)
+        app.config["BABEL_TRANSLATION_DIRECTORIES"] = ";".join(parts)
+
+
 def load(app):
+    # The participant-facing strings are translatable, and French is what an
+    # instance is set to by default (tools/provision.py). Registered first so
+    # every blueprint below renders through it.
+    _load_translations(app)
     # Creates the plugin's missing tables (quiz model). Idempotent — existing
     # tables are untouched. If a later phase alters a column, switch to
     # CTFd.plugins.migrations.upgrade() with a migrations/ directory.
@@ -38,14 +68,17 @@ def load(app):
     # The participant-facing view: the whole workshop as one page, steps as
     # accordions with progress steppers, instead of a modal per challenge.
     load_page(app)
-    # No static "Workshop" entry: the sync creates one Page per document, so the
-    # navbar reads <CTF name> | Parcours | <part 1> … <part N> | Users | … . A
-    # fixed entry here would always sort *after* those (CTFd builds the menu as
-    # get_pages() + plugin entries) and would duplicate the only part of a
-    # single-document subject. `/workshop` stays the post-login landing page.
-    # ...and it is where a signed-in participant lands (`/` and post-login).
-    # The challenge board stays reachable at /challenges — see landing.py.
+    # `/workshop` is where a signed-in participant lands (`/` and post-login);
+    # the challenge board stays reachable at /challenges — see landing.py.
     load_landing(app)
+    # The Epitech/Jump app shell, replacing core's dark fixed-top navbar. It is
+    # what carries the "Workshop" nav entry: this used to be deliberately absent
+    # because a plugin menu entry always sorts *after* the per-document Pages the
+    # sync creates, leaving it in the wrong place. Those Pages are hidden from the
+    # navbar now (tools/sync_subject.py) and the shell owns the item order
+    # outright, so the entry can finally sit first, where it belongs — until now
+    # /workshop was reachable only by clicking the logo. See shell.py.
+    load_shell(app)
     # Serves the runtime dists at /runtime/<id>/<version>/ on CTFd's own origin
     # — same-origin is what makes localStorage, clipboard and adapter injection
     # work (PLAN.md §14.2). See runtime.py.
@@ -90,6 +123,9 @@ def load(app):
     # Caps hint images (the theme only caps description images) — see
     # assets/workshop.css. Injected via {{ Plugins.styles }} in base.html.
     register_plugin_stylesheet(url="/plugins/workshop/assets/workshop.css")
+    # Epitech brand reskin (colors, fonts, radius) — token contract in
+    # DESIGN.md. Loads after workshop.css so nothing here needs !important.
+    register_plugin_stylesheet(url="/plugins/workshop/assets/epitech-theme.css")
     # Makes free (cost-0) hints read as free and skip the unlock dialog, while
     # keeping CTFd's native HintUnlocks reveal tracking — see assets/hints.js.
     register_plugin_script(url="/plugins/workshop/assets/hints.js")

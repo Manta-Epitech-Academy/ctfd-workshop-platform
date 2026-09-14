@@ -7,15 +7,22 @@
 #}
 
 {% macro chip(target, label, state, badge="") -%}
-  {% set icon = {"done": "✓", "current": "▶", "todo": "○",
-                 "locked": "🔒", "info": "📄"}[state] %}
-  {% set title = {"done": "Completed", "current": "In progress",
-                  "todo": "Not started", "locked": "Locked",
-                  "info": "Just something to read"}[state] %}
+  {# No glyph in the markup: the icon is drawn by `.ws-chip-icon::before` per
+     state in workshop.css, so the state table lives in exactly one place and
+     the JS below only ever swaps a class. The span still has to exist — it is
+     what the CSS hangs the glyph on. #}
+  {# Translated: this is the screen-reader text below, and on the participant
+     path it is the ONLY state signal a screen reader gets — the glyph beside it
+     is a CSS ::before and the colour is not a signal at all. The five msgids are
+     the ones page.py's CARD_TEXT already carries, so the index and the steppers
+     say the same word for the same state. #}
+  {% set title = {"done": _("Completed"), "current": _("In progress"),
+                  "todo": _("Not started"), "locked": _("Locked"),
+                  "info": _("Just something to read")}[state] %}
   {# Chip labels can be long chapter titles: they ellipsis, so the full name
      lives in the tooltip. State is icon + text, never colour alone. #}
   <a class="ws-chip ws-{{ state }}" href="#{{ target }}" title="{{ label }} — {{ title }}">
-    <span class="ws-chip-icon" aria-hidden="true">{{ icon }}</span>
+    <span class="ws-chip-icon" aria-hidden="true"></span>
     <span class="ws-chip-label">{{ label }}</span>
     <span class="visually-hidden"> — {{ title }}</span>
     {%- if badge %}<span class="ws-chip-badge">{{ badge }}</span>{% endif -%}
@@ -23,20 +30,66 @@
 {%- endmacro %}
 
 {% block content %}
-<div class="container ws-page" id="ws-workshop">
+{# `#ws-workshop` wraps BOTH the band and the page body, and has to. It is not a
+   layout hook, it is the scope root assets/workshop_page.js binds to, and
+   updateCounters() does `ROOT.querySelector(".ws-overall")` behind an early
+   return — so a band outside it would leave the step counter and the progress
+   bar frozen after a solve, with no error anywhere. The regression suite would
+   not catch it either: it reads the counter from a fresh GET, which is the
+   server's value, not the live DOM's. #}
+<div id="ws-workshop">
 
-  <div class="ws-head">
-    <h1 class="ws-title">{{ page_title or Configs.ctf_name }}</h1>
-    <div class="ws-overall" data-solved="{{ solved_count }}" data-total="{{ total_count }}">
-      <span class="ws-overall-count">{{ solved_count }} / {{ total_count }}</span> steps completed
-      <div class="ws-overall-bar">
-        <div class="ws-overall-fill"
-             style="width: {{ (100 * solved_count / total_count) if total_count else 0 }}%"></div>
+  {# Full-bleed by being a direct child of <main>, never by a negative margin:
+     that trick needs `overflow-x: hidden` to compensate, and that would kill
+     `position: sticky` on the parts stepper below. #}
+  <div class="epi-hero ws-hero{% if cover and cover.media %} ws-hero-media-on{% endif %}">
+    <div class="epi-hero-inner ws-head">
+      <div class="ws-hero-copy">
+      {# Only when there is an index to go back to. A single-document subject
+         has `/workshop` redirect straight to this page, so the arrow would
+         loop. #}
+      {% if documents | length > 1 %}
+        <a class="ws-back" href="{{ url_for('workshop_page.workshop') }}"
+           aria-label="{% trans %}Back to the workshop{% endtrans %}">
+          <i class="fas fa-arrow-left" aria-hidden="true"></i>
+        </a>
+      {% endif %}
+      <h1 class="ws-title epi-title-cursor">{{ page_title or Configs.ctf_name }}</h1>
+      <div class="ws-overall" data-solved="{{ solved_count }}" data-total="{{ total_count }}">
+        <div class="ws-overall-badge">
+          <span class="ws-overall-num">{{ solved_count }}/{{ total_count }}</span>
+          <span class="ws-overall-label">{% trans %}Steps{% endtrans %}</span>
+        </div>
+        <div class="ws-overall-track">
+          <div class="ws-overall-fill"
+               style="width: {{ (100 * solved_count / total_count) if total_count else 0 }}%"></div>
+        </div>
       </div>
+        {# The subject's own accroche and picture. Everything about HOW they are
+           laid out is here; the subject supplies a sentence and a file and never
+           a size, a crop or a class (docs/CONTENT_CONVENTION.md §3.2b). That is
+           what keeps four subjects looking like one platform. #}
+          {% if cover and cover.tagline %}
+            <p class="ws-hero-tagline">{{ cover.tagline }}</p>
+          {% endif %}
+      </div>
+      {% if cover and cover.media %}
+        {# Both frames are in the DOM and the media query picks one: a GIF cannot
+           be paused, so a participant who asked their system for reduced motion
+           would get the animation anyway. No JS for a swap CSS can do. #}
+        <figure class="ws-hero-media">
+          <img class="ws-hero-media-motion" src="{{ cover.media }}" alt="" loading="lazy">
+            {% if cover.poster %}
+            <img class="ws-hero-media-still" src="{{ cover.poster }}" alt="" loading="lazy">
+            {% endif %}
+        </figure>
+        {% endif %}
     </div>
   </div>
 
-  <nav class="ws-stepper ws-stepper-parts" aria-label="Workshop parts">
+  <div class="container ws-page">
+
+  <nav class="ws-stepper ws-stepper-parts" aria-label="{{ _("Workshop parts") }}">
     {% for part in parts %}
       {{ chip("part-" ~ part.index, part.name, part.state,
               badge="%d/%d" % (part.done, part.total) if part.total else "") }}
@@ -50,7 +103,7 @@
          happens whenever a document holds a single chapter. Keep the counter —
          that is the part of this line carrying information. #}
       <h2 class="ws-part-title{% if part.name == page_title %} ws-part-title-quiet{% endif %}">
-        {% if part.name != page_title %}{{ part.name }}{% endif %}
+        {% if part.name != page_title %}<span class="epi-title-cursor">{{ part.name }}</span>{% endif %}
         {% if part.total %}<span class="ws-part-count">{{ part.done }}/{{ part.total }}</span>{% endif %}
       </h2>
 
@@ -63,13 +116,13 @@
            behind a click is exactly the bug this page had (PLAN.md §24). So it
            opens by default and remembers being shut, per participant. #}
         <details class="ws-part-lead" data-lead="{{ part.name }}" open>
-          <summary class="ws-part-lead-summary">Introduction</summary>
+          <summary class="ws-part-lead-summary">{% trans %}Introduction{% endtrans %}</summary>
           <div class="ws-part-lead-body challenge-desc">{{ part.lead }}</div>
         </details>
       {% endif %}
 
       {% if part.steps | length > 1 %}
-        <nav class="ws-stepper ws-stepper-steps" aria-label="Steps of {{ part.name }}">
+        <nav class="ws-stepper ws-stepper-steps" aria-label="{{ _("Steps of %(part)s", part=part.name) }}">
           {% for step in part.steps %}
             {{ chip("step-" ~ step.id, step.name, step.state) }}
           {% endfor %}
@@ -90,9 +143,9 @@
                reads as a bug rather than as "these four are yours to skip". #}
             {% if step.optional %}
               <span class="ws-step-bonus"
-                    title="Optional — it does not count towards your progress">Bonus</span>
+                    title="{{ _("Optional — it does not count towards your progress") }}">{% trans %}Bonus{% endtrans %}</span>
             {% endif %}
-            {% if step.points %}<span class="ws-step-meta">{{ step.points }} pts</span>{% endif %}
+            {% if step.points %}<span class="ws-step-meta">{{ _("%(n)s pts", n=step.points) }}</span>{% endif %}
           </summary>
           <div class="ws-step-body">
             {% include "workshop_step_body.html" %}
@@ -102,6 +155,38 @@
     </section>
   {% endfor %}
 
+  {% if document_scoped %}
+    {# The in-page stepper above only ever links within this document — see
+       page.py's _render for why this exists: a participant who just finished
+       the last step here used to have no forward cue at all.
+
+       Rendered on every document-scoped view and revealed by `hidden`, not
+       gated by `{% if %}`: solving a step patches the page in place rather
+       than reloading it, so a server-only section would appear on the next
+       page load — every time except the one that matters. The server still
+       owns what it says; assets/workshop_page.js owns only whether it shows,
+       off the counters it already computes. `aria-live` then announces it on
+       reveal, which is what it was there for. #}
+    {# The badge is a class, not a character: the state glyphs on this page are
+       drawn from Font Awesome so a two-colour system never has a four-colour
+       emoji dropped into it, and this is the largest one on the page. #}
+    <section class="ws-next-doc{% if not next_doc %} ws-next-doc-final{% endif %}"
+             aria-live="polite"
+             {% if not document_complete %}hidden{% endif %}>
+      <div class="ws-next-doc-badge" aria-hidden="true"></div>
+      {% if next_doc %}
+        <p class="ws-next-doc-lead">{% trans %}Part complete.{% endtrans %}</p>
+        <a class="btn ws-next-doc-link" href="/workshop/{{ next_doc.slug }}">
+          <span>{{ _("Next part: %(title)s", title=next_doc.title) }}</span>
+          <i class="ws-next-doc-arrow" aria-hidden="true"></i>
+        </a>
+      {% else %}
+        <p class="ws-next-doc-lead ws-next-doc-done">{% trans %}Workshop complete, nice work.{% endtrans %}</p>
+      {% endif %}
+    </section>
+  {% endif %}
+
+  </div>
 </div>
 
 {% if runtime %}
@@ -137,8 +222,33 @@
 {% endif %}
 {% endblock %}
 
+
 {% block scripts %}
   {{ super() }}
+
+  {# Page-scoped data: the subject's cover, for the mascot in a reward float.
+     The strings live in the shell's own island (templates/navbar.html) so the
+     globally-registered scripts can read them too. #}
+  <script type="application/json" id="ws-page-data">
+    {{ {"cover": cover or {}} | tojson }}
+  </script>
+  {# Both before workshop_page.js and both `defer`, so they execute in document
+     order and the module is there when a solve fires. NOT registered through
+     `register_plugin_script`: that injects into {{ Plugins.scripts }} on every
+     core page — /login, /setup, /scoreboard would all download a confetti
+     bundle they can never fire — and that block is rendered AFTER this one, so
+     a globally-registered module would run after its caller.
+
+     confetti.browser.js is a gitignored build artifact: tools/build_vendor.sh
+     fetches it at a pinned version with its sha256 checked. Absent, the page
+     works and celebrate.js simply draws no burst. #}
+  <script defer src="/plugins/workshop/assets/vendor/confetti.browser.js"></script>
+  {# The plugin's own copy of the highlighter the core theme uses. The core
+     highlights `pre code` once at load and keeps lolight module-local, so every
+     step body this page fetches after a solve came back unhighlighted. Same
+     pinned-and-checksummed mechanism, same gitignored output directory. #}
+  <script defer src="/plugins/workshop/assets/vendor/lolight.min.js"></script>
+  <script defer src="/plugins/workshop/assets/celebrate.js"></script>
   <script defer src="/plugins/workshop/assets/workshop_page.js"></script>
   {% if runtime %}<script defer src="/plugins/workshop/assets/runtime.js"></script>{% endif %}
 {% endblock %}

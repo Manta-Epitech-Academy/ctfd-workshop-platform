@@ -112,6 +112,69 @@ documents:                  # reading order; replaces both documents[] and toc[]
 skills_framework: "https://github.com/Manta-Epitech-Academy/ref_comp"  # pinned ref optional
 ```
 
+### 3.2b `cover:` — how a subject shows its face
+
+A workshop's front page used to render a title on an empty background. Every
+subject already carried a one-line `project.summary` that nothing displayed, and
+almost all of them open with a screenshot. So the platform now shows an accroche
+and a picture at the top of the workshop — and the point of writing it down here
+is that **the subject supplies a sentence and a file, and never a layout**.
+
+```yaml
+cover:
+  media: img/jeu-demo.gif      # a still or an animation
+  poster: img/jeu-demo.png     # optional still, see "reduced motion" below
+  tagline: "Ton fantôme ne bouge pas. À toi de lui apprendre à chasser."
+  mascot: img/fantome.png      # optional, used by the platform's reward moments
+```
+
+No size, no crop, no alignment, no class. The crop, the frame, the type scale,
+the breakpoint at which the picture moves under the words, and the rule about
+motion are all the platform's, which is what makes four subjects arrive looking
+like one platform instead of four.
+
+**Three levels, and only the first costs you anything.**
+
+| Level | What you write | What the participant sees |
+|---|---|---|
+| Nothing | — | Accroche from `project.summary`, picture = the first image of your `entrypoint` document. |
+| `cover:` in `subject.yaml` | three lines | Your sentence, your chosen frame. |
+| `cover:` under a document's `#` | three lines | That part gets its own promise and its own picture. |
+
+The derived level is the floor, not a fallback nobody meant: it is why no
+subject can be blank, and why declaring a cover is an improvement rather than a
+prerequisite. A part with no cover of its own shows the subject's picture but
+not the subject's tagline — that sentence is the front door's promise about the
+whole subject, and repeated over each part it stops being read.
+
+**A `cover:` path resolves against the subject root, and that is a different
+rule from §3.8.** Images inside a document resolve relative to *that document*,
+because that is how every markdown renderer resolves them and what you see on
+GitHub is what imports. `subject.yaml` has no document to be relative to, so its
+paths start at the repo root. Today the two coincide for every converted subject
+because their `.md` files sit at the root; they stop coinciding the day one puts
+its documents in a subdirectory. A cover declared under a document's heading is
+document-relative, like everything else written inside one.
+
+Otherwise `cover` images are ordinary assets: §3.8 applies in full — repo-
+relative, never hotlinked, uploaded once and content-hashed by the importer.
+
+**Reduced motion.** An animated GIF cannot be paused, so a participant whose
+system asks for reduced motion gets the animation anyway. Declare `poster` and
+the platform shows that still to them instead. The linter says so when it sees
+a GIF with no poster.
+
+**The linter advises here, it does not refuse.** No block at all, a missing
+tagline, an overlong one, a GIF without a still: those print as `warn` and
+import anyway. "Your cover has no accroche" must never be the reason a workshop
+fails to load ten minutes before a session. You get **one** message per
+situation — a subject that declares no cover hears about the block, not also
+about the tagline inside the block it does not have.
+
+The one thing that *is* refused is a `cover` path pointing at a file that is not
+there. That is §3.8's rule, not a new one: a broken image is a hole in the page,
+and the whole point of linting paths is to find it before a session does.
+
 ### 3.3 Section metadata — HTML comments anchored to headings
 
 HTML comments are invisible in GitHub, GitLab, VS Code preview, pandoc — every mainstream

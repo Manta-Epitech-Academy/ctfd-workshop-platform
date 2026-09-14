@@ -13,14 +13,14 @@
     {% if step.blocked_by %}
       {# The blocker is often on another part's page, so it is a link: naming a
          step the participant cannot see from here is a dead end. #}
-      Finish
+      {% trans %}Finish{% endtrans %}
       {%- for b in step.blocked_by %}
         “<a href="{{ b.href or '#step-' ~ b.id }}">{{ b.name }}</a>”
         {%- if not loop.last %},{% endif %}
       {%- endfor %}
-      to unlock this step.
+      {% trans %}to unlock this step.{% endtrans %}
     {% else %}
-      This step is not available yet.
+      {% trans %}This step is not available yet.{% endtrans %}
     {% endif %}
   </div>
 {% else %}
@@ -29,7 +29,7 @@
        instead of the statement: a step that says "reuse the code above" needs
        the code above to be there (PLAN.md §25.7, §24.4). #}
     <details class="ws-summary" data-step="{{ step.id }}" open>
-      <summary>In short</summary>
+      <summary>{% trans %}In short{% endtrans %}</summary>
       <div class="ws-summary-body challenge-desc">{{ step.body.summary }}</div>
     </details>
   {% endif %}
@@ -39,7 +39,7 @@
   {% for hint in step.body.hints %}
     <details class="ws-hint" data-hint-id="{{ hint.id }}" data-cost="{{ hint.cost }}"
              {% if hint.unlocked %}data-loaded="1"{% endif %}>
-      <summary>{% if hint.cost %}Hint ({{ hint.cost }} points){% else %}View hint{% endif %}</summary>
+      <summary>{% if hint.cost %}{{ _("Hint (%(n)s points)", n=hint.cost) }}{% else %}{% trans %}View hint{% endtrans %}{% endif %}</summary>
       <div class="ws-hint-body challenge-hints">{{ hint.html or "" }}</div>
     </details>
   {% endfor %}
@@ -50,7 +50,7 @@
   {% elif step.body.quiz_type == 'rating' %}
     {# Every part ends with one of these, so only the last may claim to be the
        end of the workshop. The sync names it (`workshop_final_step`). #}
-    {% set rating_q = "How was this workshop?" if step.final else "How was this part?" %}
+    {% set rating_q = _("How was this workshop?") if step.final else _("How was this part?") %}
     {# The closing step: the rating IS the submission, so the step is solved at
        the moment the feedback lands — never before. Going through CTFd's
        ratings endpoint instead would mean solving first (it refuses a rating
@@ -63,25 +63,25 @@
       <div class="ws-rating ws-rating-final" data-challenge-id="{{ step.id }}"
            data-value="{{ step.body.rating.value or '' }}">
         <p class="ws-rating-q">{{ rating_q }}</p>
-        <button type="button" class="ws-rating-btn" data-rating="1" aria-label="Good">👍</button>
-        <button type="button" class="ws-rating-btn" data-rating="-1" aria-label="Not good">👎</button>
+        <button type="button" class="ws-rating-btn" data-rating="1" aria-label="{{ _("Good") }}">👍</button>
+        <button type="button" class="ws-rating-btn" data-rating="-1" aria-label="{{ _("Not good") }}">👎</button>
         <input type="text" class="form-control ws-rating-review" maxlength="2000"
                value="{{ step.body.rating.review }}"
-               placeholder="Anything to add? (optional)">
-        <button type="button" class="btn btn-outline-secondary btn-sm ws-rating-save">Save</button>
+               placeholder="{{ _("Anything to add? (optional)") }}">
+        <button type="button" class="btn btn-outline-secondary btn-sm ws-rating-save">{% trans %}Save{% endtrans %}</button>
         <span class="ws-rating-thanks" role="status" aria-live="polite"></span>
       </div>
     {% else %}
       <form class="ws-form" data-challenge-id="{{ step.id }}" data-answer-kind="rating">
         <div class="ws-rating ws-rating-final" data-value="">
           <p class="ws-rating-q">{{ rating_q }}</p>
-          <button type="button" class="ws-rating-btn" data-rating="1" aria-label="Good">👍</button>
-          <button type="button" class="ws-rating-btn" data-rating="-1" aria-label="Not good">👎</button>
+          <button type="button" class="ws-rating-btn" data-rating="1" aria-label="{{ _("Good") }}">👍</button>
+          <button type="button" class="ws-rating-btn" data-rating="-1" aria-label="{{ _("Not good") }}">👎</button>
           <input type="text" class="form-control ws-rating-review" maxlength="2000"
-                 placeholder="Anything to add? (optional)">
+                 placeholder="{{ _("Anything to add? (optional)") }}">
         </div>
         <div class="ws-form-actions">
-          <button type="submit" class="btn btn-primary ws-submit-btn">Send feedback</button>
+          <button type="submit" class="btn btn-primary ws-submit-btn">{% trans %}Send feedback{% endtrans %}</button>
           <span class="ws-feedback" role="status" aria-live="polite"></span>
         </div>
       </form>
@@ -89,7 +89,7 @@
 
   {% elif step.solved %}
     <div class="ws-solved-note">
-      <span>✓ Completed</span>
+      <span>✓ {% trans %}Completed{% endtrans %}</span>
       {% if step.body.rating.enabled %}
         {# A rating of the step's content (it feeds content-quality feedback),
            kept quiet: one muted line and two buttons until someone actually
@@ -99,14 +99,14 @@
         <span class="ws-rating" data-challenge-id="{{ step.id }}"
               data-value="{{ step.body.rating.value or '' }}"
               data-review="{{ step.body.rating.review }}">
-          <span class="ws-rating-q">Rate this step</span>
+          <span class="ws-rating-q">{% trans %}Rate this step{% endtrans %}</span>
           <button type="button" class="ws-rating-btn" data-rating="1"
-                  aria-label="Good">👍</button>
+                  aria-label="{{ _("Good") }}">👍</button>
           <button type="button" class="ws-rating-btn" data-rating="-1"
-                  aria-label="Poor">👎</button>
+                  aria-label="{{ _("Poor") }}">👎</button>
           <input type="text" class="form-control form-control-sm ws-rating-review"
                  maxlength="2000" value="{{ step.body.rating.review }}"
-                 placeholder="Why? (optional)" hidden>
+                 placeholder="{{ _("Why? (optional)") }}" hidden>
           <span class="ws-rating-thanks" role="status" aria-live="polite"></span>
         </span>
       {% endif %}
@@ -170,14 +170,14 @@
 
       {% else %}
         <input class="form-control ws-answer" type="text" autocomplete="off"
-               placeholder="{{ {'code': 'Validation code', 'token': 'Token'}.get(step.body.answer_kind, 'Answer') }}">
+               placeholder="{{ {'code': _('Validation code'), 'token': _('Token')}.get(step.body.answer_kind, _('Answer')) }}">
       {% endif %}
 
       <div class="ws-form-actions">
         <button type="submit" class="btn btn-primary ws-submit-btn">
-          {%- if step.body.answer_kind == 'ack' %}I have read this
-          {%- elif step.body.answer_kind == 'done' %}Mark as done
-          {%- else %}Submit{% endif -%}
+          {%- if step.body.answer_kind == 'ack' %}{% trans %}I have read this{% endtrans %}
+          {%- elif step.body.answer_kind == 'done' %}{% trans %}Mark as done{% endtrans %}
+          {%- else %}{% trans %}Submit{% endtrans %}{% endif -%}
         </button>
         <span class="ws-feedback" role="status" aria-live="polite"></span>
       </div>

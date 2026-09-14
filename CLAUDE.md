@@ -6,7 +6,7 @@ CTFd's own frontend, extended by a plugin, is the participant UI.
 **Status: on `main`.** (The branch was called `mockup` until 2026-08-18; it stopped being one
 long ago.) Phases 0–2 are done: a `workshop` plugin (quiz
 challenge type, challenge-graph endpoint, single-page workshop view), a subject-repo → CTFd
-content pipeline, and a validation suite (`scripts/phase2_validate.py`, 151 checks against a
+content pipeline, and a validation suite (`scripts/phase2_validate.py`, 152 checks against a
 fresh instance). A **purpose-built SPA is on hold** — PLAN.md §13 replaced the modal-per-
 challenge board with a single-page workshop view inside CTFd, and §14 embeds the runtimes that
 already exist as standalone web apps instead of rebuilding them.
@@ -14,13 +14,23 @@ already exist as standalone web apps instead of rebuilding them.
 `PLAN.md` is the design of record — read it before proposing architecture. §13 (participant UI)
 and §14 (runtime embedding) are the two most recent decisions.
 
+**Visual work: read [`DESIGN.md`](./DESIGN.md) first.** Token contract (colors, fonts, radius),
+the Bootstrap component classes that bake literal color and ignore a variable remap, and why code
+highlighting is `.ll-*` not `.hljs-*`. Its one implementation is
+`plugins/workshop/assets/epitech-theme.css` — plugin-injected, `CTFd/` untouched, same rule as the
+rest of this file.
+
 ## Repo layout
 
 ```
 CTFd/               git submodule → kevin-cazal/CTFd (fork of Manta-Epitech-Academy/CTFd), master
 plugins/workshop/   the CTFd plugin — bind-mounted into the image, never a core edit
 tools/              ws_parser.py (shared parser/linter), sync_subject.py (repo → CTFd import)
-content/            converted subject repos (content/pypong = pypong_new in convention 2.0)
+content/            GONE from this checkout, and not tracked on any branch — the subjects
+                    live in their own `*_subject` repos (deploy/instances.yaml lists them)
+                    and an instance imports from GitHub through /admin/workshop/sync.
+                    scripts/phase2_validate.py still syncs `content/pypong`, so its
+                    instance half cannot run here until that is reconciled.
 scripts/            phase*_validate.py — the regression suite, needs a FRESH instance
 docs/               CONTENT_CONVENTION.md — the authoring convention
 docker-compose.yml  stock CTFd on :8080 (8000/8001 are taken by ctfd_replication)
@@ -144,12 +154,32 @@ Derive from existing classes from CTFd, do not re-invent the wheel.
 
 ### Document the feature you add to CTFd so it can be ported easily to future version of CTFd
 
-### All platform-generated strings in the CTFd interface must be in English
+### Platform strings: English in the source, French on the participant path
 
-Every string the platform itself emits into the CTFd UI (buttons, labels, alerts, plugin
-messages, injected notes) stays **English** for now. Proper i18n comes in a later phase and will
-localize them. This does **not** apply to workshop *content* authored in the subject repos, which
-stays in the audience's language (French) — that is data, not interface.
+Every string the platform emits is **written in English in the source** and translated through
+gettext. That has not changed: an English msgid is still what you type.
+
+What changed is that the i18n phase happened, for the participant path only — the workshop index,
+a part page, a step and its controls, the shell around them. Those are wrapped in `{% trans %}` /
+`gettext` and carry a French translation in `plugins/workshop/translations/`, and an instance is
+set to `fr` by default (`tools/provision.py`). The audience is French lycéens, under 18, arriving
+from Jump — which speaks to them in French, with emoji. English chrome around French content was
+the single loudest thing telling them they had left.
+
+Three rules follow:
+
+- **Add a string, wrap it.** `{% trans %}` in a template, `gettext` in a request, `lazy_gettext`
+  for anything built at import time (`page.py`'s `NOTES` and `CARD_TEXT`). A bare literal is
+  English forever and no linter will say so.
+- **The admin panel stays untranslated.** Its audience is us and the instructors, one locale is
+  one less thing to keep in sync, and none of it is in the catalogue.
+- **Strings CTFd already translates are left alone.** flask-babel merges catalogues, so
+  "Scoreboard", "Settings" and "Logout" take upstream's French for free. Our catalogue carries
+  only what CTFd does not have — plus `Finish`, where upstream's "Fin" means the end of a CTF and
+  ours means "termine this first".
+
+Workshop *content* is unaffected and stays in the audience's language: that is data, not
+interface.
 
 
 ## The frontend should be heavily focused on UI/UX

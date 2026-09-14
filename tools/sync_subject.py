@@ -42,8 +42,8 @@ import requests
 import yaml
 
 sys.path.insert(0, str(Path(__file__).parent))
-from ws_parser import (load_flags, load_quiz_answers, lint,  # noqa: E402
-                       parse_subject, rewrite_asset_refs)
+from ws_parser import (load_flags, load_quiz_answers, lint_all,  # noqa: E402
+                       parse_subject, rewrite_asset_refs, rewrite_cover_refs)
 
 # The note under a step ("ask the instructor for the code", "paste the token
 # here") is NOT written into the description any more. It depends on the
@@ -421,7 +421,13 @@ def asset_location(subject_slug, asset):
 
 
 def upload_assets(ctfd, subject):
-    """Upload every referenced image once; return {markdown ref -> /files URL}.
+    """Upload every referenced image once; return {Asset.key -> /files URL}.
+
+    Keyed on `Asset.key`, not on `asset.ref`: the ref is the path as written,
+    and the same path written in subject.yaml and inside a document names two
+    different files (ws_parser.Asset). Keyed on the ref, one of the two would
+    silently take the other's URL, and a cover looking itself up by its own key
+    would find nothing at all.
 
     Type `standard`, not `challenge`: challenge files are gated by CTF time and
     challenge visibility (CTFd/CTFd/views.py:400), so an inline image would 403
@@ -434,7 +440,7 @@ def upload_assets(ctfd, subject):
         if not ctfd.api("GET", f"/files?location={location}"):
             ctfd.upload(asset.path, location)
             uploaded += 1
-        mapping[asset.ref] = f"/files/{location}"
+        mapping[asset.key] = f"/files/{location}"
     if subject.assets:
         print(f"images: {len(subject.assets)} referenced, {uploaded} uploaded, "
               f"{len(subject.assets) - uploaded} already present")
@@ -449,17 +455,66 @@ def apply_asset_rewrite(subject, mapping):
     """
     if not mapping:
         return
+    # `rewrite_asset_refs` matches on the path as written, so it needs the
+    # markdown view of the mapping: the images a document body can name, keyed
+    # by the string it names them with. A cover is not in here — it is a dict
+    # value, not image syntax, and it is resolved by key below.
+    md_map = {a.ref: mapping[a.key] for a in subject.assets
+              if a.in_markdown and a.key in mapping}
     for doc in subject.documents:
-        doc.body_md = rewrite_asset_refs(doc.body_md, mapping)
-        doc.trailing_md = rewrite_asset_refs(doc.trailing_md, mapping)
+        doc.body_md = rewrite_asset_refs(doc.body_md, md_map)
+        doc.trailing_md = rewrite_asset_refs(doc.trailing_md, md_map)
     for ex in subject.exercises:
-        ex.body_md = rewrite_asset_refs(ex.body_md, mapping)
-        ex.context_md = rewrite_asset_refs(ex.context_md, mapping)
-        ex.resume_md = rewrite_asset_refs(ex.resume_md, mapping)
+        ex.body_md = rewrite_asset_refs(ex.body_md, md_map)
+        ex.context_md = rewrite_asset_refs(ex.context_md, md_map)
+        ex.resume_md = rewrite_asset_refs(ex.resume_md, md_map)
         for h in ex.hints:
-            h.content_md = rewrite_asset_refs(h.content_md, mapping)
+            h.content_md = rewrite_asset_refs(h.content_md, md_map)
     for q in subject.quizzes:
-        q.question = rewrite_asset_refs(q.question, mapping)
+        q.question = rewrite_asset_refs(q.question, md_map)
+    # Not a markdown body — a `cover:` is plain dict values, so it needs a
+    # lookup rather than the image-syntax regex. It belongs here anyway: this
+    # function exists so that "a body added to the importer later cannot
+    # quietly ship broken image links", and the cover is exactly that.
+    subject.cover = rewrite_cover_refs(subject.cover, mapping)
+    for doc in subject.documents:
+        doc.cover = rewrite_cover_refs(doc.cover, mapping, document=doc.path)
+
+
+def derive_cover(subject, mapping):
+    """What the platform shows for a subject that declared no `cover:`.
+
+    The floor, not the ceiling. Every subject already carries a one-line
+    `project.summary` and almost every one opens with an image, so a subject
+    whose author has done nothing still gets a band with a sentence and a
+    picture in it — which is the whole point of normalising this: no subject can
+    be blank, and declaring a cover is an improvement rather than a prerequisite.
+
+    Only fills what is missing, so a cover that declares a tagline and no image
+    still gets the image.
+
+    `mapping` is `upload_assets`' {Asset.key -> /files URL}. A derived image is
+    borrowed from a document body, so it is already uploaded — but what the
+    parser holds is the repo-relative path it was written with, and putting THAT
+    in the config ships a cover the browser resolves against the page URL and
+    404s. It is resolved here rather than by a later pass because this is the
+    only place that knows which asset was borrowed.
+    """
+    cover = dict(subject.cover or {})
+    cover.setdefault("tagline", (subject.manifest.get("project") or {}).get("summary") or "")
+
+    if not cover.get("media"):
+        # The first image of the entrypoint document: the one the author put at
+        # the top of the page a participant reads first, which is as close to
+        # "the picture of this subject" as anything we can infer.
+        entry = (subject.manifest.get("project") or {}).get("entrypoint")
+        for asset in subject.assets:
+            if entry and entry in asset.documents and asset.key in mapping:
+                cover["media"] = mapping[asset.key]
+                cover["derived"] = True
+                break
+
+    return {k: v for k, v in cover.items() if v}
 
 
 def strip_leading_title(body_md, title):
@@ -510,12 +565,16 @@ def replace_hints(ctfd, cid, hints):
             "challenge_id": cid, "content": h.content_md, "cost": h.cost})
 
 
-def write_instance_config(ctfd, documents_cfg, optional_ids, free_ids, final_step):
-    """The four instance-wide settings the workshop page reads back.
+def write_instance_config(ctfd, documents_cfg, optional_ids, free_ids, final_step,
+                          *, subjects_cfg=None):
+    """The instance-wide settings the workshop page reads back.
 
     Written in one place because they describe the *instance*, not a subject:
     a workshop of several subjects accumulates them and calls this once
     (PLAN.md §19.1), and a lone subject calls it with its own.
+
+    `subjects_cfg` is keyword-only and defaults to None so the signature stays
+    additive for anything that still calls this positionally.
     """
     # Parts, in board order, each naming the subject it belongs to.
     ctfd.api("PATCH", "/configs/workshop_documents",
@@ -533,6 +592,15 @@ def write_instance_config(ctfd, documents_cfg, optional_ids, free_ids, final_ste
     # subject: only that one asks how the workshop went (PLAN.md §17).
     ctfd.api("PATCH", "/configs/workshop_final_step",
              json={"value": json.dumps(final_step)})
+    # How each subject presents itself: its name, its accroche and its cover
+    # image (§3.2b). Keyed by subject slug rather than folded into
+    # `workshop_documents`, whose entries are per *document* — a subject's cover
+    # stored once per document would be the same blob N times and would raise
+    # "which one wins" the day two disagreed. The documents already carry
+    # `subject`, so the join exists.
+    if subjects_cfg is not None:
+        ctfd.api("PATCH", "/configs/workshop_subjects",
+                 json={"value": json.dumps(subjects_cfg)})
 
 
 def sync(subject_dir, url, admin_user, admin_pass, codes_path=None, *,
@@ -550,11 +618,16 @@ def sync(subject_dir, url, admin_user, admin_pass, codes_path=None, *,
     challenge the subject's intro must wait for, which is how an advanced
     subject sits behind the starter.
     """
-    problems = lint(subject_dir)
+    problems, advice = lint_all(subject_dir)
     if problems:
         for p in problems:
             print(f"FAIL {p}", file=sys.stderr)
         sys.exit(1)
+    # Advice, not a gate. It is printed on the way past because the admin sync
+    # page captures this stdout and shows it back — telling an author their
+    # subject has no accroche is only useful where they will read it.
+    for a in advice:
+        print(f"warn {a}")
 
     subject = parse_subject(subject_dir)
     answers = load_quiz_answers(subject_dir)
@@ -566,7 +639,9 @@ def sync(subject_dir, url, admin_user, admin_pass, codes_path=None, *,
     stats = {"created": 0, "updated": 0}
 
     # Images first: every body sent below is rewritten to the uploaded URLs.
-    apply_asset_rewrite(subject, upload_assets(ctfd, subject))
+    # The mapping is kept — `derive_cover` further down resolves through it too.
+    asset_urls = upload_assets(ctfd, subject)
+    apply_asset_rewrite(subject, asset_urls)
 
     # Validation codes (instructor sheet). A code, once handed out, must survive
     # every later sync, so it is only ever generated for an exercise that has
@@ -813,13 +888,13 @@ def sync(subject_dir, url, admin_user, admin_pass, codes_path=None, *,
         ctfd.api("PATCH", f"/challenges/{cid}", json={
             "requirements": {"prerequisites": [gate], "anonymize": True}})
 
-    # 5. One route per document, so each part gets its own navbar entry:
-    #   <CTF name> | Parcours | <part 1> | … | <part N> | Users | Scoreboard | …
-    # The Page exists to produce the link — CTFd builds the user menu from Pages
-    # plus plugin-registered entries (CTFd/CTFd/plugins/__init__.py:153) — while
-    # the route itself is served by plugins/workshop/page.py, whose rule beats
-    # CTFd's `/<path:route>` catch-all. The Page body is a plain link, so the
-    # entry still goes somewhere sane if the plugin is ever unloaded.
+    # 5. One route per document. The Page exists to produce the *route*, not a
+    # navbar link — CTFd builds the user menu from Pages plus plugin-registered
+    # entries (CTFd/CTFd/plugins/__init__.py:153), and every part Page is
+    # `hidden` (below): it stays reachable, it just never shows there. Route
+    # itself is served by plugins/workshop/page.py, whose rule beats CTFd's
+    # `/<path:route>` catch-all. The Page body is a plain link, so the entry
+    # still goes somewhere sane if the plugin is ever unloaded.
     documents_cfg = []
     for doc in subject.documents:
         if not doc.exercises:
@@ -837,19 +912,36 @@ def sync(subject_dir, url, admin_user, admin_pass, codes_path=None, *,
         if doc.path in outro_ids:
             ids.append(outro_ids[doc.path])
         route = f"workshop/{route_slug}"
-        documents_cfg.append({"slug": route_slug, "title": doc.title, "route": route,
-                              "subject": subject.slug, "subject_title": subject.name,
-                              "challenge_ids": ids})
+        entry = {"slug": route_slug, "title": doc.title, "route": route,
+                 "subject": subject.slug, "subject_title": subject.name,
+                 "challenge_ids": ids}
+        # Only when the part declares one of its own. The subject's cover lives
+        # in `workshop_subjects`, keyed once — storing it again in every
+        # document would be the same blob N times and would raise "which one
+        # wins" the day two of them disagreed.
+        if doc.cover:
+            entry["cover"] = doc.cover
+        documents_cfg.append(entry)
         upsert_page(ctfd, route, {
             "title": doc.title, "route": route,
             "content": f"[{doc.title}](/{route})",
             "format": "markdown", "draft": False,
-            # One navbar entry per part is right for a single subject and wrong
-            # for a workshop: five parts wrap CTFd's fixed navbar onto three
-            # lines, which then covers the page heading. In a workshop the index
-            # is the hub (PLAN.md §19, D4), so the parts stay out of the menu —
-            # `hidden` keeps the route, it only drops the link.
-            "hidden": not standalone,
+            # Always hidden, standalone or not: a navbar entry per part wraps
+            # CTFd's fixed navbar onto several lines the moment a subject has
+            # more than one or two parts (Pac-Man's "Atelier 1"/"Atelier 2"
+            # did exactly this), and it never has to — the navbar-brand logo
+            # auto-redirects every signed-in participant through `/workshop`
+            # (landing.py) on every page, independent of any Page's `hidden`
+            # flag, and `/workshop` already renders a proper card index with
+            # per-part progress for 2+ documents (page.py, workshop_index.html)
+            # or forwards straight through for exactly one. Nobody is stranded
+            # either way, so there is no case left for the standalone
+            # exception to protect — dropping it also means a subject that is
+            # standalone today and grows a second part later doesn't silently
+            # regress into the same wrap. `hidden` keeps the route, it only
+            # drops the link; Parcours and Challenges stay in the navbar
+            # unconditionally as the two other ways in.
+            "hidden": True,
             "auth_required": True,
         })
         print(f"page: {doc.title!r} -> /{route} ({len(ids)} steps)")
@@ -877,8 +969,15 @@ def sync(subject_dir, url, admin_user, admin_pass, codes_path=None, *,
     # In a workshop these four are the caller's to accumulate: each is
     # instance-wide, so a second subject writing them would erase the first
     # (PLAN.md §19.1).
+    cover = derive_cover(subject, asset_urls)
+    subject_cfg = {
+        "title": subject.name,
+        "summary": (subject.manifest.get("project") or {}).get("summary") or "",
+        **cover,
+    }
     if standalone:
-        write_instance_config(ctfd, documents_cfg, optional_ids, free_ids, final)
+        write_instance_config(ctfd, documents_cfg, optional_ids, free_ids, final,
+                              subjects_cfg={subject.slug: subject_cfg})
     if optional_ids:
         print(f"optional: {len(optional_ids)} step(s) excluded from the counters")
     if free_ids:
@@ -900,6 +999,9 @@ def sync(subject_dir, url, admin_user, admin_pass, codes_path=None, *,
         # subject waits for, and what ends the workshop if it is the last one.
         "final_step": final,
         "runtime": subject.manifest.get("runtime") or {},
+        # Declared or derived, already pointed at uploaded URLs. The workshop
+        # caller accumulates these the way it accumulates runtime params.
+        "cover": subject_cfg,
         "last_position": last_position,
         "stats": stats,
     }

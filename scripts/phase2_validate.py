@@ -42,6 +42,21 @@ ATTENDEE = {"name": "alice", "email": "alice@example.com", "password": "phase2-a
 checks_run = 0
 
 
+def capture(pattern, text, label, flags=0):
+    """First group of `pattern`, or a clean [FAIL] instead of an AttributeError.
+
+    Three assertions below used to do `re.search(...).group(1)` bare, so the
+    moment the markup moved the suite raised instead of reporting — which is
+    exactly the case they exist to catch, and exactly what happened at the last
+    reskin.
+    """
+    m = re.search(pattern, text, flags)
+    if m is None:
+        check(False, f"{label} (pattern {pattern!r} matched nothing — markup moved?)")
+        return None
+    return m.group(1)
+
+
 def check(cond, label):
     global checks_run
     checks_run += 1
@@ -81,6 +96,15 @@ def run_setup():
         "_submit": "Finish", "nonce": nonce,
     })
     check(r.status_code == 200, "setup completed")
+    # What tools/provision.py sets on every real instance. The participant path
+    # is translated, so a suite running against an English instance would be
+    # asserting copy nobody ships.
+    nonce = get_nonce(s, "/admin/config")
+    s.patch(BASE + "/api/v1/configs", json={"default_locale": "fr"},
+            headers={"CSRF-Token": nonce, "Content-Type": "application/json"})
+    check(s.get(BASE + "/login").text.count("Mot de passe") > 0
+          or "S'identifier" in s.get(BASE + "/login").text,
+          "the instance serves French, as a provisioned one does")
 
 
 def register_attendee():
@@ -282,7 +306,7 @@ def main():
     detail = api(s, "GET", f"/challenges/{intro_id}").json()["data"]
     check(detail.get("rating", {}).get("value") == 1, "the rating is stored and read back")
     body = s.get(BASE + f"/api/v1/workshop/step/{intro_id}").json()["data"]["html"]
-    check("ws-rating" in body and "Rate this step" in body,
+    check("ws-rating" in body and "Note cette étape" in body,
           "a solved step offers the quiet inline rating")
     check('class="form-control form-control-sm ws-rating-review"' in body
           and "hidden" in body.split("ws-rating-review")[1][:120],
@@ -373,9 +397,18 @@ def main():
     page = s.get(BASE + "/workshop")
     check(page.status_code == 200, "workshop page served to an attendee")
     check('id="ws-workshop"' in page.text, "workshop page renders its root")
-    # The sync creates one Page per part, which is what puts it in the navbar;
-    # there is no static "Workshop" entry (it would always sort after them).
-    check('href="/workshop/pypong"' in page.text, "navbar links to the part page")
+    # The sync creates one Page per part for its *route*, never for a navbar
+    # entry: every part Page is `hidden` (tools/sync_subject.py), which keeps
+    # the route and drops only the link, so a subject with several parts cannot
+    # wrap the header onto extra lines. The shell owns the item order outright
+    # and puts its own "Workshop" entry first, which is the way in now
+    # (plugins/workshop/templates/navbar.html).
+    part_page = next((p for p in admin.api("GET", "/pages")
+                      if p["route"] == "workshop/pypong"), None)
+    check(part_page is not None and part_page["hidden"] is True,
+          "the part Page keeps its route but stays out of the navbar")
+    check('class="epi-nav-link' in page.text and 'href="/workshop"' in page.text,
+          "the shell's own Workshop entry is what leads there instead")
     check("Prise en main de TIC-80" in page.text,
           "intro document folded into the page (no separate index visit)")
     check(page.text.count('class="ws-step ws-') >= len(ex_ids) + len(quiz_ids),
@@ -517,7 +550,7 @@ def main():
 
     target = ex_ids["pad-limites"]     # unlocked, unsolved by this attendee
     body = step_html(target)
-    check('data-answer-kind="code"' in body and "ask the instructor" in body,
+    check('data-answer-kind="code"' in body and "l'encadrant" in body,
           "instructor-led: the step asks for the code the instructor reads out")
     check(codes["pad-limites"] not in body,
           "and the code itself never reaches the page")
@@ -526,9 +559,9 @@ def main():
 
     set_mode("self_serve")
     body = step_html(target)
-    check('data-answer-kind="done"' in body and "Mark as done" in body,
+    check('data-answer-kind="done"' in body and "J'ai fini" in body,
           "self-serve: the same step offers a button instead")
-    check("ask the instructor" not in body and 'class="form-control ws-answer"' not in body,
+    check("l'encadrant" not in body and 'class="form-control ws-answer"' not in body,
           "self-serve: no code is asked for, and none is mentioned")
     check(codes["pad-limites"] not in body,
           "self-serve: the code is stored but still never revealed")
@@ -691,10 +724,12 @@ def main():
             attempt(s, cid, submissions[cid])
 
     def counter():
-        m = re.search(r'class="ws-overall-count">([^<]+)<', s.get(BASE + "/workshop").text)
-        return m.group(1).strip()
+        return (capture(r'class="ws-overall-num">([^<]+)<',
+                        s.get(BASE + "/workshop").text,
+                        "the workshop index still renders a ws-overall-num counter")
+                or "").strip()
 
-    check(counter() == "14 / 15", "everything done but the feedback: the bar stops at 14/15")
+    check(counter() == "14/15", "everything done but the feedback: the bar stops at 14/15")
     check(attempt(s, outro_id, "") == "incorrect",
           "an empty rating does not solve the closing step")
     check(attempt(s, outro_id, "lovely") == "incorrect",
@@ -704,10 +739,10 @@ def main():
     # script does.
     check(attempt(s, outro_id, "0") == "incorrect",
           "a bare out-of-range value is refused, not a server error")
-    check(counter() == "14 / 15", "still 14/15 — 100% is unreachable without feedback")
+    check(counter() == "14/15", "still 14/15 — 100% is unreachable without feedback")
     check(attempt(s, outro_id, json.dumps({"value": 1, "review": "clear and well paced"}))
           == "correct", "the rating itself solves the step")
-    check(counter() == "15 / 15", "and only then does the workshop read 100%")
+    check(counter() == "15/15", "and only then does the workshop read 100%")
     detail = api(s, "GET", f"/challenges/{outro_id}").json()["data"]
     check(detail["rating"]["value"] == 1
           and detail["rating"]["review"] == "clear and well paced",
@@ -718,11 +753,39 @@ def main():
     check('value="clear and well paced"' in body and "ws-rating-save" in body,
           "the given rating comes back editable, comment and all")
 
+    print("== The brand band, the cover, and the state glyphs ==")
+    # The band is one surface from the header down to the page title, so it has
+    # to be on a core page and on ours alike (DESIGN.md, "The brand band").
+    for route, what in (("/challenges", "a core page"), ("/workshop", "the workshop index")):
+        page = s.get(BASE + route).text
+        check("epi-header on-dark" in page, f"{what} carries the brand header")
+    index = s.get(BASE + "/workshop").text
+    check("epi-hero" in index, "the workshop index carries the hero band")
+    check('id="ws-i18n"' in index, "the shell ships the strings the scripts read")
+
+    # State glyphs come from CSS alone, so no emoji reaches the markup and the
+    # icon spans stay empty. This is what stops the table drifting across the
+    # four places it used to live in.
+    part = s.get(BASE + "/workshop/pypong").text
+    body = part.split('id="ws-workshop"', 1)[-1]
+    for emoji in ("\U0001f512", "\U0001f4c4"):
+        check(emoji not in body, f"no {emoji!r} in the markup: glyphs come from CSS")
+    check('<span class="ws-step-icon" aria-hidden="true"></span>' in body,
+          "the step icon span is empty and styled by state class")
+
+    # A subject that declared no cover still gets one derived from what it had.
+    subjects = json.loads(admin.api("GET", "/configs/workshop_subjects")["value"])
+    cover = next(iter(subjects.values()))
+    check(cover.get("tagline"), "a subject with no `cover:` still has an accroche")
+    check(cover.get("media", "").startswith("/files/"),
+          "and a picture, uploaded like any other asset")
+    check("ws-hero-media" in index, "which the band actually renders")
+
     print("== A part's opening prose belongs to the part, not to its first step ==")
     page = s.get(BASE + "/workshop/pypong").text
     check("ws-part-lead" in page, "the opening prose renders above the steps")
-    lead = re.search(r'class="ws-part-lead-body[^"]*">(.*?)</details>',
-                     page, re.S).group(1)
+    lead = capture(r'class="ws-part-lead-body[^"]*">(.*?)</details>', page,
+                   "the part lead body is still inside its <details>", re.S) or ""
     lead_text = re.sub(r"<[^>]+>", "", lead).strip()[:60]
     first_step = page.split('class="ws-statement', 1)[1][:1500]
     check(lead_text and lead_text not in first_step,
@@ -762,10 +825,12 @@ def main():
     print("== A part named after the page does not print the title twice ==")
     cid = ex_ids["pad-direction"]
     was = admin.api("GET", f"/challenges/{cid}")["category"]
-    title = re.search(r'class="ws-title">([^<]+)<', page).group(1).strip()
+    title = (capture(r'class="ws-title[^"]*">([^<]+)<', page,
+                     "the part page still carries a ws-title heading") or "").strip()
     admin.api("PATCH", f"/challenges/{cid}", json={"category": title})
     renamed = s.get(BASE + "/workshop/pypong").text
-    heading = re.search(r'class="ws-part-title[^"]*">(.*?)</h2>', renamed, re.S).group(1)
+    heading = capture(r'class="ws-part-title[^"]*">(.*?)</h2>', renamed,
+                      "the part heading is still an h2 with ws-part-title first", re.S) or ""
     check(title not in re.sub(r"<[^>]+>", "", heading),
           "the part heading drops a name identical to the page title")
     check("ws-part-count" in heading, "but keeps the counter, which carries information")
@@ -779,11 +844,11 @@ def main():
     outro_id = int(final_cfg)
     check(outro_id > 0, "the sync names the closing step that ends the subject")
     body = s.get(BASE + f"/api/v1/workshop/step/{outro_id}").json()["data"]["html"]
-    check("How was this workshop?" in body,
+    check("Cet atelier t'a plu ?" in body,
           "the last closing step asks about the workshop")
     admin.api("PATCH", "/configs/workshop_final_step", json={"value": "0"})
     body = s.get(BASE + f"/api/v1/workshop/step/{outro_id}").json()["data"]["html"]
-    check("How was this part?" in body and "How was this workshop?" not in body,
+    check("Cette partie t'a plu ?" in body and "Cet atelier t'a plu ?" not in body,
           "a closing step that is not the last asks about the part instead")
     admin.api("PATCH", "/configs/workshop_final_step", json={"value": str(outro_id)})
 
@@ -791,13 +856,15 @@ def main():
     page_before = s.get(BASE + "/workshop/pypong").text
     check('data-optional="1"' not in page_before,
           "nothing is marked bonus in a subject that declares none")
-    total_before = re.search(r'data-total="(\d+)"', page_before).group(1)
+    total_before = capture(r'data-total="(\d+)"', page_before,
+                           "the page still carries a data-total counter") or "0"
     admin.api("PATCH", "/configs/workshop_optional",
               json={"value": json.dumps([first_ex["id"]])})
     page_after = s.get(BASE + "/workshop/pypong").text
     check('data-optional="1"' in page_after and "ws-step-bonus" in page_after,
           "an optional step is labelled Bonus in the step list, not just in the counter")
-    check(int(re.search(r'data-total="(\d+)"', page_after).group(1)) == int(total_before) - 1,
+    check(int(capture(r'data-total="(\d+)"', page_after,
+                      "the page still carries a data-total counter") or 0) == int(total_before) - 1,
           "and it drops out of the progress total")
     admin.api("PATCH", "/configs/workshop_optional", json={"value": "[]"})
 

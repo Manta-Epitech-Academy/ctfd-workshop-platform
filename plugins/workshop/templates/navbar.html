@@ -1,0 +1,248 @@
+{#
+  The app shell's top bar, replacing CTFd core's `components/navbar.html` via
+  `override_template()` (see __init__.py — the theme is never edited).
+
+  Shape ported from jump's talent space (`TalentPageHeader.svelte`): a
+  transparent header in NORMAL FLOW, not a dark `fixed-top` bar, with its
+  content centred at the same width as the page body so the logo lines up with
+  the content under it. A participant arriving from jump's talent space should
+  barely register that they changed application, and the dark pinned bar was the
+  single loudest thing saying otherwise.
+
+  Where this deliberately diverges from jump: jump's talent header carries no
+  nav links at all, because its navigation is card-based off one dashboard. This
+  audience is lycéens and CTFd has destinations jump has no equivalent for, so
+  leaving a page reachable by URL alone is not acceptable here. The nav items
+  are therefore built out of jump's own vocabulary rather than invented — see
+  DESIGN.md, "The header".
+
+  Two things in here are load-bearing and easy to delete by accident:
+
+    - `.theme-switch` wrapping an `<i class="fas ...">`. CTFd's own
+      color_mode_switcher.js does `querySelector(".theme-switch i.fas")` and
+      dereferences the result WITHOUT a null check, on `window.load`, before it
+      binds the click handlers. Remove either and every page throws a
+      TypeError and the theme toggle stops working entirely.
+    - the `Plugins.user_menu_pages` loop, which is how CTFd's Pages feature
+      reaches the nav. "Parcours" is one of those pages (created by
+      tools/sync_subject.py), and so is any page an instructor adds later.
+#}
+
+{# Both an exact match and a prefix match are needed (a workshop document is a
+   child route), and comparing against `url_for` output means script_root is
+   handled rather than assumed away. #}
+{% set here = request.script_root ~ request.path %}
+{% set workshop_url = url_for('workshop_page.workshop') %}
+
+{% macro nav_link(href, label, active, target="") -%}
+  <li class="epi-nav-item">
+    <a class="epi-nav-link{% if active %} epi-nav-link-active{% endif %}"
+       href="{{ href }}"
+       {%- if active %} aria-current="page"{% endif %}
+       {%- if target %} target="{{ target }}"{% endif %}>{{ label }}</a>
+  </li>
+{%- endmacro %}
+
+{# The signed-out header has no nav and therefore no burger, so the class tells
+   CSS which element has to carry the push-to-the-right. #}
+{#
+  Translated strings for the scripts that run on every page (assets/graph.js)
+  and for the workshop page's own (assets/workshop_page.js). It lives in the
+  shell rather than in each page because graph.js is registered globally and
+  renders the Parcours graph on an authored CTFd Page, which has no template of
+  ours to hang data off.
+
+  Server-rendered and already translated: there is exactly one translation
+  mechanism in this plugin, and it is gettext. Placeholders the browser fills
+  use {n} rather than %(n)s — gettext substitutes printf placeholders as it
+  translates and raises with nothing to substitute them with.
+
+  The `state*` five are the step/chip state table. The server renders them into
+  the markup at page load; workshop_page.js rewrites a chip's title and its
+  screen-reader span after a solve and needs the same words, or a French page
+  starts answering in English the moment somebody makes progress.
+
+  No Jinja comment inside the dict below — it is one expression, and `{#` there
+  is a syntax error, not a comment.
+#}
+<script type="application/json" id="ws-i18n">
+  {{ {
+    "points": _("pts"),
+    "pickFirst": _("Pick 👍 or 👎 first"),
+    "answerFirst": _("Pick or type an answer first."),
+    "checking": _("Checking…"),
+    "correct": _("Correct"),
+    "incorrect": _("Incorrect"),
+    "netError": _("Could not reach the server — try again."),
+    "thanks": _("Thanks!"),
+    "saveError": _("Could not save that — try again."),
+    "unlockHint": _("Unlock this hint for {n} points?"),
+    "loading": _("Loading…"),
+    "hintError": _("Could not load this hint."),
+    "graphHint": _("Click a step to open it."),
+    "graphDone": _("done"),
+    "graphOpen": _("available"),
+    "graphLocked": _("locked"),
+    "graphPath": _("your path"),
+    "graphError": _("Could not load the path graph."),
+    "graphBranch": _("Several ways on from here — pick one:"),
+    "stateDone": _("Completed"),
+    "stateCurrent": _("In progress"),
+    "stateTodo": _("Not started"),
+    "stateLocked": _("Locked"),
+    "stateInfo": _("Just something to read"),
+  } | tojson }}
+</script>
+
+<header class="epi-header on-dark{% if not authed() %} epi-header-anon{% endif %}">
+  <div class="epi-header-inner">
+
+    {# The wordmark is the way home. `/` redirects a signed-in participant to
+       /workshop (plugins/workshop/landing.py), so this is the dashboard link
+       jump's logo is. An instance that uploaded its own logo keeps it: the
+       Epitech wordmark is the default, not an override of the admin's choice. #}
+    <a class="epi-brand" href="{{ url_for('views.static_html', route='/') }}"
+       aria-label="{{ Configs.ctf_name }} — {% trans %}Home{% endtrans %}">
+      {% if Configs.ctf_logo %}
+        <img class="epi-brand-custom" src="{{ url_for('views.files', path=Configs.ctf_logo) }}"
+             alt="{{ Configs.ctf_name }}">
+      {% else %}
+        {# Two assets swapped by theme in CSS, never one recoloured: the charte
+           forbids effects on the logo, and a background-image means only the
+           version actually in use is fetched. #}
+        <span class="epi-brand-mark" role="img" aria-hidden="true"></span>
+      {% endif %}
+    </a>
+
+    {# Nothing in the nav is reachable before signing in — /workshop is
+       `@authed_only`, the Parcours page is `auth_required`, and these instances
+       are all registration-code gated — so an anonymous visitor would get four
+       links that all bounce off the login wall. jump's own login screen carries
+       no nav either, so hiding it is both the correct and the faithful call. #}
+    {% if authed() %}
+      <span class="epi-header-divider" aria-hidden="true"></span>
+
+      <button class="epi-nav-toggle" type="button" data-bs-toggle="collapse"
+              data-bs-target="#epi-nav" aria-controls="epi-nav" aria-expanded="false"
+              aria-label="{% trans %}Toggle navigation{% endtrans %}">
+        <i class="fas fa-bars"></i>
+      </button>
+
+      <nav class="epi-nav collapse" id="epi-nav" aria-label="{% trans %}Main{% endtrans %}">
+        <ul class="epi-nav-list">
+          {# First, and hardcoded, because it is this platform's home and until
+             now it was reachable only by clicking the logo — which nobody
+             discovers. #}
+          {{ nav_link(workshop_url, _("Workshop"),
+                      here == workshop_url or here.startswith(workshop_url ~ '/')) }}
+
+          {# Through `url_for`, never `page.route` raw. CTFd strips the leading
+             slash off a route before storing it (schemas/pages.py), so the
+             column holds `parcours`, not `/parcours` — and core's own navbar
+             puts that straight into href, where the browser reads it as a
+             RELATIVE path. From /workshop/<part>, which is where a participant
+             spends the session, "parcours" resolves to /workshop/parcours; that
+             hits this plugin's own /workshop/<doc_slug> rule and 404s.
+
+             It is also what makes the active state work at all: `here` carries
+             the leading slash, so comparing it against the stored route could
+             never match and the current Page was never marked. #}
+          {% for page in Plugins.user_menu_pages %}
+            {% set page_url = url_for('views.static_html', route=page.route) %}
+            {{ nav_link(page_url, page.title, page_url == here, page.link_target or "") }}
+          {% endfor %}
+
+          {% if Configs.account_visibility != 'admins' and Configs.score_visibility != 'admins' %}
+            {{ nav_link(url_for('scoreboard.listing'), _("Scoreboard"),
+                        here == url_for('scoreboard.listing')) }}
+          {% endif %}
+
+          {# The raw board. Kept because an instructor uses it and because a
+             subject can be run without the workshop view, but placed last: for
+             a participant the workshop page is the same content, better
+             presented. #}
+          {{ nav_link(url_for('challenges.listing'), _("Challenges"),
+                      here == url_for('challenges.listing')) }}
+        </ul>
+      </nav>
+    {% endif %}
+
+    {# Three controls, which is jump's own density. Everything CTFd used to
+       spread across six navbar entries is either here or one click into the
+       account menu. #}
+    <div class="epi-header-actions">
+      {% if authed() %}
+        <a class="epi-icon-btn" href="{{ url_for('views.notifications') }}"
+           title="{% trans %}Notifications{% endtrans %}"
+           aria-label="{% trans %}Notifications{% endtrans %}">
+          <i class="fas fa-bell"></i>
+          {# Alpine store, populated by core's notifications.js. #}
+          <span x-data x-show="$store.unread_count > 0" x-text="$store.unread_count"
+                class="epi-icon-badge"></span>
+        </a>
+      {% endif %}
+
+      <button class="epi-icon-btn theme-switch" type="button"
+              title="{% trans %}Toggle theme{% endtrans %}"
+              aria-label="{% trans %}Toggle theme{% endtrans %}">
+        <i class="fas fa-sun"></i>
+      </button>
+
+      {% if authed() %}
+        <div class="epi-account dropdown">
+          {# Named, not an anonymous avatar: jump greets a talent by name, and
+             the name is also the clearest confirmation of who you are signed in
+             as on a shared classroom machine. #}
+          <button class="epi-account-btn" type="button" data-bs-toggle="dropdown"
+                  aria-expanded="false">
+            <span class="epi-account-name">{{ User.name }}</span>
+            <i class="fas fa-chevron-down epi-account-caret"></i>
+          </button>
+          <ul class="dropdown-menu dropdown-menu-end epi-account-menu">
+            <li>
+              <a class="dropdown-item" href="{{ url_for('users.private') }}">
+                <i class="fas fa-user-circle"></i>{% trans %}Profile{% endtrans %}
+              </a>
+            </li>
+            {% if Configs.user_mode == "teams" %}
+              <li>
+                <a class="dropdown-item" href="{{ url_for('teams.private') }}">
+                  <i class="fas fa-users"></i>{% trans %}Team{% endtrans %}
+                </a>
+              </li>
+            {% endif %}
+            <li>
+              <a class="dropdown-item" href="{{ url_for('views.settings') }}">
+                <i class="fas fa-cogs"></i>{% trans %}Settings{% endtrans %}
+              </a>
+            </li>
+            {% if is_admin() %}
+              <li><hr class="dropdown-divider"></li>
+              <li>
+                <a class="dropdown-item" href="{{ url_for('admin.view') }}">
+                  <i class="fas fa-wrench"></i>{% trans %}Admin Panel{% endtrans %}
+                </a>
+              </li>
+            {% endif %}
+            <li><hr class="dropdown-divider"></li>
+            <li>
+              <a class="dropdown-item epi-account-logout" href="{{ url_for('auth.logout') }}">
+                <i class="fas fa-sign-out-alt"></i>{% trans %}Logout{% endtrans %}
+              </a>
+            </li>
+          </ul>
+        </div>
+      {% else %}
+        {% if registration_visible() %}
+          <a class="epi-auth-link" href="{{ url_for('auth.register') }}">
+            {% trans %}Register{% endtrans %}
+          </a>
+        {% endif %}
+        <a class="epi-auth-cta btn btn-primary btn-sm" href="{{ url_for('auth.login') }}">
+          {% trans %}Login{% endtrans %}
+        </a>
+      {% endif %}
+    </div>
+
+  </div>
+</header>

@@ -60,10 +60,14 @@ tools/
   build_vendor.sh   PyYAML + openpgp.js, the two things the CTFd image lacks
   import_shell1.py  shell-1-challenges -> a convention 2.0 subject, re-runnable
   import_miniasm.py miniasm's own data -> a subject, read through node
-content/            subjects in convention 2.0: pypong, pacman, santa_shooter,
-                    shell_rpg, shell_1, miniasm. What the CLI imports; an
-                    instance synced from the admin panel follows the public
-                    `*_subject` repos instead (PLAN.md §26)
+content/            NOT PRESENT in this checkout and tracked on no branch. It held
+                    the vendored subjects (pypong, pacman, santa_shooter,
+                    shell_rpg, shell_1, miniasm); they live in their own public
+                    `*_subject` repos now and an instance syncs from GitHub
+                    (PLAN.md §26). `scripts/phase2_validate.py` and
+                    `tools/check_content_sync.py` still expect the directory, so
+                    the suite's instance half does not run as written — reconcile
+                    before trusting a green run
   workshops/        workshop.yaml manifests: discover-linux (Shell RPG then
                     Shell 1), tic80-double (PyPong then Santa Shooter)
 scripts/            phase0/1/2 validation — phase2 is the live one, 184 checks
@@ -171,7 +175,11 @@ instance, so **never run it bare**.
   `content/pypong` is deliberately unmapped: it is a *conversion* of `pypong_new`, which is
   still schema 1.5 in another org, so comparing them would report the conversion as drift
   forever. It reports `skip`, which is not a pass.
-- **Every platform string is English** (CLAUDE.md). Workshop *content* stays French.
+- **Platform strings are English in the source and French on the participant path**
+  (CLAUDE.md). Wrap a new one in `{% trans %}` / `gettext` / `lazy_gettext`; the
+  catalogue is `plugins/workshop/translations`, and `tools/build_vendor.sh` is not
+  involved — it is compiled with `pybabel`, and `-k _l` matters or the lazily marked
+  strings extract as nothing. The admin panel stays English.
 - **`get_config` returns an int** when the stored value is all digits
   (`CTFd/utils/__init__.py:51`), so a config holding a bare id arrives already parsed while a
   config holding a JSON list arrives as a string. Mixing the two up fails silently: the reader
@@ -223,8 +231,9 @@ Ranked, from `PLAN.md`:
 
 1. **§11 — the instructor review queue.** Designed in detail, entirely unbuilt, and the missing
    half of instructor-led mode.
-2. Deferred: the checkpoint challenge type (validation codes are the interim mechanic), i18n, and
+2. Deferred: the checkpoint challenge type (validation codes are the interim mechanic) and
    §10 `provision(repo_url, ref)` in full — `tools/provision.py` is only its manual half.
+   (i18n was on this list and is done for the participant path — see CLAUDE.md.)
 
 Phases 3 (SPA) and 5 (TIC-80 track) stay **on hold** — see the notes in `PLAN.md` §6.
 

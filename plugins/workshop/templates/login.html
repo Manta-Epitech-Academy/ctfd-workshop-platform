@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{#
+  Override of the core theme's login page. It exists because this is the
+  handover: a participant arrives here from Jump's talent space, and what they
+  landed on was a form floating in the middle of an empty white page.
+
+  The layout is jump's own `LoginBrandPanel.svelte` — a full-bleed epi-blue
+  column carrying the blueprint grid, a few half-opacity pixel squares and the
+  charte's signature block, with the form beside it. Two adaptations, both
+  because jump's login has no app bar above it: the panel does not repeat the
+  wordmark (the header two lines up already carries it), and it continues the
+  header's band down the page rather than starting its own.
+
+  Hidden below 992px, exactly as jump hides it: on a phone the form is the whole
+  job and a decorative column would push it under the fold.
+
+  The form itself is core's, field for field — same `Forms.auth.LoginForm()`,
+  same errors include, same Major League Cyber branch, same nonce. Only the
+  layout around it is ours, so an upstream change to how CTFd authenticates does
+  not have to be mirrored here.
+#}
+
+{% block content %}
+<div class="epi-login">
+
+  <aside class="epi-login-panel on-dark">
+    <div class="epi-login-panel-body">
+      <p class="epi-login-kicker">&lt;Workshop&gt;</p>
+      <p class="epi-login-lead">{{ Configs.ctf_name }}</p>
+      {% if Configs.ctf_description %}
+        <p class="epi-login-desc">{{ Configs.ctf_description }}</p>
+      {% endif %}
+    </div>
+    <p class="epi-login-signature">
+      <span class="epi-login-brace">{</span>
+      &lt;Tech Together Tomorrow&gt;
+      <span class="epi-login-brace">}</span>
+      <span class="epi-login-since">Since 1999</span>
+    </p>
+  </aside>
+
+  <div class="epi-login-form">
+    <div class="epi-login-form-body">
+      <h1 class="epi-login-title epi-title-cursor">{% trans %}Login{% endtrans %}</h1>
+
+      {% include "components/errors.html" %}
+
+      {% if integrations.mlc() %}
+        <a class="btn btn-secondary btn-lg btn-block w-100" href="{{ url_for('auth.oauth_login') }}">
+          Login with Major League Cyber
+        </a>
+
+        <hr>
+      {% endif %}
+
+      {% with form = Forms.auth.LoginForm() %}
+        <form method="post" accept-charset="utf-8">
+          <div class="mb-3">
+            <b>
+              {{ form.name.label(class="form-label") }}
+              <span class="text-danger">*</span>
+            </b>
+            {{ form.name(class="form-control", value=name, autocomplete="username email") }}
+          </div>
+
+          <div class="mb-3">
+            <b>
+              {{ form.password.label(class="form-label") }}
+              <span class="text-danger">*</span>
+            </b>
+            {{ form.password(class="form-control", value=password, autocomplete="current-password") }}
+          </div>
+
+          <div class="row pt-3">
+            <div class="col-6 col-md-8">
+              <a class="align-middle" href="{{ url_for('auth.reset_password') }}">
+                {% trans %}Forgot your password?{% endtrans %}
+              </a>
+            </div>
+
+            <div class="col-6 col-md-4">
+              {{ form.submit(class="btn btn-block btn-primary w-100") }}
+            </div>
+          </div>
+
+          {{ form.nonce() }}
+        </form>
+      {% endwith %}
+    </div>
+  </div>
+
+</div>
+{% endblock %}

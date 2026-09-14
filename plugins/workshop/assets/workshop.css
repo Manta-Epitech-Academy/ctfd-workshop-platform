@@ -1,77 +1,414 @@
 /* Workshop plugin styles, injected on every page via {{ Plugins.styles }}.
    Keeps CTFd core/theme untouched (CLAUDE.md: plugin-only). */
 
+/* ------------------------------------------------------------------ *
+ * Authored content — the surface a participant actually reads
+ *
+ * Ported from jump's `.prose` block, whose own comment calls it "Notion-like
+ * with Epitech branding". Everything here applies to markdown somebody wrote
+ * in a subject repo: a step statement, a part introduction, a hint, the short
+ * version. It had no treatment at all before — the only rule in this file was
+ * a four-line image cap — so a table, a blockquote or an inline `code` came
+ * out as whatever Bootstrap happened to do.
+ * ------------------------------------------------------------------ */
+
 /* The core theme caps images in the description (.challenge-desc img) but not
-   in hints, which render in a separate container — so hint images overflow.
-   Cap and tidy images everywhere inside the challenge modal. */
+   in hints, which render in a separate container — so hint images overflow. */
 .challenge-hints img,
 .challenge-desc img {
   max-width: 100%;
   height: auto;
   display: block;
-  margin: 0.75rem auto;
+  margin: 1rem auto;
+  /* A dark mat in both themes. Subject media is pixel art from a game that only
+     exists on black: on a light ground every screenshot wears a halo. Same
+     reasoning as the code blocks, which are already always-dark for it.
+     jump's charte says images are square and shadowless — that was written
+     about photographs of people at campus events, and this is a framed screen.
+     Recorded as a deviation in DESIGN.md. */
+  background: var(--epi-grey-900);
+  border: 1px solid var(--bs-border-color, #dee2e6);
+  border-radius: var(--bs-border-radius-lg, 1rem);
+  /* A screenshot 750px tall pushed the first step of the part below the fold.
+     Capped by height rather than width so a wide diagram stays readable and a
+     tall one stops being the whole screen. */
+  max-height: 26rem;
+  width: auto;
+  object-fit: contain;
 }
+
+/* Headings inside authored content are the author's structure, not the page's:
+   they stay in the body face. Anton is display-only (DESIGN.md), and an
+   uppercase condensed `### Mise en application` would outrank the part title
+   above it. */
+.challenge-desc h1, .challenge-desc h2, .challenge-desc h3,
+.challenge-desc h4, .challenge-desc h5, .challenge-desc h6 {
+  font-family: inherit;
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 600;
+  line-height: 1.25;
+  margin-top: 1.6rem;
+}
+.challenge-desc > :first-child { margin-top: 0; }
+
+/* A measure. Running text at the full 64rem column is around 110 characters a
+   line, which is roughly twice what anyone reads comfortably — and this page is
+   a document a 15-year-old works through for two hours. Only the prose is
+   constrained: a code block, a table or a screenshot keeps the full width,
+   because those are read by scanning rather than line by line. */
+.challenge-desc > p,
+.challenge-desc > ul,
+.challenge-desc > ol,
+.challenge-desc > blockquote {
+  max-width: 68ch;
+}
+
+.challenge-desc a {
+  font-weight: 500;
+  color: var(--bs-primary);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in oklab, var(--bs-primary) 30%, transparent);
+  text-underline-offset: 2px;
+  transition: text-decoration-color var(--epi-dur-fast) var(--epi-ease-standard);
+}
+.challenge-desc a:hover { text-decoration-color: var(--bs-primary); }
+
+.challenge-desc blockquote {
+  border-left: 3px solid var(--bs-border-color, #dee2e6);
+  padding: 0 0 0 1rem;
+  margin: 1rem 0;
+  color: var(--bs-secondary-color);
+}
+.challenge-desc blockquote > :last-child { margin-bottom: 0; }
+
+/* Tables get real borders and a quiet header, Notion-style, and their own
+   scroll rather than pushing the page sideways. */
+.challenge-desc table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+  margin: 1rem 0;
+  display: block;
+  overflow-x: auto;
+}
+.challenge-desc thead th {
+  border: 1px solid var(--bs-border-color, #dee2e6);
+  background: var(--bs-secondary-bg);
+  padding: 0.45rem 0.7rem;
+  text-align: left;
+  font-weight: 600;
+  color: var(--bs-secondary-color);
+}
+.challenge-desc tbody td {
+  border: 1px solid var(--bs-border-color, #dee2e6);
+  padding: 0.45rem 0.7rem;
+}
+
+.challenge-desc hr {
+  border: 0;
+  border-top: 1px solid var(--bs-border-color, #dee2e6);
+  margin: 2rem 0;
+}
+
+.challenge-desc li + li { margin-top: 0.25rem; }
+.challenge-desc li > p { margin-bottom: 0.4rem; }
 
 /* ------------------------------------------------------------------ *
  * Single-page workshop view (/workshop)
  * Colours come from Bootstrap's semantic variables so the page follows
  * CTFd's own light/dark switcher instead of hardcoding one theme.
  * ------------------------------------------------------------------ */
-.ws-page { max-width: 62rem; padding-bottom: 4rem; }
-.ws-head { padding: 1.5rem 0 0.75rem; }
-.ws-title { margin-bottom: 0.25rem; }
-.ws-overall { font-size: 0.9rem; color: var(--bs-secondary-color, #6c757d); }
-.ws-overall-count { font-weight: 600; color: var(--bs-body-color); }
-.ws-overall-bar {
-  height: 4px; background: var(--bs-border-color, #dee2e6);
-  margin-top: 0.4rem; overflow: hidden;
+/* Width and gutters come from `main > .container` (epitech-theme.css), which
+   puts every page on the app shell's own width; only the tail padding is this
+   page's business. */
+.ws-page { padding-bottom: 4rem; }
+
+/* The workshop's own band: the same `.epi-hero` primitive every other page
+   gets, carrying the title, the step counter and the progress track instead of
+   a bare title. `.ws-head` is its inner wrapper now, so it no longer needs a
+   bottom margin of its own — the band's padding is the spacing. */
+.ws-head {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem;
+  margin: 0;
+}
+
+/* On the band, the counter's own recipe stops working for the same reason the
+   nav's did: it is a --bs-primary tint behind --bs-primary text, and the
+   surface IS --bs-primary. Same shape — a flat tint behind solid text, never a
+   saturated block — restated in white, with the fill in the neon green because
+   epi-tech on epi-blue is the charte's own pairing and it reads as progress
+   rather than as another blue. */
+.ws-hero .ws-overall-badge {
+  background: rgb(255 255 255 / 0.15);
+}
+.ws-hero .ws-overall-num,
+.ws-hero .ws-overall-label {
+  color: #ffffff;
+}
+.ws-hero .ws-overall-track {
+  background: rgb(255 255 255 / 0.2);
+}
+.ws-hero .ws-overall-fill {
+  background: var(--epi-tech);
+}
+.ws-hero .ws-back {
+  color: rgb(255 255 255 / 0.74);
+}
+
+/* The subject's cover. The subject supplies a sentence and a file; the size,
+   the crop, the frame and the motion rule are all here, which is the whole
+   point — four subjects have to arrive looking like one platform, and the one
+   thing a content repo must never ship is layout. */
+.ws-hero-copy {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem;
+  flex: 1 1 22rem; min-width: 0;
+}
+.ws-hero-tagline {
+  flex: 1 1 100%; margin: 0;
+  font-size: 1.05rem; line-height: 1.45;
+  color: rgb(255 255 255 / 0.85);
+  max-width: 44rem;
+}
+.ws-hero-media {
+  flex: 0 1 20rem; margin: 0; min-width: 0;
+  border-radius: var(--bs-border-radius-lg, 1rem);
+  overflow: hidden;
+  border: 1px solid rgb(255 255 255 / 0.25);
+  /* A dark mat under the art in both themes. Subject media is pixel art from a
+     game that only exists on black — on any lighter ground it wears a halo.
+     jump's charte says images are square rectangles with no radius; that rule
+     was written for photographs of people at campus events, and this is a
+     framed screen. Recorded as a deviation in DESIGN.md. */
+  background: var(--epi-grey-900);
+  line-height: 0;
+}
+.ws-hero-media img {
+  display: block; width: 100%; height: auto;
+  aspect-ratio: 16 / 10; object-fit: cover;
+}
+/* Only one of the two frames is ever shown. A GIF has no pause, so honouring a
+   reduced-motion preference means showing a different file, not stopping this
+   one — and a `<picture>` cannot switch on that media feature, so the swap is
+   here. With no poster declared the animation is all there is, which is the
+   behaviour a subject that declared no still already had. */
+.ws-hero-media-still { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  .ws-hero-media:has(.ws-hero-media-still) .ws-hero-media-motion { display: none; }
+  .ws-hero-media-still { display: block; }
+}
+/* Side by side once there is room for both; stacked before that, with the
+   picture under the words rather than squeezed beside them. */
+.ws-hero-media-on .ws-head {
+  align-items: center;
+}
+@media (max-width: 767.98px) {
+  .ws-hero-media { flex-basis: 100%; }
+}
+.ws-hero .ws-back:hover {
+  background: rgb(255 255 255 / 0.14); color: #ffffff;
+}
+/* jump's own back control, class for class: a muted glyph that picks up a muted
+   fill and the brand colour on hover. The negative left margin pulls the glyph's
+   padding back so the icon optically aligns with the title below it. */
+.ws-back {
+  display: inline-flex; align-items: center; justify-content: center; flex: none;
+  margin-left: -0.375rem; padding: 0.375rem;
+  border-radius: var(--bs-border-radius-sm, 0.5rem);
+  color: var(--bs-secondary-color); text-decoration: none;
+  transition: background-color var(--epi-dur-fast) var(--epi-ease-standard),
+    color var(--epi-dur-fast) var(--epi-ease-standard);
+}
+.ws-back:hover {
+  background: var(--bs-secondary-bg); color: var(--bs-primary); text-decoration: none;
+}
+.ws-back i { font-size: 1.15rem; line-height: 1; }
+
+.ws-title {
+  flex: 1 1 auto; min-width: 0; margin: 0;
+  font-family: "Anton", sans-serif; text-transform: uppercase;
+  font-size: 1.5rem; line-height: 1.1;
+  /* Grows the line box symmetrically so Anton's É does not get its accent
+     sliced — jump's own fix, and French part titles need it. */
+  padding: 0.375rem 0; margin-block: -0.375rem;
+}
+
+/* The "N / total" count as a bold figure in a tinted rounded badge, the unit
+   underneath it in the mono overline treatment — jump's XP-badge recipe
+   (a number people are meant to feel good about), reused for step count
+   instead of experience points, next to a thin rounded track rather than the
+   plain grey rule this used to be. */
+/* `flex` on the row itself, not just on the track inside it: a flex container
+   sized by its content contributes nothing for a `flex: 1` child with no
+   content of its own, so a shrink-to-fit `.ws-overall` measures badge + gap
+   and leaves the track exactly 0px wide. The basis is what makes it drop onto
+   its own full-width line under a long title rather than being squeezed. */
+.ws-overall { display: flex; align-items: center; gap: 0.9rem; flex: 1 1 16rem; }
+.ws-overall-badge {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  flex: none; min-width: 3.9rem; padding: 0.3rem 0.5rem;
+  border-radius: var(--bs-border-radius-lg, 1rem);
+  background: color-mix(in oklab, var(--bs-primary, #0d6efd) 12%, transparent);
+}
+.ws-overall-num {
+  font-size: 1.05rem; font-weight: 700; line-height: 1.15;
+  color: var(--bs-primary, #0d6efd); font-variant-numeric: tabular-nums;
+}
+.ws-overall-label {
+  font-family: "Space Mono", "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.6rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--bs-primary, #0d6efd); opacity: 0.85;
+}
+.ws-overall-track {
+  flex: 1; height: 4px; border-radius: 999px; overflow: hidden;
+  background: var(--bs-tertiary-bg, #f1f2f6);
 }
 .ws-overall-fill {
-  height: 100%; background: var(--bs-success, #198754); transition: width 0.3s;
+  height: 100%; border-radius: 999px;
+  background: var(--bs-success, #198754); transition: width var(--epi-dur-slow) var(--epi-ease-standard);
+}
+/* The plain variant: a card's own progress (ws-card-bar) or one subject
+   group's (ws-subject-bar) — a secondary figure, not the hero counter, so no
+   badge alongside it. */
+.ws-overall-bar {
+  height: 4px; border-radius: 999px; overflow: hidden;
+  background: var(--bs-tertiary-bg, #f1f2f6); margin-top: 0.4rem;
 }
 
 /* Steppers — sequential progress, not hierarchy: chips joined by "›" */
+/* One line that scrolls, not a block that wraps. A part with eleven steps wrapped
+   onto three rows above the content, ate the first screen, and said the same
+   thing as the list of steps directly under it. This is a stepper, not a
+   breadcrumb (PLAN.md §13): a sequence reads as a line. */
 .ws-stepper {
-  display: flex; flex-wrap: wrap; align-items: center;
+  display: flex; align-items: center;
   gap: 0.15rem 0.35rem; font-size: 0.82rem;
+  overflow-x: auto; overflow-y: hidden;
+  scrollbar-width: thin;
+  /* Room for the chips' own focus ring, which an overflow container clips. */
+  padding-block: 0.15rem;
 }
+.ws-stepper > * { flex: none; }
+/* The parts stepper scrolls away with the rest of the page. It used to be the
+   sticky one, and that was the wrong bar to keep: a subject has two or three
+   parts, so it says the same thing for twenty minutes at a time. What actually
+   moves while somebody works is the step counter — 3/9, then 4/9 — and that is
+   the line worth keeping in front of them. */
 .ws-stepper-parts {
-  /* CTFd's navbar is `fixed-top`, so sticking at 0 hides the stepper behind
-     it — exactly the thing that must stay visible while scrolling. */
-  position: sticky; top: var(--ws-navbar-height, 56px); z-index: 20;
-  background: var(--bs-body-bg, #fff);
+  overflow-y: hidden;
   border-bottom: 1px solid var(--bs-border-color, #dee2e6);
   padding: 0.5rem 0; margin-bottom: 1rem;
-  max-height: 30vh; overflow-y: auto;
 }
-.ws-stepper-steps { margin: 0.35rem 0 0.75rem; opacity: 0.95; }
+/* Sticks flush to the top: the app shell's header is in normal flow and scrolls
+   away, so there is no fixed bar left to clear. One per part and scoped to its
+   section, so it leads while you are inside that part and is pushed out by the
+   next one — which is what a stepper is for.
+
+   Requires that no ancestor has overflow-x: hidden, which is why the page band
+   is full-bleed by structure and never by a negative margin. */
+.ws-stepper-steps {
+  position: sticky; top: 0; z-index: 20;
+  /* No top margin: `top: 0` pins the margin edge, so any margin here leaves the
+     bar a few pixels down the viewport — enough that the observer below never
+     sees it stop intersecting, and the stuck state never fires. */
+  margin: 0 0 0.75rem;
+  padding: 0.45rem 0;
+  background: var(--bs-body-bg, #fff);
+  transition: box-shadow var(--epi-dur-base) var(--epi-ease-standard),
+              padding var(--epi-dur-base) var(--epi-ease-standard);
+}
+/* Set by the script the moment the bar leaves the flow (see workshop_page.js).
+   Without it the strip sits on top of the text with nothing between them and
+   reads as a rendering artefact; with it, it lifts off the page. */
+.ws-stepper-steps.ws-stuck {
+  padding: 0.35rem 0;
+  box-shadow: 0 0.5rem 0.75rem -0.5rem rgb(0 0 0 / 0.18);
+  border-bottom: 1px solid var(--bs-border-color, #dee2e6);
+}
+/* Pill, not outline: a tinted fill per state, jump's badge recipe
+   (rounded-full + bg-{color}/10-15 + text-{color}) instead of a thin grey
+   border that reads as "unstyled Bootstrap" regardless of which color it
+   borrows. */
 .ws-chip {
   display: inline-flex; align-items: center; gap: 0.3rem;
-  padding: 0.15rem 0.5rem; border: 1px solid var(--bs-border-color, #dee2e6);
-  border-radius: 2px; text-decoration: none; color: var(--bs-body-color);
-  max-width: 20rem; overflow: hidden;
+  padding: 0.25rem 0.65rem; border: 1px solid transparent;
+  border-radius: 999px; text-decoration: none;
+  background: var(--bs-tertiary-bg, #f1f2f6); color: var(--bs-body-color);
+  font-weight: 600; max-width: 20rem; overflow: hidden;
 }
-/* Truncate the label, not the chip, so the border never cuts through text.
+/* Truncate the label, not the chip, so the fill never cuts through text.
    Full title stays available in the tooltip. */
 .ws-chip-label {
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;
 }
 .ws-chip-icon, .ws-chip-badge { flex: none; }
-.ws-chip:hover { text-decoration: none; border-color: var(--bs-primary, #0d6efd); }
+/* State glyphs come from CSS alone, on the chips as on the step rows below.
+   They used to be emoji in four places at once — this macro, the index
+   template, workshop_page.js and the step rules — which is four copies of one
+   table that had to stay in sync, and the lock rendered as a four-colour emoji
+   inside a two-colour system. Font Awesome is already loaded by core, so this
+   vendors nothing, and the JS now only swaps a class.
+
+   Only the *solid* face ships (fa-solid-900.woff2; there is no regular file in
+   the theme), so "not started" is drawn as a ring rather than reached for as a
+   hollow-circle glyph, which would silently fall back to the wrong font. */
+.ws-chip-icon::before {
+  font-family: "Font Awesome 6 Free";
+  font-weight: 900;
+  font-size: 0.85em;
+  line-height: 1;
+}
+.ws-chip.ws-done .ws-chip-icon::before { content: "\f00c"; }
+.ws-chip.ws-current .ws-chip-icon::before { content: "\f04b"; }
+.ws-chip.ws-locked .ws-chip-icon::before { content: "\f023"; }
+.ws-chip.ws-info .ws-chip-icon::before { content: "\f15c"; }
+.ws-chip.ws-todo .ws-chip-icon::before {
+  content: "";
+  display: inline-block;
+  width: 0.55em; height: 0.55em;
+  border: 1.5px solid currentColor; border-radius: 50%;
+  vertical-align: middle;
+}
+.ws-chip {
+  transition: filter var(--epi-dur-fast) var(--epi-ease-standard),
+              transform var(--epi-dur-fast) var(--epi-ease-standard);
+}
+@media (hover: hover) and (pointer: fine) {
+  .ws-chip:hover { text-decoration: none; filter: brightness(0.97); }
+  [data-bs-theme="dark"] .ws-chip:hover { filter: brightness(1.15); }
+}
+.ws-chip:active { transform: scale(0.96); }
+/* One beat when a step is checked off, on the chip as well as on the row, so
+   the strip that is pinned at the top of the screen reacts too instead of
+   silently swapping a colour. Emphatic easing, i.e. a small overshoot: this is
+   a reward, not a state change. */
+@keyframes ws-chip-pop {
+  0%   { transform: scale(1); }
+  45%  { transform: scale(1.14); }
+  100% { transform: scale(1); }
+}
+.ws-chip.ws-chip-pop { animation: ws-chip-pop 320ms var(--epi-ease-emphatic); }
 .ws-chip + .ws-chip::before { content: "›"; margin-right: 0.35rem; opacity: 0.45; }
 .ws-chip-icon { font-size: 0.8em; }
-.ws-chip-badge { opacity: 0.6; font-variant-numeric: tabular-nums; }
-.ws-chip.ws-done { color: var(--bs-success, #198754); border-color: var(--bs-success, #198754); }
-.ws-chip.ws-current {
-  color: var(--bs-primary, #0d6efd); border-color: var(--bs-primary, #0d6efd);
-  font-weight: 600; box-shadow: inset 0 -2px 0 var(--bs-primary, #0d6efd);
+.ws-chip-badge { opacity: 0.7; font-variant-numeric: tabular-nums; }
+.ws-chip.ws-done {
+  color: var(--bs-success, #198754);
+  background: color-mix(in oklab, var(--bs-success, #198754) 14%, transparent);
 }
-.ws-chip.ws-todo { opacity: 0.8; }
-.ws-chip.ws-locked { opacity: 0.5; }
+.ws-chip.ws-current {
+  color: var(--bs-primary, #0d6efd);
+  background: color-mix(in oklab, var(--bs-primary, #0d6efd) 14%, transparent);
+  box-shadow: inset 0 0 0 1.5px var(--bs-primary, #0d6efd);
+}
+.ws-chip.ws-todo { opacity: 0.85; }
+.ws-chip.ws-locked { opacity: 0.55; }
 
 /* Parts */
 .ws-part { margin: 2rem 0; scroll-margin-top: 5rem; }
-.ws-part-title { font-size: 1.4rem; border-bottom: 1px solid var(--bs-border-color, #dee2e6); padding-bottom: 0.3rem; }
+.ws-part-title {
+  font-family: "Anton", sans-serif; text-transform: uppercase; font-size: 1.3rem;
+  border-bottom: 1px solid var(--bs-border-color, #dee2e6); padding-bottom: 0.4rem;
+}
 .ws-part-count {
   font-size: 0.8rem; font-weight: 400; opacity: 0.65;
   float: right; font-variant-numeric: tabular-nums;
@@ -84,44 +421,20 @@
 }
 .ws-part-lead { margin: 0.6rem 0 0.9rem; }
 .ws-part-lead-body > :last-child { margin-bottom: 0; }
-/* Quiet by design: the fold is an escape hatch for a long introduction, not a
-   control the participant has to notice before they can read. */
-.ws-part-lead-summary {
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.1rem 0;
-  font-size: 0.85rem;
-  color: var(--bs-secondary-color, #6c757d);
-  list-style: none;
-}
-.ws-part-lead-summary::-webkit-details-marker { display: none; }
-.ws-part-lead-summary::before { content: "\25b8"; font-size: 0.85em; }
-.ws-part-lead[open] > .ws-part-lead-summary::before { content: "\25be"; }
-.ws-part-lead[open] > .ws-part-lead-summary { margin-bottom: 0.35rem; }
 
-/* The author's short version of a step (convention §3.4, PLAN.md §25.7). Same
-   quiet fold as a part introduction, and open for the same reason: it is
-   content somebody wrote, not a control to discover. It sits above the
-   statement and never replaces it. */
-.ws-summary {
-  margin: 0 0 0.75rem;
+/* The author's short version of a step (convention §3.4, PLAN.md §25.7). Open
+   by default, like a part introduction and for the same reason: it is content
+   somebody wrote, not a control to discover. It sits above the statement and
+   never replaces it.
+
+   The rule marking it as an aside is on the BODY, not on the whole fold, so it
+   lines up with a hint body and so the summary pill is not sliced by a border
+   running past it. */
+.ws-summary { margin: 0 0 0.75rem; }
+.ws-summary-body {
   border-left: 2px solid var(--bs-border-color, #dee2e6);
   padding-left: 0.7rem;
 }
-.ws-summary > summary {
-  cursor: pointer;
-  display: inline-flex; align-items: center; gap: 0.35rem;
-  padding: 0.1rem 0;
-  font-size: 0.8rem; letter-spacing: 0.03em; text-transform: uppercase;
-  color: var(--bs-secondary-color, #6c757d);
-  list-style: none;
-}
-.ws-summary > summary::-webkit-details-marker { display: none; }
-.ws-summary > summary::before { content: "\25b8"; font-size: 0.85em; }
-.ws-summary[open] > summary::before { content: "\25be"; }
-.ws-summary[open] > summary { margin-bottom: 0.3rem; }
 .ws-summary-body > :last-child { margin-bottom: 0; }
 .ws-summary-body ul { margin-bottom: 0; }
 
@@ -147,23 +460,63 @@
 .ws-sync-state th { width: 7rem; font-weight: 500; }
 .ws-sync-state td, .ws-sync-state th { border-top: 0; padding: 0.4rem 0.5rem; }
 
-/* Steps: accordions, state on the left edge */
+/* Steps: rounded, elevated rows — jump's RoadmapSidebar step buttons
+   (numbered circle + title + type label), adapted from a persistent sidebar
+   to an accordion since this page is one scrolling document, not a
+   sidebar+pane split. State still reads without color (icon shape differs
+   per state), color is additive. */
 .ws-step {
   border: 1px solid var(--bs-border-color, #dee2e6);
-  border-left: 3px solid var(--bs-border-color, #dee2e6);
-  margin: 0.5rem 0; scroll-margin-top: 5rem;
+  border-radius: var(--bs-border-radius-lg, 1rem);
+  background: var(--bs-card-bg, var(--bs-body-bg));
+  box-shadow: var(--epi-shadow-raised);
+  margin: 0.65rem 0; scroll-margin-top: 5rem;
+  overflow: hidden; transition: box-shadow var(--epi-dur-fast) var(--epi-ease-standard),
+    transform var(--epi-dur-fast) var(--epi-ease-standard);
 }
-.ws-step.ws-done { border-left-color: var(--bs-success, #198754); }
-.ws-step.ws-current { border-left-color: var(--bs-primary, #0d6efd); }
-.ws-step.ws-locked { opacity: 0.65; }
+.ws-step.ws-current {
+  border-color: var(--bs-primary, #0d6efd);
+  box-shadow: 0 0 0 1px var(--bs-primary, #0d6efd), var(--epi-shadow-raised);
+}
+/* Arriving at a part at 0% used to mean eleven identical full-size cards with a
+   padlock on each: the first impression of every subject was a wall saying "you
+   may not". The steps all stay in the DOM — the syllabus is not a secret
+   (PLAN.md §13) and seeing what is coming is the point — they just stop
+   competing with the one step that can actually be worked on. Not a fold: that
+   would put a click between a participant and the shape of what they are about
+   to do. */
+.ws-step.ws-locked {
+  opacity: 1;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  margin: 0;
+}
+.ws-step.ws-locked > .ws-step-summary {
+  padding-block: 0.4rem;
+  color: var(--bs-secondary-color, #6c757d);
+}
+.ws-step.ws-locked .ws-step-name { font-weight: 500; }
+.ws-step.ws-locked .ws-step-icon {
+  width: 1.4rem; height: 1.4rem; background: none;
+  border: 1px solid var(--bs-border-color, #dee2e6);
+}
+/* The points say what a step is worth once it can be started. On one nobody can
+   start yet they are a price tag on a locked door. */
+.ws-step.ws-locked .ws-step-meta { display: none; }
+.ws-step.ws-locked + .ws-step.ws-locked {
+  border-top: 1px solid var(--bs-border-color, #dee2e6);
+}
+/* Opening one still shows what unlocks it: a quiet row, not a dead one. */
+.ws-step.ws-locked[open] > .ws-step-summary { color: var(--bs-body-color); }
 .ws-step-summary {
-  display: flex; align-items: center; gap: 0.5rem;
-  padding: 0.6rem 0.8rem; cursor: pointer; list-style: none;
+  display: flex; align-items: center; gap: 0.7rem;
+  padding: 0.75rem 1rem; cursor: pointer; list-style: none;
 }
 .ws-step-summary::-webkit-details-marker { display: none; }
 .ws-step-summary:hover { background: var(--bs-tertiary-bg, #f8f9fa); }
-.ws-step-name { flex: 1; font-weight: 500; }
-.ws-step.ws-done .ws-step-name { font-weight: 400; }
+.ws-step-name { flex: 1; font-weight: 600; }
+.ws-step.ws-done .ws-step-name { font-weight: 500; opacity: 0.85; }
 .ws-step-meta { font-size: 0.78rem; opacity: 0.6; white-space: nowrap; }
 /* Bonus work, marked as such. Outline rather than a filled badge: it is a
    qualifier on the step, not a state — the icon still carries the state. The
@@ -179,15 +532,40 @@
   opacity: 0.75;
 }
 .ws-step[data-optional] .ws-step-meta { opacity: 0.4; }
-.ws-step-icon::before { font-size: 0.9em; }
-.ws-step.ws-done .ws-step-icon::before { content: "✓"; color: var(--bs-success, #198754); }
-.ws-step.ws-current .ws-step-icon::before { content: "▶"; color: var(--bs-primary, #0d6efd); }
-.ws-step.ws-todo .ws-step-icon::before { content: "○"; opacity: 0.6; }
-.ws-step.ws-locked .ws-step-icon::before { content: "🔒"; }
-.ws-step.ws-info .ws-step-icon::before { content: "📄"; opacity: 0.7; }
+/* The numbered/state circle — RoadmapSidebar's own recipe: filled tint when
+   done, a ring when current, muted when locked, plain outline otherwise. */
+.ws-step-icon {
+  display: flex; align-items: center; justify-content: center; flex: none;
+  width: 1.85rem; height: 1.85rem; border-radius: 50%;
+  font-size: 0.85rem; border: 1.5px solid var(--bs-border-color, #dee2e6);
+}
+.ws-step-icon::before {
+  font-family: "Font Awesome 6 Free";
+  font-weight: 900;
+  font-size: 0.78em;
+  line-height: 1;
+}
+.ws-step.ws-done .ws-step-icon {
+  background: color-mix(in oklab, var(--bs-success, #198754) 16%, transparent);
+  border-color: transparent;
+}
+.ws-step.ws-done .ws-step-icon::before { content: "\f00c"; color: var(--bs-success, #198754); }
+.ws-step.ws-current .ws-step-icon {
+  border-color: var(--bs-primary, #0d6efd); border-width: 2px;
+}
+.ws-step.ws-current .ws-step-icon::before { content: "\f04b"; color: var(--bs-primary, #0d6efd); }
+/* "Not started" is the bare bordered circle: the ring is already drawn by
+   .ws-step-icon, so the glyph would only be a second circle inside it. */
+.ws-step.ws-todo .ws-step-icon::before { content: none; }
+.ws-step.ws-locked .ws-step-icon {
+  background: var(--bs-tertiary-bg, #f1f2f6); border-color: transparent;
+}
+.ws-step.ws-locked .ws-step-icon::before { content: "\f023"; opacity: 0.7; }
+.ws-step.ws-info .ws-step-icon::before { content: "\f15c"; opacity: 0.7; }
 .ws-chip.ws-info { opacity: 0.85; }
-.ws-step-body { padding: 0 0.8rem 0.9rem; }
-.ws-statement { padding-top: 0.2rem; }
+.ws-step-body { padding: 0 1rem 1.1rem; border-top: 1px solid var(--bs-border-color, #dee2e6); }
+.ws-step-body:empty { border-top: none; }
+.ws-statement { padding-top: 0.9rem; }
 /* Authored content brings its own headings; keep them under the part titles so
    the page hierarchy stays part > step > statement. */
 .ws-statement h1 { font-size: 1.3rem; }
@@ -196,14 +574,156 @@
 .ws-statement h1, .ws-statement h2, .ws-statement h3 { margin-top: 1rem; }
 
 /* Answer form */
-.ws-hint { margin: 0.75rem 0; }
-.ws-hint > summary { cursor: pointer; font-size: 0.9rem; }
-.ws-hint-body { padding: 0.5rem 0 0 1rem; border-left: 2px solid var(--bs-border-color, #dee2e6); }
+/* ------------------------------------------------------------------ *
+ * Folds — ONE rule for every <details> on the participant path
+ *
+ * Whoever wrote it. Ours (the part introduction, the author's short version,
+ * a hint) and the subject author's, which arrive as plain `<details><summary>`
+ * out of the markdown — the Pac-Man subject opens part 2 with a glossary that
+ * way. Left to the browser they are a line of text with a small triangle,
+ * which reads as a rendering fault rather than as something to press, and
+ * nobody clicks a control they did not identify as one.
+ *
+ * So the look lives here, once, keyed off the element and not off a class an
+ * author would have to know about. The only per-fold addition anywhere below
+ * is the hint's lightbulb.
+ *
+ * `.ws-step-summary` is excluded: a step is a full-width row with its own
+ * state glyph and its own points, not a pill.
+ * ------------------------------------------------------------------ */
+:is(#ws-workshop, .challenge-desc, .challenge-hints) summary:not(.ws-step-summary) {
+  cursor: pointer;
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  padding: 0.35rem 0.85rem;
+  border: 1px solid var(--bs-border-color, #dee2e6);
+  border-radius: 999px;
+  background: var(--bs-body-bg, #fff);
+  font-size: 0.85rem; font-weight: 600;
+  color: var(--bs-secondary-color, #6c757d);
+  list-style: none;
+  transition: background-color var(--epi-dur-fast) var(--epi-ease-standard),
+              border-color var(--epi-dur-fast) var(--epi-ease-standard),
+              color var(--epi-dur-fast) var(--epi-ease-standard),
+              transform var(--epi-dur-fast) var(--epi-ease-standard);
+}
+/* Authors write `<summary><b>Glossaire</b></summary>`, which markdown keeps.
+   The pill already carries the weight, so the inner tag must not add a second
+   one on top of it. */
+:is(#ws-workshop, .challenge-desc, .challenge-hints) summary:not(.ws-step-summary) b,
+:is(#ws-workshop, .challenge-desc, .challenge-hints) summary:not(.ws-step-summary) strong {
+  font-weight: inherit;
+}
+:is(#ws-workshop, .challenge-desc, .challenge-hints) summary:not(.ws-step-summary)::-webkit-details-marker {
+  display: none;
+}
+:is(#ws-workshop, .challenge-desc, .challenge-hints) summary:not(.ws-step-summary)::after {
+  content: "\f078";
+  font-family: "Font Awesome 6 Free"; font-weight: 900;
+  font-size: 0.6em; opacity: 0.7;
+  transform: rotate(-90deg);
+  transition: transform var(--epi-dur-fast) var(--epi-ease-standard);
+}
+:is(#ws-workshop, .challenge-desc, .challenge-hints) details[open] > summary:not(.ws-step-summary)::after {
+  transform: rotate(0deg);
+}
+:is(#ws-workshop, .challenge-desc, .challenge-hints) details[open] > summary:not(.ws-step-summary) {
+  margin-bottom: 0.6rem;
+}
+/* Hover is a guess on a touch screen, so the press state carries its own
+   weight; see the .btn rule in epitech-theme.css for the same reasoning. */
+@media (hover: hover) and (pointer: fine) {
+  :is(#ws-workshop, .challenge-desc, .challenge-hints) summary:not(.ws-step-summary):hover {
+    background: var(--bs-tertiary-bg, #f1f2f6);
+    border-color: var(--bs-secondary-color, #6c757d);
+    color: var(--bs-body-color);
+  }
+}
+:is(#ws-workshop, .challenge-desc, .challenge-hints) summary:not(.ws-step-summary):active {
+  transform: scale(0.97);
+}
+
+/* The one per-fold addition on the whole page: a hint is the fold you open to
+   ask for help, so it says so. */
+.ws-hint { margin: 0.9rem 0; }
+.ws-hint > summary::before {
+  content: "\f0eb";
+  font-family: "Font Awesome 6 Free"; font-weight: 900;
+  font-size: 0.95em;
+  color: var(--bs-warning, #ffc107);
+}
+.ws-hint-body {
+  padding: 0.65rem 0 0 1rem;
+  border-left: 2px solid var(--bs-border-color, #dee2e6);
+  margin-top: 0.5rem;
+}
 .ws-form { margin-top: 1rem; }
 .ws-choices { margin-bottom: 0.75rem; }
+/* The label is the target, not the 13px radio next to it, so the whole row has
+   to look pressable — on a phone the dot alone is under the 44px touch target
+   every guideline asks for. */
+.ws-choices .form-check {
+  border-radius: var(--bs-border-radius, 0.5rem);
+  padding-block: 0.3rem;
+  padding-inline-end: 0.5rem;
+  transition: background-color var(--epi-dur-fast) var(--epi-ease-standard);
+}
+.ws-choices .form-check-label { cursor: pointer; }
+@media (hover: hover) and (pointer: fine) {
+  .ws-choices .form-check:hover { background: var(--bs-tertiary-bg, #f1f2f6); }
+}
+.ws-choices .form-check:has(:checked) {
+  background: color-mix(in oklab, var(--bs-primary, #0d6efd) 10%, transparent);
+}
 .ws-form-actions { display: flex; align-items: center; gap: 0.75rem; }
-.ws-answer { max-width: 22rem; }
 .ws-feedback { font-size: 0.9rem; }
+
+/* A validation code and the button that sends it are one gesture, so they are
+   one line. The button used to sit on the row below the field — the template
+   emits the input, then the actions block — which read as two unrelated
+   controls and put the button a little further from the eye each time.
+
+   Done here rather than by moving the input in the template: the input is one
+   branch of a long if-chain that also renders radios, checkboxes and selects,
+   and those genuinely belong above the button. `:has` lets the form pick the
+   layout from what it actually contains.
+
+   It stays a flex WRAP: below ~420px the field alone is wider than the column,
+   and a button pushed off the side is worse than a button on its own row. */
+.ws-form:has(> .ws-answer) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+}
+.ws-form:has(> .ws-answer) > .ws-answer { flex: 1 1 12rem; max-width: 20rem; }
+.ws-form:has(> .ws-answer) > .ws-form-actions { flex: 0 1 auto; }
+/* The core theme forces `input, select { padding: .6rem !important }` while
+   `.btn` keeps Bootstrap's `.375rem`, so a field is 45.19px tall and the button
+   beside it is 38. That mismatch was invisible for as long as the two were on
+   separate rows; putting them on one is what exposed it. The button takes the
+   same 0.6rem, which is the only way to land on the same height without
+   fighting an `!important` we do not own. Scoped to the row that actually pairs
+   them — a rating step's button stands alone and has nothing to match. */
+.ws-form:has(> .ws-answer) .ws-submit-btn { padding-block: 0.6rem; }
+/* What to submit is a footnote to the row, not part of it. */
+.ws-form:has(> .ws-answer) > .ws-answer-note { flex: 1 0 100%; margin-top: 0; }
+.ws-answer { max-width: 22rem; }
+
+/* A wrong code is the other half of the loop and it had nothing but a line of
+   red text, which is easy to miss when you are looking at the keyboard. Two
+   frames of movement, at the field, over in 260ms. Under reduced motion the
+   global rule flattens this to nothing and the red text still says it. */
+@keyframes ws-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-5px); }
+  40% { transform: translateX(4px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(2px); }
+}
+.ws-answer.ws-wrong {
+  animation: ws-shake 260ms var(--epi-ease-standard);
+  border-color: var(--bs-danger);
+}
 .ws-feedback-correct { color: var(--bs-success, #198754); font-weight: 600; }
 .ws-feedback-incorrect, .ws-feedback-error { color: var(--bs-danger, #dc3545); }
 .ws-feedback-pending, .ws-feedback-empty { opacity: 0.7; }
@@ -216,12 +736,15 @@
  * identical, so the eye lands on the one card that is actionable.
  * ------------------------------------------------------------------ */
 .ws-index .ws-cards { margin-top: 1.25rem; }
-.ws-card { border-top: 3px solid var(--bs-border-color, #dee2e6); }
+/* `.card` (epitech-theme.css) already gives every card rounded-xl + a real
+   shadow; `overflow: hidden` keeps this top accent bar from poking past the
+   now-rounded corners. */
+.ws-card { border-top: 3px solid var(--bs-border-color, #dee2e6); overflow: hidden; }
 .ws-card.ws-done { border-top-color: var(--bs-success, #198754); }
 .ws-card.ws-current {
   border-top-color: var(--bs-primary, #0d6efd);
-  /* The one card to click: lifted rather than just tinted, so it reads as
-     "here" even in grayscale. */
+  /* The one card to click: lifted further than the shared elevation, so it
+     reads as "here" even in grayscale. */
   box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.12);
 }
 .ws-card.ws-locked { opacity: 0.7; }
@@ -244,17 +767,42 @@
    has to sit above it or it cannot be clicked. */
 .ws-card-note a { position: relative; z-index: 2; }
 
+/* Card and subject-heading state icons, from the same CSS table as the chips
+   and the step rows. `.ws-card-icon` is used by both the card grid and the
+   per-subject heading, and each sits inside an element carrying `ws-<state>`. */
+.ws-card-icon::before {
+  font-family: "Font Awesome 6 Free";
+  font-weight: 900;
+  font-size: 0.85em;
+  line-height: 1;
+}
+.ws-card.ws-done .ws-card-icon::before,
+.ws-subject.ws-done .ws-card-icon::before { content: "\f00c"; }
+.ws-card.ws-current .ws-card-icon::before,
+.ws-subject.ws-current .ws-card-icon::before { content: "\f04b"; }
+.ws-card.ws-locked .ws-card-icon::before,
+.ws-subject.ws-locked .ws-card-icon::before { content: "\f023"; }
+.ws-card.ws-info .ws-card-icon::before,
+.ws-subject.ws-info .ws-card-icon::before { content: "\f15c"; }
+.ws-card.ws-todo .ws-card-icon::before,
+.ws-subject.ws-todo .ws-card-icon::before {
+  content: "";
+  display: inline-block;
+  width: 0.55em; height: 0.55em;
+  border: 1.5px solid currentColor; border-radius: 50%;
+  vertical-align: middle;
+}
+
 /* ------------------------------------------------------------------ *
  * Runtime pane (PLAN.md §14) — an existing web app beside the subject
  * ------------------------------------------------------------------ */
 :root { --ws-pane-width: 55%; }
 
 .ws-runtime {
-  /* Starts below CTFd's fixed navbar rather than covering it: the navbar stays
-     usable while the pane is open, and it keeps its full width — shrinking it
-     made it wrap to two rows, since `navbar-expand-md` collapses on viewport
-     width, which a margin does not change. */
-  position: fixed; top: var(--ws-navbar-height, 56px); right: 0; bottom: 0;
+  /* Full height now: the shell's header scrolls with the page rather than being
+     pinned over it, so there is no fixed bar for the pane to start below. The
+     header stays reachable by scrolling up on the left-hand column. */
+  position: fixed; top: 0; right: 0; bottom: 0;
   width: var(--ws-pane-width); z-index: 1030;
   display: flex; flex-direction: column;
   background: var(--bs-body-bg, #fff);
@@ -265,7 +813,8 @@
    `width: auto` matters — Bootstrap's .container sets `width: 100%`, and a
    block with an explicit width ignores margin-right (over-constrained box),
    which clips the text instead of reflowing it. */
-body.ws-has-pane .ws-page {
+body.ws-has-pane .ws-page,
+body.ws-has-pane .ws-hero {
   width: auto; max-width: none; margin-right: var(--ws-pane-width);
 }
 body.ws-has-pane { overflow-x: hidden; }
@@ -314,7 +863,10 @@ body.ws-has-pane { overflow-x: hidden; }
 .ws-next-btn { min-width: 60%; }
 
 /* Parcours path graph */
-.ws-parcours-scroll { overflow: auto; border: 1px solid #566c86; padding: 8px; }
+.ws-parcours-scroll {
+  overflow: auto; border: 1px solid #262b38; padding: 8px;
+  border-radius: var(--bs-border-radius-lg, 1rem);
+}
 .ws-parcours-legend { margin: 0.5rem 0; display: flex; gap: 1rem; font-size: 0.85rem; }
 .ws-lg::before {
   content: ""; display: inline-block; width: 12px; height: 12px;
@@ -324,7 +876,7 @@ body.ws-has-pane { overflow-x: hidden; }
 .ws-parcours-svg a.ws-node-link { cursor: pointer; text-decoration: none; }
 /* Brighten in place on hover: a fixed hover fill would repaint a solved (green)
    node with the same colour as an available (blue) one and lose the state. */
-.ws-parcours-svg a.ws-node-link rect { transition: filter 0.1s, stroke-width 0.1s; }
+.ws-parcours-svg a.ws-node-link rect { transition: filter var(--epi-dur-fast) var(--epi-ease-standard), stroke-width var(--epi-dur-fast) var(--epi-ease-standard); }
 .ws-parcours-svg a.ws-node-link:hover rect { filter: brightness(1.8); stroke-width: 2.5; }
 .ws-parcours-svg a.ws-node-link:hover text { fill: #ffffff; }
 .ws-parcours-svg a.ws-node-link:focus-visible rect { stroke: #f4f4f4; stroke-width: 3; }
@@ -332,10 +884,11 @@ body.ws-has-pane { overflow-x: hidden; }
 
 .ws-parcours-hint { font-size: 0.85rem; opacity: 0.75; margin-bottom: 0.5rem; }
 
-.ws-lg-solved::before { background: #173a1f; border-color: #a7f070; }
-.ws-lg-open::before   { background: #12233f; border-color: #41a6f6; }
-.ws-lg-locked::before { background: #1a1c2c; border-color: #566c86; }
-.ws-lg-path::before   { background: #a7f070; border-color: #a7f070; }
+/* Legend swatches live in epitech-theme.css, beside the rest of the
+   always-dark palette — they used to be duplicated here in the stock
+   arcade colours and were only invisible because that file loads second.
+   DESIGN.md asks for graph.js's literals and these to move together;
+   that is only checkable if there is one of them. */
 
 /* Fixed handle to reopen the runtime from anywhere in the page. Sits on the
    right edge like a drawer tab; assets/runtime.js shows it only once the
@@ -358,10 +911,20 @@ body.ws-has-pane { overflow-x: hidden; }
 }
 .ws-rating-btn {
   border: 0; background: none; padding: 0 0.15rem; line-height: 1;
-  font-size: 0.95rem; opacity: 0.45; cursor: pointer; transition: opacity 0.1s;
+  font-size: 0.95rem; opacity: 0.45; cursor: pointer; transition: opacity var(--epi-dur-fast) var(--epi-ease-standard);
 }
-.ws-rating-btn:hover { opacity: 1; }
-.ws-rating-btn.ws-rating-chosen { opacity: 1; transform: scale(1.15); }
+.ws-rating-btn {
+  transition: opacity var(--epi-dur-fast) var(--epi-ease-standard),
+              transform var(--epi-dur-base) var(--epi-ease-emphatic);
+}
+@media (hover: hover) and (pointer: fine) {
+  .ws-rating-btn:hover { opacity: 1; transform: scale(1.12); }
+}
+.ws-rating-btn:active { transform: scale(0.92); }
+/* Emphatic easing overshoots, so the chosen thumb lands with a small bounce.
+   This is the one control in the page whose whole job is to be answered on
+   impulse; everywhere else the standard curve applies. */
+.ws-rating-btn.ws-rating-chosen { opacity: 1; transform: scale(1.25); }
 .ws-rating-thanks { font-size: 0.8rem; opacity: 0.7; }
 
 /* The outro asks the same question, with room for a sentence. */
@@ -392,4 +955,235 @@ body.ws-has-pane { overflow-x: hidden; }
 }
 .ws-subject-title .ws-card-count { margin-left: auto; font-size: 0.8rem; opacity: 0.7; }
 .ws-subject-bar { margin: 0.5rem 0 1rem; }
+
+/* ------------------------------------------------------------------ *
+ * Empty states
+ *
+ * Ported from jump's EmptyState.svelte: a dashed frame, the icon in a raised
+ * circle, an Anton line with the terminal cursor, one italic line under it.
+ * CTFd's own is `<h3 class="text-center text-muted">` alone in the middle of a
+ * blank page — "Scoreboard is empty" as a shrug. The markup is core's, so this
+ * is entirely selector work.
+ * ------------------------------------------------------------------ */
+main > .container > .row > .col-md-12 > h3.text-muted:only-child,
+.ws-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  margin: 2rem auto;
+  padding: 3rem 1.5rem;
+  max-width: 34rem;
+  border: 2px dashed var(--bs-border-color, #dee2e6);
+  border-radius: var(--bs-border-radius-xl, 1rem);
+  background: color-mix(in oklab, var(--bs-secondary-bg) 35%, transparent);
+  font-family: "Anton", sans-serif;
+  text-transform: uppercase;
+  font-size: 1.25rem;
+  line-height: 1.15;
+  color: var(--bs-body-color) !important;
+}
+/* The brand's signature, the same one every page title carries. */
+main > .container > .row > .col-md-12 > h3.text-muted:only-child::after,
+.ws-empty::after {
+  content: "_";
+  color: var(--bs-success);
+  margin-left: -0.15em;
+}
+
+/* ------------------------------------------------------------------ *
+ * Celebration — assets/celebrate.js draws these, this sizes them
+ *
+ * `epi-reward-float` is jump's `xp-float` keyframe, ported frame for frame:
+ * pop in with overshoot, settle, hover, float away. jump's DESIGN.md caps a
+ * state transition at 320ms and then says a one-shot celebration states its own
+ * duration — 2.2s is the original's, and the reason it is allowed.
+ * ------------------------------------------------------------------ */
+/* jump's `xp-float`, ported frame for frame — the pop with overshoot, the
+   settle, the gentle hover, the float away. Only the horizontal centring is
+   ours: the float is anchored over a control rather than over the viewport, so
+   every frame carries the -50% that centres it on that control. */
+@keyframes ws-reward-float {
+  0%   { opacity: 0; transform: translate(-50%, 24px) scale(0.5); }
+  12%  { opacity: 1; transform: translate(-50%, 0) scale(1.25); }
+  24%  { transform: translate(-50%, 0) scale(1); }
+  70%  { opacity: 1; transform: translate(-50%, -12px) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -56px) scale(0.92); }
+}
+
+/* The reward, as jump draws it: the figure alone, in Anton, in the warm brand
+   colour, lit by its own halo. No plate behind it and no icon beside it — both
+   were mine and both made it read as a notification badge rather than as
+   something being handed over.
+
+   It does mean the light theme runs the figure at 2.86:1 against the page,
+   under the 3:1 large-text floor. That is jump's own tradeoff and it is taken
+   knowingly: this is a 2.2s celebration overlay carrying no information the
+   page does not already show — the counter, the bar and the step icon all move
+   with it — and the halo is what separates it from the text underneath. The
+   alternative is `--epi-together-ink` (#b5361a light), which passes and reads
+   as brick rather than as a reward. */
+.ws-reward {
+  position: fixed;
+  z-index: 2147483000; /* above the runtime pane (1030), below the confetti */
+  display: inline-flex; align-items: baseline; gap: 0.3rem;
+  pointer-events: none;
+  white-space: nowrap;
+  color: var(--epi-together);
+  filter: drop-shadow(0 0 25px rgb(255 95 58 / 0.55));
+  transform: translate(-50%, 0);
+  animation: ws-reward-float 2.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.ws-reward-figure {
+  font-family: "Anton", sans-serif;
+  font-size: 2.5rem; line-height: 1; letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+.ws-reward-unit {
+  font-size: 1.15rem; font-weight: 700;
+  text-transform: uppercase;
+}
+/* The subject's own sprite, when it declared one (cover.mascot). Every subject
+   already ships the art — the ghost, Pac-Man, the shooter — so this costs an
+   author one line and nothing else. */
+.ws-reward-mascot {
+  align-self: center;
+  width: 2.25rem; height: 2.25rem;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+/* Reduced motion asks for less movement, not for no feedback. The global rule
+   near the top of epitech-theme.css shortens every animation to 0.01ms, which
+   for this one would mean the only confirmation a solve gives never appears at
+   all. It keeps its full length and loses the rise. */
+@media (prefers-reduced-motion: reduce) {
+  @keyframes ws-reward-fade {
+    0%   { opacity: 0; }
+    12%  { opacity: 1; }
+    70%  { opacity: 1; }
+    100% { opacity: 0; }
+  }
+  .ws-reward {
+    animation: ws-reward-fade 2.2s linear forwards !important;
+    animation-duration: 2.2s !important;
+  }
+}
+
+/* The confetti canvas: above the runtime pane (z-index 1030) and on its own
+   compositing layer, or it paints behind the iframe. See celebrate.js. */
+#ws-confetti {
+  position: fixed; inset: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+  z-index: 2147483647;
+  transform: translateZ(0);
+}
+
+/* The forward cue a finished document used to lack entirely — see page.py's
+   _render. Only rendered once every step of the current document is done.
+   A small "Mission Terminée" moment — trophy in a tinted circle, Anton on
+   the terminal state — not a full celebration screen: this sits inline in a
+   scrolling document, not its own route. */
+.ws-next-doc {
+  margin: 2.5rem 0 1rem;
+  padding: 2.25rem 1.5rem;
+  border-radius: var(--bs-border-radius-lg, 1rem);
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  /* A dark celebration surface in both themes, for the same reason the reward
+     token is one: the brand green it is built from is 1.33:1 on white, and this
+     is the loudest moment of the part. It also ties the three rewards together
+     — the token, this block and the confetti all speak the same two colours. */
+  background: var(--epi-grey-900);
+  color: #f1f2f6;
+  border: 1px solid color-mix(in oklab, var(--epi-tech) 22%, transparent);
+}
+/* jump's blueprint grid, inverted, at the same 48px pitch as the page band.
+   DESIGN.md keeps the texture for ceremony surfaces rather than routine page
+   furniture, and finishing a part is the ceremony. */
+.ws-next-doc::before {
+  content: "";
+  position: absolute; inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, rgb(255 255 255 / 0.045) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(255 255 255 / 0.045) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+.ws-next-doc > * { position: relative; }
+.ws-next-doc-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 3.5rem; height: 3.5rem; margin-bottom: 0.9rem;
+  border-radius: 50%;
+  background: color-mix(in oklab, var(--epi-tech) 16%, transparent);
+  box-shadow: 0 0 26px color-mix(in oklab, var(--epi-tech) 22%, transparent);
+}
+.ws-next-doc-badge::before {
+  content: "\f00c";
+  font-family: "Font Awesome 6 Free"; font-weight: 900;
+  font-size: 1.4rem;
+  color: var(--epi-tech);
+}
+/* The end of the whole workshop, not of a part: a trophy, and the one place
+   the badge changes. */
+.ws-next-doc-final .ws-next-doc-badge::before { content: "\f091"; }
+.ws-next-doc-lead {
+  margin-bottom: 1.1rem;
+  color: rgb(241 242 246 / 0.75);
+}
+.ws-next-doc-done {
+  font-family: "Anton", sans-serif; text-transform: uppercase;
+  font-size: 1.6rem; letter-spacing: 0.01em;
+  color: var(--epi-tech);
+  margin-bottom: 0;
+}
+
+/* jump's buttonNeon: the charte's celebration CTA, and this is exactly that —
+   the one hopeful action on the surface. It used to be `.btn.btn-primary`,
+   i.e. the same blue as every Save button in the admin panel, at the single
+   most earned moment of the part. */
+.ws-next-doc-link {
+  --bs-btn-bg: var(--epi-tech);
+  --bs-btn-border-color: var(--epi-tech);
+  --bs-btn-color: var(--epi-blue);
+  --bs-btn-hover-bg: #33ffad;
+  --bs-btn-hover-border-color: #33ffad;
+  --bs-btn-hover-color: var(--epi-blue);
+  --bs-btn-active-bg: #00e689;
+  --bs-btn-active-border-color: #00e689;
+  --bs-btn-active-color: var(--epi-blue);
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  padding: 0.6rem 1.3rem;
+  font-weight: 700;
+  box-shadow: 0 0 28px color-mix(in oklab, var(--epi-tech) 26%, transparent);
+}
+.ws-next-doc-arrow::before {
+  content: "\f061";
+  font-family: "Font Awesome 6 Free"; font-weight: 900;
+  font-size: 0.85em;
+  display: inline-block;
+  transition: transform var(--epi-dur-base) var(--epi-ease-standard);
+}
+/* The arrow leads, which is the whole point of an arrow. Hover only: on a
+   touch screen the press state below is what answers. */
+@media (hover: hover) and (pointer: fine) {
+  .ws-next-doc-link:hover .ws-next-doc-arrow::before { transform: translateX(4px); }
+}
+
+/* The block is revealed by removing `hidden` after the last step of a part is
+   solved — no reload — so without this it simply blinks into existence at the
+   bottom of the page. The class is set by workshop_page.js at the moment of the
+   reveal, never by `[hidden]`, so a page loaded with the part already finished
+   does not replay it. */
+@keyframes ws-next-doc-in {
+  from { opacity: 0; transform: translateY(14px) scale(0.98); }
+  to   { opacity: 1; transform: none; }
+}
+.ws-next-doc.ws-next-doc-in {
+  animation: ws-next-doc-in var(--epi-dur-slow) var(--epi-ease-emphatic);
+}
+
 .ws-subject.ws-locked .ws-subject-title { opacity: 0.7; }

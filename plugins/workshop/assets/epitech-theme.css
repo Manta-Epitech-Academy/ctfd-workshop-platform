@@ -1,0 +1,1316 @@
+/* Epitech brand reskin — injected via {{ Plugins.styles }} in base.html,
+   loaded after CTFd's own compiled bundle, never a CTFd/ edit.
+   Token values and the "why" behind every override below: DESIGN.md at the
+   repo root. That file is the contract; this is its one implementation. */
+
+/* ============================================================================
+   Fonts — self-hosted (see assets/fonts/LICENSE.md). No CDN: this repo's own
+   rule ("vendor, don't CDN", PLAN.md §18) exists because a live session on
+   school wifi cannot be trusted to fetch an external stylesheet.
+   ============================================================================ */
+@font-face {
+  font-family: "IBM Plex Sans Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 700;
+  src: url(fonts/ibm-plex-sans-latin-wght-normal.woff2) format("woff2-variations");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215,
+    U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Anton";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url(fonts/anton-latin-400-normal.woff2) format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215,
+    U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Space Mono";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url(fonts/space-mono-latin-400-normal.woff2) format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215,
+    U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Space Mono";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 700;
+  src: url(fonts/space-mono-latin-700-normal.woff2) format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215,
+    U+FEFF, U+FFFD;
+}
+
+html,
+body,
+.container {
+  font-family: "IBM Plex Sans Variable", sans-serif;
+}
+/* The one spot core still uses Raleway. Anton only here, on purpose: it has a
+   single weight and reads as a poster face, not a body heading — jump's own
+   layout.css learned this the hard way ("a browser fakes [bold] by smearing
+   the glyphs... a display face is a choice a heading states"). Scoped, not a
+   bare h1 rule. */
+.jumbotron .container,
+.epi-hero-title {
+  font-family: "Anton", sans-serif;
+  text-transform: uppercase;
+}
+
+/* ============================================================================
+   Brand constants and motion — the values that must NOT vary with the theme.
+
+   Everything in the token remap below is a Bootstrap *role*: --bs-primary means
+   "the colour text and borders take on the current surface", and it is
+   correctly a different blue per theme. A brand *surface* is the opposite job.
+   The blue band, the login panel and the neon CTA are the logo's blue, and
+   jump's contract is explicit about it: "epiBlue never changes value. It is the
+   logo. Dark surfaces use a separate darkPrimary for UI text and borders."
+   Painting a brand surface with --bs-primary would repaint it #809dfd in dark
+   mode, which is not the Epitech blue and not what the logo beside it is.
+
+   So: three literals, declared once, never redeclared per theme.
+   ============================================================================ */
+:root {
+  --epi-blue: #013afb;
+  --epi-tech: #00ff97;
+  /* The warm third colour. Already in this file twice as a literal — the
+     confetti mix — and now the reward float, which is jump's XpFloat and paints
+     with the surface value rather than with `--bs-danger`'s ink variants. */
+  --epi-together: #ff5f3a;
+  /* jump's "chrome": the one near-black for surfaces that stay dark whatever
+     the page theme is — code blocks, the media mat, the Parcours graph. */
+  --epi-grey-900: #0b0e1a;
+
+  /* Motion, ported verbatim from jump/frontend/src/routes/layout.css. 320ms is
+     the ceiling for a state transition. --epi-ease-emphatic overshoots and is
+     for brand reveals only (the reward float), which state their own duration
+     rather than living under the ceiling. */
+  --epi-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --epi-ease-emphatic: cubic-bezier(0.2, 0, 0.2, 1.2);
+  --epi-dur-fast: 120ms;
+  --epi-dur-base: 200ms;
+  --epi-dur-slow: 320ms;
+}
+
+/* Motion is a preference, not a detail, so it is opted out of once here rather
+   than at each call site — a new animation cannot forget to honour it.
+
+   Near-zero rather than `none`: an animation that never runs also never fires
+   `animationend`, and anything that removes its own element on that event would
+   leak it instead. 0.01ms runs, ends immediately, and is not perceptible. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ============================================================================
+   Token remap — values ported verbatim from jump/frontend/src/routes/layout.css.
+   Bootstrap 5.3 does NOT redeclare --bs-primary/-success/-danger/-warning/-dark
+   between light and dark (same literal both modes in CTFd's compiled CSS); we
+   deliberately do, mirroring jump's own light/ink vs dark/neon split, because
+   the ink shades are calibrated for a light surface and stop being legible on
+   a dark one.
+   ============================================================================ */
+:root,
+[data-bs-theme="light"] {
+  --bs-primary: #013afb;
+  --bs-primary-rgb: 1, 58, 251;
+  --bs-link-color: #013afb;
+  --bs-link-color-rgb: 1, 58, 251;
+  --bs-link-hover-color: #013afb;
+
+  --bs-success: #007a46;
+  --bs-success-rgb: 0, 122, 70;
+  --bs-danger: #b5361a;
+  --bs-danger-rgb: 181, 54, 26;
+  --bs-warning: #8a5a00;
+  --bs-warning-rgb: 138, 90, 0;
+
+  /* jump's "chrome": one always-dark furniture colour, used here for the
+     navbar (.bg-dark), the jumbotron and unsolved challenge cards (.btn-dark) —
+     see the component-override block below for the two of those three that
+     Bootstrap bakes as literal hex rather than reading this variable. */
+  --bs-dark: #0b0e1a;
+  --bs-dark-rgb: 11, 14, 26;
+
+  --bs-body-bg: #f6f7fb;
+  --bs-body-color: #181818;
+  /* jump's `--card`. A card has to be a distinct surface from the page or the
+     border is doing all the work; Bootstrap defaults --bs-card-bg to the body
+     background, which makes every .card invisible against it. */
+  --epi-card: #ffffff;
+  --bs-card-bg: #ffffff;
+  --bs-border-color: #d9dce8;
+  --bs-border-color-translucent: rgba(1, 58, 251, 0.12);
+  --bs-secondary-bg: #eceef5;
+  --bs-tertiary-bg: #f6f7fb;
+  --bs-secondary-color: #555b71;
+  --bs-tertiary-color: #555b71;
+}
+
+[data-bs-theme="dark"] {
+  --bs-primary: #809dfd;
+  --bs-primary-rgb: 128, 157, 253;
+  --bs-link-color: #809dfd;
+  --bs-link-color-rgb: 128, 157, 253;
+  --bs-link-hover-color: #809dfd;
+
+  --bs-success: #00ff97;
+  --bs-success-rgb: 0, 255, 151;
+  --bs-danger: #ff9878;
+  --bs-danger-rgb: 255, 152, 120;
+  --bs-warning: #ffd15c;
+  --bs-warning-rgb: 255, 209, 92;
+
+  --bs-dark: #0b0e1a;
+  --bs-dark-rgb: 11, 14, 26;
+
+  --bs-body-bg: #0c0e13;
+  --bs-body-color: #f1f2f6;
+  --epi-card: #12151d;
+  --bs-card-bg: #12151d;
+  --bs-border-color: #262b38;
+  --bs-border-color-translucent: rgba(128, 157, 253, 0.15);
+  --bs-secondary-bg: #1b1f29;
+  --bs-tertiary-bg: #1b1f29;
+  --bs-secondary-color: #8b90a3;
+  --bs-tertiary-color: #8b90a3;
+}
+/* --bs-info intentionally untouched: jump defines no "info" role, and
+   inventing one here would be new design, not reuse. Left at CTFd's own
+   default in both themes (see DESIGN.md). */
+
+/* ============================================================================
+   .on-dark — a surface that is dark whatever the page theme is.
+
+   Ported from jump (layout.css). The reasoning there: the "ink" shades above
+   (--bs-success #007a46 and friends) are darkened until they clear AA on a
+   *light* surface, which is exactly what makes them illegible on a dark one —
+   the ink green is 1.9:1 on the chrome near-black. A component that had to take
+   a "tone" prop would be silently invisible on the one surface nobody tests.
+
+   Five surfaces use it: the app header, the page hero, the login brand panel,
+   code blocks and the Parcours graph. DESIGN.md used to say "two call sites,
+   don't build a general mechanism" — five is the condition that paragraph set
+   for revisiting it.
+
+   **Every derived role is restated here, and has to be.** A custom property
+   holding var(--other) is substituted on the element that *declares* it, not on
+   the element that reads it, so re-pointing an ink here never reaches a role
+   declared on :root. [data-bs-theme="dark"] gets away with this because it
+   lands on the root itself; .on-dark is a descendant and does not.
+   ============================================================================ */
+.on-dark,
+.epi-hero,
+/* A core .jumbotron is the same brand surface, and no plugin can add a class to
+   a core template, so it earns the tokens by selector instead. */
+.jumbotron {
+  --bs-success: #00ff97;
+  --bs-success-rgb: 0, 255, 151;
+  --bs-danger: #ff9878;
+  --bs-danger-rgb: 255, 152, 120;
+  --bs-warning: #ffd15c;
+  --bs-warning-rgb: 255, 209, 92;
+
+  /* --bs-body-bg is not decoration in this list. The notification badge paints
+     `color: var(--bs-body-bg)` on a --bs-danger fill (see the header block
+     further down): invert the danger without inverting the ground and the count
+     becomes light #f6f7fb on salmon #ff9878, which nobody can read.
+
+     Inverting these two also reaches the account dropdown, because Bootstrap
+     declares --bs-dropdown-bg: var(--bs-body-bg) and --bs-dropdown-link-color:
+     var(--bs-body-color), and the menu is a DOM descendant of the header. That
+     is deliberate and recorded in DESIGN.md: a menu opened from a dark bar is a
+     dark menu in both themes. The alternative is scoping .on-dark element by
+     element inside the header, which costs more than it buys. */
+  --bs-body-bg: #0c0e13;
+  --bs-body-color: #f1f2f6;
+
+  /* Neutrals become white at an opacity rather than a fixed grey, so one set of
+     values works on brand blue and on the near-black alike. The greys above are
+     mixed for a page background and go muddy on a saturated surface. */
+  --bs-secondary-color: rgba(255, 255, 255, 0.74);
+  --bs-tertiary-color: rgba(255, 255, 255, 0.74);
+  --bs-secondary-bg: rgba(255, 255, 255, 0.14);
+  --bs-tertiary-bg: rgba(255, 255, 255, 0.1);
+  --bs-border-color: rgba(255, 255, 255, 0.22);
+  --bs-border-color-translucent: rgba(255, 255, 255, 0.16);
+
+  color: #f1f2f6;
+}
+
+/* ============================================================================
+   Component-level overrides. Bootstrap bakes these as literal hex in their own
+   --bs-btn-*/--bs-*-active-bg vars at build time, so the root remap above
+   never reaches them — this list IS the fix, not decoration. See DESIGN.md
+   "Bootstrap limitations".
+   ============================================================================ */
+.btn-primary {
+  --bs-btn-color: #fff;
+  --bs-btn-bg: var(--bs-primary);
+  --bs-btn-border-color: var(--bs-primary);
+  --bs-btn-hover-bg: color-mix(in oklab, var(--bs-primary) 85%, black);
+  --bs-btn-hover-border-color: color-mix(in oklab, var(--bs-primary) 80%, black);
+  --bs-btn-active-bg: color-mix(in oklab, var(--bs-primary) 75%, black);
+  --bs-btn-active-border-color: color-mix(in oklab, var(--bs-primary) 70%, black);
+  --bs-btn-disabled-bg: var(--bs-primary);
+  --bs-btn-disabled-border-color: var(--bs-primary);
+}
+.btn-outline-primary {
+  --bs-btn-color: var(--bs-primary);
+  --bs-btn-border-color: var(--bs-primary);
+  --bs-btn-hover-bg: var(--bs-primary);
+  --bs-btn-hover-border-color: var(--bs-primary);
+  --bs-btn-active-bg: var(--bs-primary);
+  --bs-btn-active-border-color: var(--bs-primary);
+  --bs-btn-disabled-color: var(--bs-primary);
+  --bs-btn-disabled-border-color: var(--bs-primary);
+}
+/* Press feedback, once, for every button on the platform.
+
+   Bootstrap's :active only repaints the fill, which on a saturated brand colour
+   is close to invisible and says nothing on a touch screen, where there is no
+   hover to have told you the thing was a control. A 3% scale is the cheapest
+   signal that the interface heard the tap, and it is the one detail that
+   separates a page that feels alive from a page that feels like a form.
+
+   Only transform is transitioned, never `all`: the fill and border already have
+   Bootstrap's own transition, and animating layout properties here would cost a
+   relayout on every hover.
+
+   :not(:disabled) matters — the submit button is disabled for the length of the
+   request, and a disabled control that still reacts to a press is a lie. */
+.btn {
+  transition: transform var(--epi-dur-fast) var(--epi-ease-standard);
+}
+.btn:active:not(:disabled):not(.disabled) {
+  transform: scale(0.97);
+}
+
+/* .btn-dark also styles every unsolved challenge-board card
+   (challenges.html: .challenge-button.btn-dark) — one token, three surfaces
+   (navbar via .bg-dark below, jumbotron, and this). */
+.btn-dark {
+  --bs-btn-bg: var(--bs-dark);
+  --bs-btn-border-color: var(--bs-dark);
+  --bs-btn-hover-bg: color-mix(in oklab, var(--bs-dark) 80%, white);
+  --bs-btn-hover-border-color: color-mix(in oklab, var(--bs-dark) 80%, white);
+  --bs-btn-active-bg: color-mix(in oklab, var(--bs-dark) 70%, white);
+  --bs-btn-active-border-color: color-mix(in oklab, var(--bs-dark) 70%, white);
+  --bs-btn-disabled-bg: var(--bs-dark);
+  --bs-btn-disabled-border-color: var(--bs-dark);
+}
+.btn-success {
+  --bs-btn-bg: var(--bs-success);
+  --bs-btn-border-color: var(--bs-success);
+  --bs-btn-color: #fff;
+  --bs-btn-hover-bg: color-mix(in oklab, var(--bs-success) 85%, black);
+  --bs-btn-hover-border-color: color-mix(in oklab, var(--bs-success) 80%, black);
+  --bs-btn-active-bg: color-mix(in oklab, var(--bs-success) 75%, black);
+  --bs-btn-active-border-color: color-mix(in oklab, var(--bs-success) 70%, black);
+  --bs-btn-disabled-bg: var(--bs-success);
+  --bs-btn-disabled-border-color: var(--bs-success);
+}
+.btn-danger {
+  --bs-btn-bg: var(--bs-danger);
+  --bs-btn-border-color: var(--bs-danger);
+  --bs-btn-color: #fff;
+  --bs-btn-hover-bg: color-mix(in oklab, var(--bs-danger) 85%, black);
+  --bs-btn-hover-border-color: color-mix(in oklab, var(--bs-danger) 80%, black);
+  --bs-btn-active-bg: color-mix(in oklab, var(--bs-danger) 75%, black);
+  --bs-btn-active-border-color: color-mix(in oklab, var(--bs-danger) 70%, black);
+  --bs-btn-disabled-bg: var(--bs-danger);
+  --bs-btn-disabled-border-color: var(--bs-danger);
+}
+.btn-warning {
+  --bs-btn-bg: var(--bs-warning);
+  --bs-btn-border-color: var(--bs-warning);
+  --bs-btn-color: #fff;
+  --bs-btn-hover-bg: color-mix(in oklab, var(--bs-warning) 85%, black);
+  --bs-btn-hover-border-color: color-mix(in oklab, var(--bs-warning) 80%, black);
+  --bs-btn-active-bg: color-mix(in oklab, var(--bs-warning) 75%, black);
+  --bs-btn-active-border-color: color-mix(in oklab, var(--bs-warning) 70%, black);
+  --bs-btn-disabled-bg: var(--bs-warning);
+  --bs-btn-disabled-border-color: var(--bs-warning);
+}
+
+/* Solid outline, not Bootstrap's alpha box-shadow ring — same reasoning jump's
+   own layout.css gives: a box-shadow ring doesn't survive an overflow-hidden
+   ancestor (the challenge modal), an outline does. :focus (not :focus-visible)
+   to match the exact trigger Bootstrap itself uses, so mouse-click focus keeps
+   a visible ring too. */
+/* offset 0, not 1px: with the border recoloured too, a detached ring reads as
+   two concentric outlines. Flush against the border they are one 3px ring. */
+.form-control:focus,
+.form-select:focus {
+  border-color: var(--bs-primary);
+  outline: 2px solid var(--bs-primary);
+  outline-offset: 0;
+  box-shadow: none;
+}
+.form-check-input:checked {
+  background-color: var(--bs-primary);
+  border-color: var(--bs-primary);
+}
+
+.dropdown-menu {
+  --bs-dropdown-link-active-bg: var(--bs-primary);
+}
+.list-group {
+  --bs-list-group-active-bg: var(--bs-primary);
+  --bs-list-group-active-border-color: var(--bs-primary);
+}
+.pagination {
+  --bs-pagination-active-bg: var(--bs-primary);
+  --bs-pagination-active-border-color: var(--bs-primary);
+}
+.progress-bar {
+  --bs-progress-bar-bg: var(--bs-primary);
+}
+.table-primary {
+  --bs-table-bg: color-mix(in oklab, var(--bs-primary) 15%, var(--bs-body-bg));
+  --bs-table-striped-bg: color-mix(in oklab, var(--bs-primary) 22%, var(--bs-body-bg));
+  --bs-table-active-bg: color-mix(in oklab, var(--bs-primary) 28%, var(--bs-body-bg));
+  --bs-table-hover-bg: color-mix(in oklab, var(--bs-primary) 20%, var(--bs-body-bg));
+  --bs-table-border-color: color-mix(in oklab, var(--bs-primary) 35%, var(--bs-body-bg));
+}
+
+/* The challenge board's cards. Core ships them as `btn btn-dark` and then pins
+   `border: none` plus a dated 15px glow inside per-theme blocks
+   (`[data-bs-theme=X] .challenge-button`, _challenge.scss), so every property
+   here has to be matched at that same 0,2,0 specificity or it loses regardless
+   of source order.
+
+   A talent-space card is a light surface with a real border and a small
+   shadow — never a dark slab, which is what a page full of `btn-dark` blocks
+   was. Solved is a flat success tint over that same surface rather than the
+   hardcoded saturated #29c830 fill, which is both off-palette and the one
+   thing on the page shouting louder than the CTA.
+
+   Known limitation, unchanged from stock: solved is signalled by colour alone
+   here. Fixing it needs a glyph in the markup, which lives in a core template
+   this plugin deliberately does not own. The workshop view (the page a
+   participant actually works in) carries icon + text + colour instead. */
+[data-bs-theme="light"] .challenge-button,
+[data-bs-theme="dark"] .challenge-button {
+  border: 1px solid var(--bs-border-color);
+  background-color: var(--epi-card);
+  color: var(--bs-body-color);
+  box-shadow: var(--epi-shadow-raised);
+}
+[data-bs-theme="light"] .challenge-button:hover,
+[data-bs-theme="dark"] .challenge-button:hover {
+  border-color: var(--bs-primary);
+  background-color: var(--epi-card);
+  color: var(--bs-body-color);
+}
+[data-bs-theme="light"] .challenge-button.challenge-solved,
+[data-bs-theme="dark"] .challenge-button.challenge-solved {
+  background-color: color-mix(in oklab, var(--bs-success) 12%, var(--epi-card));
+  border-color: color-mix(in oklab, var(--bs-success) 45%, var(--epi-card));
+  color: var(--bs-body-color);
+}
+[data-bs-theme="light"] .challenge-button.challenge-solved:hover,
+[data-bs-theme="dark"] .challenge-button.challenge-solved:hover {
+  background-color: color-mix(in oklab, var(--bs-success) 18%, var(--epi-card));
+  border-color: var(--bs-success);
+  color: var(--bs-body-color);
+}
+
+/* ============================================================================
+   Radius and elevation — the TALENT space's system, not the staff/charte flat
+   default. `.camper-layout`/`.talent-surface` in jump's layout.css: 0.75rem
+   for controls, 1rem for surfaces, and a real shadow instead of border-only.
+   This app has one audience (a workshop participant, not a staff member), so
+   it takes the soft/raised half of jump's system, not the square/flat one —
+   correcting the first pass, which used the wrong space's default.
+   `.card` resolves through `--bs-border-radius` in Bootstrap's own compiled
+   CSS (verified against main.e9ec7884.css locally, so is `.badge`/
+   `.form-control`), which is why control and surface radius can't both be one
+   variable: `--bs-card-border-radius` is overridden directly below instead.
+   ============================================================================ */
+:root {
+  --bs-border-radius-sm: 0.5rem;
+  --bs-border-radius: 0.75rem;
+  --bs-border-radius-lg: 1rem;
+  --bs-border-radius-xl: 1rem;
+  --bs-border-radius-xxl: 1.5rem;
+  /* --bs-border-radius-pill left alone: badges/pills are meant to stay round. */
+
+  /* jump's --elevation-raised, ported: a real card shadow in light, border
+     doing the work in dark (a drop shadow is invisible on a dark surface). */
+  --epi-shadow-raised: 0 1px 2px rgb(0 0 0 / 0.08);
+}
+[data-bs-theme="dark"] {
+  --epi-shadow-raised: none;
+}
+
+.card {
+  --bs-card-border-radius: 1rem;
+  box-shadow: var(--epi-shadow-raised);
+}
+.modal-content {
+  --bs-modal-border-radius: 1rem;
+}
+/* Nothing sets a radius on the board card today (square by omission), so a
+   plain override wins with no fight. Its colour, border and shadow are a
+   different matter and are handled in the component block above. */
+.challenge-button {
+  border-radius: 1rem;
+}
+
+/* ============================================================================
+   Code blocks. Highlighting here is "lolight" (.ll-*), NOT highlight.js
+   (.hljs-*) — jump's own hljs override targets the wrong classes on this
+   codebase and would be a silent no-op if copy-pasted. Forced dark background
+   in both themes, same reasoning jump's own layout.css gives: the neon
+   --epi-tech green is calibrated for a dark surface (1.33:1 on white), so
+   code renders on one always-dark surface instead of switching palettes with
+   the page — one of three places this reskin reuses that "always-dark
+   furniture" idea (see also .btn-dark above and the Parcours graph below).
+   ============================================================================ */
+pre,
+pre code {
+  background-color: var(--epi-grey-900) !important;
+  color: #f1f2f6;
+}
+/* Same frame as a screenshot in the same body: both are always-dark panels in
+   a light document, and one of them having square corners next to the other's
+   rounded ones reads as two different systems. */
+pre {
+  border-radius: var(--bs-border-radius-lg);
+  padding: 1rem 1.1rem;
+  overflow-x: auto;
+}
+/* lolight is a language-agnostic tokenizer with exactly seven classes, so the
+   palette has to do all the separating and every class must land on its own
+   hue. Two of them used not to:
+
+     .ll-key was painted the same green as .ll-nam, so `if`, `and`, `local` and
+     a variable name were one colour — i.e. no keyword highlighting at all;
+     .ll-pct was #f1f2f6, the body colour of this surface, so every operator
+     was literally the same ink as the text around it. `pos.x > ghost.x` read
+     as one grey run, on a subject whose whole point is comparisons.
+
+   Keywords take the brand green because they are the skeleton of the snippet;
+   identifiers are the near-white default; operators and punctuation take the
+   warm accent, which is the third colour of the charte and the one thing on a
+   line of Lua a 15-year-old has to see. */
+.ll-key,
+[data-bs-theme="dark"] .ll-key {
+  color: #00ff97;
+}
+.ll-nam,
+[data-bs-theme="dark"] .ll-nam {
+  color: #e8ebf5;
+}
+.ll-str,
+[data-bs-theme="dark"] .ll-str {
+  color: #7dd3fc;
+}
+.ll-num,
+[data-bs-theme="dark"] .ll-num {
+  color: #fbbf24;
+}
+/* Comments carry the instruction ("-- deplace le fantome vers la droite"), so
+   they are quiet, not faint: #64748b was 4.0:1 on this surface. */
+.ll-com,
+[data-bs-theme="dark"] .ll-com {
+  color: #8a97ad;
+  font-style: italic;
+}
+.ll-rex,
+[data-bs-theme="dark"] .ll-rex {
+  color: #ff1ef7;
+}
+.ll-pct,
+[data-bs-theme="dark"] .ll-pct {
+  color: #ff9d7a;
+}
+/* Inline code (not in a pre block) stays on the page's own surface — only
+   fenced code blocks get the always-dark treatment. */
+code:not(pre code) {
+  background-color: var(--bs-tertiary-bg);
+  color: var(--bs-primary);
+  border-radius: var(--bs-border-radius-sm);
+}
+
+/* ============================================================================
+   "Parcours" path graph — same always-dark-furniture treatment as code blocks
+   above. Same structural encoding (solved / open / locked / current path),
+   on-brand hex instead of the stock dark-arcade palette. Mirrors the literal
+   hex constants in assets/graph.js — the two files must stay in sync (see
+   DESIGN.md).
+   ============================================================================ */
+.ws-parcours-svg a.ws-node-link:hover text {
+  fill: #ffffff;
+}
+.ws-parcours-svg :focus-visible rect {
+  stroke: #f1f2f6;
+}
+.ws-lg-solved::before {
+  background: #0b2318;
+  border-color: #00ff97;
+}
+.ws-lg-open::before {
+  background: #0e1a33;
+  border-color: #809dfd;
+}
+.ws-lg-locked::before {
+  background: #15181f;
+  border-color: #2f3543;
+}
+.ws-lg-path::before {
+  background: #00ff97;
+  border-color: #00ff97;
+}
+
+/* ============================================================================
+   The app shell — see plugins/workshop/templates/navbar.html for the markup
+   and shell.py for how it replaces core's navbar without touching CTFd/.
+
+   Ported from jump's talent space (`TalentPageHeader.svelte`): a transparent
+   header in NORMAL FLOW, no background, no border, no shadow, its content
+   centred at the same width as the page body so the wordmark lines up with the
+   content beneath it. CTFd's own was a dark `fixed-top` bar, which is the
+   single loudest thing telling a participant they had left Jump.
+
+   The nav items are the one part jump has no precedent for (its talent header
+   carries no links at all), so they are built from the two things jump does
+   that come closest: the back arrow's hover treatment and the badge recipe of
+   a flat low-opacity tint over solid text. Never a saturated fill.
+   ============================================================================ */
+
+/* One number for the header, the page titles, the content and the footer, so
+   they cannot drift out of alignment with each other. jump's `max-w-5xl`. */
+:root {
+  --epi-content-width: 64rem;
+}
+
+/* One column, footer last, exactly the shape jump's talent dashboard uses
+   (`flex min-h-dvh flex-col`). It replaces core's absolute-positioned
+   sticky-footer hack (see `.footer` below), which cannot work once the header
+   joins the flow — and without it the footer floats up the middle of a short
+   page instead of sitting at the bottom. */
+body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+}
+/* The 3.5rem existed only to clear the fixed navbar (core's _jumbotron.scss
+   says so in a comment); in normal flow it is dead space. The 100px was the
+   space core reserved for that absolute footer. */
+main {
+  flex: 1 0 auto;
+  padding-top: 0;
+  margin-bottom: 0;
+}
+
+/* The top half of the brand band. `.on-dark` rides along on the element in
+   navbar.html, so the nine controls below that read --bs-secondary-color /
+   --bs-secondary-bg / --bs-border-color are correct here without a single
+   header-specific colour rule — that is what promoting .on-dark to a real
+   mechanism bought. Only the three things that read a *brand* token need
+   saying, and two of them are blue on blue. */
+.epi-header {
+  background: var(--epi-blue);
+  border: 0;
+}
+/* Always the white wordmark, never the theme swap: this surface is blue in both
+   themes, and the blue asset on it would be invisible. Still a swap of two
+   shipped assets rather than a filter — the charte forbids effects on the
+   logo. */
+.epi-header .epi-brand-mark,
+[data-bs-theme="dark"] .epi-header .epi-brand-mark {
+  background-image: url(brand/EPITECH-LOGO-BLANC-2025.svg);
+}
+.epi-header-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  max-width: var(--epi-content-width);
+  margin-inline: auto;
+  padding: 1rem;
+}
+/* 768px, the same breakpoint the burger disappears at (`.epi-nav-toggle`
+   below), and it has to be: while the burger is still rendered the nav is a
+   `width: 100%` row that belongs on its own line, and a `nowrap` header has
+   nowhere to put it but squeezed to the right of the account menu. One split,
+   two states — a wrapping mobile header with a burger, or a single desktop
+   row without one. */
+@media (min-width: 768px) {
+  .epi-header-inner {
+    flex-wrap: nowrap;
+    gap: 1rem;
+    padding-inline: 2rem;
+  }
+}
+
+/* The wordmark ships as two assets and is swapped, never recoloured: the charte
+   forbids effects on the logo, and a background-image means the browser only
+   fetches the version the current theme actually applies. 8.27rem is 2rem at
+   the asset's own 2133x516 ratio. */
+.epi-brand {
+  display: flex;
+  align-items: center;
+  flex: none;
+  text-decoration: none;
+}
+.epi-brand-mark {
+  display: block;
+  width: 8.27rem;
+  height: 2rem;
+  background-image: url(brand/EPITECH-LOGO-BLEU-2025.svg);
+  background-repeat: no-repeat;
+  background-position: left center;
+  background-size: contain;
+}
+[data-bs-theme="dark"] .epi-brand-mark {
+  background-image: url(brand/EPITECH-LOGO-BLANC-2025.svg);
+}
+/* An instance that uploaded its own logo keeps it — the Epitech wordmark is
+   this platform's default, not an override of the admin's choice. */
+.epi-brand-custom {
+  display: block;
+  height: 2rem;
+  width: auto;
+}
+
+/* jump's own `hidden h-8 w-px bg-muted sm:block` rule, separating the brand
+   from whatever the page puts next to it. */
+.epi-header-divider {
+  display: none;
+}
+@media (min-width: 640px) {
+  .epi-header-divider {
+    display: block;
+    flex: none;
+    width: 1px;
+    height: 2rem;
+    background: var(--bs-secondary-bg);
+  }
+}
+
+.epi-nav-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 2rem;
+  height: 2rem;
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  border-radius: var(--bs-border-radius-sm);
+  color: var(--bs-secondary-color);
+  cursor: pointer;
+}
+.epi-nav-toggle:hover {
+  background: var(--bs-secondary-bg);
+  color: var(--bs-body-color);
+}
+
+/* Collapsed on narrow screens through Bootstrap's own collapse plugin, which is
+   already wired and already works; jump offers no precedent here because it has
+   no nav to collapse. The desktop rule matches `.collapse:not(.show)`'s own
+   specificity (0,2,0) and wins on source order, so no !important is needed. */
+.epi-nav {
+  order: 4;
+  width: 100%;
+}
+@media (min-width: 768px) {
+  .epi-nav-toggle {
+    display: none;
+  }
+  .epi-header .epi-nav {
+    display: flex;
+    order: 0;
+    width: auto;
+  }
+}
+.epi-nav-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0.5rem 0 0;
+  list-style: none;
+}
+@media (min-width: 768px) {
+  .epi-nav-list {
+    padding-top: 0;
+  }
+}
+.epi-nav-link {
+  display: block;
+  padding: 0.375rem 0.625rem;
+  border-radius: var(--bs-border-radius-sm);
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--bs-secondary-color);
+  text-decoration: none;
+  transition: background-color var(--epi-dur-fast) var(--epi-ease-standard),
+    color var(--epi-dur-fast) var(--epi-ease-standard);
+}
+.epi-nav-link:hover {
+  background: var(--bs-secondary-bg);
+  color: var(--bs-body-color);
+  text-decoration: none;
+}
+/* The current page: a flat 10% tint behind solid brand text, jump's badge
+   recipe. A filled pill would be the one saturated block on the page. */
+.epi-nav-link-active,
+.epi-nav-link-active:hover {
+  color: var(--bs-primary);
+  background: color-mix(in oklab, var(--bs-primary) 10%, transparent);
+}
+/* On the band the same recipe is invisible: --bs-primary is #013afb in light
+   mode and so is the surface, so the label of the page you are ON disappears.
+   Same shape — a flat low-opacity tint behind solid text, never a saturated
+   fill — expressed in white because white is what reads here. */
+.epi-header .epi-nav-link-active,
+.epi-header .epi-nav-link-active:hover {
+  color: #ffffff;
+  background: rgb(255 255 255 / 0.15);
+}
+.epi-header .epi-nav-link:hover {
+  color: #ffffff;
+}
+.epi-nav-link-active:hover {
+  background: color-mix(in oklab, var(--bs-primary) 16%, transparent);
+}
+
+.epi-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex: none;
+}
+/* Whichever element is last before the actions carries the push right: the
+   burger on a narrow signed-in page, the actions themselves once the burger is
+   gone (wide viewport) or was never rendered (signed out). Putting `auto` on
+   both at once would split the free space between them instead. */
+.epi-header-anon .epi-header-actions {
+  margin-left: auto;
+}
+@media (min-width: 768px) {
+  .epi-header-actions {
+    margin-left: auto;
+  }
+}
+
+/* jump's ghost icon-button: 2rem box, muted glyph, muted fill on hover. */
+.epi-icon-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  border-radius: var(--bs-border-radius-sm);
+  color: var(--bs-secondary-color);
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color var(--epi-dur-fast) var(--epi-ease-standard),
+    color var(--epi-dur-fast) var(--epi-ease-standard);
+}
+.epi-icon-btn:hover {
+  background: var(--bs-secondary-bg);
+  color: var(--bs-body-color);
+}
+.epi-icon-btn i {
+  font-size: 1rem;
+  line-height: 1;
+}
+/* The one place a saturated fill is right: an unread count is an alert, not a
+   category. Body-bg rather than white as the text colour, because the dark
+   theme's danger is a light salmon that white would disappear into. */
+.epi-icon-badge {
+  position: absolute;
+  top: -0.15rem;
+  right: -0.15rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1rem;
+  height: 1rem;
+  padding: 0 0.2rem;
+  border-radius: 999px;
+  background: var(--bs-danger);
+  color: var(--bs-body-bg);
+  font-size: 0.65rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* Named rather than an anonymous avatar: jump greets a talent by name, and on a
+   shared classroom machine the name is the fastest way to notice you are signed
+   in as somebody else. Six navbar entries collapse into this one control. */
+.epi-account-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  height: 2rem;
+  padding: 0 0.5rem;
+  border: 0;
+  background: none;
+  border-radius: var(--bs-border-radius-sm);
+  color: var(--bs-secondary-color);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color var(--epi-dur-fast) var(--epi-ease-standard),
+    color var(--epi-dur-fast) var(--epi-ease-standard);
+}
+.epi-account-btn:hover,
+.epi-account-btn[aria-expanded="true"] {
+  background: var(--bs-secondary-bg);
+  color: var(--bs-body-color);
+}
+.epi-account-name {
+  max-width: 10rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Below this the name costs more than it tells you; the caret still says the
+   control opens something. */
+@media (max-width: 400px) {
+  .epi-account-name {
+    display: none;
+  }
+}
+.epi-account-caret {
+  font-size: 0.6rem;
+  opacity: 0.7;
+}
+.epi-account-menu {
+  --bs-dropdown-min-width: 11rem;
+}
+.epi-account-menu .dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: 0.875rem;
+}
+.epi-account-menu .dropdown-item i {
+  width: 1rem;
+  text-align: center;
+  opacity: 0.7;
+}
+/* jump's own `hover:text-destructive` on its logout control. */
+.epi-account-logout:hover {
+  color: var(--bs-danger);
+}
+
+.epi-auth-link {
+  padding: 0 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--bs-secondary-color);
+  text-decoration: none;
+}
+.epi-auth-link:hover {
+  color: var(--bs-body-color);
+  text-decoration: none;
+}
+/* The signed-out CTA is `.btn.btn-primary`, whose fill Bootstrap bakes as
+   --bs-primary — the band's own colour, so the button loses its edges and
+   becomes a floating label. It takes jump's `buttonNeon` pair instead
+   (epi-tech fill, epi-blue text), which is the charte's celebration CTA and is
+   exactly what this is: the one hopeful action on the signed-out shell.
+   Specificity 0,3,0 to beat Bootstrap's own .btn-primary block. */
+.epi-header .epi-auth-cta.btn-primary {
+  --bs-btn-bg: var(--epi-tech);
+  --bs-btn-border-color: var(--epi-tech);
+  --bs-btn-color: var(--epi-blue);
+  --bs-btn-hover-bg: #33ffad;
+  --bs-btn-hover-border-color: #33ffad;
+  --bs-btn-hover-color: var(--epi-blue);
+  --bs-btn-active-bg: #00e689;
+  --bs-btn-active-border-color: #00e689;
+  --bs-btn-active-color: var(--epi-blue);
+  font-weight: 600;
+}
+
+/* ============================================================================
+   The hero band — the page's identity, and the bottom half of the blue band
+   that starts at the header.
+
+   Ported from jump's `PageHero.svelte` and `LoginBrandPanel.svelte`: full-bleed
+   epi-blue, the blueprint grid, a few half-opacity pixel squares. Both of those
+   put the texture INSIDE a blue block; that is the recipe here. It is not
+   `BrandBackdrop`, jump's full-screen ceremony texture, which DESIGN.md still
+   reserves for a completion screen.
+
+   Why the header is blue too, when jump's talent header is transparent: jump's
+   own rule is that full-bleed epiBlue is for hero surfaces and never for
+   chrome, "a 250px column of pure brand blue in front of someone for eight
+   hours is fatiguing". That argument is about a permanent surface. This is one
+   ~200px band at the top of a page that scrolls, the header is in normal flow
+   and scrolls away with it, and a workshop session is hours rather than days.
+   Splitting them would put a white sliver between the wordmark and the page
+   title that serves nothing. Recorded as a deviation in DESIGN.md.
+
+   FULL-BLEED IS STRUCTURAL, NEVER `margin-left: calc(50% - 50vw)`. `{% block
+   content %}` renders straight into <main>, and main has no padding, so a
+   direct child of main is already full width. The negative-margin trick needs a
+   compensating `overflow-x: hidden`, and that kills `position: sticky` on the
+   parts stepper (workshop.css) — which is the one thing on a long subject page
+   that must survive scrolling. For the same reason the band never becomes
+   sticky itself: workshop_page.js measures the stepper against a header that
+   stays in flow.
+   ============================================================================ */
+.epi-hero,
+.jumbotron {
+  position: relative;
+  overflow: hidden;
+  background-color: var(--epi-blue);
+  color: #ffffff;
+  text-align: left;
+  padding-block: 2.25rem 2.5rem;
+  margin-bottom: 2rem;
+  /* jump's `blueprint-grid-inverse`: 48px cells, white at 4.5%. Deliberately
+     not `.epi-blueprint-grid`, which flips on [data-bs-theme] — this surface is
+     dark in both themes, so the theme-aware variant would paint blue-on-blue
+     lines in light mode. */
+  background-image:
+    linear-gradient(rgb(255 255 255 / 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(255 255 255 / 0.045) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+/* The compact density, for a band that only carries a title. jump's PageHero
+   has the same two steps and for the same reason. */
+.jumbotron,
+.epi-hero-compact {
+  padding-block: 1.5rem 1.75rem;
+}
+
+/* Pixel squares: half-opacity rectangles, offset and overlapping, the charte's
+   own texture. Hidden below 768px, where they would sit under the title rather
+   than beside it. One pseudo-element with three gradients rather than three
+   elements, so it needs no extra markup.
+
+   Only on the comfortable density. A compact band is 78px and the cluster is
+   92px,
+   so on a jumbotron it would be sliced by the band's own edge — and a page whose
+   band carries nothing but its name does not need decorating twice. The grid
+   alone is the texture there. */
+@media (min-width: 768px) {
+  /* A band that carries a picture needs no pixel squares: the art is the
+     texture, and the two land in the same corner. */
+  .epi-hero:not(.epi-hero-compact):not(.ws-hero-media-on)::after {
+    content: "";
+    position: absolute;
+    top: 1rem;
+    right: 1.5rem;
+    width: 5.75rem;
+    height: 5.75rem;
+    pointer-events: none;
+    background-image:
+      linear-gradient(rgb(255 255 255 / 0.5) 0 0),
+      linear-gradient(rgb(255 255 255 / 0.25) 0 0),
+      linear-gradient(rgb(255 255 255 / 0.35) 0 0);
+    background-repeat: no-repeat;
+    background-size: 3.5rem 3.5rem, 1.75rem 3.5rem, 1.75rem 1.75rem;
+    background-position: top right, top 0 right 4rem, top 4rem right 0;
+  }
+}
+
+/* The hero's own content wrapper. A .jumbotron already has one — core nests a
+   `.container` inside it, and the width rule below catches it — but `.epi-hero`
+   is ours and matches neither `main > .container` nor
+   `main > .jumbotron > .container`, so without this its copy would sit ~5rem
+   wider than the nav above it. Same gutters as `.epi-header-inner`, because the
+   wordmark and the page title lining up is the whole alignment contract. */
+/* An authored Page's body opens with `# <its own title>` — that is what
+   tools/sync_subject.py writes and what an instructor copying the pattern will
+   write too — so once the band above carries the title, the first heading in
+   the body says it a second time. Hidden rather than removed from the content:
+   the markdown is the author's, it stays valid outside this platform, and only
+   a body that directly follows one of our heroes is touched. */
+.epi-hero + .container > h1:first-child {
+  display: none;
+}
+
+.epi-hero-inner {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: var(--epi-content-width);
+  margin-inline: auto;
+  padding-inline: 1rem;
+}
+@media (min-width: 768px) {
+  .epi-hero-inner {
+    padding-inline: 2rem;
+  }
+}
+
+/* The four profile pages (users/private, users/public, teams/private,
+   teams/public) put badges inside their jumbotron: affiliation, country,
+   "Official", bracket. `bg-primary` is #013afb — the band's own colour — so
+   those would vanish, and `bg-secondary` / `text-bg-light` become a grey and a
+   white blob on blue.
+
+   Excluding those pages from the band was the first attempt and it was wrong:
+   whether a badge is rendered depends on whether *that user* filled in an
+   affiliation, so the same page would have had two different layouts depending
+   on its data. The badge is what breaks, so the badge is what gets fixed — into
+   the same flat white tint the active nav item uses on this surface. */
+.jumbotron .badge {
+  --bs-badge-color: #ffffff;
+  background-color: rgb(255 255 255 / 0.18) !important;
+  color: #ffffff !important;
+  border: 0;
+}
+
+/* Every page's own top-level container, on the header's width and gutters, so a
+   title and a board line up with the wordmark above them instead of sitting
+   ~5rem wider. Bootstrap's `.container` is a stepped max-width that lands at
+   1140px, which is what made the challenge board visibly overhang the shell.
+   Safe to state this broadly: the admin theme loads its stylesheets from a
+   separate registry (`get_registered_admin_stylesheets`) and never sees this
+   file, so its own wider layout is untouched. */
+main > .container,
+main > .jumbotron > .container,
+/* The workshop page wraps its band and its body in one `#ws-workshop`, because
+   that id is the scope root workshop_page.js binds to — so its container is a
+   grandchild of main and needs naming here. Without it the body falls back to
+   Bootstrap's 1320px and starts ~170px left of the title in the band above it,
+   which is exactly the misalignment this block exists to prevent. */
+main > #ws-workshop > .container {
+  max-width: var(--epi-content-width);
+  padding-inline: 1rem;
+}
+@media (min-width: 768px) {
+  main > .container,
+  main > .jumbotron > .container,
+  main > #ws-workshop > .container {
+    padding-inline: 2rem;
+  }
+}
+/* jump's own accent-clip fix, and French page titles need it: Anton is
+   condensed uppercase and carries É above the cap line, so a tight line box
+   slices the accent. The symmetric padding/margin pair grows the clip box
+   without moving the element or changing its outer size. */
+.jumbotron h1,
+.epi-hero-title {
+  margin: -0.375rem 0;
+  padding: 0.375rem 0;
+  font-size: 1.5rem;
+  line-height: 1.1;
+}
+
+/* There used to be a third rule here, `main > .container > h1:first-child`,
+   giving an authored Page's leading heading the same Anton treatment — because
+   core's page.html wrapped the body in a bare `.container` and rendered no
+   title of its own. That template is overridden now (shell.py): a Page's title
+   is a real heading in a real band, so the rule has nothing left to match, and
+   its premise ("every core template's own h1 is inside a jumbotron") stopped
+   being true the moment a Page got one. */
+
+/* ============================================================================
+   The login screen — the handover from Jump.
+
+   jump's `LoginBrandPanel.svelte`: a full-bleed epi-blue column with the
+   blueprint grid, half-opacity pixel squares and the charte's signature block,
+   the form beside it, the panel gone below `lg`. Markup in
+   plugins/workshop/templates/login.html.
+   ============================================================================ */
+/* `main` is `flex: 1 0 auto` in the body column, but it is not itself a flex
+   container, so a child cannot be told to fill it. Making it one only for this
+   page lets the panel run the full height of the viewport instead of stopping
+   at its content and leaving a white shelf under it. */
+main:has(> .epi-login) {
+  display: flex;
+}
+.epi-login {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: stretch;
+  min-height: 28rem;
+}
+
+.epi-login-panel {
+  display: none;
+}
+@media (min-width: 992px) {
+  .epi-login-panel {
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    flex: 1 1 44%;
+    padding: 3rem;
+    background-color: var(--epi-blue);
+    color: #ffffff;
+    background-image:
+      linear-gradient(rgb(255 255 255 / 0.045) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(255 255 255 / 0.045) 1px, transparent 1px);
+    background-size: 48px 48px;
+  }
+  /* Pixel squares, offset and overlapping, on the panel's own scale. */
+  .epi-login-panel::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image:
+      linear-gradient(rgb(255 255 255 / 0.15) 0 0),
+      linear-gradient(rgb(255 255 255 / 0.1) 0 0),
+      /* One accent square, the only non-white note: the charte's texture is
+         half-opacity brand rectangles, so it stays a tint and never a block. */
+      linear-gradient(rgb(0 255 151 / 0.55) 0 0);
+    background-repeat: no-repeat;
+    background-size: 6rem 4rem, 4rem 5rem, 3.5rem 2.5rem;
+    background-position: top 18% right 22%, top 24% right 8%, bottom 24% left 14%;
+    opacity: 0.4;
+  }
+}
+.epi-login-panel-body,
+.epi-login-signature {
+  position: relative;
+  z-index: 1;
+}
+.epi-login-kicker {
+  font-family: "Space Mono", "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--epi-tech);
+  margin: 0 0 0.75rem;
+}
+.epi-login-lead {
+  font-family: "Anton", sans-serif;
+  text-transform: uppercase;
+  font-size: 2.25rem;
+  line-height: 1.05;
+  margin: -0.375rem 0 0;
+  padding: 0.375rem 0;
+}
+.epi-login-desc {
+  margin: 1rem 0 0;
+  max-width: 28rem;
+  font-size: 1rem;
+  color: rgb(255 255 255 / 0.8);
+}
+.epi-login-signature {
+  font-family: "Space Mono", "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.75rem;
+  color: rgb(255 255 255 / 0.6);
+  margin: 0;
+}
+.epi-login-brace {
+  color: var(--epi-tech);
+}
+.epi-login-since {
+  margin-left: 0.5rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.epi-login-form {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1 1 56%;
+  padding: 3rem 1rem;
+}
+@media (min-width: 768px) {
+  .epi-login-form {
+    padding-inline: 2rem;
+  }
+}
+.epi-login-form-body {
+  width: 100%;
+  max-width: 24rem;
+}
+.epi-login-title {
+  font-family: "Anton", sans-serif;
+  text-transform: uppercase;
+  font-size: 1.5rem;
+  line-height: 1.1;
+  margin: -0.375rem 0 1.5rem;
+  padding: 0.375rem 0;
+}
+
+/* Core hangs the footer off `position: absolute` with a 100px margin reserved
+   on `main` (its sticky-footer hack, and the reason for `z-index: -20`). With
+   the header in flow the whole page is one column, so the footer joins it. */
+.footer {
+  position: static;
+  height: auto;
+  line-height: 1.6;
+  z-index: auto;
+  padding: 1.5rem 1rem 2rem;
+}
+.footer .container {
+  max-width: var(--epi-content-width);
+}
+.footer small {
+  font-size: 0.875rem;
+  color: var(--bs-secondary-color);
+}
+
+/* ============================================================================
+   Brand primitives, ported from jump's layout.css and its talent-space
+   components — not invented here. This is what the first pass was missing:
+   it remapped colors but shipped none of the identity jump actually reads as
+   "Epitech" or "Jump" (see DESIGN.md's talent-space section for the survey
+   this is built from: rounded-xl elevated cards, flat low-opacity color
+   tints rather than saturated fills except on a CTA, Anton headings closed by
+   a "_" cursor, and a faint engineering-grid texture behind a hero, never a
+   blur or a gradient glow).
+   ============================================================================ */
+
+/* jump's blueprint-grid: --epi-blue at 6% light, white at 4.5% dark. Spelled
+   out rather than color-mix()'d, matching jump's own reasoning (a mix whose
+   var() a build step cannot resolve loses its alpha) — irrelevant to a
+   hand-written static file with no build step, but there is nothing to gain
+   by writing it the fragile way, and it keeps the two files comparable. */
+.epi-blueprint-grid {
+  background-image:
+    linear-gradient(rgba(1, 58, 251, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(1, 58, 251, 0.06) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+[data-bs-theme="dark"] .epi-blueprint-grid {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+}
+
+/* jump's TitleCursor.svelte: a "_" glued to a heading with no whitespace, in
+   the ink half of the success pair so it stays legible on both surfaces this
+   reskin uses (page body and the always-dark furniture alike). */
+.epi-title-cursor::after {
+  content: "_";
+  color: var(--bs-success);
+  margin-left: 0.05em;
+}

@@ -2643,3 +2643,87 @@ its own certificate, `provision.py render / up / setup / sync`. Nothing new in t
   `--contents`; the WRP adapter; the `runtime:` block in the akinator's `subject.yaml`; the three
   sentences of §28.5d. Then measure the two caveats of §28.5c before calling it done.
 - **P3 — suite coverage** for the workshop composition and, if P2 lands, the runtime.
+
+---
+
+## 29. Making it feel like somewhere, not something (2026-09-11)
+
+The visual reskin (§ none — it had none, which is half of why this section exists) landed the
+palette, the fonts and the app shell from `jump`. The PO's response to it was:
+
+> "Il faudrait ajouter quelques images et illustrations pour rendre l'interface plus vivante"
+
+and, asked whether he meant inside the subjects or around them:
+
+> "L'interface est tres sobre, par exemple la banner dans notion est vraiment bien, tout de suite
+> c'est plus sympa, effectivement si deja le sujet est plus vivant ca va changer l'experience
+> globale"
+
+`grep` over this file for `hero|cover|banner|celebrat|anim|motion|i18n|french` returned nothing
+before today: there was no decision of record on any of it, which is why it drifted. This section
+is that record. The *visual* contract stays in `DESIGN.md` — this is the reasoning and the scope.
+
+### 29.1 The diagnosis was not "add pictures"
+
+The audit found the reskin using a subset of its own contract. `.epi-blueprint-grid` was defined
+and never called. There was no full-bleed brand surface, no `cardBrand`, no `buttonNeon`, no pixel
+squares. There were 8 `transition:` declarations in the whole plugin, **zero `@keyframes`**, and no
+`prefers-reduced-motion` anywhere. And half of what `jump` already has had never been ported —
+`PageHero`, `LoginBrandPanel`, `EmptyState`, `XpFloat`, `rewardToast`, the confetti action, and the
+`.prose` block its own comment calls "Notion-like with Epitech branding".
+
+So the work was mostly **using the contract we already wrote**, not inventing a new one. Four
+deliberate deviations exist and are registered in `DESIGN.md`; everything else is a port.
+
+### 29.2 Decision: the band is header + hero, and it is blue
+
+Argued in full in `DESIGN.md` ("The brand band"). In short: `jump` forbids full-bleed brand blue as
+*chrome*, on a fatigue argument about a permanent surface; this is ~200px at the top of a scrolling
+page on a header that was never sticky, and it carries page identity, so it is a hero that contains
+the nav. It is also, concretely, the Notion banner the PO named — and he had already approved a
+blue navbar in an earlier mockup, so this is the version to show him and adjust if he disagrees.
+
+Reversible: it is one `background` declaration plus three blue-on-blue corrections.
+
+### 29.3 Decision: a subject shows its face, and the platform owns how
+
+**The subject supplies a sentence and a file. It never supplies a layout.** That is the whole of
+it, and it is what makes four subjects arrive looking like one platform instead of four products.
+Convention in `docs/CONTENT_CONVENTION.md` §3.2b, authoring guide in `docs/CONTRIBUER.md`.
+
+Three levels: derived, declared per subject, declared per document. **The derived level is the
+point**, not a fallback — `project.summary` was already mandatory in practice and displayed
+nowhere, and almost every subject opens with a screenshot. So no subject can be blank, and
+declaring a cover is an improvement rather than a prerequisite. Pac-Man gained a band with its own
+accroche and its own screenshot without its repo being touched.
+
+**The linter gained a warning tier for this** (`lint_all`, beside an unchanged `lint`). "Your cover
+has no accroche" must never be able to stop a workshop importing ten minutes before a session.
+
+### 29.4 Decision: the participant path is French
+
+Reversing `CLAUDE.md`'s "all platform strings English until a later i18n phase". This is that
+phase, scoped to the participant path; the admin panel stays English. The audience is French
+lycéens arriving from Jump, which speaks to them in French with emoji. English chrome around French
+content was the loudest remaining sign that they had left.
+
+It costs almost nothing because CTFd already ships flask-babel and a full French catalogue, and
+`get_translations` **merges** catalogue directories — so the plugin adds its own and inherits
+upstream's for every string it already has.
+
+### 29.5 Decision: 33 solved steps deserve 33 moments
+
+Three intensities so the last one still counts (step / part / workshop). Ported from `jump`'s own
+celebration primitives rather than invented. The one thing with no precedent is the subject's
+mascot in the reward float, and it is cheap: the sprite already ships in every subject repo.
+
+### 29.6 What is deliberately still open
+
+- **The step-level reward has no sound and no haptics.** Not rejected, just not tried.
+- **A completion/ceremony screen** is where `.epi-blueprint-grid` is finally meant to be used, and
+  it does not exist yet. The workshop-complete moment is currently confetti plus the inline block.
+- **The four profile pages** (`users/private`, `teams/public`, …) were the awkward case for the
+  band and are handled by restyling their badges. They are not a surface this audience uses; if
+  they ever become one, they deserve their own pass rather than more selectors.
+- **No enforcement**, unchanged from `DESIGN.md`'s own position. The regression suite checks that
+  markup and copy still match, not that a colour is on-palette.

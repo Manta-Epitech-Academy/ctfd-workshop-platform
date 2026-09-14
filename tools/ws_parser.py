@@ -124,6 +124,7 @@ class Document:
     # It is nobody's exercise context, so without this it would be dropped.
     trailing_md: str = ""
     trailing_title: str = ""
+    cover: dict = field(default_factory=dict)     # §3.2b, {} when undeclared
 
 
 @dataclass
@@ -132,10 +133,33 @@ class Asset:
 
     `ref` is the path exactly as written in the markdown, because that is what
     the importer has to substitute; `path` is where it lives on disk.
+
+    `key` identifies the FILE, which is not the same thing as the path written
+    to reach it: `img/x.gif` in subject.yaml and `img/x.gif` inside
+    `docs/part1.md` resolve from different roots and are two different files.
+    It is what the `assets` dict is keyed on and what the importer's upload
+    mapping is keyed on, so a lookup cannot drift from the entry it is looking
+    for. A markdown ref is its own key — that is what `rewrite_asset_refs`
+    substitutes on — and a cover ref is namespaced by `cover_asset_key`.
     """
     ref: str
     path: Path
     documents: list = field(default_factory=list)   # docs that reference it
+    key: str = ""
+
+    def __post_init__(self):
+        if not self.key:
+            self.key = self.ref
+
+    @property
+    def in_markdown(self):
+        """True for an image referenced from a document body.
+
+        Only these are substituted by `rewrite_asset_refs`, which matches on the
+        path as written; a cover is a plain dict value and goes through
+        `rewrite_cover_refs` instead.
+        """
+        return self.key == self.ref
 
     @property
     def exists(self):
@@ -149,6 +173,7 @@ class Subject:
     manifest: dict
     documents: list = field(default_factory=list)
     assets: list = field(default_factory=list)      # Asset, in first-seen order
+    cover: dict = field(default_factory=dict)       # §3.2b, {} when undeclared
 
     @property
     def exercises(self):
@@ -215,6 +240,61 @@ def find_asset_refs(text):
     return refs
 
 
+COVER_ASSET_KEYS = ("media", "poster", "mascot")
+# A cover path is namespaced so it cannot collide with an identical-looking path
+# written inside a document. The two resolve differently (see cover_asset_refs),
+# so `img/x.gif` in subject.yaml and `img/x.gif` inside `docs/part1.md` are two
+# files; sharing one key would upload one of them under the other's URL.
+COVER_REF_PREFIX = "subject.yaml:"
+
+
+def cover_asset_key(ref, document=None):
+    """The `Asset.key` of a cover image, and therefore its upload-mapping key.
+
+    One function because the key is written by `parse_subject` and read back by
+    `rewrite_cover_refs`, through a mapping built in another module entirely
+    (tools/sync_subject.py). Spelled twice, the two spellings drift and every
+    cover silently keeps its unresolved repo path.
+    """
+    return COVER_REF_PREFIX + (document + ":" if document else "") + ref
+
+
+def cover_asset_refs(cover):
+    """The local image paths a `cover:` block references, in declaration order.
+
+    **These resolve against the subject root, not against a document.** §3.8's
+    rule is "relative to the document that uses it", which a manifest has no
+    document to be relative to. Today the two coincide for every converted
+    subject because their documents sit at the repo root; they stop coinciding
+    the day one puts its markdown in a subdirectory, so the difference is stated
+    here rather than discovered then.
+    """
+    return [cover[k] for k in COVER_ASSET_KEYS
+            if isinstance(cover.get(k), str) and _is_local_asset(cover[k])]
+
+
+def rewrite_cover_refs(cover, mapping, document=None):
+    """Point a cover's image paths at their uploaded URLs.
+
+    Not `rewrite_asset_refs`: that is a regex over markdown image syntax, and
+    these are plain dict values. Same contract though — a path with no mapping
+    is left exactly as written rather than dropped.
+
+    `mapping` is keyed on `Asset.key`, so the lookup goes through
+    `cover_asset_key` — the same function `parse_subject` keyed the entry with.
+    `document` names the document a per-part cover was declared in, which is
+    part of that key because the two resolve from different roots.
+    """
+    if not cover:
+        return cover
+    out = dict(cover)
+    for field_name in COVER_ASSET_KEYS:
+        ref = out.get(field_name)
+        if isinstance(ref, str) and _is_local_asset(ref):
+            out[field_name] = mapping.get(cover_asset_key(ref, document), ref)
+    return out
+
+
 def rewrite_asset_refs(md, mapping):
     """Replace repo-relative image paths with their resolved URLs.
 
@@ -260,7 +340,11 @@ def _split_sections(text, where):
         m = WS_COMMENT.match(body_text.lstrip())
         if m and body_text.lstrip().startswith("<!--"):
             data = _parse_ws_yaml(m.group(1), f"{where} § {title!r}")
-            if data.get("type") in ("chapter", "exercise", "prose"):
+            # `type` names a node; `cover` decorates one without being one, so a
+            # document's H1 can carry a cover with no type at all. Anything the
+            # convention does not recognise is left in the body untouched,
+            # which is what keeps a stray HTML comment from being eaten.
+            if data.get("type") in ("chapter", "exercise", "prose") or "cover" in data:
                 meta = data
                 lead = body_text.lstrip()
                 body_text = lead[m.end():]
@@ -396,11 +480,28 @@ def parse_subject(subject_dir):
         "validation": manifest.get("platform", {}).get("validation_default",
                                                        "checkpoint"),
     }
-    subject = Subject(slug=project["slug"], name=project["name"], manifest=manifest)
+    cover = manifest.get("cover") or {}
+    subject = Subject(slug=project["slug"], name=project["name"],
+                      manifest=manifest, cover=cover)
 
     order = 0  # subject-wide source-reading counter (1-based positions)
 
-    assets = {}   # ref -> Asset, first-seen order (dicts keep insertion order)
+    assets = {}   # Asset.key -> Asset, first-seen order (dicts keep insertion)
+
+    def collect(asset):
+        """Record an asset under its own key, first-seen winning."""
+        return assets.setdefault(asset.key, asset)
+
+    # The cover's images go in FIRST, before the document loop, for two reasons:
+    # a subject whose only image is its cover still has to collect one, and
+    # being first-seen keeps it at the head of `subject.assets` where a caller
+    # deriving a fallback cover can find it. `documents` names subject.yaml
+    # rather than being left empty — `lint` reports `a.documents[0]` for a
+    # missing file, and an empty list would raise IndexError on exactly the
+    # typo that check exists to catch.
+    for ref in cover_asset_refs(cover):
+        collect(Asset(ref=ref, path=subject_dir / ref, documents=["subject.yaml"],
+                      key=cover_asset_key(ref)))
     # Subject-wide, not per document: the importer keys challenges on
     # `ws:<subject>:<slug>`, so the same slug in two documents would upsert one
     # challenge twice and silently lose a step.
@@ -413,18 +514,32 @@ def parse_subject(subject_dir):
         # Images are collected from the raw document: they may sit in a body, a
         # hint or trailing prose, and every one of those ends up in CTFd.
         for ref in find_asset_refs(text):
-            asset = assets.get(ref)
-            if asset is None:
-                # Relative to the document, which is how a markdown renderer
-                # resolves it — not to the repo root.
-                resolved = (subject_dir / doc_path).parent / ref
-                asset = assets[ref] = Asset(ref=ref, path=resolved)
+            # Relative to the document, which is how a markdown renderer
+            # resolves it — not to the repo root. A markdown ref is its own
+            # key: that is the string `rewrite_asset_refs` substitutes on.
+            asset = collect(Asset(ref=ref,
+                                  path=(subject_dir / doc_path).parent / ref))
             asset.documents.append(doc_path)
 
         sections = _split_sections(text, where)
 
         doc_title = next((t for lv, t, _, _ in sections if lv == 1), doc_path)
-        doc = Document(path=doc_path, title=doc_title, body_md="")
+        # A `cover:` under the document's own H1 marker, for a part that is a
+        # different promise from the subject's front page. Optional: without it
+        # the part falls back to the subject's, which is always at least
+        # derived.
+        doc_meta = next((m for lv, _, m, _ in sections if lv == 1 and m), None)
+        doc_cover = (doc_meta or {}).get("cover") or {}
+        for ref in cover_asset_refs(doc_cover):
+            # Relative to the document, like every other path written inside
+            # one — unlike subject.yaml's, which has no document to be relative
+            # to. That difference is exactly what the key namespaces.
+            collect(Asset(ref=ref,
+                          path=(subject_dir / doc_path).parent / ref,
+                          documents=[doc_path],
+                          key=cover_asset_key(ref, doc_path)))
+        doc = Document(path=doc_path, title=doc_title, body_md="",
+                       cover=doc_cover)
         page_parts = []          # doc body with ws markup stripped
         context_parts = []       # prose accumulated since the last exercise
         trailing_parts = []      # same prose, real headings — becomes a page if
@@ -573,13 +688,91 @@ def load_flags(subject_dir):
     return (yaml.safe_load(path.read_text()) or {}).get("flags", {})
 
 
+# A tagline is the one line a participant reads before anything else, so it is a
+# headline and not a paragraph. The ceiling is editorial, not measured: this
+# parser is shared, the band that renders a tagline lives in the platform and
+# not here, and a constant that claimed to know that band's pixel width would be
+# wrong the first time the band changed. Ninety characters is one sentence, and
+# about one line at the width the platform gives it today.
+TAGLINE_MAX = 90
+
+
+def _cover_warnings(subject):
+    """Advice about the `cover:` block. Never fatal — see `lint_all`.
+
+    One message per situation, deliberately. An earlier version reported the
+    missing tagline *and* the missing block for a subject that declares no cover
+    at all — which is every subject not yet converted — so the common case
+    produced two overlapping paragraphs on every CI run. That is how a warning
+    teaches people to skip warnings, and it would have taken the three
+    actionable ones down with it.
+    """
+    cover = subject.cover
+    if not cover:
+        return ["subject.yaml: no `cover:` block. The platform falls back to "
+                "`project.summary` and the first image of the entrypoint "
+                "document, which beats nothing and loses to a frame you chose. "
+                "One sentence and one path is the whole block (§3.2b)."]
+
+    out = []
+    tagline = cover.get("tagline")
+    if not tagline:
+        out.append("subject.yaml: `cover:` declares no `tagline`, so the front "
+                   "page falls back to `project.summary`. One sentence saying "
+                   "what the participant will have built is the cheapest thing "
+                   "you can add (§3.2b).")
+    elif len(tagline) > TAGLINE_MAX:
+        out.append(f"subject.yaml: `cover.tagline` is {len(tagline)} "
+                   f"characters. Keep it under {TAGLINE_MAX} — it is a "
+                   f"headline, not a paragraph.")
+
+    media = cover.get("media")
+    if isinstance(media, str) and media.lower().endswith(".gif") \
+            and not cover.get("poster"):
+        out.append("subject.yaml: `cover.media` is an animated GIF with no "
+                   "`cover.poster`. A GIF cannot be paused, so a participant "
+                   "who asked their system for reduced motion gets the "
+                   "animation anyway; the poster is the still shown instead.")
+    return out
+
+
+def lint_all(subject_dir):
+    """Returns (problems, warnings).
+
+    A problem refuses the subject; a warning is advice and refuses nothing.
+    The split exists because "your cover has no tagline" must not be able to
+    stop a workshop importing mid-session, while still being said somewhere a
+    CI run will show it.
+
+    `lint` keeps its original one-list contract and is still what every caller
+    uses, including subject repos' own CI through workshop-content-tools.
+    Changing its return type would have broken all of them at once — and this
+    repo's own `__main__` and regression suite compare it against `[]`.
+    """
+    problems, subject = _lint_problems(subject_dir)
+    if problems or subject is None:
+        # Nothing parsed, or parsed and failed: advice about a cover would be
+        # noise next to a real error, and may not even be computable.
+        return problems, []
+    return problems, _cover_warnings(subject)
+
+
 def lint(subject_dir):
     """Returns a list of problems; empty list = valid. Shared CI entrypoint."""
+    return _lint_problems(subject_dir)[0]
+
+
+def _lint_problems(subject_dir):
+    """(problems, subject) — the subject is None when nothing parsed.
+
+    Handing the parsed subject back is what lets `lint_all` add its advice
+    without paying for a second parse.
+    """
     problems = []
     try:
         subject = parse_subject(subject_dir)
     except (ParseError, KeyError, OSError, yaml.YAMLError) as e:
-        return [str(e)]
+        return [str(e)], None
     answers = load_quiz_answers(subject_dir)
     flags = load_flags(subject_dir)
     for ex in subject.exercises:
@@ -615,7 +808,7 @@ def lint(subject_dir):
         if a not in [q.id for q in subject.quizzes]:
             problems.append(f"quiz_answers.yaml: {a!r} matches no quiz marker")
     problems.extend(_lint_prerequisites(subject))
-    return problems
+    return problems, subject
 
 
 def _lint_prerequisites(subject):
@@ -662,10 +855,12 @@ def _lint_prerequisites(subject):
 if __name__ == "__main__":
     import sys
     target = sys.argv[1] if len(sys.argv) > 1 else "."
-    issues = lint(target)
+    issues, advice = lint_all(target)
     if issues:
         print("\n".join(f"FAIL {i}" for i in issues))
         sys.exit(1)
+    for a in advice:
+        print(f"warn {a}")
     s = parse_subject(target)
     print(f"ok {s.slug}: {len(s.documents)} documents, "
           f"{len(s.exercises)} exercises, {len(s.quizzes)} quizzes, "

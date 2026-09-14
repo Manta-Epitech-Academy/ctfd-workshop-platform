@@ -38,7 +38,7 @@ import yaml
 
 sys.path.insert(0, str(Path(__file__).parent))
 from sync_subject import CTFdAdmin, sync, upsert_page, write_instance_config  # noqa: E402
-from ws_parser import lint  # noqa: E402
+from ws_parser import lint_all  # noqa: E402
 
 
 def load_manifest(workshop_dir):
@@ -118,13 +118,17 @@ def sync_workshop(workshop_dir, url, admin_user, admin_pass, codes_dir=None, *,
 
     # Lint everything before touching the instance: a workshop half-imported
     # because the third subject does not parse is worse than one not imported.
-    problems = []
+    problems, advice = [], []
     for entry in subjects:
-        problems += [f"{entry['dir'].name}: {p}" for p in lint(entry["dir"])]
+        errs, warns = lint_all(entry["dir"])
+        problems += [f"{entry['dir'].name}: {p}" for p in errs]
+        advice += [f"{entry['dir'].name}: {w}" for w in warns]
     if problems:
         for p in problems:
             print(f"FAIL {p}", file=sys.stderr)
         sys.exit(1)
+    for a in advice:
+        print(f"warn {a}")
 
     # `ctfd` is passed in by the admin sync page, which authenticates with the
     # instance's own preset admin token rather than a password (PLAN.md §26.5).
@@ -134,6 +138,11 @@ def sync_workshop(workshop_dir, url, admin_user, admin_pass, codes_dir=None, *,
           f"({len(subjects)} subjects) ==")
 
     documents, optional_ids, free_ids = [], set(), set()
+    # Accumulated exactly like runtime_params below, and for the same reason:
+    # workshop_subjects is instance-wide, so a second subject writing it would
+    # erase the first. sync() is called with standalone=False precisely so it
+    # does not write any of these itself.
+    subjects_cfg = {}
     totals = {"created": 0, "updated": 0}
     runtime, runtime_params = {}, {}
     position, starter_final, previous_final, final_step = 0, None, None, None
@@ -171,6 +180,7 @@ def sync_workshop(workshop_dir, url, admin_user, admin_pass, codes_dir=None, *,
             runtime["pane"] = rt.get("pane") or {}
         if rt.get("params"):
             runtime_params[subject.slug] = rt["params"]
+        subjects_cfg[subject.slug] = result["cover"]
 
     # The public front door is the workshop's, not the last subject's.
     index = next(p for p in ctfd.api("GET", "/pages") if p["route"] == "index")
@@ -192,7 +202,8 @@ def sync_workshop(workshop_dir, url, admin_user, admin_pass, codes_dir=None, *,
         print(f"runtime: {runtime['id']}@{runtime['version']} "
               f"({len(runtime_params)} subject-specific parameter sets)")
 
-    write_instance_config(ctfd, documents, optional_ids, free_ids, final_step)
+    write_instance_config(ctfd, documents, optional_ids, free_ids, final_step,
+                          subjects_cfg=subjects_cfg)
     print(f"workshop done: {len(subjects)} subjects, {len(documents)} parts, "
           f"{len(optional_ids)} optional and {len(free_ids)} free steps, "
           f"closing on challenge {final_step}")

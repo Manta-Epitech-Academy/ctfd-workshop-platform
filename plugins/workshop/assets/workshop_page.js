@@ -9,9 +9,38 @@
  */
 (function () {
   var ROOT = null;
-  var ICON = { done: "✓", current: "▶", todo: "○", locked: "🔒", info: "📄" };
-  var TITLE = { done: "Completed", current: "In progress", todo: "Not started",
-                locked: "Locked", info: "Just something to read" };
+
+  // Read once from the JSON islands the templates render. Both fall back to an
+  // empty object, so a page served before they existed still runs and simply
+  // shows the English source text.
+  function island(id) {
+    var el = document.getElementById(id);
+    if (!el) return {};
+    try {
+      return JSON.parse(el.textContent) || {};
+    } catch (e) {
+      return {};
+    }
+  }
+  var COVER = island("ws-page-data").cover || {};
+  var I18N = island("ws-i18n");
+
+  // Strings come from the server, already translated, through the JSON island —
+  // there is no second translation mechanism in the browser. The fallback is
+  // the English source text, so a page rendered before the island existed still
+  // says something sensible rather than a key.
+  function t(key, fallback) {
+    return I18N[key] || fallback;
+  }
+  // The same five words the template renders into a chip's title and its
+  // screen-reader span, through the same catalogue — a chip rewritten after a
+  // solve must not start saying "Completed" on a page that says "Terminé"
+  // everywhere else.
+  var TITLE = { done: t("stateDone", "Completed"),
+                current: t("stateCurrent", "In progress"),
+                todo: t("stateTodo", "Not started"),
+                locked: t("stateLocked", "Locked"),
+                info: t("stateInfo", "Just something to read") };
   var STATES = ["done", "current", "todo", "locked", "info"];
 
   function api(path, options) {
@@ -76,12 +105,13 @@
     var answer = collectAnswer(form);
     if (!answer.trim()) {
       feedback(form, "empty", form.dataset.answerKind === "rating"
-        ? "Pick 👍 or 👎 first" : "Pick or type an answer first.");
+        ? t("pickFirst", "Pick 👍 or 👎 first")
+        : t("answerFirst", "Pick or type an answer first."));
       return;
     }
     var button = form.querySelector(".ws-submit-btn");
     button.disabled = true;
-    feedback(form, "pending", "Checking…");
+    feedback(form, "pending", t("checking", "Checking…"));
     try {
       var r = await api("/api/v1/challenges/attempt", {
         method: "POST",
@@ -91,16 +121,81 @@
       var data = (body && body.data) || {};
       var status = data.status || "error";
       if (status === "correct" || status === "already_solved") {
-        feedback(form, "correct", data.message || "Correct");
-        await refresh(id);
+        feedback(form, "correct", data.message || t("correct", "Correct"));
+        // Everything the celebration needs is read BEFORE the refresh: it
+        // replaces .ws-step-body's innerHTML, which contains this very form and
+        // the button the float is anchored to. .ws-step-summary survives, which
+        // is why the points are read from there.
+        var stepEl = form.closest(".ws-step");
+        var meta = stepEl && stepEl.querySelector(".ws-step-meta");
+        var points = meta ? parseInt(meta.textContent, 10) : 0;
+        // `correct` only, and here rather than anywhere else. This is the ONE
+        // place in the page where a real solve and "you had already solved
+        // this" are distinguishable: refresh() re-reads the graph and sees a
+        // solved set with no provenance, updateCounters() sees only data-state.
+        // It is also the only place that knows WHICH step — refresh()'s loop
+        // flips every step whose state moved, which on one solve can be several.
+        //
+        // It fires BEFORE the refresh, and it is anchored to the button that
+        // was just pressed rather than to the step's summary row: by the time a
+        // validation code is being typed that row is most of a screen above the
+        // fold, and the float used to land there, off screen.
+        //
+        // The reward and the move to the next step used to happen at the same
+        // instant, and they diluted each other: two things asking for attention
+        // at once, with the float — which is fixed — hanging still while the
+        // whole page slid underneath it, so it read as a system overlay rather
+        // than as a consequence of the click. They are a sequence now: you act,
+        // you are paid, then the page moves. The celebration says how long its
+        // own moment is (see celebrate.js) so the pause and the animation it is
+        // waiting for cannot drift apart.
+        var hold = 0;
+        if (status === "correct" && window.wsCelebrate) {
+          hold = window.wsCelebrate.step(button, points, I18N.points, COVER.mascot);
+        }
+        var counts = await refresh(id, hold ? performance.now() + hold : 0);
+        if (status === "correct") celebrateCompletion(counts);
       } else {
-        feedback(form, status, data.message || "Incorrect");
+        feedback(form, status, data.message || t("incorrect", "Incorrect"));
         button.disabled = false;
+        // The other half of the loop. A red line of text is easy to miss when
+        // you are looking at the keyboard; the field itself says it too, and
+        // takes the cursor back so a retype is one gesture.
+        var field = form.querySelector(".ws-answer");
+        if (field) {
+          field.classList.remove("ws-wrong");
+          // Reading offsetWidth restarts the animation: without it a second
+          // wrong code in a row would not replay it.
+          void field.offsetWidth;
+          field.classList.add("ws-wrong");
+          field.addEventListener("animationend", function () {
+            field.classList.remove("ws-wrong");
+          }, { once: true });
+          field.select();
+        }
       }
     } catch (e) {
-      feedback(form, "error", "Could not reach the server — try again.");
+      feedback(form, "error", t("netError", "Could not reach the server — try again."));
       button.disabled = false;
     }
+  }
+
+  /* ---------- the moment after a solve ---------- */
+
+  // Three intensities so the last one still counts: a figure floating off the
+  // row (fired in submit, above), confetti when the part is done, confetti
+  // twice when the whole workshop is. assets/celebrate.js owns the drawing;
+  // this owns only which one fires.
+  function celebrateCompletion(counts) {
+    var api = window.wsCelebrate;
+    if (!api || !counts || counts.total === 0) return;
+    if (counts.done !== counts.total) return;
+    // The server already decided what the completion block says;
+    // `.ws-next-doc-done` is the class it puts there when there is no next
+    // part, i.e. this was the last one.
+    var block = ROOT.querySelector(".ws-next-doc");
+    if (block && block.querySelector(".ws-next-doc-done")) api.workshop();
+    else api.part();
   }
 
   /* ---------- ratings (CTFd's own per-challenge rating) ---------- */
@@ -122,11 +217,11 @@
       box.dataset.value = String(value);
       box.dataset.review = review ? review.value : "";
       markRating(box);
-      if (thanks) thanks.textContent = "Thanks!";
+      if (thanks) thanks.textContent = t("thanks", "Thanks!");
       // Revealed by this very click: put the cursor where the reason goes.
       if (review && !review.value) review.focus();
     } catch (e) {
-      if (thanks) thanks.textContent = "Could not save that — try again.";
+      if (thanks) thanks.textContent = t("saveError", "Could not save that — try again.");
     }
   }
 
@@ -158,11 +253,12 @@
     var cost = parseInt(details.dataset.cost, 10) || 0;
     var body = details.querySelector(".ws-hint-body");
     if (cost > 0 &&
-        !window.confirm("Unlock this hint for " + cost + " points?")) {
+        !window.confirm(t("unlockHint", "Unlock this hint for {n} points?")
+                        .replace("{n}", cost))) {
       details.open = false;
       return;
     }
-    body.textContent = "Loading…";
+    body.textContent = t("loading", "Loading…");
     try {
       // POST /unlocks records the reveal in CTFd's HintUnlocks table — this is
       // how hint usage is tracked (free hints included, deliberately).
@@ -176,20 +272,156 @@
       body.innerHTML = content || (payload.data && payload.data.content) || "";
       details.dataset.loaded = "1";
     } catch (e) {
-      body.textContent = "Could not load this hint.";
+      body.textContent = t("hintError", "Could not load this hint.");
     }
+  }
+
+  /* ---------- syntax highlighting of injected bodies ---------- */
+
+  /* The core theme highlights `pre code` once, on DOMContentLoaded
+     (themes/core/assets/js/theme/highlight.js), and keeps lolight module-local.
+     Every body this page fills in after a solve therefore arrived as plain
+     text: measured on a real run, 0 `.ll-*` spans in each one — so from the
+     second step of a subject onwards there was no highlighting at all, which is
+     most of a workshop. The plugin carries its own pinned copy of the same
+     library (tools/build_vendor.sh) rather than reaching into the core bundle,
+     which would be a core edit. Absent, this is a no-op and the code is still
+     readable, just monochrome. */
+
+  /* Two things lolight's single, language-agnostic ruleset gets wrong on our
+     subjects, both repaired here rather than by shipping a second highlighter.
+
+     Its keyword list misses `local`, which is on nearly every line of beginner
+     Lua, and Python's `None`, `True` and `False` — the list carries `null`,
+     `true` and `false` and is case-sensitive. */
+  /* Looked up with `=== 1`, not for truthiness: these are plain object literals,
+     so a token spelled `constructor`, `toString` or `valueOf` would otherwise
+     come back with a function off Object.prototype and be tagged a keyword.
+     Same reason the language lookup below tests for a string. */
+  var EXTRA_KEYWORDS = { local: 1, nonlocal: 1, pass: 1, None: 1, True: 1, False: 1 };
+
+  /* And it only knows `//` and `#` line comments, so `-- deplace le fantome`
+     tokenized as two operators followed by live code. That is not cosmetic
+     here: one step of the Pac-Man subject exists to teach that `--` is a note
+     to the reader and not code, and the page was colouring it as code.
+
+     Keyed off the `language-*` class the markdown renderer puts on <code>, so
+     this never fires on a shell block, where `--force` is a flag. */
+  var LINE_COMMENT = { lua: "--", sql: "--", haskell: "--" };
+
+  // lolight splits punctuation one character at a time, so a two-character
+  // marker spans two tokens. Only punctuation can start one: a `--` inside a
+  // string arrives as a single `str` token and is left alone.
+  function startsComment(toks, i, marker) {
+    var text = "";
+    for (var j = i; j < toks.length && text.length < marker.length; j++) {
+      if (toks[j][0] !== "pct") return false;
+      text += toks[j][1];
+    }
+    return text === marker;
+  }
+
+  function span(parent, cls, text) {
+    var el = document.createElement("span");
+    el.className = "ll-" + cls;
+    el.textContent = text;
+    parent.appendChild(el);
+  }
+
+  /* Always re-tokenizes from textContent rather than skipping blocks that
+     already carry spans. lolight rebuilds from textContent too, so this is
+     idempotent, and it is what makes a block the core highlighted at load and
+     a block this page fetched after a solve come out identical. Absent (the
+     vendored file is a build artifact), it is a no-op and code stays
+     monochrome but readable. */
+  function highlight(scope) {
+    if (!scope || !window.lolight || typeof window.lolight.tok !== "function") return;
+    scope.querySelectorAll("pre code").forEach(function (block) {
+      var lang = (block.className.match(/language-([\w+#-]+)/) || [])[1];
+      var marker = typeof LINE_COMMENT[lang] === "string" ? LINE_COMMENT[lang] : "";
+      var toks = window.lolight.tok(block.textContent);
+      var out = document.createDocumentFragment();
+      var inComment = false;
+      for (var i = 0; i < toks.length; i++) {
+        var cls = toks[i][0];
+        var text = toks[i][1];
+        if (inComment) {
+          // The newline that ends the comment arrives inside a whitespace
+          // token; everything before it belongs to the comment, the rest does
+          // not and keeps its own class.
+          var nl = text.indexOf("\n");
+          if (nl < 0) { span(out, "com", text); continue; }
+          if (nl > 0) span(out, "com", text.slice(0, nl));
+          span(out, cls, text.slice(nl));
+          inComment = false;
+          continue;
+        }
+        if (marker && startsComment(toks, i, marker)) inComment = true;
+        else if (cls === "nam" && EXTRA_KEYWORDS[text] === 1) cls = "key";
+        span(out, inComment ? "com" : cls, text);
+      }
+      block.textContent = "";
+      block.appendChild(out);
+    });
   }
 
   /* ---------- state refresh after a solve ---------- */
 
+  /* Say the chip's new state everywhere the template said its old one.
+     The visible glyph is a ::before keyed off the state class, so the class
+     swap draws it — but colour and shape are not a signal on their own, and the
+     two places that carry the state as words are a title attribute and a
+     visually-hidden span. Neither is touched by a class change, so a chip that
+     went green kept announcing "Not started" to a screen reader for the rest of
+     the session. Both are rebuilt from the label the chip already carries,
+     which is also what keeps the full chapter name in the tooltip: the visible
+     label ellipsises, and rewriting the title with the state alone threw the
+     name away on the first solve. */
+  function nameChip(chip, state) {
+    var label = chip.querySelector(".ws-chip-label");
+    var name = label ? label.textContent.trim() : "";
+    chip.title = name ? name + " — " + TITLE[state] : TITLE[state];
+    var spoken = chip.querySelector(".visually-hidden");
+    if (spoken) spoken.textContent = " — " + TITLE[state];
+  }
+
   function setChipState(target, state) {
     ROOT.querySelectorAll('.ws-chip[href="#' + target + '"]').forEach(function (chip) {
-      STATES.forEach(function (s) { chip.classList.remove("ws-" + s); });
+      var was = null;
+      STATES.forEach(function (s) {
+        if (chip.classList.contains("ws-" + s)) was = s;
+        chip.classList.remove("ws-" + s);
+      });
       chip.classList.add("ws-" + state);
-      chip.title = TITLE[state];
-      var icon = chip.querySelector(".ws-chip-icon");
-      if (icon) icon.textContent = ICON[state];
+      nameChip(chip, state);
+      // The glyph is a ::before keyed off the state class, so swapping the
+      // class above is the whole update — nothing here writes an icon.
+      if (state === "done" && was !== "done") {
+        chip.classList.remove("ws-chip-pop");
+        void chip.offsetWidth;
+        chip.classList.add("ws-chip-pop");
+        chip.addEventListener("animationend", function () {
+          chip.classList.remove("ws-chip-pop");
+        }, { once: true });
+      }
+      if (state === "current") revealChip(chip);
     });
+  }
+
+  /* The steps strip is one scrolling line, and it is the bar pinned to the top
+     of the screen, so the chip it is about is the one chip that has to be on
+     it. Scrolls the strip, never the page: `scrollIntoView` would have moved
+     the document as well, fighting the scroll refresh() just performed.
+     Measured from rects rather than offsetLeft, which is relative to whichever
+     ancestor happens to be positioned. */
+  function revealChip(chip) {
+    var strip = chip.closest(".ws-stepper");
+    if (!strip || strip.scrollWidth <= strip.clientWidth + 1) return;
+    var cr = chip.getBoundingClientRect();
+    var sr = strip.getBoundingClientRect();
+    var delta = (cr.left - sr.left) - (sr.width - cr.width) / 2;
+    if (Math.abs(delta) < 2) return;
+    strip.scrollBy({ left: delta, behavior: "smooth" });
   }
 
   async function fillBody(step) {
@@ -200,13 +432,24 @@
       // A step filled in place carries its own folds; give them the state the
       // participant last chose, like the ones rendered with the page.
       restoreFolds(step);
+      highlight(step);
       var name = step.querySelector(".ws-step-name");
       if (name) name.textContent = payload.data.name;
       step.querySelectorAll(".ws-rating").forEach(markRating);
     }
   }
 
-  async function refresh(justSolvedId) {
+  /* `holdScrollUntil` is a performance.now() timestamp, or 0. Everything else
+     in here lands immediately — counters, chips, bodies. Those corroborate the
+     reward rather than compete with it, and they are not what steals the
+     moment: moving the viewport is. */
+  function until(timestamp) {
+    var wait = timestamp ? timestamp - performance.now() : 0;
+    if (wait <= 0) return Promise.resolve();
+    return new Promise(function (done) { setTimeout(done, wait); });
+  }
+
+  async function refresh(justSolvedId, holdScrollUntil) {
     var r = await api("/api/v1/workshop/graph");
     var graph = (await r.json()).data;
     var solved = new Set(graph.solved);
@@ -247,12 +490,17 @@
 
     // Counters read the states we just set, so they land immediately — the
     // bodies being fetched only affect the inside of steps.
-    updateCounters(solved);
+    var counts = updateCounters(solved);
     await Promise.all(pending);
     if (next && next.dataset.challengeId !== String(justSolvedId)) {
+      // Opened together with the scroll rather than before it: the next step is
+      // below the fold either way, so revealing it early buys nothing and
+      // splits one event into two.
+      await until(holdScrollUntil);
       next.open = true;
       scrollTo(next);
     }
+    return counts;
   }
 
   function updateCounters(solved) {
@@ -281,33 +529,94 @@
       if (badge) badge.textContent = partDone + "/" + steps.length;
     });
 
+    // The forward cue out of a finished document. Server-rendered on every
+    // document-scoped view and hidden until it applies (templates/
+    // workshop_page.html), because the solve that completes the document never
+    // reloads the page — so the one moment it is needed is the one moment a
+    // server-only section would miss. Same counters as the bar above: the
+    // server decides what it says, this decides whether it shows.
+    var nextDoc = ROOT.querySelector(".ws-next-doc");
+    if (nextDoc) {
+      var show = total > 0 && done === total;
+      // Only on the transition. Setting the class whenever it is visible would
+      // replay the entrance on every counter update, and on a page loaded with
+      // the part already finished.
+      if (show && nextDoc.hidden) {
+        nextDoc.classList.add("ws-next-doc-in");
+        nextDoc.addEventListener("animationend", function () {
+          nextDoc.classList.remove("ws-next-doc-in");
+        }, { once: true });
+      }
+      nextDoc.hidden = !show;
+    }
+
     var overall = ROOT.querySelector(".ws-overall");
-    if (!overall) return;
-    overall.querySelector(".ws-overall-count").textContent = done + " / " + total;
-    overall.querySelector(".ws-overall-fill").style.width =
-      (total ? (100 * done) / total : 0) + "%";
+    if (overall) {
+      overall.querySelector(".ws-overall-num").textContent = done + "/" + total;
+      overall.querySelector(".ws-overall-fill").style.width =
+        (total ? (100 * done) / total : 0) + "%";
+    }
+    // Handed back rather than only written into the DOM: submit() is the only
+    // place that knows a solve just happened (see its comment), and it needs
+    // these to decide between the three celebration tiers.
+    return { total: total, done: done };
   }
 
   /* ---------- navigation ---------- */
 
-  function navbarHeight() {
-    var nav = document.querySelector(".navbar.fixed-top");
-    return nav ? nav.getBoundingClientRect().height : 0;
-  }
-
-  function syncNavbarHeight() {
-    document.documentElement.style.setProperty(
-      "--ws-navbar-height", navbarHeight() + "px");
-  }
-
-  function stickyOffset() {
-    var bar = ROOT.querySelector(".ws-stepper-parts");
-    return navbarHeight() + (bar ? bar.getBoundingClientRect().height : 0) + 16;
+  /* The app shell's header scrolls with the page (it is in normal flow, like
+     jump's), so the only thing an anchor has to clear is the steps stepper of
+     the part it lands in, which sticks to the top of the viewport on its own.
+     Per part, because that is how the bar is scoped: measuring a different
+     part's strip would leave the target under the real one. */
+  function stickyOffset(el) {
+    var part = el && el.closest ? el.closest(".ws-part") : null;
+    var bar = (part || ROOT).querySelector(".ws-stepper-steps");
+    return (bar ? bar.getBoundingClientRect().height : 0) + 16;
   }
 
   function scrollTo(el) {
-    var top = el.getBoundingClientRect().top + window.scrollY - stickyOffset();
-    window.scrollTo({ top: top, behavior: "smooth" });
+    var top = el.getBoundingClientRect().top + window.scrollY - stickyOffset(el);
+    // An explicit `behavior: "smooth"` WINS over the stylesheet's
+    // `scroll-behavior: auto !important`: the CSS property is only consulted
+    // when the JS behaviour is "auto". So the reduced-motion opt-out has to be
+    // read here, or somebody who asked for no motion gets the one animation on
+    // this page that moves their whole viewport.
+    var smooth = true;
+    try {
+      smooth = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    } catch (e) { /* no matchMedia: keep the default */ }
+    window.scrollTo({ top: top, behavior: smooth ? "smooth" : "auto" });
+  }
+
+  /* `position: sticky` gives no state to style, and the usual
+     IntersectionObserver trick does not apply here: it calls a bar "not fully
+     intersecting" when the bar is off-screen entirely, and this page has one
+     bar per part, so every bar below the fold would claim to be stuck.
+     Measured — at scroll 0 the observer reported stuck on a bar sitting 1204px
+     down the page.
+
+     One rect read per bar, coalesced into a single frame, is both correct and
+     cheaper than the observer plus the position test it would still need. */
+  function watchStuck() {
+    var bars = Array.prototype.slice.call(
+      ROOT.querySelectorAll(".ws-stepper-steps"));
+    if (!bars.length) return;
+    var queued = false;
+    var update = function () {
+      queued = false;
+      bars.forEach(function (bar) {
+        // `top: 0` on the rule, so a pinned bar reports exactly 0; the epsilon
+        // is only there for subpixel layout.
+        bar.classList.toggle("ws-stuck", bar.getBoundingClientRect().top <= 0.5);
+      });
+    };
+    window.addEventListener("scroll", function () {
+      if (queued) return;
+      queued = true;
+      requestAnimationFrame(update);
+    }, { passive: true });
+    update();
   }
 
   function openFromHash() {
@@ -358,10 +667,8 @@
   function start() {
     ROOT = document.querySelector("#ws-workshop");
     if (!ROOT) return;
-    syncNavbarHeight();
     ROOT.querySelectorAll(".ws-rating").forEach(markRating);
     rememberLeads();
-    window.addEventListener("resize", syncNavbarHeight);
 
     ROOT.addEventListener("click", function (ev) {
       var save = ev.target.closest(".ws-rating-save");
@@ -426,8 +733,32 @@
     // `toggle` does not bubble, so listen in the capture phase.
     ROOT.addEventListener("toggle", function (ev) {
       var d = ev.target;
-      if (d.classList && d.classList.contains("ws-hint") && d.open) revealHint(d);
+      if (!d.classList) return;
+      if (d.classList.contains("ws-hint") && d.open) revealHint(d);
+      // Reveal the content rather than blink it into place. Keyed off a real
+      // toggle and not off `[open]`, so the folds that are already open when
+      // the page loads do not all animate at once.
+      if (d.open && d.tagName === "DETAILS") {
+        d.classList.add("ws-fold-open");
+        d.addEventListener("animationend", function () {
+          d.classList.remove("ws-fold-open");
+        }, { once: true });
+      }
     }, true);
+
+    // Twice, on purpose, and both passes are idempotent. The core's own
+    // highlighting also runs on DOMContentLoaded and the order between the two
+    // handlers is not ours to decide; if it lands second it rebuilds the block
+    // from its text and drops the keyword re-tagging, so `load` — which is
+    // strictly after every DOMContentLoaded handler — puts it back.
+    highlight(ROOT);
+    window.addEventListener("load", function () { highlight(ROOT); });
+    watchStuck();
+    // Where the participant is, brought onto the strip on arrival too, not only
+    // when a solve moves it. A strip that opens on step 1 while the person is
+    // on step 7 is a strip about somebody else.
+    ROOT.querySelectorAll(".ws-stepper-steps .ws-chip.ws-current")
+        .forEach(revealChip);
 
     openFromHash();
     // Back/forward between steps changes the hash without reloading.

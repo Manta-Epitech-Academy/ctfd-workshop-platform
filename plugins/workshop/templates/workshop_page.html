@@ -11,9 +11,14 @@
      state in workshop.css, so the state table lives in exactly one place and
      the JS below only ever swaps a class. The span still has to exist — it is
      what the CSS hangs the glyph on. #}
-  {% set title = {"done": "Completed", "current": "In progress",
-                  "todo": "Not started", "locked": "Locked",
-                  "info": "Just something to read"}[state] %}
+  {# Translated: this is the screen-reader text below, and on the participant
+     path it is the ONLY state signal a screen reader gets — the glyph beside it
+     is a CSS ::before and the colour is not a signal at all. The five msgids are
+     the ones page.py's CARD_TEXT already carries, so the index and the steppers
+     say the same word for the same state. #}
+  {% set title = {"done": _("Completed"), "current": _("In progress"),
+                  "todo": _("Not started"), "locked": _("Locked"),
+                  "info": _("Just something to read")}[state] %}
   {# Chip labels can be long chapter titles: they ellipsis, so the full name
      lives in the tooltip. State is icon + text, never colour alone. #}
   <a class="ws-chip ws-{{ state }}" href="#{{ target }}" title="{{ label }} — {{ title }}">

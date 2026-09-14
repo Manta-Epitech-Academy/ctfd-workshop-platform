@@ -56,6 +56,14 @@
   mechanism in this plugin, and it is gettext. Placeholders the browser fills
   use {n} rather than %(n)s — gettext substitutes printf placeholders as it
   translates and raises with nothing to substitute them with.
+
+  The `state*` five are the step/chip state table. The server renders them into
+  the markup at page load; workshop_page.js rewrites a chip's title and its
+  screen-reader span after a solve and needs the same words, or a French page
+  starts answering in English the moment somebody makes progress.
+
+  No Jinja comment inside the dict below — it is one expression, and `{#` there
+  is a syntax error, not a comment.
 #}
 <script type="application/json" id="ws-i18n">
   {{ {
@@ -78,6 +86,11 @@
     "graphPath": _("your path"),
     "graphError": _("Could not load the path graph."),
     "graphBranch": _("Several ways on from here — pick one:"),
+    "stateDone": _("Completed"),
+    "stateCurrent": _("In progress"),
+    "stateTodo": _("Not started"),
+    "stateLocked": _("Locked"),
+    "stateInfo": _("Just something to read"),
   } | tojson }}
 </script>
 

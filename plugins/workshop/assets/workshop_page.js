@@ -32,8 +32,15 @@
   function t(key, fallback) {
     return I18N[key] || fallback;
   }
-  var TITLE = { done: "Completed", current: "In progress", todo: "Not started",
-                locked: "Locked", info: "Just something to read" };
+  // The same five words the template renders into a chip's title and its
+  // screen-reader span, through the same catalogue — a chip rewritten after a
+  // solve must not start saying "Completed" on a page that says "Terminé"
+  // everywhere else.
+  var TITLE = { done: t("stateDone", "Completed"),
+                current: t("stateCurrent", "In progress"),
+                todo: t("stateTodo", "Not started"),
+                locked: t("stateLocked", "Locked"),
+                info: t("stateInfo", "Just something to read") };
   var STATES = ["done", "current", "todo", "locked", "info"];
 
   function api(path, options) {
@@ -360,6 +367,24 @@
 
   /* ---------- state refresh after a solve ---------- */
 
+  /* Say the chip's new state everywhere the template said its old one.
+     The visible glyph is a ::before keyed off the state class, so the class
+     swap draws it — but colour and shape are not a signal on their own, and the
+     two places that carry the state as words are a title attribute and a
+     visually-hidden span. Neither is touched by a class change, so a chip that
+     went green kept announcing "Not started" to a screen reader for the rest of
+     the session. Both are rebuilt from the label the chip already carries,
+     which is also what keeps the full chapter name in the tooltip: the visible
+     label ellipsises, and rewriting the title with the state alone threw the
+     name away on the first solve. */
+  function nameChip(chip, state) {
+    var label = chip.querySelector(".ws-chip-label");
+    var name = label ? label.textContent.trim() : "";
+    chip.title = name ? name + " — " + TITLE[state] : TITLE[state];
+    var spoken = chip.querySelector(".visually-hidden");
+    if (spoken) spoken.textContent = " — " + TITLE[state];
+  }
+
   function setChipState(target, state) {
     ROOT.querySelectorAll('.ws-chip[href="#' + target + '"]').forEach(function (chip) {
       var was = null;
@@ -368,7 +393,7 @@
         chip.classList.remove("ws-" + s);
       });
       chip.classList.add("ws-" + state);
-      chip.title = TITLE[state];
+      nameChip(chip, state);
       // The glyph is a ::before keyed off the state class, so swapping the
       // class above is the whole update — nothing here writes an icon.
       if (state === "done" && was !== "done") {

@@ -164,10 +164,16 @@ system asks for reduced motion gets the animation anyway. Declare `poster` and
 the platform shows that still to them instead. The linter says so when it sees
 a GIF with no poster.
 
-**The linter advises here, it does not refuse.** A missing tagline, an overlong
-one, a GIF without a still: those print as `warn` and import anyway. "Your cover
-has no accroche" must never be the reason a workshop fails to load ten minutes
-before a session.
+**The linter advises here, it does not refuse.** No block at all, a missing
+tagline, an overlong one, a GIF without a still: those print as `warn` and
+import anyway. "Your cover has no accroche" must never be the reason a workshop
+fails to load ten minutes before a session. You get **one** message per
+situation — a subject that declares no cover hears about the block, not also
+about the tagline inside the block it does not have.
+
+The one thing that *is* refused is a `cover` path pointing at a file that is not
+there. That is §3.8's rule, not a new one: a broken image is a hole in the page,
+and the whole point of linting paths is to find it before a session does.
 
 ### 3.3 Section metadata — HTML comments anchored to headings
 

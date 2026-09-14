@@ -654,37 +654,51 @@ def load_flags(subject_dir):
     return (yaml.safe_load(path.read_text()) or {}).get("flags", {})
 
 
-# A tagline is the one line a participant reads before anything else, so it is
-# a headline, not a paragraph. Past this it wraps to three lines in the band and
-# stops being an accroche.
+# A tagline is the one line a participant reads before anything else, so it is a
+# headline and not a paragraph. The ceiling is editorial, not measured: this
+# parser is shared, the band that renders a tagline lives in the platform and
+# not here, and a constant that claimed to know that band's pixel width would be
+# wrong the first time the band changed. Ninety characters is one sentence, and
+# about one line at the width the platform gives it today.
 TAGLINE_MAX = 90
 
 
 def _cover_warnings(subject):
-    """Advice about the `cover:` block. Never fatal — see `lint_all`."""
-    out = []
+    """Advice about the `cover:` block. Never fatal — see `lint_all`.
+
+    One message per situation, deliberately. An earlier version reported the
+    missing tagline *and* the missing block for a subject that declares no cover
+    at all — which is every subject not yet converted — so the common case
+    produced two overlapping paragraphs on every CI run. That is how a warning
+    teaches people to skip warnings, and it would have taken the three
+    actionable ones down with it.
+    """
     cover = subject.cover
-    if not cover.get("tagline"):
-        out.append("subject.yaml: no `cover.tagline` — the workshop's front "
-                   "page will fall back to `project.summary`, or to nothing. "
-                   "One sentence saying what the participant will have built "
-                   "is the single cheapest thing you can add (§3.2b).")
-    elif len(cover["tagline"]) > TAGLINE_MAX:
-        out.append(f"subject.yaml: `cover.tagline` is {len(cover['tagline'])} "
-                   f"characters; keep it under {TAGLINE_MAX} so it stays one "
-                   f"line in the band.")
+    if not cover:
+        return ["subject.yaml: no `cover:` block. The platform falls back to "
+                "`project.summary` and the first image of the entrypoint "
+                "document, which beats nothing and loses to a frame you chose. "
+                "One sentence and one path is the whole block (§3.2b)."]
+
+    out = []
+    tagline = cover.get("tagline")
+    if not tagline:
+        out.append("subject.yaml: `cover:` declares no `tagline`, so the front "
+                   "page falls back to `project.summary`. One sentence saying "
+                   "what the participant will have built is the cheapest thing "
+                   "you can add (§3.2b).")
+    elif len(tagline) > TAGLINE_MAX:
+        out.append(f"subject.yaml: `cover.tagline` is {len(tagline)} "
+                   f"characters. Keep it under {TAGLINE_MAX} — it is a "
+                   f"headline, not a paragraph.")
+
     media = cover.get("media")
     if isinstance(media, str) and media.lower().endswith(".gif") \
             and not cover.get("poster"):
         out.append("subject.yaml: `cover.media` is an animated GIF with no "
                    "`cover.poster`. A GIF cannot be paused, so a participant "
-                   "who asked their system for reduced motion gets it anyway; "
-                   "a still frame is what gets shown instead.")
-    if not media and not cover.get("tagline"):
-        out.append("subject.yaml: no `cover:` block at all. The platform will "
-                   "derive one from `project.summary` and the first image of "
-                   "the entrypoint document, which is better than nothing and "
-                   "worse than a chosen frame (§3.2b).")
+                   "who asked their system for reduced motion gets the "
+                   "animation anyway; the poster is the still shown instead.")
     return out
 
 

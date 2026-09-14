@@ -41,6 +41,11 @@ from CTFd.utils.decorators.visibility import check_challenge_visibility
 from CTFd.utils.helpers import markup
 from CTFd.utils.user import get_current_user
 
+# Aliased to the name this module already used: a local `documents` variable
+# shadows it in three functions, and renaming those would be churn for
+# nothing.
+from .links import documents as _documents
+from .links import step_href, step_pages
 from .mode import is_self_serve
 from .runtime import declared_runtime
 
@@ -419,24 +424,6 @@ def _final_step_id():
         return None
 
 
-def _documents():
-    """The subject's documents, as written by the sync (`workshop_documents`).
-
-    Each is one *part* of the workshop with its own route and navbar entry.
-    Empty for a subject synced before per-document routes existed, in which
-    case `/workshop` remains the only view — which is also the right answer for
-    a single-document subject.
-    """
-    raw = get_config("workshop_documents")
-    if not raw:
-        return []
-    try:
-        docs = json.loads(raw)
-    except (TypeError, ValueError):
-        return []
-    return [d for d in docs if d.get("slug") and d.get("challenge_ids")]
-
-
 def _subjects():
     """How each subject presents itself (`workshop_subjects`, §3.2b).
 
@@ -477,7 +464,7 @@ def _cover_for(subject, documents=None, doc_slug=None):
     return cover
 
 
-def _resolve_links(steps, documents, visible_ids):
+def _resolve_links(steps, docs, visible_ids):
     """Point every "finish X first" at the page where X can actually be done.
 
     A per-document route shows one slice of the chain, so the step that blocks
@@ -485,16 +472,15 @@ def _resolve_links(steps, documents, visible_ids):
     whose only explanation names something not on it reads as broken rather
     than as not-yet.
     """
-    where = {cid: d["slug"] for d in documents for cid in d["challenge_ids"]}
+    pages = step_pages(docs)
     for step in steps:
         for blocker in step["blocked_by"]:
-            anchor = f"#step-{blocker['id']}"
-            if blocker["id"] in visible_ids:
-                blocker["href"] = anchor
-            elif blocker["id"] in where:
-                blocker["href"] = f"/workshop/{where[blocker['id']]}{anchor}"
-            else:
-                blocker["href"] = f"/workshop{anchor}"
+            # A blocker already on this page is a local anchor; anything else
+            # gets the page it can actually be done on (links.step_href), which
+            # is the same URL the Parcours graph sends its nodes to.
+            blocker["href"] = (f"#step-{blocker['id']}"
+                               if blocker["id"] in visible_ids
+                               else step_href(blocker["id"], pages))
 
 
 def _open_states(steps):

@@ -157,12 +157,21 @@
                         here == url_for('scoreboard.listing')) }}
           {% endif %}
 
-          {# The raw board. Kept because an instructor uses it and because a
-             subject can be run without the workshop view, but placed last: for
-             a participant the workshop page is the same content, better
-             presented. #}
-          {{ nav_link(url_for('challenges.listing'), _("Challenges"),
-                      here == url_for('challenges.listing')) }}
+          {# The raw board, for admins only. It is the same content as the
+             workshop view in CTFd's own presentation, so for a participant it
+             is a second entry leading to the same steps — and the one that
+             shows them as a grid of point values rather than as a subject to
+             read. An instructor still wants it, which is the reason it was
+             kept in the first place, and an instructor is an admin here.
+
+             `/challenges` itself stays served and reachable by URL: this drops
+             the link, not the route. The other way in was the Parcours graph,
+             whose nodes now point at the workshop page instead
+             (graph.py, assets/graph.js, PLAN.md §30). #}
+          {% if is_admin() %}
+            {{ nav_link(url_for('challenges.listing'), _("Challenges"),
+                        here == url_for('challenges.listing')) }}
+          {% endif %}
         </ul>
       </nav>
     {% endif %}

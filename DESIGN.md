@@ -133,7 +133,11 @@ the theme icon is contractually Font Awesome, and two icon sets inside one 32px 
 worse than either alone. Font Awesome is already loaded by core, so this also vendors nothing.
 
 **What the header carries**, and what left: nav is Workshop (added — it was previously reachable
-only by clicking the logo), the Pages loop, Scoreboard, Challenges. The right cluster is
+only by clicking the logo), the Pages loop, Scoreboard, and Challenges **for admins only**. That
+last one is the same steps as the workshop view in CTFd's own presentation, so for a participant it
+was a second entry to one place, and the one that shows a subject as a grid of point values; the
+instructor it was kept for is an admin here. `/challenges` stays served and reachable by URL —
+this drops the link, not the route (PLAN.md §30). The right cluster is
 notifications, theme, and a named account menu holding Profile, Team, Settings, Admin Panel and
 Logout — six former navbar entries at `jump`'s three-control density. **Dropped**: the language
 picker (all platform strings are English until a later i18n phase, per `CLAUDE.md`) and the

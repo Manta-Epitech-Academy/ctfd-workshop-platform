@@ -65,13 +65,29 @@
     return !!document.querySelector("[x-ref='challengeWindow']");
   }
 
-  function challengeUrl(node) {
+  function boardUrl(node) {
     // The board reads window.location.hash on init and opens that challenge:
     // it splits on the LAST "-", so only the trailing id matters (themes/core/
     // assets/js/challenges.js). Keep the name in front for a readable URL —
     // that is exactly what CTFd itself writes back into the address bar.
     var root = (window.CTFd && window.CTFd.config && window.CTFd.config.urlRoot) || "";
     return root + "/challenges#" + encodeURIComponent(node.name) + "-" + node.id;
+  }
+
+  function challengeUrl(node) {
+    // The workshop page the step lives on, built server-side (graph.py, via
+    // links.step_href) because only the server knows which document a
+    // challenge belongs to. This page is a participant surface, so a node must
+    // lead to the participant's view of the step and not to CTFd's own board —
+    // the board is the classic presentation of the same content and is now
+    // admin-only in the nav, so sending a lycéen there from Parcours was the
+    // last way into it (PLAN.md §30).
+    //
+    // `boardUrl` stays for the one caller that IS the board: the graph also
+    // renders inside the challenge modal, where a node means "open this one
+    // next", in place.
+    var root = (window.CTFd && window.CTFd.config && window.CTFd.config.urlRoot) || "";
+    return node.url ? root + node.url : boardUrl(node);
   }
 
   function openChallenge(node) {
@@ -253,7 +269,7 @@
         // <a> (not just a click handler) so the box behaves like a link:
         // middle-click / ctrl-click open it in a new tab, and it is focusable.
         var a = svgEl("a", { class: "ws-node-link" });
-        a.setAttribute("href", challengeUrl(n));
+        a.setAttribute("href", onChallengeBoard() ? boardUrl(n) : challengeUrl(n));
         a.addEventListener("click", function (ev) {
           if (ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.button !== 0) return;
           ev.preventDefault();

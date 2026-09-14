@@ -454,7 +454,8 @@ its own fallback, so deep links are untouched; anonymous visitors still get the 
 page, which is also the Intro section of the workshop page for everyone else.
 
 Consequences: the challenge board and its modal still exist (untouched, still reachable at
-`/challenges`, just no longer the first thing a participant sees); the Parcours graph becomes secondary — the inline steppers cover progress for a linear subject, and
+`/challenges`, just no longer the first thing a participant sees — and since §30, no longer in a
+participant's navbar at all, nor at the end of a Parcours node); the Parcours graph becomes secondary — the inline steppers cover progress for a linear subject, and
 the graph earns its place only once subjects really branch.
 
 ## 14. Embedding existing runtimes into the workshop page (2026-08-04)

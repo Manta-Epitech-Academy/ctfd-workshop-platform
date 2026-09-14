@@ -29,6 +29,21 @@
     <div class="alert alert-warning">{{ problem }}</div>
   {% endfor %}
 
+  {# A declared runtime whose dist is not built here. The content imports fine
+     and every page renders fine; what silently disappears is the runtime pane,
+     its launcher and its script, because `declared_runtime()` must answer None
+     rather than point a frame at a 404. Saying so here is the difference
+     between "this subject has no runtime" and "this instance is missing it". #}
+  {% if runtime_gap %}
+    <div class="alert alert-warning">
+      This subject declares the <strong>{{ runtime_gap[0] }}</strong> runtime at
+      version <code>{{ runtime_gap[1] }}</code>, but <code>{{ runtime_gap[2] }}</code>
+      does not exist on this instance, so the runtime is not offered on any page.
+      Build it with <code>tools/build_runtime.sh {{ runtime_gap[0] }}</code>
+      (or <code>python3 tools/provision.py runtimes</code>) and restart.
+    </div>
+  {% endif %}
+
   <div class="row">
     <div class="col-md-6">
       <h3 class="ws-sync-h">Source</h3>

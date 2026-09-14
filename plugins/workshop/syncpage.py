@@ -36,6 +36,7 @@ from flask import Blueprint, jsonify, redirect, render_template, request, url_fo
 from CTFd.utils.decorators import admins_only
 from CTFd.utils.user import get_current_user
 
+from .runtime import missing_dist
 from .source import (SourceError, current_source, last_sync, materialize,
                      record_sync, resolve_ref, set_source)
 
@@ -300,8 +301,13 @@ def _tip(source):
 @admins_only
 def page():
     source = current_source()
+    # Deliberately NOT folded into `missing_pieces()`: that list is also used to
+    # explain why an import failed (`_run` below), and an unbuilt runtime dist
+    # has nothing to do with importing content. It is a separate deployment
+    # state, and the only place it was previously visible was nowhere.
     return render_template("workshop_sync.html", source=source, last=last_sync(),
                            tip=_tip(source), problems=missing_pieces(),
+                           runtime_gap=missing_dist(),
                            job=_job.snapshot() if _job else None)
 
 

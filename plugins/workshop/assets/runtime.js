@@ -98,9 +98,21 @@
     if (!msg || !msg.k) return;
     if (ownsPage()) {
       switch (msg.k) {
+        case "who":
+          // Only a page asks, and only a tab answers; a page hearing this is
+          // another page and has nothing to say.
+          break;
         case "hello":
           // A tab is alive. It has no step list of its own, so answer with the
           // one the participant is on; it asks again whenever it reloads.
+          //
+          // A live tab outranks this page's stored preference, because it IS
+          // the runtime right now and two frames on one origin would be two
+          // editors writing one cart. The rare cost is a wasted boot: a page
+          // that loaded in split mode may have started mounting before this
+          // arrived, and `dropFrame` then saves that frame's work and throws it
+          // away. Correct either way, and only reachable when a tab the browser
+          // refused to close is still open.
           popupLive = true;
           setMode(MODE_WINDOW, { silent: true });
           updateLauncher();
@@ -127,6 +139,12 @@
     } else if (msg.k === "step") {
       remoteStep = msg.step || null;
       if (ready) sendStep("step");
+    } else if (msg.k === "who") {
+      // A subject page loaded (or reloaded) while this tab was already open. It
+      // cannot have heard the `hello` sent when this tab started, so say it
+      // again — otherwise the page offers to open a runtime that is already
+      // running two windows away.
+      send({ k: "hello" });
     }
   }
 
@@ -531,26 +549,43 @@
     var want = next === MODE_WINDOW && canPopOut() ? MODE_WINDOW : MODE_SPLIT;
     if (!silent) lsSet(LS_MODE, want);
     if (want === mode && pane.dataset.runtimeMode) { updateLauncher(); return; }
+    // Before `mode` moves, while this window is still the frame's owner: `save`
+    // and `restore` are both gated on `ownsFrame()`, so flipping first would
+    // make the handover silently lose the work it exists to carry.
+    if (want === MODE_WINDOW) dropFrame();
     mode = want;
     // On the element, not only in a variable: it is what a stylesheet and the
     // regression suite can see, and the stored preference deliberately records
     // only an explicit choice — so `localStorage` is silent about a default.
     pane.dataset.runtimeMode = mode;
-    if (mode === MODE_WINDOW && frame) {
-      // Moving the runtime to another window means this frame goes. It reboots
-      // the runtime, which no amount of care avoids — a live iframe cannot be
-      // adopted by another document without reloading it — so the work is
-      // pushed to the server first and the new frame restores it before it
-      // boots (PLAN.md §16). That is the whole reason that mechanism exists.
-      save(true);
-      frame.remove();
-      frame = null;
-      ready = false;
-      mounting = false;
-      pane.removeAttribute("data-runtime-ready");
-    }
     if (mode === MODE_WINDOW) setOpen(false);
     updateLauncher();
+  }
+
+  /* Hand the runtime over to the other window.
+   *
+   * The frame goes, and that reboots the runtime — no amount of care avoids it,
+   * a live iframe cannot be adopted by another document without reloading. So
+   * the work is pushed to the server first and the next frame, wherever it is
+   * created, restores it before booting (PLAN.md §16). That is the whole reason
+   * that mechanism exists.
+   *
+   * The restore state is reset with it, or `restore()`'s memo would hand the
+   * next mount a resolved promise and `createFrame` would run without ever
+   * re-reading the server — so a pane re-opened after a session in the tab
+   * would boot against whatever was in this browser. */
+  function dropFrame() {
+    if (!frame) return;
+    save(true);
+    frame.remove();
+    frame = null;
+    ready = false;
+    mounting = false;
+    pane.removeAttribute("data-runtime-ready");
+    snapshotPromise = null;
+    restoreDone = null;
+    restored = false;
+    lastPrint = null;
   }
 
   // Synchronous `window.open`, always: an asynchronous one has lost the user
@@ -712,6 +747,9 @@
     watchCta();
     fetchSnapshot();
     watchStorage();
+    // Is a popped-out tab already open? It announces itself when it starts, so
+    // a page that started later never heard it.
+    send({ k: "who" });
     // Step changes: the participant opened another step, or solved one.
     document.addEventListener("toggle", function (ev) {
       if (!ev.target.classList || !ev.target.classList.contains("ws-step")) return;

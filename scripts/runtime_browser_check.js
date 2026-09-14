@@ -254,12 +254,82 @@ async function advisoryAcrossWindows(browser) {
   await ctx.close();
 }
 
+/* Switching presentation reboots the runtime — a live iframe cannot move
+ * between documents without reloading — so the only thing that makes the switch
+ * safe is that the work is saved before the frame goes and restored before the
+ * next one boots (PLAN.md §16, §30). Both directions, because they fail
+ * differently: handing over without saving loses the work, and re-mounting
+ * without re-reading the server boots against a stale browser bucket. */
+async function workSurvivesTheHandover(browser) {
+  console.log("== Work survives a switch in either direction ==");
+  const ctx = await browser.newContext();
+  const page = await login(ctx, 1280, 900);
+  await page.goto(BASE + PART, { waitUntil: "load" });
+  await page.waitForSelector("#ws-runtime", { state: "attached" });
+  await page.click(".ws-runtime-cta");
+  await ready(page);
+
+  const keys = await page.evaluate(() => {
+    try { return JSON.parse(localStorage.getItem("ws-workspace-keys") || "[]"); }
+    catch (e) { return []; }
+  });
+  if (!keys.length) {
+    console.log("  [skip] this runtime's adapter announces no storage keys");
+    await ctx.close();
+    return;
+  }
+  const key = keys[0];
+  const mark = "ws-check-" + Date.now();
+  await page.evaluate(({ k, v }) => localStorage.setItem(k, v), { k: key, v: mark });
+
+  // split -> window. The pane's frame is the owner here, so this is the save
+  // that used to be skipped because the mode had already moved.
+  const [popped] = await Promise.all([
+    page.waitForEvent("popup"),
+    page.click(".ws-runtime-pop"),
+  ]);
+  await popped.waitForURL(/\/runtime$/, { timeout: 20000 });
+  await ready(popped);
+  const onServer = await popped.evaluate(async (k) => {
+    const r = await fetch("/api/v1/workshop/workspace", { credentials: "same-origin" });
+    return ((await r.json()).data.keys || {})[k] || null;
+  }, key);
+  check(onServer === mark, "the pane saved its work before handing the frame over");
+  check(await popped.evaluate((k) => localStorage.getItem(k), key) === mark,
+        "and the tab booted with it");
+
+  // window -> split. What has to be true is that the re-mounted pane reads the
+  // snapshot AGAIN: `restore()` memoises, so without resetting that memo when
+  // the frame was handed over, `createFrame` runs off a resolved promise and
+  // the pane boots against whatever this browser happens to hold — which on a
+  // shared classroom machine is the previous student's work. Counted as a
+  // request rather than compared as a value, because at this point the pane is
+  // a live frame writing that same key and any value assertion would be racing
+  // it.
+  let snapshotGets = 0;
+  page.on("request", (r) => {
+    if (r.method() === "GET" && r.url().endsWith("/api/v1/workshop/workspace")) snapshotGets += 1;
+  });
+  await popped.click(".ws-runtime-split");
+  await page.waitForFunction(
+    () => document.querySelector("#ws-runtime").dataset.runtimeMode === "split"
+          && !document.querySelector("#ws-runtime").hidden,
+    null, { timeout: 20000 });
+  await ready(page);
+  await page.waitForTimeout(500);
+  check(snapshotGets >= 1,
+        `the re-mounted pane re-read the snapshot (${snapshotGets} GET) instead of` +
+        " reusing a resolved restore");
+  await ctx.close();
+}
+
 (async () => {
   const browser = await chromium.launch(
     process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {});
   try {
     await wideScreen(browser);
     await narrowScreen(browser);
+    await workSurvivesTheHandover(browser);
     await advisoryAcrossWindows(browser);
   } finally {
     await browser.close();

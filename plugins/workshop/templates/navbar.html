@@ -123,8 +123,20 @@
           {{ nav_link(workshop_url, _("Workshop"),
                       here == workshop_url or here.startswith(workshop_url ~ '/')) }}
 
+          {# Through `url_for`, never `page.route` raw. CTFd strips the leading
+             slash off a route before storing it (schemas/pages.py), so the
+             column holds `parcours`, not `/parcours` — and core's own navbar
+             puts that straight into href, where the browser reads it as a
+             RELATIVE path. From /workshop/<part>, which is where a participant
+             spends the session, "parcours" resolves to /workshop/parcours; that
+             hits this plugin's own /workshop/<doc_slug> rule and 404s.
+
+             It is also what makes the active state work at all: `here` carries
+             the leading slash, so comparing it against the stored route could
+             never match and the current Page was never marked. #}
           {% for page in Plugins.user_menu_pages %}
-            {{ nav_link(page.route, page.title, page.route == here, page.link_target or "") }}
+            {% set page_url = url_for('views.static_html', route=page.route) %}
+            {{ nav_link(page_url, page.title, page_url == here, page.link_target or "") }}
           {% endfor %}
 
           {% if Configs.account_visibility != 'admins' and Configs.score_visibility != 'admins' %}

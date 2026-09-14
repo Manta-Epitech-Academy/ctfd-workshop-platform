@@ -2728,3 +2728,185 @@ mascot in the reward float, and it is cheap: the sprite already ships in every s
   they ever become one, they deserve their own pass rather than more selectors.
 - **No enforcement**, unchanged from `DESIGN.md`'s own position. The regression suite checks that
   markup and copy still match, not that a colour is on-palette.
+
+---
+
+## 30. Reaching the runtime, and fitting it on a small laptop (2026-09-14)
+
+Three things came back from a read of the reskin (PR #2), plus one bug reported from the page.
+
+### 30.1 The launcher was not removed, and it had never been designed
+
+First, the fact, because the review started from the opposite premise: **nothing removed it.**
+`git log --all -S'ws-runtime-handle'` returns the initial import and nothing else,
+`assets/runtime.js` has not been touched since that commit, and the reskin's diff does not enter
+the `{% if runtime %}` block. The button, its CSS and its wiring were all still there.
+
+Two other things were true, and together they are almost certainly what was seen:
+
+- **A missing dist removes the runtime silently.** `declared_runtime()` answers `None` when
+  `plugins/workshop/runtimes/<id>/<version>/` is absent, which is the right answer for a page —
+  it must never point a frame at a 404 — but it drops the launcher, the pane and the script with
+  no log line and nothing on the admin sync page. The dist is gitignored and built per instance
+  (`tools/build_runtime.sh`), so an instance can look correctly deployed and have no runtime at
+  all. It now logs once per (id, version) naming the path and the command, and
+  `/admin/workshop/sync` says the same thing. Reproduced on the dev instance: the whole block was
+  missing, and `tools/build_runtime.sh pacman c0ee1da` brought it back unchanged.
+- **It was the one element the reskin did not reach.** A stock `btn btn-primary` with a literal
+  `border-radius: 3px` and an `rgba(0,0,0,.25)` shadow, glued to the right edge. Every other
+  surface went through `DESIGN.md`'s token contract; this one read as a leftover from a different
+  application, which is what "we lost the link to the runtime" describes even when the link is
+  there.
+
+### 30.2 Two controls, one action, never both on screen
+
+The edge tab is right for *from anywhere* and wrong for *on arrival*: a participant has to notice
+a 100px strip before they can open the thing they came to build in. So the control exists twice:
+
+- **`.ws-runtime-cta`** — a labelled button in the page's hero, where somebody arriving is
+  already looking. It sits on the brand band, where `.btn-primary` is painted in the band's own
+  colour and loses its edges, so it takes `jump`'s `buttonNeon` pair. That recipe already existed
+  for the signed-out header CTA; it is now `.epi-cta-on-band` and both use it, rather than a
+  second copy of nine declarations. It is the same idea both times: the one hopeful action on a
+  brand surface.
+- **`.ws-runtime-handle`** — the same control fixed to the right edge, revealed by one
+  `IntersectionObserver` only once the hero button has left the screen. Exactly one of the two is
+  reachable at any moment, which is what that element's own CSS comment claimed from the first
+  commit and what nothing implemented, because the in-flow toggle it referred to did not exist.
+  It rests tucked a few px into the edge and slides flush on hover or keyboard focus — a drawer
+  tab that answers to a pointer says most of what a 100px strip can say about itself — inside the
+  `(hover: hover)` guard, so a touch screen just gets it flush.
+
+**The glyph comes from the runtime id, host-side**: a small `ICONS` map beside `declared_runtime()`,
+keyed exactly the way the adapter path already is. No new convention field, no asset pipeline, and
+nothing to change in a `*_subject` repository to get a mark on the button. Font Awesome, which
+`DESIGN.md` already records as a deliberate deviation from `jump`'s Lucide for the header, so this
+adds no dependency and no second icon set.
+
+**Rejected: a control in the navbar.** The shell is global and knows nothing about a subject, so
+the item would have to appear and disappear per page, and `DESIGN.md` documents that right-hand
+cluster as `jump`'s density of three. Page-scoped actions do not belong in the app shell.
+
+### 30.3 The pop-out — §14.2's "optional pop out", built
+
+The pane is a real split, and half of a 13" viewport is not room to work in. `workshop.css` already
+conceded this by making the pane take over the page below 900px, which is a worse answer than a
+second surface. §14.2 had already resolved the approach ("separate tab/window — keep as an optional
+pop out, not the default") and `docs/RUNTIME_PROTOCOL.md` §7 listed it as not built.
+
+**`split` | `window`, stored in `ws-runtime-mode`.** With no stored choice the viewport decides:
+below `PANE_MIN_WIDTH` (900, the number the CSS rule already used) the launcher offers the tab and
+says so in its label; at or above it offers the pane. **What is automatic is the default, never the
+tab.** Opening a window nobody asked for is hostile, and outside a click every browser blocks it
+anyway.
+
+**`GET /workshop/<doc_slug>/runtime`** renders the same host in a page of its own, and
+`assets/runtime.js` runs there too. Not `window.open(runtime.src)`: the runtime never talks to
+CTFd (§14.3 rule 1), a host does, and a runtime in a tab with no host has no `init`, no step, no
+snapshot and no restore-before-boot. Per document, because the frame boots with the *subject's*
+parameters (§19.2) and a document is what says which subject — which also means a subject synced
+before per-document routes existed has no pop-out and keeps the split. The path is
+`/workshop/<doc_slug>/runtime` and not a literal under `/workshop/`, because `/workshop/runtime`
+would shadow a document whose slug is `runtime`.
+
+**One host, two presentations, two booleans.**
+
+| | owns the frame | owns the page |
+|---|---|---|
+| subject page, split | yes | yes |
+| subject page, window | no | yes |
+| the popped-out tab | yes | no |
+
+*Owns the frame* is the protocol, the iframe and the §16 snapshot. Exactly one window has it, and
+that is what keeps restore-before-boot true with no cross-window sequencing: whichever window
+creates the frame is the one that restored first, and the only one that saves. *Owns the page* is
+the step list, the advisory hint and the launcher.
+
+**The transport is a `BroadcastChannel`, not `window.opener`** — it survives a reload on either
+side and a subject page re-opened in another tab, with no handle to keep. `step` goes down,
+`result`/`propose`/`mode` come up. It is origin-scoped and an instance declares one runtime, so it
+needs no further namespacing.
+
+**Rule 0 is unaffected, and that was checked rather than assumed.** `result` and `propose` cross
+the channel and are still applied by the page exactly as they were in one document. Driven in a
+browser: an adapter emitting both from inside the popped-out frame renders the hint and fills the
+answer field **on the subject page**, and the solved count does not move.
+
+**The tab is named and reused.** `window.open("", "ws-runtime")` runs synchronously in the click
+handler, because an asynchronous one has lost the gesture; the empty URL is what makes an existing
+named tab be reused rather than re-navigated, and re-navigating would reboot an editor's unsaved
+buffer or a 300 MB VM. Measured: a second press opens no second tab and leaves
+`performance.timeOrigin` unchanged. If `open` returns `null` the pane opens instead and the bar
+says which of the two happened.
+
+**Each mode carries the way to the other, and only that** — no menu, no split button. The pane bar
+gets "Open in a new tab"; the tab's bar gets "Side by side", which broadcasts the mode, lets the
+subject page open the pane, and closes itself (with a line instead when the browser refuses, which
+it does for a tab a script did not open).
+
+**Switching presentation reboots the runtime**, and nothing avoids that: a live iframe cannot be
+adopted by another document without reloading. The work is pushed to the server before the frame
+goes and restored before the new one boots, which is the whole reason §16 exists. Verified on the
+popped-out host: it watches the runtime's key, saves to the server, and puts the work back on the
+next visit before the frame is created.
+
+### 30.4 One way to a step, and it is the workshop page
+
+`Challenges` in the navbar is the same steps as the workshop view in CTFd's own presentation — a
+grid of point values instead of a subject to read — so for a participant it was a second entry to
+one place. It goes behind `is_admin()`: the instructor it was documented as being kept for is an
+admin here, and `/challenges` stays served and reachable by URL. The link goes, not the route.
+
+Dropping the link alone would have moved the leak rather than closed it: every Parcours node was an
+`<a href="/challenges#<name>-<id>">`, one click from the entry that just left. `graph.py` now
+returns a `url` per node and a node opens `/workshop/<document>#step-<id>`, which `openFromHash`
+already handles. Only the server knows which document a challenge belongs to, and `page.py` already
+built that mapping to point a "finish X first" note at the right page — so it becomes `links.py`
+(`documents`, `step_pages`, `step_href`), used by the page and by the graph. `graph.js` keeps
+`boardUrl` for the one caller that IS the board: the graph also renders inside the challenge modal,
+where a node means "open this one next", in place.
+
+### 30.5 A solve stopped scrolling past the part introduction
+
+Reported from the room: finishing the Pac-Man intro lands on "Étape 0" and the paragraph explaining
+what a decision tree is never appears. It is on the page — a part's title and its
+`<details class="ws-part-lead">` sit above its first step (§24) — and `refresh()` scrolled to the
+step card, so both went by above the viewport. Measured headless at 1280x900 before the fix: the
+introduction at `top: -599`, `bottom: -12`. After: `top: 89`.
+
+A solve now targets the part when the next step is the first of that part, and the step anywhere
+else, where the only thing above it is the step just finished. That is what the parts stepper and
+the `#part-N` anchors already did through the same `scrollTo`, so a solve and the two manual ways
+to navigate now agree.
+
+The same miss one case over: completing a document leaves `next` null and used to scroll nothing,
+so the forward cue that had just appeared stayed wherever the previous solve left the page —
+measured half below the fold, and arbitrarily far down after a long last step. `updateCounters`
+already knew the reveal was a transition; it now says so and the caller brings the cue into view.
+
+### 30.6 Two bugs found while checking the above
+
+- **The runtime was told the wrong step.** `activeStep()` preferred the step the participant opened
+  last, then document order. `<details>` fires no `toggle` when it was already open, and
+  `_open_states` renders a locked step open when its part has nothing else to show — so
+  `refresh()`'s `next.open = true` on the freshly unlocked step changed nothing, `lastOpened`
+  stayed on the step just *solved*, and document order found that same step first. An advisory
+  `result` landed on the solved card, where there is no form to put it in, and `init` carried the
+  wrong step id. A solved step is never the answer, and the page's own answer to "where are you" is
+  `data-state="current"`, so that is the fallback now. This was live in the split pane too, not
+  something the pop-out introduced.
+- **`.ws-runtime-ok` had no CSS at all.** Toggled since the first commit, styled nowhere, so half
+  of the advisory signal was invisible. It is a small tint dot on the step summary — never the
+  solved green, which would say something rule 0 forbids.
+
+### 30.7 Open, and deliberate
+
+- **A part's second introduction is still dropped.** `_part_lead` renders only a part's first lead,
+  so prose an author writes further down a part is attached by the parser to the following step and
+  then shown nowhere — §24 one layer up. No subject hits it (every `ws:context` in the live database
+  is on a first-of-part step), and the fix belongs in the page's shape rather than in that
+  function, so meanwhile it logs. Silence is exactly how §24 shipped.
+- **`bottom` placement** is still accepted in metadata and still renders as a side pane. The
+  pop-out is the answer for the case that actually came up.
+- **No dual-screen window**, only a tab. A sized popup is better on a second monitor and worse on
+  the laptop this was asked for, and two controls for one idea is a worse default than one.

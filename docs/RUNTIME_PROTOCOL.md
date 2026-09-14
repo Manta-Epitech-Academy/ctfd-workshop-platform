@@ -151,7 +151,40 @@ The ~330 MB VM bundle is never served by CTFd: the app fetches it from a CDN, it
 mirroring cache in `compose/mirror`, and the participant picks the downloaded file in the welcome
 screen. `tools/build_runtime.sh shell-rpg` therefore stages a 4.5 MB dist and nothing else.
 
-## 7. Not yet built
+## 7. Two presentations, one host
+
+The pane is a real split, and half of a small laptop's viewport is not room to work in. So the same
+host also runs on a page of its own:
+
+```
+GET /workshop/<document>/runtime
+```
+
+`split` or `window`, remembered per browser in `ws-runtime-mode`. With no stored choice the
+viewport picks: below 900px the launcher opens the tab and its label says so, at or above it opens
+the pane. The **default** is automatic; the tab never is — a window nobody asked for is hostile,
+and outside a click a browser blocks it anyway.
+
+**A runtime needs nothing for this either.** The popped-out page is the same `#ws-runtime` element
+with the same `data-runtime-*`, and `assets/runtime.js` is the same file: whichever window creates
+the frame owns the protocol and the snapshot, and the other owns the step list. They talk over a
+`BroadcastChannel` (`step` down, `result` / `propose` / `mode` up), so `result` is still applied by
+the page and still solves nothing (§1 rule 0). It is deliberately **not** `window.open(<dist>)`:
+that would be a runtime with no host — no `init`, no step, no snapshot, no restore before boot.
+
+Two consequences worth knowing:
+
+- **A subject with no per-document routes has no pop-out.** The route is per document because the
+  frame boots with the subject's parameters, and a document is what names the subject. A subject
+  synced before `workshop_documents` existed keeps the split pane, and the page renders no control
+  for the other mode.
+- **Switching presentation reboots the runtime.** A live iframe cannot move between documents
+  without reloading. The work is saved before the frame goes and restored before the next one
+  boots, which is what §6 is for.
+
+## 8. Not yet built
 
 - **`bottom` placement** is accepted in metadata but currently renders as a side pane.
-- **Pop-out window** for dual-screen setups.
+- **A dual-screen window.** The pop-out is a tab, which is the right answer on one small screen; a
+  sized popup would be better on a second monitor and is not built, because two controls for one
+  idea is a worse default than one.

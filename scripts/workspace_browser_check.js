@@ -1,6 +1,13 @@
 /* The crux of PLAN.md §16, in a real browser: one machine, two students.
  *
- *     node scripts/workspace_browser_check.js [base-url] [path-to-playwright]
+ *     node scripts/workspace_browser_check.js [base-url] [path-to-playwright] \
+ *          [pane|window]
+ *
+ * The last argument picks which presentation holds the frame (PLAN.md §30).
+ * Both must give the same verdicts, and the reason they do is the reason the
+ * split is expressed as one boolean in assets/runtime.js rather than as two
+ * code paths: whichever window creates the frame is the one that restored
+ * first, and the only one that saves. Run it both ways.
  *
  * Optional, and NOT part of scripts/phase2_validate.py: it needs Playwright and
  * a real runtime dist, while the suite must run anywhere. The suite covers the
@@ -17,6 +24,7 @@ const PLAYWRIGHT = process.argv[3]
 const { chromium } = require(PLAYWRIGHT);
 
 const BASE = process.argv[2] || "http://localhost:8082";
+const WHERE = process.argv[4] || "pane";     // pane | window
 const CART = "tic80-web-editor-cart";   // the key adapters/tic80.js announces
 const tag = Math.random().toString(36).slice(2, 8);
 const A = { name: "alice" + tag, pw: "pwalice" };
@@ -62,13 +70,22 @@ async function logout(page) {
   await page.goto(BASE + "/logout", { waitUntil: "domcontentloaded" });
 }
 
-// Open the workshop page, open the runtime pane, and wait for the adapter's
-// handshake — that is when the host knows which storage keys to watch.
+// Put the runtime on screen and wait for the adapter's handshake — that is
+// when the host knows which storage keys to watch.
+//
+// In `window` mode the host page IS the runtime's own page, so this navigates
+// straight to it rather than driving the launcher: what is under test here is
+// the frame owner's restore/save, not how a participant reaches it (that is
+// scripts/runtime_browser_check.js).
 async function openPane(page) {
-  await page.goto(BASE + "/workshop/starter1", { waitUntil: "domcontentloaded" });
-  await page.waitForSelector("#ws-runtime", { state: "attached" });
-  const open = await page.evaluate(() => !document.querySelector("#ws-runtime").hidden);
-  if (!open) await page.click(".ws-runtime-toggle");
+  if (WHERE === "window") {
+    await page.goto(BASE + "/workshop/starter1/runtime", { waitUntil: "domcontentloaded" });
+  } else {
+    await page.goto(BASE + "/workshop/starter1", { waitUntil: "domcontentloaded" });
+    await page.waitForSelector("#ws-runtime", { state: "attached" });
+    const open = await page.evaluate(() => !document.querySelector("#ws-runtime").hidden);
+    if (!open) await page.click(".ws-runtime-toggle");
+  }
   await page.waitForFunction(
     () => document.querySelector("#ws-runtime").dataset.runtimeReady === "1",
     null, { timeout: 60000 });

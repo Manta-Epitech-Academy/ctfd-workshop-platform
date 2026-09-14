@@ -469,11 +469,33 @@ def main():
         check(wasm.headers.get("Content-Type") == "application/wasm",
               "wasm served as application/wasm (instantiateStreaming rejects anything else)")
         check('id="ws-runtime"' in page.text and "ws-runtime-toggle" in page.text,
-              "workshop page renders the pane and its toggle")
+              "workshop page renders the pane and its launcher")
         check("ws-runtime-frame" not in page.text,
               "no iframe in the markup — the runtime mounts lazily, on open")
-        check(page.text.count("ws-runtime-toggle") == 1 and "ws-runtime-handle" in page.text,
-              "the only toggle is the fixed handle, reachable from anywhere")
+        # Two controls, one action (PLAN.md §30): a labelled button in the hero,
+        # which is where somebody arriving is looking, and the same control
+        # fixed to the edge for once that has scrolled away. Which of the two is
+        # ON SCREEN is a browser question and is asserted in
+        # scripts/runtime_browser_check.js; what is checkable here is that both
+        # are rendered and that neither is the only one.
+        check(page.text.count("ws-runtime-toggle") == 2
+              and "ws-runtime-cta" in page.text and "ws-runtime-handle" in page.text,
+              "the launcher is rendered twice: in the hero, and as the edge tab")
+        check('data-label-window="' in page.text and 'data-label-split="' in page.text,
+              "both launcher labels are server-rendered, so they are translated")
+        # The pop-out, per document — the presentation for a viewport too narrow
+        # to split. Same host, same protocol, its own page.
+        host = s.get(f"{BASE}/workshop/pypong/runtime")
+        check(host.status_code == 200 and 'data-runtime-role="window"' in host.text,
+              "the pop-out host page is served for a document")
+        check('id="ws-runtime"' in host.text and "ws-runtime-frame" not in host.text,
+              "and mounts its frame lazily too, from the same script")
+        check("ws-runtime-split" in host.text and "ws-runtime-back" in host.text,
+              "the popped-out tab carries the way back to the subject and to the split")
+        check(requests.get(f"{BASE}/workshop/pypong/runtime").status_code in (302, 403),
+              "the pop-out host is not served to an anonymous visitor")
+        check(s.get(f"{BASE}/workshop/nope-not-a-document/runtime").status_code == 404,
+              "and 404s for a document that does not exist")
     else:
         print(f"  [skip] {dist} not built (tools/build_runtime.sh {cfg['id']})")
     r = requests.get(BASE + f"/runtime/{cfg['id']}/../../etc/passwd")

@@ -534,6 +534,9 @@ def _render(user, keep_ids=None, title=None, subject=None, next_doc=None,
         documents=documents,
         page_title=title,
         cover=_cover_for(subject, documents, doc_slug),
+        # Only a document-scoped view can offer the pop-out, since the route it
+        # opens is per document (see `workshop_runtime` below).
+        doc_slug=doc_slug,
         runtime=_runtime_for(subject),
         solved_count=solved_count,
         total_count=total_count,
@@ -695,6 +698,40 @@ def workshop_document(doc_slug):
     return _render(get_current_user(), keep_ids=set(doc["challenge_ids"]),
                    title=doc["title"], subject=doc.get("subject"),
                    next_doc=next_doc, doc_slug=doc_slug)
+
+
+@workshop_page.route("/workshop/<doc_slug>/runtime")
+@during_ctf_time_only
+@check_challenge_visibility
+@authed_only
+def workshop_runtime(doc_slug):
+    """The runtime on a page of its own — the pop-out (PLAN.md §14.2, §30).
+
+    The pane is a real split, and half a viewport is not enough room to work in
+    on a small laptop. This is the same host, the same protocol and the same
+    work-in-progress snapshot, laid out full width; which of the two a
+    participant gets is their choice, defaulted by viewport width.
+
+    Per document, not per instance, because the frame boots with the *subject's*
+    parameters (§19.2) and a document is what says which subject. A subject
+    synced before per-document routes existed therefore has no pop-out and keeps
+    the split pane; the page simply renders no control for it.
+
+    The path is `/workshop/<doc_slug>/runtime` rather than a literal under
+    `/workshop/`: `/workshop/runtime` would shadow a document whose slug is
+    `runtime`, and a route that quietly eats a legal slug is a bug waiting for
+    the author who writes `runtime.md`.
+    """
+    doc = next((d for d in _documents() if d["slug"] == doc_slug), None)
+    if doc is None:
+        abort(404)
+    runtime = _runtime_for(doc.get("subject"))
+    if runtime is None:
+        # Nothing declared, or the dist is not built here (runtime.py says so in
+        # the log and on the sync page). Either way there is no frame to show,
+        # and a blank host page would be worse than a 404.
+        abort(404)
+    return render_template("workshop_runtime.html", runtime=runtime, doc=doc)
 
 
 @workshop_page.route("/api/v1/workshop/step/<int:challenge_id>", methods=["GET"])

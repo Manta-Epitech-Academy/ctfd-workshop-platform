@@ -6,7 +6,7 @@ CTFd's own frontend, extended by a plugin, is the participant UI.
 **Status: on `main`.** (The branch was called `mockup` until 2026-08-18; it stopped being one
 long ago.) Phases 0–2 are done: a `workshop` plugin (quiz
 challenge type, challenge-graph endpoint, single-page workshop view), a subject-repo → CTFd
-content pipeline, and a validation suite (`scripts/phase2_validate.py`, 152 checks against a
+content pipeline, and a validation suite (`scripts/phase2_validate.py`, 162 checks against a
 fresh instance). A **purpose-built SPA is on hold** — PLAN.md §13 replaced the modal-per-
 challenge board with a single-page workshop view inside CTFd, and §14 embeds the runtimes that
 already exist as standalone web apps instead of rebuilding them.

@@ -498,13 +498,24 @@
       // splits one event into two.
       await until(holdScrollUntil);
       next.open = true;
-      scrollTo(next);
+      scrollTo(scrollTarget(next));
+    } else if (!next && counts.revealed) {
+      // The document is finished, so there is no next step to go to and nothing
+      // used to move — leaving the cue that just appeared at the bottom of a
+      // page nobody is looking at. It is the only thing on the page that still
+      // has something to say at that moment.
+      await until(holdScrollUntil);
+      scrollTo(ROOT.querySelector(".ws-next-doc"));
     }
     return counts;
   }
 
   function updateCounters(solved) {
     var total = 0, done = 0;
+    // Whether the forward cue appeared on THIS update, not whether it is
+    // showing: the caller scrolls to it, and it must do that on the transition
+    // only. Decided here because this is where the transition is already known.
+    var revealed = false;
     ROOT.querySelectorAll(".ws-part[data-part]").forEach(function (part) {
       // Whether a step counts is a property of the step, not of its state:
       // the outro still does not count once it has been rated.
@@ -542,6 +553,7 @@
       // replay the entrance on every counter update, and on a page loaded with
       // the part already finished.
       if (show && nextDoc.hidden) {
+        revealed = true;
         nextDoc.classList.add("ws-next-doc-in");
         nextDoc.addEventListener("animationend", function () {
           nextDoc.classList.remove("ws-next-doc-in");
@@ -559,7 +571,7 @@
     // Handed back rather than only written into the DOM: submit() is the only
     // place that knows a solve just happened (see its comment), and it needs
     // these to decide between the three celebration tiers.
-    return { total: total, done: done };
+    return { total: total, done: done, revealed: revealed };
   }
 
   /* ---------- navigation ---------- */
@@ -575,7 +587,29 @@
     return (bar ? bar.getBoundingClientRect().height : 0) + 16;
   }
 
+  /* What a solve should bring into view.
+   *
+   * The step card is not it. A part opens with its title and its introduction
+   * (the `<details class="ws-part-lead">` lifted out of the first step's body,
+   * PLAN.md §24), both of which sit ABOVE that first step — so landing on the
+   * step scrolls straight past text written to be read before the exercise. In
+   * the Pac-Man subject that is the paragraph explaining what a decision tree
+   * is, skipped between the intro step and "Étape 0".
+   *
+   * Only when the step is the first of its part: anywhere else in a part there
+   * is nothing above the step but the step before it, which has just been done.
+   * The parts stepper and the `#part-N` anchors already scroll to the section
+   * (see the chip handler and `openFromHash` below), so this makes a solve
+   * agree with the two ways a participant can navigate by hand.
+   */
+  function scrollTarget(step) {
+    var part = step.closest && step.closest(".ws-part");
+    if (!part) return step;
+    return part.querySelector(".ws-step") === step ? part : step;
+  }
+
   function scrollTo(el) {
+    if (!el) return;
     var top = el.getBoundingClientRect().top + window.scrollY - stickyOffset(el);
     // An explicit `behavior: "smooth"` WINS over the stylesheet's
     // `scroll-behavior: auto !important`: the CSS property is only consulted

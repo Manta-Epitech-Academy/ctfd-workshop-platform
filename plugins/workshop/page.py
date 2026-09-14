@@ -28,7 +28,8 @@ import json
 import re
 from itertools import groupby
 
-from flask import Blueprint, abort, jsonify, redirect, render_template, url_for
+from flask import (Blueprint, abort, current_app, jsonify, redirect,
+                   render_template, url_for)
 
 from CTFd.models import Challenges, Hints, HintUnlocks, Ratings
 from flask_babel import lazy_gettext as _l
@@ -328,8 +329,22 @@ def _part_lead(members, name, page_title):
     either the part heading or the document's — printing it again above the
     steps would say the same thing three times, so a leading bold line that
     repeats one of them goes.
+
+    Only the part's FIRST lead is rendered, because the page has one place to
+    put an introduction. Prose an author writes further down a part is attached
+    by the parser to the step that follows it and then dropped here, which is
+    §24 one layer up: content on the wrong side of a line. No subject hits it
+    today, and the fix belongs in the page's shape rather than in this function,
+    so the honest thing meanwhile is to say so out loud — silence is exactly how
+    §24 shipped.
     """
-    lead = next((s["lead"] for s in members if s.get("lead")), "")
+    leads = [s["lead"] for s in members if s.get("lead")]
+    if len(leads) > 1:
+        current_app.logger.warning(
+            "workshop: part %r carries %d introductions and the page shows one "
+            "— the prose before every step after the first is not rendered "
+            "anywhere (PLAN.md §24, §30)", name, len(leads))
+    lead = leads[0] if leads else ""
     if not lead:
         return ""
     m = LEAD_TITLE.match(lead)

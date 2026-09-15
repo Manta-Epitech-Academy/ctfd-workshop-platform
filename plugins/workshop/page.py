@@ -326,6 +326,11 @@ def _aggregate(members):
 
 LEAD_TITLE = re.compile(r"\A\s*<p>\s*<strong>(.*?)</strong>\s*</p>", re.S)
 
+# Parts already warned about below. A dropped introduction is a property of the
+# content, so it is the same on every render; saying so once per part is the
+# whole of what an author or a maintainer needs.
+_warned_parts = set()
+
 
 def _part_lead(members, name, page_title):
     """The opening prose of a part, lifted out of its first step.
@@ -344,7 +349,12 @@ def _part_lead(members, name, page_title):
     §24 shipped.
     """
     leads = [s["lead"] for s in members if s.get("lead")]
-    if len(leads) > 1:
+    if len(leads) > 1 and name not in _warned_parts:
+        # Once per part, for the same reason `runtime.py` warns once per
+        # (id, version): this runs on every render of every workshop page, and
+        # a standing content problem must not cost a log line per page view
+        # with two thousand participants on an instance.
+        _warned_parts.add(name)
         current_app.logger.warning(
             "workshop: part %r carries %d introductions and the page shows one "
             "— the prose before every step after the first is not rendered "

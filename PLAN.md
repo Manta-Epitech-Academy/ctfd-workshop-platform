@@ -2928,3 +2928,238 @@ already knew the reveal was a transition; it now says so and the caller brings t
   pop-out is the answer for the case that actually came up.
 - **No dual-screen window**, only a tab. A sized popup is better on a second monitor and worse on
   the laptop this was asked for, and two controls for one idea is a worse default than one.
+
+
+## 31. The way in from Jump, and the way progress gets back (2026-09-15)
+
+Jump — the Epitech Academy talent platform — becomes the only door into a workshop instance. A
+talent clicks the activity on their Jump dashboard, lands on the CTFd already signed in, and the
+steps they solve report back so the XP arrive without anybody running a script against the
+production database. Closes issue #6; the Jump half is `Manta-Epitech-Academy/jump#352` and its
+own plan is `jump/docs/plans/13-ctfd-jump-mvp-plugin.md`, which this section is the CTFd-side
+record of.
+
+Nothing under `CTFd/` moves. The whole feature is `plugins/workshop/jump.py` (the ticket, the
+account, the route, the settings page), `jumpqueue.py` (the solve hook, the outbox, the drainer),
+`progress.py` (the counted population, extracted rather than written a fifth time), a
+`migrations/` directory, and `scripts/jump_check.py`.
+
+### 31.1 The ticket is not a JWT, and that is a constraint before it is a choice
+
+    b64url(json(claims)) + "." + b64url(hmac_sha256(ticketKey, part1))
+
+    claims = {kid, sub: talentId, name, aud: "workshop:<slug>", iss: "jump", iat, exp, jti}
+    exp = iat + 120
+
+**There is no JWT library in the image and one cannot be added.** The fork's Dockerfile runs its
+plugin-requirements loop at build time over the `./CTFd` context, while this plugin arrives at run
+time as a bind mount, so a `plugins/workshop/requirements.txt` is never read;
+`docker exec <ctfd> python -c "import jwt"` raises `ModuleNotFoundError`. A fixed-algorithm token
+verified with stdlib `hmac` is what is left, and it is the better token here: with no `alg` header,
+the whole "alg: none" / "RS256 verified as HS256" class does not exist to be defended against.
+
+Two keys are derived from the one shared secret, so that compromising one direction is not a
+forging capability in the other:
+
+    ticketKey   = hmac_sha256(secret, "jump/ticket").hexdigest()
+    callbackKey = hmac_sha256(secret, "jump/callback").hexdigest()
+
+**The derived key is the lowercase hex digest as an ASCII string** — node's
+`createHmac('sha256', secret).update(label).digest('hex')`, and *that string* is the key of the
+next HMAC. **b64url is unpadded on the wire**, and the verifier re-pads, so a padded token is
+accepted too. Both halves of that are frozen with the Jump side; changing either means changing
+both repositories.
+
+The order of verification is the design. The `kid` is resolved against the allowlist **before any
+cryptographic decision**, and there is deliberately no "there is only one secret configured"
+fallback — that turns a single-origin instance into a verification oracle the day a second origin
+is added. Then `compare_digest` and never `==`, then `aud` and `iss`, then the clock. `exp - iat`
+is checked against our own 120 s ceiling and not merely against itself: a token claiming a month is
+refused while inside its own window, because a bug on the Jump side must not be able to hand out a
+bearer this instance has no way to revoke.
+
+### 31.2 The key id is what makes one instance serve two Jumps
+
+`workshop_jump_keys` is a map `{kid: {origin, secret, label}}` from day one rather than a single
+entry. It costs the same and it is what lets one instance serve `epiboost.eu` and `epiboost.fr` at
+once, which is what a demo needs. **The callback origin comes from the matched key's row, never
+from the token**, so nobody can point this instance's reports somewhere else.
+
+`label` namespaces the synthetic email, and that is what keeps a dev talent off a production
+scoreboard when one instance serves both.
+
+**A label belongs to the accounts it namespaces, not to the key row that declared it.** The
+configuration is the current intent; it is not a history. A key id can be renamed, or removed and
+re-added, and `tools/provision.py` rewrites the whole map on every `setup` — so a rule enforced
+against `workshop_jump_keys` stops holding the first time somebody edits a key id in
+`deploy/instances.yaml` and keeps its label. What happens then is silent and permanent: the next
+returning talent resolves to an account that already belongs to the old key id, the link insert
+hits the `user_id` unique constraint, and they get a refusal page for ever while new talents keep
+working. So the link row records its label (`jump_label`, revision 2, backfilled out of the address
+that created it) and ownership is read from the rows: no other key id may take a label that has
+accounts, and the key id that has them may not walk away from it. Enforced at both entrances — the
+settings page for the form, `resolve_account` for the provisioning path that never sees one.
+
+### 31.3 The accounts hold no personal data of a minor
+
+The email is synthesised, `f"{talentId}@{label}.jump.invalid"`. `.invalid` is reserved by RFC 2606,
+matches CTFd's own `EMAIL_REGEX` and can never resolve, so these instances — third-party hosts,
+public scoreboards, an audience under 18 — store no address anybody can reach. `Users.name` is not
+unique in CTFd, so the display name needs no disambiguation; the email carries the uniqueness.
+
+**A NULL password is load-bearing rather than incidental.** `CTFd/auth.py:476-482` refuses local
+sign-in to such an account, so "everybody comes through Jump" is enforced by the data instead of by
+a note in a runbook. It is also a trap, and it cost a real bug on the way: `Users` carries
+`@validates("password")`, which hashes `str(plaintext)` **unconditionally**, so `Users(password=None)`
+stores a real hash of the string `"None"` and every account this route creates shares one guessable
+password. The column has to be left out of the constructor entirely, which is what CTFd's own OAuth
+path does at `auth.py:608-614` without saying why. Nothing would have noticed by itself — the
+second entry resolves through the link row and never looks at the password — so `jump_check.py`
+asserts the NULL.
+
+Resolution is in this order, because **the link row and not the email is the identity**, which is
+what will let the email scheme change later without orphaning a single account:
+
+1. the link row on `(kid, talentId)` — found, done;
+2. otherwise the synthetic email;
+3. found with a password set: refuse. Barely reachable behind `.invalid`, but the absence of the
+   branch is an account-takeover primitive and the branch is three lines;
+4. found and already linked to another key id: refuse — §31.2;
+5. not found: create with no password, link it, commit. An `IntegrityError` on the link means two
+   first arrivals raced; the loser re-reads the row and carries on with the same account.
+
+A table of our own rather than CTFd's `Fields` / `FieldEntries`, so no talent id leaks into the
+admin user form or a public profile.
+
+### 31.4 The route, and the three things that would have failed silently
+
+`GET /jump/enter?t=…` on its own blueprint under `/jump/`, **not** under `/workshop/`, which would
+mask a document whose slug was `enter` the day an author names a file that.
+
+- **Not a bare `@ratelimit`.** `get_ratelimit_subject` only extracts an identity for the three auth
+  endpoints and falls back to the IP everywhere else, so a class of thirty lycéens behind one
+  school NAT would share a single bucket — exactly the outage a per-identity limiter exists to
+  avoid. So: a generous per-IP flood brake ahead of verification, and the real limit on the `sub`
+  the ticket names, applied once the signature is known good.
+- **Single use is `cache.add`, which is SETNX and therefore atomic.** The get-then-set in
+  `CTFd/utils/decorators/__init__.py:209-217` has a window between the read and the write, and two
+  requests carrying one `jti` would both succeed. `jump_check.py` fires two concurrent requests with
+  one `jti` and asserts `[302, 403]`; a get-then-set gives `[302, 302]`.
+- **`user.banned` is checked in the route.** CTFd's own guard only fires on the *next* request, so
+  without this a banned talent is logged in and then meets a 403 they cannot interpret.
+
+Then `session.regenerate()` and `login_user()`, copied from the local sign-in path
+(`auth.py:485-487`) and not the OAuth one at `:663`, which skips the regeneration and leaves the
+pre-login session id valid.
+
+Two instance states make the landing a raw error rather than a page — `challenge_visibility ==
+"admins"`, and a CTF window closed or not yet open. The plan said redirect to `/` with an
+`info_for`; the implementation renders a notice page instead, because `get_infos()` filters flashes
+by `request.endpoint` and `views.static_html` never calls it, so a flash aimed at the front page
+renders nowhere at all. A full page is the better answer anyway for somebody just bounced out of an
+activity. Every refusal renders **one** page, in French, with the reason only in the log: naming the
+failing check to an unauthenticated caller is how a token gets ground down a field at a time, and
+the talent could do nothing with the answer but start again from Jump.
+
+This route deliberately bypasses the instance's registration path. That is the design — an
+instructor-led instance is registration-gated or shut outright — so everything that gate would have
+decided is decided here instead: the user cap, the team mode, the ban flag.
+
+### 31.5 Enqueue in the request, send outside it
+
+    solve()   ->  one guarded INSERT, return          (inside the request)
+    drainer   ->  recount, sign, POST, mark sent      (outside it)
+
+**The synchronous POST is an availability risk, not merely a slow path.** Under the gevent worker
+`requests` does not block the process, but the greenlet keeps its SQLAlchemy connection for the
+whole call. With `WORKERS=1` and a pool of 5 plus 20 overflow (`CTFd/config.py:284`), thirty
+students solving while Jump is slow exhaust the pool — and what then starts failing is *unrelated*
+requests. The blast radius is "the instance falls over because Jump is slow".
+
+A bare background greenlet fixes the latency and loses events in silence on a restart or a 500. XP
+that never arrive, with no trace anywhere, is the worst failure this feature has: the student did
+the work, Jump disagrees, and nothing says so. Hence a table (`workshop_jump_event`, unique on
+`(user_id, challenge_id)`), a retry ladder, and a page an instructor can look at.
+
+The ladder is 5, 10, 20, 40, 80, 160, 320, 600 seconds and then the row stops moving and shows up
+on `/admin/workshop/jump` with a button — roughly twenty minutes, which is chosen to be longer than
+a Jump deploy, the outage it most has to survive. The drainer re-reads `workshop_jump_keys` at send
+time and **drops** rather than retries an event whose `kid` is no longer configured, so retiring a
+dev origin does not leave a queue retrying into nothing for ever.
+
+`WORKERS=1` today, so a module-level drainer is safe — the same assumption `syncpage.py` already
+makes for its import job. Raising it would need `SELECT … FOR UPDATE SKIP LOCKED` (MariaDB 10.11 is
+what runs) or a Redis lock, and `jumpqueue.py` says so.
+
+The body is serialised once and passed as `data=`, never `json=`, which would let `requests`
+re-serialise the dict so that the signature no longer covers the bytes on the wire. Signing happens
+at send time from the live configuration, because Jump's `verifyCallbackSignature` refuses a
+timestamp more than 300 s old — which also means rotating the shared secret does not fail the queue.
+
+### 31.6 The counters are computed in the drainer, from one population
+
+`get_solve_ids_for_user_id` is memoized for 60 s and its invalidation runs *after* the challenge
+plugin's hook (`api/v1/challenges.py:855-859`, then `:884-885`). A count taken inside `solve()` is
+therefore the count from *before* the solve, and may be a minute stale on top of that.
+
+It also has to be the same count the participant is reading. The rule — a step counts unless it is a
+pure note or the content marked it optional — was written once in `page.py` and summed four times
+there, with a fifth copy in `answers.py` against `Challenges` rows instead of step dicts. A sixth,
+in a background drainer nobody watches, is how "Jump says 7, the page says 8" happens. `progress.py`
+now holds the predicate and both counters, and the page, the answer sheet and the outbox all call
+it. `jump_check.py` asserts the reported numbers against what `/workshop` renders.
+
+### 31.7 The hook is not total, and this says so rather than pretending
+
+`QuizChallenge.solve()` misses steps of the `standard` challenge type and misses an admin marking a
+submission correct (`api/v1/submissions.py:206-213`). A SQLAlchemy `after_insert` listener on
+`Solves` would catch both, at the cost of a coupling the plugin README does not list and an
+unverified interaction with CTFd's end-of-request `db.session.close()`.
+
+Sliced, and verified on the local instance: `SELECT type, COUNT(*) FROM challenges GROUP BY type`
+returns `quiz 36` and nothing else, so overriding `solve()` covers 100% of the MVP content. The
+listener and a pull reconciler close the gap together, **before Halloween**. Re-run that query
+before assuming this holds on an instance whose content differs.
+
+### 31.8 Provisioning, because two keys set by hand on eleven instances is a thing we forget
+
+`workshop_jump_instance` (this instance's slug, compared against the ticket's audience) and
+`workshop_jump_keys` both have a provisioning path in the same change: `deploy/instances.yaml`
+carries `jump:` as `{kid: {origin, label}}`, `provision.py` validates it at load time and merges in
+one secret per key id from `deploy/secrets.yaml`. **The shared secret is one value per Jump
+environment, not per instance** — a Jump deployment reads a single `WORKSHOP_TICKET_SECRET`, so a
+per-instance secret would be eleven values Jump has no field for. Either key empty means every
+ticket is refused, which is how a half-configured instance fails safely.
+
+`str()` before comparing the slug is not decoration: `get_config` turns an all-digit value into an
+`int`, so a slug like `2026` would compare unequal to its own string and the instance would
+silently stop accepting every ticket.
+
+### 31.9 What is not verified
+
+**The end-to-end callback against a real Jump.** The Jump half does not exist yet, so
+`jump_check.py` forges its own tickets and runs its own sink: what is proven is that this side
+sends exactly what the contract says, not that Jump accepts it. The two pinned details in §31.1 are
+the likeliest place for the two halves to disagree.
+
+The `X-Idempotency-Key` is the outbox row's natural key, `f"{user_id}:{challenge_id}"`, which is
+instance-local. That is safe because Jump dedupes by upserting `grantXp` on a `sourceId` that names
+the instance, and the payload carries `instanceSlug`; it would not be safe if Jump ever deduped on
+the header alone.
+
+### 31.10 Rejected
+
+- **A synchronous POST from `solve()`** — §31.5. The failure is unrelated requests, not slow ones.
+- **A bare greenlet with no table** — loses the event silently on a restart, which is the one
+  failure this feature cannot have.
+- **Adding PyJWT** — cannot be installed from a bind-mounted plugin, and a fixed algorithm is
+  better here anyway.
+- **One secret per instance** — Jump has one field for it.
+- **Falling back to the single configured secret when a `kid` is unknown** — a verification oracle
+  the day a second origin is added.
+- **The `after_insert` listener now** — the right shape eventually, but it is coupling plus an
+  unverified interaction with CTFd's session teardown, bought for content that does not exist on
+  any instance today.
+- **`Fields` / `FieldEntries` for the talent id** — it would surface in the admin user form and in
+  public profiles.
+- **`@ratelimit` as it stands** — it buckets a whole classroom behind one NAT together.

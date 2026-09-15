@@ -69,10 +69,12 @@ CALLBACK_PATH = "/api/workshops/callback"
 # be known about in seconds; longer on the read because a busy one is still
 # going to answer.
 TIMEOUT = (5, 10)
-# Eight tries over roughly twenty minutes, then the row stops moving and shows
-# up on /admin/workshop/jump with a button. A queue that retries forever is a
-# queue nobody ever looks at.
-MAX_ATTEMPTS = 8
+# Nine tries over roughly twenty minutes — 5, 10, 20, 40, 80, 160, 320, then
+# the cap at 600 — and then the row stops moving and shows up on
+# /admin/workshop/jump with a button. A queue that retries forever is a queue
+# nobody ever looks at; a queue that gives up in ten minutes is one that gives
+# up inside a Jump deploy, which is the outage it most has to survive.
+MAX_ATTEMPTS = 9
 BACKOFF_BASE = 5
 BACKOFF_CAP = 600
 # How often the drainer looks. Small, because the row written by a solve should

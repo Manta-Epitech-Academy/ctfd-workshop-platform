@@ -172,7 +172,13 @@ the frame owns the protocol and the snapshot, and the other owns the step list. 
 the page and still solves nothing (§1 rule 0). It is deliberately **not** `window.open(<dist>)`:
 that would be a runtime with no host — no `init`, no step, no snapshot, no restore before boot.
 
-Two consequences worth knowing:
+The channel is named `ws-runtime:<document>`, not `ws-runtime`: a host page is per document, so the
+pairing is too. Origin alone would put every open workshop page on one channel, and a page that
+does not show the step a `result` names falls through to its own current step — so the wrong card
+would light up in the other tab. Parcours nodes are real links so that ctrl-click works, which
+makes two subject pages at once the expected shape rather than an edge case.
+
+Three consequences worth knowing:
 
 - **A subject with no per-document routes has no pop-out.** The route is per document because the
   frame boots with the subject's parameters, and a document is what names the subject. A subject
@@ -181,6 +187,9 @@ Two consequences worth knowing:
 - **Switching presentation reboots the runtime.** A live iframe cannot move between documents
   without reloading. The work is saved before the frame goes and restored before the next one
   boots, which is what §6 is for.
+- **One runtime tab, whichever document you are on.** The tab's *name* is not per document, unlike
+  its channel: opening the runtime from another part moves that tab rather than leaving a row of
+  abandoned editors behind. The tab that moves saves on its way out, like any other handover.
 
 ## 8. Not yet built
 

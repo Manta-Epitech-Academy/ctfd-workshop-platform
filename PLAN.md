@@ -2824,8 +2824,19 @@ the step list, the advisory hint and the launcher.
 
 **The transport is a `BroadcastChannel`, not `window.opener`** — it survives a reload on either
 side and a subject page re-opened in another tab, with no handle to keep. `step` goes down,
-`result`/`propose`/`mode` come up. It is origin-scoped and an instance declares one runtime, so it
-needs no further namespacing.
+`result`/`propose`/`mode` come up.
+
+**Named `ws-runtime:<document>`, because the host is per document.** The first version of this
+reasoned that one instance declares one runtime, so origin scope was enough. It is not: a
+`BroadcastChannel` reaches every open page on the origin, and several subject pages at once is the
+expected shape here rather than an edge case — Parcours nodes are `<a>` elements specifically so
+that ctrl-click opens one in a new tab (§30.4). On one shared channel every such page applies an
+advisory `result`, and a page that does not show the step it names falls through to its own current
+step and lights up the wrong card; `propose` would fill the wrong answer field. Naming the channel
+after the document makes the transport match the route, and the fallback keeps the meaning it has
+always had — "the step you are on" — because the only pages left listening are showing the same
+part. The tab's *name* stays global on purpose: one runtime tab is the idea, so opening the runtime
+from another part moves that tab instead of leaving a row of abandoned editors behind.
 
 **Rule 0 is unaffected, and that was checked rather than assumed.** `result` and `propose` cross
 the channel and are still applied by the page exactly as they were in one document. Driven in a

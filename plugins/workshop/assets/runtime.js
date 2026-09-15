@@ -35,8 +35,16 @@
  * When they are not the same window they talk over a BroadcastChannel: `step`
  * down, `result`/`propose`/`mode` up. The channel rather than `window.opener`
  * because it survives a reload on either side and a subject page re-opened in
- * another tab, with no handle to keep. It is origin-scoped, and an instance
- * declares one runtime, so the channel needs no further namespacing.
+ * another tab, with no handle to keep.
+ *
+ * The channel is named PER DOCUMENT, because the host is: the pop-out route is
+ * `/workshop/<doc_slug>/runtime` and the frame boots with that document's
+ * subject parameters (§19.2). Origin alone is not enough. Parcours nodes are
+ * real links precisely so a participant can ctrl-click two of them (graph.js),
+ * so several subject pages open at once is the expected shape, not an edge
+ * case — and on one origin-wide channel each of them would apply a `result`
+ * naming a step it does not show, fall through to its own current step, and
+ * mark the wrong card.
  *
  * Nothing about that gives the runtime any new authority: `result` and
  * `propose` cross the channel and are still applied by the page exactly as
@@ -57,8 +65,12 @@
   var PANE_MIN_WIDTH = 900;
   // One named tab, reused. Re-opening a live runtime would reboot an editor's
   // unsaved buffer or a 300 MB VM, so the name is what makes a second click a
-  // focus instead.
+  // focus instead. Deliberately NOT per document: one runtime tab is the whole
+  // idea, and moving from one part to another should move that tab rather than
+  // leave a row of abandoned editors behind.
   var WINDOW_NAME = "ws-runtime";
+  // Suffixed with the document (see `channelName`) — the channel pairs one host
+  // page with one subject page, and both of those are per document.
   var CHANNEL = "ws-runtime";
 
   var pane, cfg, frame = null, ready = false;
@@ -148,9 +160,18 @@
     }
   }
 
+  // One channel per document, so the two windows that pair up are the two that
+  // are showing the same thing. A subject synced before per-document routes
+  // existed has no slug and no pop-out route either (`canPopOut`), so its
+  // channel is one nobody else ever joins — which is the right answer for a
+  // page that cannot hand its frame anywhere.
+  function channelName() {
+    return CHANNEL + ":" + (cfg.doc || "");
+  }
+
   function openChannel() {
     if (typeof BroadcastChannel !== "function") return;
-    channel = new BroadcastChannel(CHANNEL);
+    channel = new BroadcastChannel(channelName());
     channel.addEventListener("message", onChannel);
   }
 
@@ -669,6 +690,10 @@
       // same code in both.
       role: pane.dataset.runtimeRole || "pane",
       windowUrl: pane.dataset.runtimeWindow || "",
+      // Which document this window is showing. Both presentations carry it,
+      // and it is what the channel is named after (`channelName`). Empty on a
+      // subject synced before per-document routes existed.
+      doc: pane.dataset.runtimeDoc || "",
       id: pane.dataset.runtimeId,
       src: pane.dataset.runtimeSrc,
       adapter: pane.dataset.runtimeAdapter,

@@ -70,7 +70,10 @@
      data-runtime-title="{{ runtime.title }}"
      data-runtime-size="{{ runtime.size }}"
      data-runtime-params="{{ runtime.params | tojson | forceescape }}"
-     data-runtime-subject="{{ url_for('workshop_page.workshop_document', doc_slug=doc.slug) }}"
+     {# Which document this tab is the runtime for. Same attribute the pane
+        carries, and what the BroadcastChannel is named after: this tab pairs
+        with the subject page showing the same part and with no other. #}
+     data-runtime-doc="{{ doc.slug }}"
      data-label-close="{% trans %}This tab cannot close itself. The subject is open beside it again, so you can close this one.{% endtrans %}">
   <div class="ws-runtime-bar">
     {# Somebody who reloads this tab, or finds it the next morning, has to be

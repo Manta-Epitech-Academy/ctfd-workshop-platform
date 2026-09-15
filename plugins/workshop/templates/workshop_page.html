@@ -243,6 +243,12 @@
      workshop page must not boot an editor, or a VM, before it is asked to. #}
   <aside class="ws-runtime ws-runtime-{{ runtime.placement }}" id="ws-runtime" hidden
          data-runtime-role="pane"
+         {# Which document this page is. The two presentations pair up over a
+            BroadcastChannel named after it, because the pop-out host is per
+            document and so is the step list here — two subject pages open at
+            once (Parcours nodes are links, and ctrl-click is the point of
+            that) must not answer for each other. #}
+         data-runtime-doc="{{ doc_slug or '' }}"
          {# Where "open it in its own tab" goes. Only a document-scoped page has
             one: the route is per document, because that is what tells the frame
             which subject's parameters it is booting with. A subject synced

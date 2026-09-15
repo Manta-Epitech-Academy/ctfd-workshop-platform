@@ -59,9 +59,17 @@ so these instances — third-party hosts, public scoreboards, under-18 audience 
 store no address anybody can reach. `Users.name` is not unique in CTFd, so the
 display name needs no disambiguation; the email carries the uniqueness.
 
-`password=None` is load-bearing rather than incidental: `CTFd/auth.py:476-482`
+A NULL password is load-bearing rather than incidental: `CTFd/auth.py:476-482`
 refuses local sign-in to such an account, so "everybody comes through Jump" is
 enforced by the data instead of by a note in a runbook.
+
+It is also a trap. `Users` carries `@validates("password")`, which hashes
+`str(plaintext)` **unconditionally** — so `Users(password=None)` does not store
+NULL, it stores a real hash of the string `"None"`, and every account this
+route creates then shares one guessable password. The column has to be left out
+of the constructor entirely and never assigned, which is what CTFd's own OAuth
+path does at `auth.py:608-614` without saying why. `scripts/jump_check.py`
+asserts the NULL, because nothing else would ever notice.
 """
 import base64
 import hashlib
@@ -407,8 +415,14 @@ def resolve_account(claims, key):
         if limit and Users.query.filter_by(banned=False, hidden=False).count() >= limit:
             raise TicketError(f"instance is at its {limit}-user cap")
         display = (claims.get("name") or talent_id)
-        user = Users(name=str(display)[:128], email=email,
-                     password=None, verified=True)
+        # `password` is **not passed**, and must never be — not even as None.
+        # `@validates("password")` (CTFd/models/__init__.py:439-443) hashes
+        # `str(plaintext)` unconditionally, so `password=None` stores a real
+        # hash of the string "None" and every account this route creates shares
+        # one guessable password. Leaving the column out keeps it NULL, the
+        # validator never fires, and local sign-in is refused. See the module
+        # docstring.
+        user = Users(name=str(display)[:128], email=email, verified=True)
         db.session.add(user)
         db.session.commit()
 

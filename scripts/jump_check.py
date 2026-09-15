@@ -546,27 +546,34 @@ def main():
     # -- AC7 ---------------------------------------------------------------
     print("== the sink is down: solving is unaffected, and the queue waits ==")
     if len(steps) < 2:
-        print("  (only one button-only step on this instance, so the outage "
-              "is exercised on a re-solve rather than a new one)")
-    sink.stop()
-    sink.clear()
-    target = steps[1] if len(steps) > 1 else steps[0]
-    response, outage = attempt(participant, base, target)
-    check(outage < max(2.0, baseline * 3 + 0.5),
-          f"the attempt is as fast with Jump down as with it up "
-          f"({outage:.2f}s vs {baseline:.2f}s)")
+        # A re-solve cannot stand in for a second step: an already-solved
+        # challenge answers `already_solved` from CTFd/api/v1/challenges.py:988
+        # without ever calling `solve()`, so no row is written and there would
+        # be nothing to watch back off. Skipped rather than asserted against an
+        # empty queue, which is a failure that means nothing.
+        print("  (this instance has one button-only step, so there is no second "
+              "solve to make during the outage — skipped)")
+    else:
+        sink.stop()
+        sink.clear()
+        response, outage = attempt(participant, base, steps[1])
+        check(outage < max(2.0, baseline * 3 + 0.5),
+              f"the attempt is as fast with Jump down as with it up "
+              f"({outage:.2f}s vs {baseline:.2f}s)")
 
-    backed_off = waitfor(
-        lambda: [e for e in admin.events(user_id=user_a)
-                 if e["status"] == "pending" and e["attempts"] > 0], DRAIN_DEADLINE)
-    check(bool(backed_off), "rows back off rather than disappearing")
+        backed_off = waitfor(
+            lambda: [e for e in admin.events(user_id=user_a)
+                     if e["status"] == "pending" and e["attempts"] > 0],
+            DRAIN_DEADLINE)
+        check(bool(backed_off), "rows back off rather than disappearing")
 
-    print("== the sink comes back: the queue drains on its own ==")
-    sink.start()
-    drained = waitfor(lambda: not [e for e in admin.events(user_id=user_a)
-                                   if e["status"] == "pending"], RETURN_DEADLINE, 2)
-    check(bool(drained), "every queued row drained once the sink returned")
-    check(len(sink.received) >= 1, "and the sink received what it had missed")
+        print("== the sink comes back: the queue drains on its own ==")
+        sink.start()
+        drained = waitfor(lambda: not [e for e in admin.events(user_id=user_a)
+                                       if e["status"] == "pending"],
+                          RETURN_DEADLINE, 2)
+        check(bool(drained), "every queued row drained once the sink returned")
+        check(len(sink.received) >= 1, "and the sink received what it had missed")
 
     # -- AC9 ---------------------------------------------------------------
     print("== a key id that is gone is dropped, not retried forever ==")

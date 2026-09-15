@@ -70,7 +70,13 @@ def _dist(runtime_id, version):
 def serve(runtime_id, version, path):
     """Static dist. Deliberately unauthenticated: these are public web apps,
     and requiring a session here would break the WASM/asset fetches the frame
-    makes. Nothing about the workshop lives in them."""
+    makes. Nothing about the workshop lives in them.
+
+    A path ending in `/` serves that folder's index.html, as nginx's `index`
+    does in production — a runtime can frame a sub-app by its folder URL
+    (tic80's REPL loads `repl/lua/`)."""
+    if path.endswith("/"):
+        path += "index.html"
     return send_from_directory(_dist(runtime_id, version), path)
 
 

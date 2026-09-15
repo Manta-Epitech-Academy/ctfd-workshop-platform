@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-09-14 13:27+0000\n"
+"POT-Creation-Date: 2026-09-15 16:04+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: fr\n"
@@ -35,6 +35,9 @@ msgstr "Un mot à ajouter ? (facultatif)"
 msgid "Available now"
 msgstr "À toi de jouer"
 
+msgid "Back to the home page"
+msgstr "Retour à l'accueil"
+
 msgid "Back to the subject"
 msgstr "Retour au sujet"
 
@@ -59,6 +62,13 @@ msgstr "Terminé"
 msgid "Continue"
 msgstr "Continuer"
 
+msgid "Continue with Jump"
+msgstr "Continuer avec Jump"
+
+#, python-format
+msgid "Continue with Jump (%(label)s)"
+msgstr "Continuer avec Jump (%(label)s)"
+
 msgid "Correct"
 msgstr "C'est bon"
 
@@ -79,6 +89,9 @@ msgstr "Termine"
 
 msgid "Forgot your password?"
 msgstr ""
+
+msgid "Go back to Jump and click the activity again to get a new one."
+msgstr "Retourne sur Jump et clique à nouveau sur l'activité pour en obtenir un nouveau."
 
 msgid "Good"
 msgstr "Bien"
@@ -229,6 +242,9 @@ msgstr "Plusieurs suites possibles. Choisis :"
 msgid "Side by side"
 msgstr "Côte à côte"
 
+msgid "Signing in below is for staff. Participants come through Jump."
+msgstr "La connexion ci-dessous est réservée à l'équipe. Les participants passent par Jump."
+
 msgid "Start"
 msgstr "Commencer"
 
@@ -250,6 +266,12 @@ msgstr "Merci pour ton retour !"
 
 msgid "Thanks!"
 msgstr "Merci !"
+
+msgid "The workshop is not open yet"
+msgstr "L'atelier n'est pas encore ouvert"
+
+msgid "This link is no longer valid"
+msgstr "Ce lien n'est plus valable"
 
 msgid "This step is just something to read"
 msgstr "Cette étape est juste à lire"
@@ -305,9 +327,11 @@ msgstr "Atelier terminé. Beau travail."
 msgid "Workshop parts"
 msgstr "Parties de l'atelier"
 
+msgid "You are signed in. Come back when your instructor opens it."
+msgstr "Tu es connecté. Reviens quand ton encadrant l'ouvrira."
+
 msgid "Your browser blocked the new tab, so it opened beside the subject instead."
-msgstr ""
-"Ton navigateur a bloqué le nouvel onglet, donc il s'ouvre à côté du sujet."
+msgstr "Ton navigateur a bloqué le nouvel onglet, donc il s'ouvre à côté du sujet."
 
 msgid "available"
 msgstr "accessible"

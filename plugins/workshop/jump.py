@@ -341,16 +341,25 @@ def burn_jti(jti, exp, now=None):
 
 
 def _hit(key, limit, interval):
-    """Count one hit and say whether it is still under `limit`."""
+    """Count one hit and say whether it is still under `limit`.
+
+    Read-then-write, the shape of CTFd's own limiter, and **not** `cache.inc`:
+    flask-caching pickles what it stores, so redis `INCR` on a key written
+    through `cache.set` fails with "value is not an integer or out of range".
+    `CTFdCache.inc` only works for a caller that wrote a raw integer past
+    flask-caching, which nothing here does.
+
+    Not atomic, therefore, and that is the right trade in this one place: this
+    is a flood brake, not an authorisation decision. The decision that has to
+    be atomic is single use, and that is `burn_jti` on `cache.add`.
+
+    The window slides, because `cache.set` renews the TTL. That errs towards
+    refusing rather than allowing, which is the correct direction for a brake.
+    """
     if cache.add(key, 1, timeout=interval):
         return True
-    try:
-        current = int(cache.inc(key))
-    except (NotImplementedError, AttributeError, TypeError, ValueError):
-        # A non-redis cache (a dev instance on SimpleCache). Not atomic, but
-        # this is a flood brake and not an authorisation decision.
-        current = int(cache.get(key) or 0) + 1
-        cache.set(key, current, timeout=interval)
+    current = int(cache.get(key) or 0) + 1
+    cache.set(key, current, timeout=interval)
     return current <= limit
 
 

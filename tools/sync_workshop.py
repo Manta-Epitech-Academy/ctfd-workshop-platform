@@ -37,7 +37,8 @@ from pathlib import Path
 import yaml
 
 sys.path.insert(0, str(Path(__file__).parent))
-from sync_subject import CTFdAdmin, sync, upsert_page, write_instance_config  # noqa: E402
+from sync_subject import (CTFdAdmin, entry_document, sync, upsert_page,  # noqa: E402
+                          write_instance_config)
 from ws_parser import lint_all  # noqa: E402
 
 
@@ -183,10 +184,10 @@ def sync_workshop(workshop_dir, url, admin_user, admin_pass, codes_dir=None, *,
         subjects_cfg[subject.slug] = result["cover"]
 
     # The public front door is the workshop's, not the last subject's.
-    index = next(p for p in ctfd.api("GET", "/pages") if p["route"] == "index")
-    entry_doc = next(d for d in entry_page.documents
-                     if d.path == entry_page.manifest["project"]["entrypoint"])
-    ctfd.api("PATCH", f"/pages/{index['id']}", json={
+    entry_doc = entry_document(entry_page)
+    # Upsert for the same reason sync_subject does: an instance whose Pages were
+    # wiped by /admin/reset has no `index` page to PATCH.
+    upsert_page(ctfd, "index", {
         "title": workshop.get("name") or entry_page.name, "route": "index",
         "content": manifest.get("workshop", {}).get("summary") and
         f"# {workshop['name']}\n\n{workshop['summary']}\n\n{entry_doc.body_md}"

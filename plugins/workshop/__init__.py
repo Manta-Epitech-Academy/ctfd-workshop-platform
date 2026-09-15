@@ -15,6 +15,7 @@ from CTFd.plugins import (
     register_plugin_stylesheet,
 )
 from CTFd.plugins.challenges import CHALLENGE_CLASSES
+from CTFd.plugins.migrations import upgrade as upgrade_plugin
 
 from .graph import load_graph
 from .landing import load_landing
@@ -27,6 +28,7 @@ from .mode import load_mode
 from .checkpoint import load_checkpoint
 from .syncpage import load_syncpage
 from .shell import load_shell
+from .jump import load_jump
 from .quiz import QuizChallenge
 
 
@@ -59,10 +61,19 @@ def load(app):
     # instance is set to by default (tools/provision.py). Registered first so
     # every blueprint below renders through it.
     _load_translations(app)
-    # Creates the plugin's missing tables (quiz model). Idempotent — existing
-    # tables are untouched. If a later phase alters a column, switch to
-    # CTFd.plugins.migrations.upgrade() with a migrations/ directory.
+    # Creates the plugin's missing tables (quiz, workspace, the two Jump
+    # tables). Idempotent — existing tables are untouched — and kept even
+    # though migrations now exist, because the quiz and workspace tables
+    # predate them and are in no revision.
     app.db.create_all()
+    # And the ledger, for everything create_all() cannot do. It never issues an
+    # ALTER, so the first column any of these tables gains later would surface
+    # as an OperationalError at request time on every instance at once; a
+    # migrations/ directory is where that change gets written instead. Revision
+    # 1 is idempotent, so it is a no-op on an instance create_all() has already
+    # served — what it really does is record `workshop_alembic_version`, which
+    # is what revision 2 starts from.
+    upgrade_plugin(plugin_name="workshop")
     CHALLENGE_CLASSES["quiz"] = QuizChallenge
     load_graph(app)  # GET /api/v1/workshop/graph — challenge DAG for the user
     # The participant-facing view: the whole workshop as one page, steps as
@@ -119,6 +130,13 @@ def load(app):
     # reaches the server. See syncpage.py and source.py.
     load_syncpage(app)
     register_admin_plugin_menu_bar("Sync content", "/admin/workshop/sync")
+    # The way in from Jump, and the way progress gets back (PLAN.md §31).
+    # Jump is the only door into a workshop instance: a signed ticket opens the
+    # session at /jump/enter, and a solved step is queued and posted back so
+    # the talent earns XP without a script being run by hand on the database.
+    # Both halves are ours — nothing under CTFd/ moves for either.
+    load_jump(app)
+    register_admin_plugin_menu_bar("Jump", "/admin/workshop/jump")
     register_plugin_assets_directory(app, base_path="/plugins/workshop/assets/")
     # Caps hint images (the theme only caps description images) — see
     # assets/workshop.css. Injected via {{ Plugins.styles }} in base.html.

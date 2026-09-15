@@ -89,7 +89,49 @@ def load_manifest():
         # somebody presses Sync.
         inst["source"] = (inst.get("source") or "").strip()
         inst["source_ref"] = (inst.get("source_ref") or "main").strip()
+        # Which Jump environments may send talents here (PLAN.md §31). A map
+        # from the first day: one instance serving Jump dev and Jump prod at
+        # once is what a demo needs, and the key id in a ticket is what picks
+        # the row. Instance-level overrides the default entirely rather than
+        # merging, so "this one talks to prod only" is one block and not a
+        # subtraction.
+        inst["jump"] = _jump_block(inst["name"],
+                                   inst.get("jump", defaults.get("jump")) or {})
+        # The audience of a ticket is `workshop:<slug>`; default it to the
+        # instance name so the two cannot drift by being typed twice.
+        inst["jump_slug"] = (inst.get("jump_slug") or inst["name"]).strip()
     return data
+
+
+def _jump_block(name, block):
+    """`{kid: {origin, label}}`, refused at load time rather than at run time.
+
+    A bad origin or a duplicated label is a silent misroute once it is live:
+    the origin is where progress gets posted, and the label namespaces every
+    account that key creates, so two keys sharing one merges two Jump
+    environments into a single set of students.
+    """
+    if not isinstance(block, dict):
+        sys.exit(f"{name}: `jump` must be a map of key id -> {{origin, label}}")
+    out, labels = {}, {}
+    for kid, key in block.items():
+        if not isinstance(key, dict):
+            sys.exit(f"{name}: jump key {kid!r} must be a map")
+        origin = str(key.get("origin") or "").strip().rstrip("/")
+        label = str(key.get("label") or "").strip().lower()
+        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}", str(kid)):
+            sys.exit(f"{name}: {kid!r} is not a usable jump key id")
+        if not re.fullmatch(r"https?://[A-Za-z0-9.-]+(:\d+)?", origin):
+            sys.exit(f"{name}: jump key {kid}: {origin!r} is not an origin "
+                     f"(scheme and host only, no path)")
+        if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,31}", label):
+            sys.exit(f"{name}: jump key {kid}: {label!r} is not a usable label")
+        if label in labels:
+            sys.exit(f"{name}: jump keys {labels[label]} and {kid} share the "
+                     f"label {label!r}; their accounts would collide")
+        labels[label] = kid
+        out[str(kid)] = {"origin": origin, "label": label}
+    return out
 
 
 def load_secrets(manifest, create=True):
@@ -107,6 +149,23 @@ def load_secrets(manifest, create=True):
     # One code for every instance: the audience is told one thing, and this
     # deploy is a demonstration rather than five separate cohorts.
     data.setdefault("registration_code", _words())
+
+    # One secret per Jump environment, shared by every instance that
+    # environment can send talents to — a Jump deployment has a single
+    # WORKSHOP_TICKET_SECRET, so a per-instance secret would be eleven values
+    # Jump has no field for. Minted here if absent; paste an existing one in
+    # before the first run and it is kept, like every other value in this file.
+    jump_secrets = data.setdefault("jump_secrets", {})
+    for inst in manifest["instances"]:
+        for kid in inst["jump"]:
+            if kid not in jump_secrets:
+                jump_secrets[kid] = pysecrets.token_hex(32)
+                # Said once, at the only moment it is actionable: nothing works
+                # end to end until this value is also on the Jump side, and
+                # after this run it is only in a gitignored file.
+                print(f"jump: minted a shared secret for {kid!r} — set it as "
+                      f"WORKSHOP_TICKET_SECRET on that Jump environment "
+                      f"(it is in {rel(SECRETS)} under `jump_secrets`)")
 
     for inst in manifest["instances"]:
         got = data["instances"].setdefault(inst["name"], {})
@@ -344,6 +403,16 @@ def cmd_setup(manifest, sec, args):
         if inst["source"]:
             configs["workshop_source"] = json.dumps(
                 {"repo": inst["source"], "ref": inst["source_ref"]})
+        if inst["jump"]:
+            # Who may send talents here, and what this instance answers to.
+            # Provisioned rather than typed into /admin/workshop/jump: two keys
+            # set by hand on eleven instances is a thing we forget on the
+            # eleventh, and the failure mode is a talent meeting a refusal
+            # page.
+            configs["workshop_jump_instance"] = inst["jump_slug"]
+            configs["workshop_jump_keys"] = json.dumps(
+                {kid: {**key, "secret": sec["jump_secrets"][kid]}
+                 for kid, key in inst["jump"].items()}, sort_keys=True)
         if not defaults.get("scoreboard", True):
             configs["score_visibility"] = "hidden"
 
@@ -357,6 +426,9 @@ def cmd_setup(manifest, sec, args):
               + (f"code {sec['registration_code']!r}" if coded else "open")
               + (f", sync from {inst['source']}@{inst['source_ref']}"
                  if inst["source"] else ""))
+        if inst["jump"]:
+            print(f"  jump: slug {inst['jump_slug']!r}, keys "
+                  + ", ".join(sorted(inst["jump"])))
 
 
 # --------------------------------------------------------------------------

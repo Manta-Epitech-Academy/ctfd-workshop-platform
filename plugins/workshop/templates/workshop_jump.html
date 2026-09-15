@@ -1,0 +1,180 @@
+{% extends "admin/base.html" %}
+
+{#
+  Jump handoff settings and the outbox (PLAN.md §31). Admin-facing, so every
+  string is English like the rest of the platform UI.
+
+  Two halves, and the second one is the point: the key allowlist decides who
+  may send talents here, and the outbox table turns "the XP did not arrive"
+  from a debugging session into a button.
+#}
+
+{% block content %}
+<div class="jumbotron">
+  <div class="container">
+    <h1>Jump</h1>
+    <p class="lead mb-0">
+      Who may send talents to this instance, and what this instance still owes
+      them back.
+    </p>
+  </div>
+</div>
+
+<div class="container">
+  {% if saved %}
+    <div class="alert alert-success">Saved.</div>
+  {% endif %}
+  {% for error in errors %}
+    <div class="alert alert-danger">{{ error }}</div>
+  {% endfor %}
+
+  <form method="POST">
+    <input type="hidden" name="nonce" value="{{ Session.nonce }}">
+    <input type="hidden" name="row_count" value="{{ keys|length + 1 }}">
+
+    <div class="form-group">
+      <label for="ws-jump-instance"><strong>This instance's slug</strong></label>
+      <input type="text" class="form-control" id="ws-jump-instance"
+             name="instance" value="{{ instance }}" placeholder="pacman-2026">
+      <small class="form-text text-muted">
+        Must match the <code>slug</code> of this instance's
+        <code>Workshop_Instance</code> row on Jump: a ticket's audience is
+        <code>workshop:&lt;slug&gt;</code> and anything else is refused.
+        <strong>Empty means every ticket is refused</strong>, which is the safe
+        way for a half-configured instance to fail.
+      </small>
+    </div>
+
+    <h4 class="mt-4">Keys</h4>
+    <p class="text-muted">
+      One row per Jump environment. The key id in a ticket selects the row, and
+      <strong>the callback origin comes from the row, never from the ticket</strong>,
+      so nobody can point this instance's reports somewhere else. The label
+      namespaces the accounts that environment creates, which is what keeps a
+      dev talent out of a production scoreboard when one instance serves both.
+    </p>
+
+    <table class="table table-sm">
+      <thead>
+        <tr>
+          <th>Key id</th>
+          <th>Origin</th>
+          <th>Label</th>
+          <th>Shared secret</th>
+          <th class="text-center">Remove</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for kid, key in keys.items() %}
+          <tr>
+            <td>
+              <input type="text" class="form-control" name="kid-{{ loop.index0 }}"
+                     value="{{ kid }}" readonly>
+            </td>
+            <td>
+              <input type="text" class="form-control" name="origin-{{ loop.index0 }}"
+                     value="{{ key.origin }}">
+            </td>
+            <td>
+              <input type="text" class="form-control" name="label-{{ loop.index0 }}"
+                     value="{{ key.label }}"
+                     {{ "readonly" if kid in linked }}>
+              {% if kid in linked %}
+                <small class="text-muted">accounts are bound to it</small>
+              {% endif %}
+            </td>
+            <td>
+              <input type="password" class="form-control" name="secret-{{ loop.index0 }}"
+                     placeholder="unchanged" autocomplete="new-password">
+            </td>
+            <td class="text-center align-middle">
+              <input type="checkbox" name="remove-{{ loop.index0 }}" value="1">
+            </td>
+          </tr>
+        {% endfor %}
+        <tr>
+          <td>
+            <input type="text" class="form-control" name="kid-{{ keys|length }}"
+                   placeholder="jump-prod">
+          </td>
+          <td>
+            <input type="text" class="form-control" name="origin-{{ keys|length }}"
+                   placeholder="https://epiboost.fr">
+          </td>
+          <td>
+            <input type="text" class="form-control" name="label-{{ keys|length }}"
+                   placeholder="prod">
+          </td>
+          <td>
+            <input type="password" class="form-control" name="secret-{{ keys|length }}"
+                   autocomplete="new-password">
+          </td>
+          <td></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <button type="submit" class="btn btn-primary">Save</button>
+  </form>
+
+  <hr>
+
+  <h4>Outbox</h4>
+  <p class="text-muted">
+    {{ pending }} waiting, {{ failed }} failed. A solved step is queued inside
+    the solve request and posted to Jump from a background drainer, so a slow
+    or absent Jump never slows a participant down. A row that ran out of
+    attempts stays here until somebody sends it again.
+  </p>
+
+  {% if events %}
+    <table class="table table-sm">
+      <thead>
+        <tr>
+          <th>Participant</th>
+          <th>Step</th>
+          <th>Key</th>
+          <th>Status</th>
+          <th>Tries</th>
+          <th>Next try</th>
+          <th>Last error</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for event in events %}
+          <tr>
+            <td>{{ names.get(event.user_id, event.user_id) }}</td>
+            <td>{{ event.challenge_id }}</td>
+            <td>{{ event.jump_kid }}</td>
+            <td>
+              <span class="badge badge-{{ 'danger' if event.status in ('failed', 'dropped') else 'secondary' }}">
+                {{ event.status }}
+              </span>
+            </td>
+            <td>{{ event.attempts }}</td>
+            <td>{{ event.next_attempt.strftime("%d/%m %H:%M") if event.next_attempt }}</td>
+            <td><small class="text-muted">{{ (event.last_error or "")[:120] }}</small></td>
+            <td>
+              <form method="POST" class="m-0">
+                <input type="hidden" name="nonce" value="{{ Session.nonce }}">
+                <input type="hidden" name="resend" value="{{ event.id }}">
+                <button type="submit" class="btn btn-sm btn-outline-primary">Send again</button>
+              </form>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="text-muted">Nothing waiting. Every solve has reached Jump.</p>
+  {% endif %}
+
+  <p class="text-muted">
+    <strong>Removing a key does not delete the accounts it created.</strong> It
+    stops new talents arriving through it, and any event still queued for it is
+    dropped rather than retried forever, because there is no longer anywhere to
+    send it.
+  </p>
+</div>
+{% endblock %}

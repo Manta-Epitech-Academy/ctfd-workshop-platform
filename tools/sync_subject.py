@@ -692,12 +692,13 @@ def sync(subject_dir, url, admin_user, admin_pass, codes_path=None, *,
     # 1. entrypoint document -> index page
     entry = subject.manifest["project"]["entrypoint"]
     entry_doc = next(d for d in subject.documents if d.path == entry)
-    pages = ctfd.api("GET", "/pages")
-    index = next(p for p in pages if p["route"] == "index")
     # In a workshop of several subjects the public index belongs to the
     # workshop, not to whichever subject synced last (PLAN.md §19).
+    # Upserted, not patched: the setup wizard creates an index page, but an
+    # instance booted with PRESET_CONFIGS {"setup": true} (the k8s deploy)
+    # skips the wizard and has no pages at all — `/` is a 404 until this runs.
     if standalone:
-        ctfd.api("PATCH", f"/pages/{index['id']}", json={
+        upsert_page(ctfd, "index", {
             "title": entry_doc.title, "route": "index", "content": entry_doc.body_md,
             "format": "markdown", "draft": False, "hidden": False,
             "auth_required": False})

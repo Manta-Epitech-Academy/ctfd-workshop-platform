@@ -2855,6 +2855,13 @@ gets "Open in a new tab"; the tab's bar gets "Side by side", which broadcasts th
 subject page open the pane, and closes itself (with a line instead when the browser refuses, which
 it does for a tab a script did not open).
 
+**A handover gives the frame up first, in both directions.** `setMode` says this for the pane, and
+the tab now does the same: it drops its frame before it broadcasts `split`, not when `pagehide`
+fires. The difference is the refused `close()` above — the subject page mounts its own frame the
+instant it hears `split`, so a tab that still held one was the second editor writing one cart, for
+as long as the participant left it open. The note asking them to close it is not a substitute for
+not being a runtime any more.
+
 **Switching presentation reboots the runtime**, and nothing avoids that: a live iframe cannot be
 adopted by another document without reloading. The work is pushed to the server before the frame
 goes and restored before the new one boots, which is the whole reason §16 exists. Verified on the

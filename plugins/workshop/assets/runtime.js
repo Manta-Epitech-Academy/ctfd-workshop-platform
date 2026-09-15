@@ -730,6 +730,18 @@
 
     var split = pane.querySelector(".ws-runtime-split");
     if (split) split.addEventListener("click", function () {
+      // Give the frame up BEFORE announcing the switch, while this window is
+      // still its owner — the same ordering `setMode` states for the other
+      // direction, and for the same reason. The subject page mounts its own
+      // frame the moment it hears `split`, so a tab that still held one would
+      // be the second editor writing one cart, which is the thing the
+      // ownership table at the top of this file exists to prevent. Waiting for
+      // `pagehide` was not enough: a browser refuses `close()` on a tab it did
+      // not open, and the tab then kept a live runtime forever.
+      dropFrame();
+      // Handed over, so there is nothing left here to hand over twice. This is
+      // only ever seen in the path below where the tab survives.
+      split.disabled = true;
       send({ k: "split" });
       // Give the subject page a moment to open its pane before this tab goes,
       // so the participant never sees neither.

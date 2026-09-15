@@ -12,7 +12,7 @@ components:
 # Pin per session: the runtimes' CIs publish :latest and :<sha> on every push
 # to main, and a session should not change under its participants.
 images:
-  - name: ghcr.io/kevin-cazal/tic80-web-editor
+  - name: ghcr.io/kevin-cazal/tic80-web-editor_runtime
     newTag: CHANGE
   - name: ghcr.io/kevin-cazal/shell-rpg
     newTag: CHANGE

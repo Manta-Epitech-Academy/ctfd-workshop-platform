@@ -1,0 +1,50 @@
+# A second Ingress beside the instance's `ctfd-ingress`, on the same host:
+# Traefik merges them and the longest prefix wins, so /runtime/… reaches the
+# runtime and everything else still reaches CTFd. Its own object rather than
+# a patch on `ctfd-ingress` because a component's patches run before the
+# overlay's, when that Ingress has no rules yet.
+#
+# The host is a placeholder: the overlay replaces it. Same annotations as the
+# base's `ctfd-ingress`, so whatever an overlay does to those (the
+# Cloudflare-terminated ones remove them) it does to both — target
+# `kind: Ingress` without a name.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ctfd-runtimes-ingress
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.tls.certresolver: letsencrypt
+spec:
+  rules:
+    - host: runtimes.invalid
+      http:
+        paths:
+          - path: /runtime/tic80
+            pathType: Prefix
+            backend:
+              service:
+                name: rt-tic80
+                port:
+                  number: 80
+          - path: /runtime/v86
+            pathType: Prefix
+            backend:
+              service:
+                name: rt-v86
+                port:
+                  number: 80
+          - path: /runtime/miniasm
+            pathType: Prefix
+            backend:
+              service:
+                name: rt-miniasm
+                port:
+                  number: 80
+          - path: /runtime/pacman
+            pathType: Prefix
+            backend:
+              service:
+                name: rt-pacman
+                port:
+                  number: 80

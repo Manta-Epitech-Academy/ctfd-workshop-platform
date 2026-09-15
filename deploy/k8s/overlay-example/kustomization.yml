@@ -1,0 +1,71 @@
+# An instance overlay on the jump-k3s cluster with the runtimes: the same as
+# any jump-k3s/services/ctfd/overlays/<name>/ plus the `components:` line and
+# the image pins. Copy next to the other overlays; `../../base` is theirs.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: ctfd-CHANGE
+resources:
+  - ../../base
+  - secret.yml
+components:
+  - ../../components/runtimes     # copied from workshop_platform/deploy/k8s/components/runtimes
+# Pin per session: the runtimes' CIs publish :latest and :<sha> on every push
+# to main, and a session should not change under its participants.
+images:
+  - name: ghcr.io/kevin-cazal/tic80-web-editor
+    newTag: CHANGE
+  - name: ghcr.io/kevin-cazal/shell-rpg
+    newTag: CHANGE
+  - name: ghcr.io/kevin-cazal/miniasm_runtime
+    newTag: CHANGE
+  - name: ghcr.io/kevin-cazal/pacman-ghost-ai_runtime
+    newTag: CHANGE
+patches:
+  - path: ingress-patch.yml
+  # The runtimes' Ingress answers on the same host.
+  - target:
+      kind: Ingress
+      name: ctfd-runtimes-ingress
+    patch: |-
+      - op: replace
+        path: /spec/rules/0/host
+        value: CHANGE.epiboost.fr
+  - target:
+      kind: Deployment
+      name: ctfd
+    patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/env/-
+        value:
+          name: PRESET_CONFIGS
+          value: >-
+            {"setup":true,
+            "ctf_name":"CHANGE",
+            "ctf_description":"",
+            "user_mode":"users",
+            "challenge_visibility":"public",
+            "registration_visibility":"private",
+            "score_visibility":"public",
+            "account_visibility":"private"}
+      # The admin sync page imports with the tools baked into the image.
+      - op: add
+        path: /spec/template/spec/containers/0/env/-
+        value:
+          name: WORKSHOP_TOOLS
+          value: /opt/workshop/tools
+  - target:
+      kind: Deployment
+    patch: |-
+      - op: add
+        path: /spec/template/spec/nodeSelector
+        value:
+          kubernetes.io/hostname: jump-tools
+  # TLS terminated at Cloudflare (proxied): the router is created on `web`.
+  # No name: both Ingresses, the instance's and the runtimes'.
+  - target:
+      kind: Ingress
+    patch: |-
+      - op: remove
+        path: /metadata/annotations/traefik.ingress.kubernetes.io~1router.entrypoints
+      - op: remove
+        path: /metadata/annotations/traefik.ingress.kubernetes.io~1router.tls.certresolver

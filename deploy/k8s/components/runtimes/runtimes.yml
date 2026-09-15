@@ -1,0 +1,172 @@
+# One Deployment + Service per runtime. Each is a few-MB nginx serving static
+# files, so a copy per instance costs nothing and keeps the Ingress in one
+# namespace. Resource figures follow the instance's own (ctfd-deploy.yml):
+# small requests so idle instances pack, a limit that lets the active one burst.
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rt-tic80
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rt-tic80
+  template:
+    metadata:
+      labels:
+        app: rt-tic80
+    spec:
+      containers:
+        - name: web
+          image: ghcr.io/kevin-cazal/tic80-web-editor:latest
+          ports:
+            - containerPort: 80
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 80
+          resources:
+            limits:
+              memory: "64Mi"
+              cpu: "500m"
+            requests:
+              memory: "16Mi"
+              cpu: "10m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rt-tic80
+spec:
+  selector:
+    app: rt-tic80
+  ports:
+    - port: 80
+      targetPort: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rt-v86
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rt-v86
+  template:
+    metadata:
+      labels:
+        app: rt-v86
+    spec:
+      containers:
+        - name: web
+          image: ghcr.io/kevin-cazal/shell-rpg:latest
+          ports:
+            - containerPort: 80
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 80
+          resources:
+            limits:
+              memory: "64Mi"
+              cpu: "500m"
+            requests:
+              memory: "16Mi"
+              cpu: "10m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rt-v86
+spec:
+  selector:
+    app: rt-v86
+  ports:
+    - port: 80
+      targetPort: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rt-miniasm
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rt-miniasm
+  template:
+    metadata:
+      labels:
+        app: rt-miniasm
+    spec:
+      containers:
+        - name: web
+          image: ghcr.io/kevin-cazal/miniasm_runtime:latest
+          ports:
+            - containerPort: 80
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 80
+          resources:
+            limits:
+              memory: "64Mi"
+              cpu: "500m"
+            requests:
+              memory: "16Mi"
+              cpu: "10m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rt-miniasm
+spec:
+  selector:
+    app: rt-miniasm
+  ports:
+    - port: 80
+      targetPort: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rt-pacman
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rt-pacman
+  template:
+    metadata:
+      labels:
+        app: rt-pacman
+    spec:
+      containers:
+        - name: web
+          image: ghcr.io/kevin-cazal/pacman-ghost-ai_runtime:latest
+          ports:
+            - containerPort: 80
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 80
+          resources:
+            limits:
+              memory: "64Mi"
+              cpu: "500m"
+            requests:
+              memory: "16Mi"
+              cpu: "10m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rt-pacman
+spec:
+  selector:
+    app: rt-pacman
+  ports:
+    - port: 80
+      targetPort: 80

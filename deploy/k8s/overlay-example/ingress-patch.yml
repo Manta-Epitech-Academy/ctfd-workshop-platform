@@ -1,0 +1,18 @@
+# Unchanged from the other overlays: `/` goes to CTFd. The runtime paths live
+# on the component's own Ingress, on the same host.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ctfd-ingress
+spec:
+  rules:
+    - host: CHANGE.epiboost.fr
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: ctfd
+                port:
+                  number: 8000

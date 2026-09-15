@@ -589,17 +589,30 @@ And keep `deploy/secrets.yaml` with the backups: without it the dumps restore
 into instances nobody can log into.
 
 
-## Runtimes on a proxy (k8s)
+## Runtimes on Kubernetes
 
-Everything above serves the dists off the server's disk. On Kubernetes there is
-no shared disk: the dists ship instead in one nginx image,
-[kevin-cazal/workshop-runtimes](https://github.com/kevin-cazal/workshop-runtimes),
-which sits in front of CTFd — `/runtime/` from the image, everything else
-proxied to CTFd. Its README and `k8s/example.yaml` are the deploy.
+Everything above serves the dists off the server's disk. On Kubernetes (the
+jump-k3s cluster) there is no shared disk, and each runtime runs instead as
+its own Service from its own image — `tic80-web-editor`, `shell-rpg`,
+`miniasm_runtime`, `pacman-ghost-ai_runtime` on GHCR, each built by that
+repository's CI. Every image serves its app at `/runtime/<id>/latest/`, the
+same-origin path the pane embeds, and redirects any other `<version>` there,
+so a subject pinning a commit sha keeps working. The Ingress routes each
+prefix to its Service and everything else to CTFd, as it does today.
+
+`deploy/k8s/components/runtimes/` is a kustomize Component holding the four
+Deployments and Services, a second Ingress with the four paths, and the one
+CTFd variable below. `deploy/k8s/overlay-example/` shows an instance overlay
+using it: the same as any other overlay in jump-k3s `services/ctfd/overlays/`
+plus a `components:` line, one patch for the runtimes' Ingress host, and
+`images:` pinning the four tags. Pin per session — the CIs publish `:latest`
+and `:<sha>` on every push to `main`, and a running session must not change
+under its participants. To update a runtime: merge in its repo, set the new
+sha in the overlay, `kubectl apply -k`.
 
 CTFd shows the runtime pane only when `plugins/workshop/runtimes/<id>/<version>/`
-exists on its own disk, and in that shape it never does. Set this on the CTFd
-container:
+exists on its own disk, and in that shape it never does. The component sets
+this on the CTFd container:
 
 ```
 WORKSHOP_RUNTIMES_ON_PROXY=1
@@ -607,9 +620,15 @@ WORKSHOP_RUNTIMES_ON_PROXY=1
 
 CTFd then trusts the subject's declaration and always renders the pane. What
 that gives up: the check that caught a runtime declared but not built. The
-image covers the version half of it — it redirects any version of a runtime it
-carries to the build it has — but a runtime id the image does not carry is now
-a 404 inside the pane, and the sync page no longer warns about it.
+images cover the version half of it — any version redirects to the build the
+image carries — but a runtime id with no Service behind it is now a 404 inside
+the pane, and the sync page no longer warns about it.
+
+Two more things the preset-configured shape needs, both handled: the sync
+tools create the index page when the instance has none (an instance booted
+with `PRESET_CONFIGS {"setup": true}` never ran the wizard), and
+`WORKSHOP_TOOLS=/opt/workshop/tools` is set on the container for the admin
+sync page — the example overlay carries it.
 
 ## Things that will bite
 

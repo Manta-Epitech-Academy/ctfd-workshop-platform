@@ -57,9 +57,9 @@ _warned = set()
 
 
 def _on_proxy():
-    """True when the dists are served by the proxy in front of CTFd, not from
-    this container's disk — a k8s deploy where one nginx image carries every
-    runtime (docs/DEPLOY.md, "Runtimes on a proxy"). CTFd then cannot see
+    """True when the dists are served beside CTFd by the ingress, not from
+    this container's disk — the k8s deploy, where each runtime is its own
+    Service (docs/DEPLOY.md, "Runtimes on Kubernetes"). CTFd then cannot see
     them, so it takes the declaration on trust instead of hiding the pane."""
     return os.environ.get("WORKSHOP_RUNTIMES_ON_PROXY", "").lower() in ("1", "true", "yes")
 

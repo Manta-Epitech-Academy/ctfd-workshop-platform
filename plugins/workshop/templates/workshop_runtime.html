@@ -1,0 +1,105 @@
+{#
+  The runtime, on a page of its own (PLAN.md §14.2 "keep a separate tab as an
+  optional pop out, not the default"; §30 for the decision).
+
+  Why a page and not `window.open(runtime.src)`: the runtime never talks to
+  CTFd (PLAN.md §14.3 rule 1), a host does, and the host is what carries the
+  protocol, the participant's work in progress (§16) and the advisory rules
+  (rule 0). Opening the runtime's own dist in a tab would be a runtime with no
+  host — no `init`, no step, no snapshot, no restore-before-boot — so the tab
+  gets the same host the pane has, and `assets/runtime.js` runs here too.
+
+  Deliberately NOT extending base.html. The shell's job is navigation and this
+  page has one control and one frame; inheriting a header, a hero, a footer and
+  a main padding only to hide them again is more markup, not less. The price is
+  the three things base.html would have given for free, and each is here:
+  `window.init` (trimmed to what the host actually reads), the stylesheets
+  through the same `Plugins.styles` every page uses, and the theme.
+#}
+<!DOCTYPE html>
+<html>
+<head>
+  <title>{{ runtime.title }} — {{ doc.title }}</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="shortcut icon" href="{{ Configs.ctf_small_icon }}" type="image/x-icon">
+
+  {{ Assets.css("assets/scss/main.scss") }}
+  {{ Plugins.styles }}
+
+  {# The theme, inline, instead of core's `color_mode_switcher.js`. That file
+     dereferences `.theme-switch i.fas` without a null check (DESIGN.md records
+     the same landmine for the navbar override), and this page has no theme
+     toggle to give it — loading it here would throw on every load. It reads
+     the same `theme` key, so the tab opens in whatever theme the subject page
+     is in, and follows the system when nothing was ever chosen. #}
+  <script>
+    (function () {
+      var t;
+      try { t = localStorage.getItem("theme"); } catch (e) { /* private mode */ }
+      if (!t) {
+        t = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      }
+      document.documentElement.setAttribute("data-bs-theme", t);
+    })();
+  </script>
+
+  {# What the host reads out of `window.init`, and nothing else: the user id
+     stamps the `localStorage` bucket so a shared classroom PC does not hand one
+     student another's cart (PLAN.md §16), and the nonce signs the snapshot
+     POST. Same names as base.html, so the host needs no second code path. #}
+  <script>
+    window.init = {
+      'urlRoot': "{{ request.script_root }}",
+      'csrfNonce': "{{ Session.nonce }}",
+      'userId': {{ Session.id }},
+    };
+  </script>
+</head>
+<body class="ws-runtime-page">
+
+{# Same element and the same `data-runtime-*` the pane carries, so the host has
+   one shape to read. `role="window"` is the whole difference: this one owns the
+   frame unconditionally and owns no step list, and the subject page's owns the
+   step list and, in this mode, no frame. #}
+<div class="ws-runtime ws-runtime-window" id="ws-runtime"
+     data-runtime-role="window"
+     data-runtime-id="{{ runtime.id }}"
+     data-runtime-src="{{ runtime.src }}"
+     data-runtime-adapter="{{ runtime.adapter }}"
+     data-runtime-title="{{ runtime.title }}"
+     data-runtime-size="{{ runtime.size }}"
+     data-runtime-params="{{ runtime.params | tojson | forceescape }}"
+     {# Which document this tab is the runtime for. Same attribute the pane
+        carries, and what the BroadcastChannel is named after: this tab pairs
+        with the subject page showing the same part and with no other. #}
+     data-runtime-doc="{{ doc.slug }}"
+     data-label-close="{% trans %}This tab cannot close itself. The subject is open beside it again, so you can close this one.{% endtrans %}">
+  <div class="ws-runtime-bar">
+    {# Somebody who reloads this tab, or finds it the next morning, has to be
+       able to get back to the subject without guessing a URL. #}
+    <a class="ws-runtime-back epi-icon-btn" href="{{ url_for('workshop_page.workshop_document', doc_slug=doc.slug) }}"
+       title="{% trans %}Back to the subject{% endtrans %}"
+       aria-label="{% trans %}Back to the subject{% endtrans %}">
+      <i class="fas fa-arrow-left" aria-hidden="true"></i>
+    </a>
+    <span class="ws-runtime-title">
+      <i class="fas fa-{{ runtime.icon }} ws-runtime-glyph" aria-hidden="true"></i>
+      {{ runtime.title }}
+    </span>
+    <span class="ws-runtime-doc">{{ doc.title }}</span>
+    {# The way back to the split. The subject page opens its pane when this is
+       pressed and this tab closes itself; if the browser refuses to close a tab
+       it did not open, the bar says so rather than doing nothing visible. #}
+    <button type="button" class="ws-runtime-split btn btn-sm btn-outline-secondary">
+      <i class="fas fa-table-columns" aria-hidden="true"></i>
+      <span>{% trans %}Side by side{% endtrans %}</span>
+    </button>
+  </div>
+  <div class="ws-runtime-body"></div>
+  <p class="ws-runtime-note" role="status" aria-live="polite" hidden></p>
+</div>
+
+<script defer src="/plugins/workshop/assets/runtime.js"></script>
+</body>
+</html>

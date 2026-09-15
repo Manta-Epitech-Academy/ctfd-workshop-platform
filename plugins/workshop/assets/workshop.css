@@ -819,18 +819,49 @@ body.ws-has-pane .ws-hero {
 }
 body.ws-has-pane { overflow-x: hidden; }
 
+/* The bar is the only chrome the platform puts around a runtime, in either
+   presentation, so it is the same element in both (templates/
+   workshop_page.html and workshop_runtime.html). Its controls are the header's
+   `.epi-icon-btn`, not one-off buttons: it is the same gesture, and the page
+   already has a shape for it. */
 .ws-runtime-bar {
-  display: flex; align-items: center; gap: 0.5rem;
-  padding: 0.35rem 0.6rem;
-  border-bottom: 1px solid var(--bs-border-color, #dee2e6);
+  display: flex; align-items: center; gap: 0.35rem;
+  padding: 0.35rem 0.5rem;
+  background: var(--epi-card, var(--bs-body-bg));
+  border-bottom: 1px solid var(--bs-border-color);
 }
-.ws-runtime-title { font-weight: 600; font-size: 0.9rem; flex: 1; }
-.ws-runtime-close {
-  border: 0; background: none; font-size: 1rem; line-height: 1;
-  color: var(--bs-body-color); cursor: pointer;
+/* Exactly one element in the bar grows, and which one is said outright rather
+   than left to a `:last-of-type` to work out: the title in the pane, the part
+   name in the popped-out tab, where it is what says which workshop this is. */
+.ws-runtime-title {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  flex: 1; min-width: 0;
+  font-weight: 600; font-size: 0.9rem;
+}
+.ws-runtime-glyph { opacity: 0.75; }
+.ws-runtime-window .ws-runtime-title { flex: none; }
+.ws-runtime-doc {
+  flex: 1; min-width: 0; font-size: 0.82rem; opacity: 0.7;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .ws-runtime-body { flex: 1; min-height: 0; }
 .ws-runtime-frame { width: 100%; height: 100%; border: 0; display: block; }
+/* Only ever shown when something a participant did not ask for happened: a
+   blocked tab, a tab a browser will not let close itself. */
+.ws-runtime-note {
+  margin: 0; padding: 0.4rem 0.6rem; font-size: 0.82rem;
+  border-top: 1px solid var(--bs-border-color);
+  background: var(--bs-tertiary-bg);
+}
+
+/* The runtime alone on a page (templates/workshop_runtime.html) — the pop-out
+   for a viewport too narrow to split. Same element, same bar, full width, and
+   no `position: fixed` because there is nothing to sit on top of. */
+.ws-runtime-page { margin: 0; }
+.ws-runtime.ws-runtime-window {
+  position: static; width: 100%; height: 100dvh; border-left: 0;
+}
+.ws-runtime-window .ws-runtime-split { flex: none; }
 
 .ws-runtime-resizer {
   position: absolute; left: -3px; top: 0; bottom: 0; width: 7px;
@@ -851,10 +882,18 @@ body.ws-has-pane { overflow-x: hidden; }
   background: var(--bs-tertiary-bg, #f8f9fa);
 }
 
-/* Narrow screens: a split is unusable, so the pane takes over. */
+/* Narrow screens: a split is unusable, so the pane takes over the page.
+   This is now the FALLBACK, not the answer — below this width the launcher
+   defaults to opening the runtime in its own tab instead, which gives the
+   subject and the runtime a full page each (PLAN.md §30). The rule stays for
+   the participant who chooses the split here anyway.
+
+   The width must match PANE_MIN_WIDTH in assets/runtime.js, which is what picks
+   that default. */
 @media (max-width: 900px) {
   .ws-runtime { width: 100%; }
-  body.ws-has-pane .ws-page { margin-right: 0; }
+  body.ws-has-pane .ws-page,
+  body.ws-has-pane .ws-hero { margin-right: 0; }
 }
 
 /* Branching next-challenge buttons (challenge modal) */
@@ -890,13 +929,70 @@ body.ws-has-pane { overflow-x: hidden; }
    DESIGN.md asks for graph.js's literals and these to move together;
    that is only checkable if there is one of them. */
 
-/* Fixed handle to reopen the runtime from anywhere in the page. Sits on the
-   right edge like a drawer tab; assets/runtime.js shows it only once the
-   in-flow toggle has scrolled away, so two toggles are never visible at once. */
+/* The launcher, twice.
+   ---------------------------------------------------------------------------
+   `.ws-runtime-cta` is the labelled button in the hero, the one a participant
+   sees on arrival. It is on the brand band, so its colours come from
+   `.epi-cta-on-band` (epitech-theme.css) and nothing about them is here.
+
+   `.ws-runtime-handle` is the same control fixed to the right edge, for once
+   the hero has scrolled away. assets/runtime.js shows it only then, so the two
+   are never on screen together — which is what the comment here always claimed
+   and what nothing implemented until the hero button existed.
+
+   It rests tucked into the edge and slides flush on hover or keyboard focus:
+   a drawer tab that answers to a pointer reads as a thing you may pull, which
+   is most of what a 100px strip can say about itself. `transform` only, inside
+   the hover-capable guard the rating buttons already use — on a touch screen
+   there is no hover to have moved it, so it just sits flush. */
+.ws-head-actions { margin: 1rem 0 0; }
+.ws-runtime-cta {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+}
+
 .ws-runtime-handle {
   position: fixed; right: 0; bottom: 2.5rem; z-index: 1025;
-  border-radius: 3px 0 0 3px; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
-  padding-left: 0.9rem;
+  display: inline-flex; align-items: center; gap: 0.45rem;
+  padding: 0.5rem 0.85rem;
+  border: 0;
+  border-radius: var(--bs-border-radius) 0 0 var(--bs-border-radius);
+  background: var(--bs-primary);
+  color: #ffffff;
+  font-size: 0.85rem; font-weight: 600; line-height: 1;
+  box-shadow: var(--epi-shadow-raised);
+  cursor: pointer;
+  transition: transform var(--epi-dur-base) var(--epi-ease-standard),
+              background-color var(--epi-dur-fast) var(--epi-ease-standard);
+}
+/* Dark mode has no shadow (DESIGN.md: a drop shadow is a smudge on a dark
+   surface), so the edge it sits against carries the separation instead. */
+[data-bs-theme="dark"] .ws-runtime-handle {
+  border-left: 1px solid color-mix(in oklab, #ffffff 22%, transparent);
+}
+@media (hover: hover) and (pointer: fine) {
+  .ws-runtime-handle { transform: translateX(0.4rem); }
+  .ws-runtime-handle:hover { transform: translateX(0); }
+}
+.ws-runtime-handle:focus-visible {
+  transform: translateX(0);
+  outline: 2px solid var(--epi-tech);
+  outline-offset: 2px;
+}
+.ws-runtime-handle:active { background: color-mix(in oklab, var(--bs-primary) 82%, black); }
+
+/* The runtime believes the active step looks done. Advisory only — it marks the
+   step, it never solves it (PLAN.md §14.3 rule 0) — so it is a tint on the
+   card, at the weight the `.ws-runtime-hint` sentence below it already has, and
+   never the solved green. The class was toggled from the first commit and had
+   no rule at all, which made the whole signal invisible. */
+.ws-step.ws-runtime-ok > .ws-step-summary .ws-step-name::after {
+  content: "";
+  display: inline-block;
+  width: 0.5rem; height: 0.5rem;
+  margin-left: 0.45rem;
+  vertical-align: 0.05rem;
+  border-radius: 50%;
+  background: var(--bs-primary);
 }
 
 /* Ratings — CTFd's own per-challenge rating, kept deliberately quiet: one

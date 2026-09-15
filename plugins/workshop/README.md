@@ -84,6 +84,17 @@ blocks the instance nor deadlocks when it calls the instance's own API.
   - `login.html` — `Forms.auth.LoginForm()`, `components/errors.html` and the `integrations.mlc()`
     branch. The form is core's field for field; only the layout around it is ours, so an upstream
     change to authentication does not have to be mirrored.
+- **The runtime pop-out renders its own page, not `base.html`** (`templates/workshop_runtime.html`,
+  PLAN.md §30). It carries one frame and one bar, so inheriting the shell only to hide a header, a
+  hero and a footer would be more markup rather than less. It therefore restates three things
+  `base.html` would have supplied, and a CTFd upgrade can move any of them:
+  - `window.init` with `urlRoot`, `csrfNonce` and `userId` — the three keys the host actually reads
+    (the user id stamps the `localStorage` bucket, the nonce signs the snapshot POST). Same names as
+    `base.html`, so the host needs no second code path.
+  - `Assets.css("assets/scss/main.scss")` plus `Plugins.styles`, the same pair every page loads.
+  - the theme, set inline from the `theme` key rather than by loading
+    `color_mode_switcher.js` — that file dereferences `.theme-switch i.fas` with no null check and
+    this page has no theme toggle to give it.
 - **The participant path is translated** through CTFd's own flask-babel. `load()` appends
   `plugins/workshop/translations` to `BABEL_TRANSLATION_DIRECTORIES`, which works because
   `Domain.translation_directories` reads that config at lookup time rather than at init, and

@@ -356,6 +356,15 @@ def main():
     check(len(branch) >= 2, "both branches unlocked & unsolved -> modal shows a choice")
     locked = next(n for n in graph["nodes"] if not n["unlocked"])
     check(locked["name"] == "???", "locked challenge name anonymized in the graph")
+    # Where a node leads. The server builds it, because only the server knows
+    # which document a challenge belongs to — and it must be the workshop page,
+    # not CTFd's own board: the board is the same steps in the presentation the
+    # workshop view replaces, and since PLAN.md §30 it is admin-only in the nav,
+    # so a Parcours node was the last participant path into it.
+    check(all(n["url"].startswith("/workshop") for n in graph["nodes"]),
+          "every graph node points at a workshop page, never at /challenges")
+    check(gmap[first]["url"].endswith(f"#step-{first}"),
+          "a node's URL is anchored at its step")
     r = requests.get(BASE + "/login")
     check("plugins/workshop/assets/graph.js" in r.text, "graph.js injected on every page")
 
@@ -365,11 +374,13 @@ def main():
     pfull = admin.api("GET", f"/pages/{parcours['id']}")
     check('id="ws-parcours"' in pfull["content"], "Parcours page hosts the graph mount point")
     check(pfull["auth_required"], "Parcours page requires authentication")
-    # Nodes are links to their challenge: the board opens whatever the URL hash
-    # names (themes/core/assets/js/challenges.js reads it on init).
+    # Nodes are links: an <a> rather than a click handler, so middle-click and
+    # ctrl-click work and the box is focusable. Where they point is asserted
+    # from the API above, which is the contract; this only checks the rendering
+    # still uses a link at all.
     asset = requests.get(BASE + "/plugins/workshop/assets/graph.js").text
-    check("ws-node-link" in asset and "/challenges#" in asset,
-          "Parcours nodes render as links to their challenge")
+    check("ws-node-link" in asset and 'setAttribute("href"' in asset,
+          "Parcours nodes render as real links to their step")
     css = requests.get(BASE + "/plugins/workshop/assets/workshop.css").text
     check(".ws-node-locked { cursor: not-allowed" in css,
           "locked nodes are not presented as clickable")
@@ -409,6 +420,15 @@ def main():
           "the part Page keeps its route but stays out of the navbar")
     check('class="epi-nav-link' in page.text and 'href="/workshop"' in page.text,
           "the shell's own Workshop entry is what leads there instead")
+    # And the raw board is not offered to a participant beside it: same steps,
+    # CTFd's own presentation, so two entries led to one place (PLAN.md §30).
+    # It stays in an admin's nav — that is the instructor it was kept for — and
+    # `/challenges` stays served either way.
+    check('href="/challenges"' not in page.text,
+          "a participant's navbar does not also offer the raw challenge board")
+    admin_page = admin.s.get(BASE + "/workshop")
+    check('href="/challenges"' in admin_page.text,
+          "an admin still has the board in the navbar")
     check("Prise en main de TIC-80" in page.text,
           "intro document folded into the page (no separate index visit)")
     check(page.text.count('class="ws-step ws-') >= len(ex_ids) + len(quiz_ids),
@@ -449,11 +469,33 @@ def main():
         check(wasm.headers.get("Content-Type") == "application/wasm",
               "wasm served as application/wasm (instantiateStreaming rejects anything else)")
         check('id="ws-runtime"' in page.text and "ws-runtime-toggle" in page.text,
-              "workshop page renders the pane and its toggle")
+              "workshop page renders the pane and its launcher")
         check("ws-runtime-frame" not in page.text,
               "no iframe in the markup — the runtime mounts lazily, on open")
-        check(page.text.count("ws-runtime-toggle") == 1 and "ws-runtime-handle" in page.text,
-              "the only toggle is the fixed handle, reachable from anywhere")
+        # Two controls, one action (PLAN.md §30): a labelled button in the hero,
+        # which is where somebody arriving is looking, and the same control
+        # fixed to the edge for once that has scrolled away. Which of the two is
+        # ON SCREEN is a browser question and is asserted in
+        # scripts/runtime_browser_check.js; what is checkable here is that both
+        # are rendered and that neither is the only one.
+        check(page.text.count("ws-runtime-toggle") == 2
+              and "ws-runtime-cta" in page.text and "ws-runtime-handle" in page.text,
+              "the launcher is rendered twice: in the hero, and as the edge tab")
+        check('data-label-window="' in page.text and 'data-label-split="' in page.text,
+              "both launcher labels are server-rendered, so they are translated")
+        # The pop-out, per document — the presentation for a viewport too narrow
+        # to split. Same host, same protocol, its own page.
+        host = s.get(f"{BASE}/workshop/pypong/runtime")
+        check(host.status_code == 200 and 'data-runtime-role="window"' in host.text,
+              "the pop-out host page is served for a document")
+        check('id="ws-runtime"' in host.text and "ws-runtime-frame" not in host.text,
+              "and mounts its frame lazily too, from the same script")
+        check("ws-runtime-split" in host.text and "ws-runtime-back" in host.text,
+              "the popped-out tab carries the way back to the subject and to the split")
+        check(requests.get(f"{BASE}/workshop/pypong/runtime").status_code in (302, 403),
+              "the pop-out host is not served to an anonymous visitor")
+        check(s.get(f"{BASE}/workshop/nope-not-a-document/runtime").status_code == 404,
+              "and 404s for a document that does not exist")
     else:
         print(f"  [skip] {dist} not built (tools/build_runtime.sh {cfg['id']})")
     r = requests.get(BASE + f"/runtime/{cfg['id']}/../../etc/passwd")

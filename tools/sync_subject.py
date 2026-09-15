@@ -939,8 +939,11 @@ def sync(subject_dir, url, admin_user, admin_pass, codes_path=None, *,
             # exception to protect — dropping it also means a subject that is
             # standalone today and grows a second part later doesn't silently
             # regress into the same wrap. `hidden` keeps the route, it only
-            # drops the link; Parcours and Challenges stay in the navbar
-            # unconditionally as the two other ways in.
+            # drops the link; the Workshop entry and Parcours stay in the
+            # navbar unconditionally as the two other ways in. (Challenges was
+            # a third until it became admin-only — PLAN.md §30 — and Parcours
+            # now leads to the workshop page rather than to the board, so both
+            # of the remaining two are the same surface these routes are.)
             "hidden": True,
             "auth_required": True,
         })

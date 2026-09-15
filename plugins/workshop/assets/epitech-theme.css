@@ -937,13 +937,24 @@ main {
   color: var(--bs-body-color);
   text-decoration: none;
 }
-/* The signed-out CTA is `.btn.btn-primary`, whose fill Bootstrap bakes as
-   --bs-primary — the band's own colour, so the button loses its edges and
-   becomes a floating label. It takes jump's `buttonNeon` pair instead
-   (epi-tech fill, epi-blue text), which is the charte's celebration CTA and is
-   exactly what this is: the one hopeful action on the signed-out shell.
-   Specificity 0,3,0 to beat Bootstrap's own .btn-primary block. */
-.epi-header .epi-auth-cta.btn-primary {
+/* A primary action ON the brand band.
+   ----------------------------------------------------------------------------
+   `.btn-primary`'s fill is --bs-primary, which IS the band's colour, so a
+   button placed on the band loses its edges and becomes a floating label. It
+   takes jump's `buttonNeon` pair instead (epi-tech fill, epi-blue text), the
+   charte's celebration CTA.
+
+   Two surfaces use it and they are the same idea both times — the one hopeful
+   action on a brand surface: "Se connecter" on the signed-out header, and
+   "open the editor" on a subject's hero (workshop.css, .ws-runtime-cta). It is
+   one class rather than two copies of nine declarations, because the next
+   button somebody puts on the band should not need a third.
+
+   Specificity 0,2,0, to beat Bootstrap's own .btn-primary block (0,1,0) — which
+   is why the class is paired with `.btn`/`.btn-primary` in the selector rather
+   than standing alone. */
+.epi-cta-on-band.btn,
+.epi-cta-on-band.btn-primary {
   --bs-btn-bg: var(--epi-tech);
   --bs-btn-border-color: var(--epi-tech);
   --bs-btn-color: var(--epi-blue);

@@ -72,6 +72,36 @@
           {% if cover and cover.tagline %}
             <p class="ws-hero-tagline">{{ cover.tagline }}</p>
           {% endif %}
+
+          {% if runtime %}
+            {# The way into the runtime, where somebody arriving is already
+               looking. It was reachable only from a tab fixed to the right edge
+               of the viewport, which is right for "from anywhere" and wrong for
+               "on arrival" — a participant has to notice a 100px tab before
+               they can use the thing they came to build in.
+
+               It is a real labelled button on the brand band, so it takes
+               jump's buttonNeon pair through `.epi-cta-on-band`
+               (epitech-theme.css): a `.btn-primary` here would be painted in
+               the band's own colour and read as a floating label.
+
+               Two labels, because the control does two different things — open
+               a pane beside the subject, or open a tab of its own — and which
+               one is the default depends on how wide the viewport is.
+               assets/runtime.js picks, and swaps the text; the markup ships the
+               narrow-screen wording so a page with no JS still says something
+               true. #}
+            <p class="ws-head-actions">
+              <button type="button"
+                      class="btn ws-runtime-toggle ws-runtime-cta epi-cta-on-band"
+                      aria-expanded="false" aria-controls="ws-runtime"
+                      data-label-split="{{ _("Open %(title)s", title=runtime.title) }}"
+                      data-label-window="{{ _("Open %(title)s in a new tab", title=runtime.title) }}">
+                <i class="fas fa-{{ runtime.icon }} ws-runtime-glyph" aria-hidden="true"></i>
+                <span class="ws-runtime-label">{{ _("Open %(title)s in a new tab", title=runtime.title) }}</span>
+              </button>
+            </p>
+          {% endif %}
       </div>
       {% if cover and cover.media %}
         {# Both frames are in the DOM and the media query picks one: a GIF cannot
@@ -190,17 +220,45 @@
 </div>
 
 {% if runtime %}
-  {# The only way to open the pane: fixed to the edge of the viewport so it is
-     reachable from anywhere in the page. Rendered hidden and revealed by
-     assets/runtime.js — the pane cannot work without that script anyway. #}
-  <button type="button" class="btn btn-primary ws-runtime-toggle ws-runtime-handle"
-          aria-expanded="false" aria-controls="ws-runtime" hidden>{{ runtime.title }}</button>
+  {# The same control as the hero button above, fixed to the edge of the
+     viewport, for once the hero has scrolled away. Exactly one of the two is
+     ever visible: assets/runtime.js watches the hero button and reveals this
+     only when it has left the screen, which is what the comment on
+     `.ws-runtime-handle` has claimed since the first commit and what nothing
+     implemented.
+
+     Rendered hidden and revealed by that script — the pane cannot work without
+     it anyway. #}
+  <button type="button" class="ws-runtime-toggle ws-runtime-handle"
+          aria-expanded="false" aria-controls="ws-runtime" hidden
+          data-label-split="{{ _("Open %(title)s", title=runtime.title) }}"
+          data-label-window="{{ _("Open %(title)s in a new tab", title=runtime.title) }}">
+    <i class="fas fa-{{ runtime.icon }} ws-runtime-glyph" aria-hidden="true"></i>
+    <span class="ws-runtime-handle-title">{{ runtime.title }}</span>
+  </button>
 
   {# The runtime pane lives OUTSIDE the scrolling document on purpose: one
      frame for the whole workshop, kept alive across steps (PLAN.md §14.3
      rule 2). The iframe itself is created lazily by assets/runtime.js — a
      workshop page must not boot an editor, or a VM, before it is asked to. #}
   <aside class="ws-runtime ws-runtime-{{ runtime.placement }}" id="ws-runtime" hidden
+         data-runtime-role="pane"
+         {# Which document this page is. The two presentations pair up over a
+            BroadcastChannel named after it, because the pop-out host is per
+            document and so is the step list here — two subject pages open at
+            once (Parcours nodes are links, and ctrl-click is the point of
+            that) must not answer for each other. #}
+         data-runtime-doc="{{ doc_slug or '' }}"
+         {# Where "open it in its own tab" goes. Only a document-scoped page has
+            one: the route is per document, because that is what tells the frame
+            which subject's parameters it is booting with. A subject synced
+            before per-document routes existed (no `workshop_documents`) keeps
+            the split pane only — stated in docs/RUNTIME_PROTOCOL.md rather than
+            left to be discovered. #}
+         {% if doc_slug %}data-runtime-window="{{ url_for('workshop_page.workshop_runtime', doc_slug=doc_slug) }}"{% endif %}
+         {# Said only when a browser refuses the tab. Server-rendered, because
+            it has to be translated and assets/runtime.js has no catalogue. #}
+         data-label-blocked="{% trans %}Your browser blocked the new tab, so it opened beside the subject instead.{% endtrans %}"
          data-runtime-id="{{ runtime.id }}"
          data-runtime-src="{{ runtime.src }}"
          data-runtime-adapter="{{ runtime.adapter }}"
@@ -214,10 +272,28 @@
     <div class="ws-runtime-resizer" role="separator" aria-orientation="vertical"
          tabindex="0" aria-label="Resize the {{ runtime.title }} pane"></div>
     <div class="ws-runtime-bar">
-      <span class="ws-runtime-title">{{ runtime.title }}</span>
-      <button type="button" class="ws-runtime-close" aria-label="Hide {{ runtime.title }}">✕</button>
+      <span class="ws-runtime-title">
+        <i class="fas fa-{{ runtime.icon }} ws-runtime-glyph" aria-hidden="true"></i>
+        {{ runtime.title }}
+      </span>
+      {# Each mode carries the way to the other one, and only that: no menu and
+         no split button. Half a viewport is too narrow to work in on a small
+         laptop, so this is the way out of the split — and the popped-out tab's
+         own bar is the way back (templates/workshop_runtime.html). Hidden when
+         there is no route to pop out to. #}
+      <button type="button" class="ws-runtime-pop epi-icon-btn" hidden
+              title="{% trans %}Open in a new tab{% endtrans %}"
+              aria-label="{% trans %}Open in a new tab{% endtrans %}">
+        <i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i>
+      </button>
+      <button type="button" class="ws-runtime-close epi-icon-btn"
+              title="{{ _("Hide %(title)s", title=runtime.title) }}"
+              aria-label="{{ _("Hide %(title)s", title=runtime.title) }}">
+        <i class="fas fa-xmark" aria-hidden="true"></i>
+      </button>
     </div>
     <div class="ws-runtime-body"></div>
+    <p class="ws-runtime-note" role="status" aria-live="polite" hidden></p>
   </aside>
 {% endif %}
 {% endblock %}

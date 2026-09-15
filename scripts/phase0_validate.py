@@ -86,7 +86,7 @@ Chaque environnement et chaque langage de programmation possède ses spécificit
 
 ---
 
-*Une fois TIC-80 pris en main, rendez-vous dans l'onglet **Challenges** pour commencer les exercices.*
+*Une fois TIC-80 pris en main, rendez-vous dans l'onglet **Atelier** pour commencer les exercices.*
 """
 
 PAD_CONTEXT = """\

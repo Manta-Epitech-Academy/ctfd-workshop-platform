@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-09-11 17:38+0200\n"
+"POT-Creation-Date: 2026-09-14 13:27+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: fr\n"
@@ -17,7 +17,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: Babel 2.18.0\n"
+"Generated-By: Babel 2.17.0\n"
 
 #, python-format
 msgid "%(n)s pts"
@@ -34,6 +34,9 @@ msgstr "Un mot à ajouter ? (facultatif)"
 
 msgid "Available now"
 msgstr "À toi de jouer"
+
+msgid "Back to the subject"
+msgstr "Retour au sujet"
 
 msgid "Back to the workshop"
 msgstr "Retour à l'atelier"
@@ -79,6 +82,10 @@ msgstr ""
 
 msgid "Good"
 msgstr "Bien"
+
+#, python-format
+msgid "Hide %(title)s"
+msgstr "Masquer %(title)s"
 
 #, python-format
 msgid "Hint (%(n)s points)"
@@ -157,6 +164,17 @@ msgstr "Noté"
 msgid "Notifications"
 msgstr ""
 
+#, python-format
+msgid "Open %(title)s"
+msgstr "Ouvrir %(title)s"
+
+#, python-format
+msgid "Open %(title)s in a new tab"
+msgstr "Ouvrir %(title)s dans un nouvel onglet"
+
+msgid "Open in a new tab"
+msgstr "Ouvrir dans un nouvel onglet"
+
 msgid "Optional — it does not count towards your progress"
 msgstr "Facultatif, ça ne compte pas dans ta progression"
 
@@ -208,6 +226,9 @@ msgstr ""
 msgid "Several ways on from here — pick one:"
 msgstr "Plusieurs suites possibles. Choisis :"
 
+msgid "Side by side"
+msgstr "Côte à côte"
+
 msgid "Start"
 msgstr "Commencer"
 
@@ -236,6 +257,13 @@ msgstr "Cette étape est juste à lire"
 msgid "This step is not available yet."
 msgstr "Cette étape n'est pas encore accessible."
 
+msgid ""
+"This tab cannot close itself. The subject is open beside it again, so you"
+" can close this one."
+msgstr ""
+"Cet onglet ne peut pas se fermer tout seul. Le sujet est de nouveau "
+"affiché à côté, tu peux fermer celui-ci."
+
 msgid "Toggle navigation"
 msgstr "Afficher le menu"
 
@@ -255,10 +283,12 @@ msgstr "Code de validation"
 msgid "View hint"
 msgstr "Voir l'indice"
 
-msgid "When the tests pass, the app shows a token — paste it here to validate the step."
+msgid ""
+"When the tests pass, the app shows a token — paste it here to validate "
+"the step."
 msgstr ""
-"Quand les tests passent, l'application affiche un jeton. Colle-le ici pour valider "
-"l'étape."
+"Quand les tests passent, l'application affiche un jeton. Colle-le ici "
+"pour valider l'étape."
 
 msgid "When your work is finished, ask the instructor for the validation code."
 msgstr "Quand ton travail est fini, demande le code de validation à l'encadrant."
@@ -274,6 +304,10 @@ msgstr "Atelier terminé. Beau travail."
 
 msgid "Workshop parts"
 msgstr "Parties de l'atelier"
+
+msgid "Your browser blocked the new tab, so it opened beside the subject instead."
+msgstr ""
+"Ton navigateur a bloqué le nouvel onglet, donc il s'ouvre à côté du sujet."
 
 msgid "available"
 msgstr "accessible"

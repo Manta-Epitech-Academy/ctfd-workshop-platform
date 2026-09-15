@@ -133,7 +133,11 @@ the theme icon is contractually Font Awesome, and two icon sets inside one 32px 
 worse than either alone. Font Awesome is already loaded by core, so this also vendors nothing.
 
 **What the header carries**, and what left: nav is Workshop (added — it was previously reachable
-only by clicking the logo), the Pages loop, Scoreboard, Challenges. The right cluster is
+only by clicking the logo), the Pages loop, Scoreboard, and Challenges **for admins only**. That
+last one is the same steps as the workshop view in CTFd's own presentation, so for a participant it
+was a second entry to one place, and the one that shows a subject as a grid of point values; the
+instructor it was kept for is an admin here. `/challenges` stays served and reachable by URL —
+this drops the link, not the route (PLAN.md §30). The right cluster is
 notifications, theme, and a named account menu holding Profile, Team, Settings, Admin Panel and
 Logout — six former navbar entries at `jump`'s three-control density. **Dropped**: the language
 picker (all platform strings are English until a later i18n phase, per `CLAUDE.md`) and the
@@ -329,6 +333,46 @@ The scroll to the next step has to read the preference **in JavaScript**. An exp
 `scroll-behavior: auto !important` — the CSS property is only consulted when the JS behaviour is
 `"auto"` — so the global opt-out does not reach it, and somebody who asked for no motion was still
 getting the one animation on the page that moves their whole viewport.
+
+## Reaching the runtime — two controls, one action
+
+The runtime is where a participant spends the session, so getting to it is not furniture. It is one
+action with two presentations of its control, and **never both on screen** (PLAN.md §30):
+
+- **`.ws-runtime-cta`**, a labelled button in the page's hero, which is where somebody arriving is
+  looking. The edge tab alone was right for *from anywhere* and wrong for *on arrival*: nobody has
+  to notice a 100px strip before they can open the thing they came to build in.
+- **`.ws-runtime-handle`**, the same control fixed to the right edge, revealed by one
+  `IntersectionObserver` once the hero button has scrolled off. That is what the element's own CSS
+  comment claimed from the first commit; the in-flow toggle it referred to did not exist until now,
+  so the tab was simply always there and the hero had nothing.
+
+The tab **rests tucked 0.4rem into the edge and slides flush on hover or keyboard focus**, inside
+the `(hover: hover) and (pointer: fine)` guard the rating thumbs already use — a drawer tab that
+answers to a pointer says most of what a 100px strip can say about itself, and on a touch screen
+there is no hover to have moved it, so it sits flush. `transform` only, `--epi-dur-base`.
+
+**`.epi-cta-on-band` is a primitive, not a one-off.** A `.btn-primary` on the brand band is painted
+in the band's own colour and loses its edges, so it takes `jump`'s `buttonNeon` pair
+(`--epi-tech` fill, `--epi-blue` text) instead. Two surfaces are the same idea — the one hopeful
+action on a brand surface: "Se connecter" on the signed-out header, and "open the editor" on a
+subject's hero. It was written for the first and copied for none, so it is one class now. Paired
+with `.btn`/`.btn-primary` in the selector to reach 0,2,0 and beat Bootstrap's own block.
+
+**The glyph is Font Awesome and comes from the runtime id**, mapped host-side in `runtime.py` beside
+the adapter path it already derives — so a subject repository needs no new field and no asset to get
+a mark on the button. Same deviation as the header's icons, and for the same reason: one icon set
+per page.
+
+**Not in the navbar.** The shell is global and knows nothing about a subject, so the control would
+have to appear and disappear per page, and the right-hand cluster is `jump`'s density of three. A
+page-scoped action does not belong in the app shell.
+
+**The pane's chrome is the header's.** `.ws-runtime-bar`'s controls are `.epi-icon-btn`, not one-off
+buttons: closing a pane and popping it out are the same gesture as every other icon control on the
+platform, and the bar is the same element in the split and in the popped-out tab. Exactly one
+element in that bar grows, and the stylesheet says which — the title in the pane, the part name in
+the tab, where it is the one thing that says which workshop this is.
 
 ## Everything that can be pressed says so
 

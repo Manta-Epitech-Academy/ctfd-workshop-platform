@@ -10,7 +10,14 @@ graph server-side and applies the same visibility rules as the board:
 locked challenge names are hidden ('???') unless the user has unlocked
 (prereqs met) or solved them.
 
-Node: {id, name, category, position, solved, unlocked, prerequisites: [id]}
+Node: {id, name, category, position, solved, unlocked, prerequisites: [id],
+       url}
+
+`url` is where the step can be done — a workshop page, anchored at the step
+(see links.step_href). The server builds it because only the server knows which
+document a challenge belongs to; before it did, the Parcours page linked every
+node to CTFd's own challenge board, which is the surface the workshop view
+exists to replace (PLAN.md §30).
 Edges are the reverse of prerequisites (next[a] = [b, ...]) and are derivable
 client-side; we also return them precomputed for convenience.
 """
@@ -21,6 +28,8 @@ from CTFd.utils.challenges import get_solve_ids_for_user_id
 from CTFd.utils.decorators import authed_only, during_ctf_time_only
 from CTFd.utils.decorators.visibility import check_challenge_visibility
 from CTFd.utils.user import get_current_user
+
+from .links import step_href, step_pages
 
 workshop_api = Blueprint("workshop_api", __name__)
 
@@ -51,6 +60,8 @@ def graph():
     def unlocked(c):
         return set(prereqs(c)).issubset(solved)
 
+    pages = step_pages()
+
     nodes, next_map = [], {}
     for c in challenges:
         pr = prereqs(c)
@@ -64,6 +75,7 @@ def graph():
             "solved": c.id in solved,
             "unlocked": is_unlocked,
             "prerequisites": pr,
+            "url": step_href(c.id, pages),
         })
         for p in pr:
             next_map.setdefault(p, []).append(c.id)

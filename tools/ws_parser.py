@@ -775,6 +775,22 @@ def _lint_problems(subject_dir):
         return [str(e)], None
     answers = load_quiz_answers(subject_dir)
     flags = load_flags(subject_dir)
+    # The importer resolves `project.entrypoint` against these documents to build
+    # the index page and the opening step, and it does so after the images have
+    # been uploaded — in a workshop, after the earlier subjects have been
+    # imported whole. Checked here it costs a lint run instead of an instance in
+    # a state nobody asked for. Nothing else checks the pairing: every other
+    # check reads one document on its own.
+    entry = (subject.manifest.get("project") or {}).get("entrypoint")
+    declared = [d.path for d in subject.documents]
+    if not entry:
+        problems.append("subject.yaml: no `project.entrypoint`. It names the "
+                        "document a participant reads first, which becomes the "
+                        "front page and the first step.")
+    elif entry not in declared:
+        problems.append(f"subject.yaml: `project.entrypoint` is {entry!r}, which is "
+                        f"not one of `documents:` "
+                        f"({', '.join(declared) or 'none'})")
     for ex in subject.exercises:
         if ex.validation not in IMPLEMENTED_VALIDATIONS:
             problems.append(f"exercise {ex.slug!r}: validation {ex.validation!r} is "

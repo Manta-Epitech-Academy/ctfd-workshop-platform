@@ -138,6 +138,26 @@ def doc_slug(doc):
     return re.sub(r"[^a-z0-9]+", "-", Path(doc.path).stem.lower()).strip("-")
 
 
+def entry_document(subject):
+    """The document a participant reads first — `project.entrypoint`.
+
+    One reader of that pairing rather than one per importer. `lint` refuses a
+    subject whose entrypoint names no declared document (ws_parser), and every
+    path in here lints before it writes anything, so this raise is the second
+    lock rather than the check. It exists at all because the expression it
+    replaces was a bare `next()`, which fails with an empty message: the admin
+    sync page showed `StopIteration:` and nothing else.
+    """
+    entry = (subject.manifest.get("project") or {}).get("entrypoint")
+    doc = next((d for d in subject.documents if d.path == entry), None)
+    if doc is None:
+        raise ValueError(
+            f"{subject.slug}: `project.entrypoint` is {entry!r}, which is not one "
+            f"of the documents it declares "
+            f"({', '.join(d.path for d in subject.documents) or 'none'})")
+    return doc
+
+
 CONTEXT_OPEN = "<!-- ws:context -->"
 CONTEXT_CLOSE = "<!-- /ws:context -->"
 # The author's short version (convention §3.4) rides in the description the
@@ -690,14 +710,17 @@ def sync(subject_dir, url, admin_user, admin_pass, codes_path=None, *,
         print(f"instructor codes written to {codes_file}")
 
     # 1. entrypoint document -> index page
-    entry = subject.manifest["project"]["entrypoint"]
-    entry_doc = next(d for d in subject.documents if d.path == entry)
+    entry_doc = entry_document(subject)
     # In a workshop of several subjects the public index belongs to the
     # workshop, not to whichever subject synced last (PLAN.md §19).
-    # Upserted, not patched: the setup wizard creates an index page, but an
-    # instance booted with PRESET_CONFIGS {"setup": true} (the k8s deploy)
-    # skips the wizard and has no pages at all — `/` is a 404 until this runs.
     if standalone:
+        # Upsert, never PATCH by id. CTFd creates the `index` page in the setup
+        # wizard, and /admin/reset with "Pages" ticked deletes every Page
+        # including that one (CTFd/CTFd/admin/__init__.py:234) while leaving
+        # `setup` true. An instance someone just reset is exactly the instance
+        # about to be synced, so assuming the page is there made the whole
+        # import die on a bare StopIteration, after the images had been
+        # uploaded and with nothing in the log naming the cause.
         upsert_page(ctfd, "index", {
             "title": entry_doc.title, "route": "index", "content": entry_doc.body_md,
             "format": "markdown", "draft": False, "hidden": False,
@@ -747,16 +770,11 @@ def sync(subject_dir, url, admin_user, admin_pass, codes_path=None, *,
             outro_position[closes_after[order].path] = order + offset + inserted
 
     # 1c. Parcours path-graph page (platform UI, filled by graph.js). Idempotent.
-    parcours = next((p for p in ctfd.api("GET", "/pages") if p["route"] == "parcours"), None)
-    parcours_payload = {
+    upsert_page(ctfd, "parcours", {
         "title": "Parcours", "route": "parcours",
         "content": "# Parcours\n\n<div id=\"ws-parcours\">Loading the path graph…</div>",
         "format": "markdown", "draft": False, "hidden": False, "auth_required": True,
-    }
-    if parcours:
-        ctfd.api("PATCH", f"/pages/{parcours['id']}", json=parcours_payload)
-    else:
-        ctfd.api("POST", "/pages", json=parcours_payload)
+    })
     print("page: 'Parcours' -> /parcours")
 
     # 1d. runtime declaration -> CTFd config, read back by the workshop page

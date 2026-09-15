@@ -68,6 +68,29 @@ image ships 45.
 The job runs in a thread, which is a greenlet under the gevent worker, so an import neither
 blocks the instance nor deadlocks when it calls the instance's own API.
 
+## The way in from Jump (PLAN.md §31)
+
+Jump is the only door into a workshop instance. `jump.py` verifies a short HMAC-signed ticket at
+`GET /jump/enter?t=…`, creates the account on first arrival with **no password** (so CTFd's own
+local sign-in refuses it), and opens the session. `jumpqueue.py` overrides `QuizChallenge.solve()`
+to queue the solve in `workshop_jump_event` and a background drainer posts a signed progress
+callback, so a slow or absent Jump never slows a participant down.
+
+Two config keys, both provisioned by `tools/provision.py`: `workshop_jump_keys`
+(`{kid: {origin, secret, label}}`) and `workshop_jump_instance` (this instance's slug). Empty
+means every ticket is refused. `/admin/workshop/jump` edits both and shows the outbox.
+
+**A label is owned by the accounts it namespaces, not by the key row that declares it.** Each
+link row records it (`jump_label`, revision 2), and both the settings page and `resolve_account`
+refuse a second key id taking a label that already has accounts behind it — the configuration is
+rewritten wholesale by provisioning, so a rule enforced against it stops holding the first time
+somebody renames a key id.
+
+The ticket is not a JWT because there is no JWT library in the image and none can be added — the
+Dockerfile's plugin-requirements loop runs at build time over the `./CTFd` context while this
+plugin arrives at run time as a bind mount. See the `jump.py` docstring for the frozen wire
+contract shared with the Jump repository; changing either half means changing both.
+
 ## Portability notes (for future CTFd upgrades)
 
 - Structure copied from `CTFd/plugins/dynamic_challenges` — if that plugin still works on
@@ -83,7 +106,10 @@ blocks the instance nor deadlocks when it calls the instance's own API.
   - `page.html` — that `views.static_html` still passes `title` alongside `content`.
   - `login.html` — `Forms.auth.LoginForm()`, `components/errors.html` and the `integrations.mlc()`
     branch. The form is core's field for field; only the layout around it is ours, so an upstream
-    change to authentication does not have to be mirrored.
+    change to authentication does not have to be mirrored. It also carries the **"Continue with
+    Jump" button**, in its own `{% raw %}{% if jump_enabled() %}{% endraw %}` above the MLC branch
+    and never nested in it — so the MLC path stays byte for byte what core renders, and an upstream
+    change to it is a straight re-copy.
 - **The runtime pop-out renders its own page, not `base.html`** (`templates/workshop_runtime.html`,
   PLAN.md §30). It carries one frame and one bar, so inheriting the shell only to hide a header, a
   hero and a footer would be more markup rather than less. It therefore restates three things
@@ -122,6 +148,22 @@ blocks the instance nor deadlocks when it calls the instance's own API.
   machinery, so they survive a CTFd upgrade as long as the admin theme keeps that block.
   `answers.py` additionally reads the `workshop_validation` config key written by the sync; if
   it is missing the page infers the mode and says so, so an un-synced instance still renders.
-- Tables are created by `app.db.create_all()` in `load()` (new tables only). If a future
-  change **alters** a column, add a `migrations/` directory and switch to
-  `CTFd.plugins.migrations.upgrade(plugin_name="workshop")`.
+- Tables are created by `app.db.create_all()` in `load()` (new tables only), **and then**
+  `CTFd.plugins.migrations.upgrade(plugin_name="workshop")` runs `migrations/`. Both, not either:
+  the quiz and workspace tables predate the migrations directory and are in no revision, while
+  `create_all()` never issues an `ALTER`, so any future column change has to be a revision or it
+  surfaces as an `OperationalError` at request time on every instance at once. Revisions are
+  written by hand and must be idempotent (`if "<table>" in get_all_tables(op): return`) — on a
+  fresh instance `create_all()` has already built the table by the time the revision runs. The
+  current head is in the `workshop_alembic_version` config key. `upgrade()` short-circuits to
+  `create_all()` on sqlite, so a revision is only ever exercised on MySQL/MariaDB or Postgres.
+- **The Jump handoff (`jump.py`, `jumpqueue.py`) is the plugin's only authentication code**, and
+  it deliberately bypasses the instance's registration path — see the `jump.py` docstring. Its
+  touch points with core are `login_user`, `session.regenerate()`, `cache.add`, `Users`, and
+  `CTFd.plugins.migrations`. Two of those are worth re-reading after an upgrade:
+  - `session.regenerate()` — copied from the local sign-in path (`auth.py`), not the OAuth one,
+    which does not regenerate. If upstream changes how a session is rotated, this must follow it.
+  - `cache.add` for single-use tickets. It must stay a SETNX; a get-then-set has a window, and
+    two requests carrying one ticket would both succeed. Note that `cache.inc` is **not** usable
+    beside it: flask-caching pickles what it stores, so redis `INCR` on a key written through
+    `cache.set` fails.

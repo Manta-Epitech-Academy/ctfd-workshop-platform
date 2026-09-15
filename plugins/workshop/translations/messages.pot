@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-09-14 13:27+0000\n"
+"POT-Creation-Date: 2026-09-15 16:04+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -31,6 +31,9 @@ msgid "Anything to add? (optional)"
 msgstr ""
 
 msgid "Available now"
+msgstr ""
+
+msgid "Back to the home page"
 msgstr ""
 
 msgid "Back to the subject"
@@ -57,6 +60,13 @@ msgstr ""
 msgid "Continue"
 msgstr ""
 
+msgid "Continue with Jump"
+msgstr ""
+
+#, python-format
+msgid "Continue with Jump (%(label)s)"
+msgstr ""
+
 msgid "Correct"
 msgstr ""
 
@@ -76,6 +86,9 @@ msgid "Finish"
 msgstr ""
 
 msgid "Forgot your password?"
+msgstr ""
+
+msgid "Go back to Jump and click the activity again to get a new one."
 msgstr ""
 
 msgid "Good"
@@ -227,6 +240,9 @@ msgstr ""
 msgid "Side by side"
 msgstr ""
 
+msgid "Signing in below is for staff. Participants come through Jump."
+msgstr ""
+
 msgid "Start"
 msgstr ""
 
@@ -247,6 +263,12 @@ msgid "Thanks for the feedback!"
 msgstr ""
 
 msgid "Thanks!"
+msgstr ""
+
+msgid "The workshop is not open yet"
+msgstr ""
+
+msgid "This link is no longer valid"
 msgstr ""
 
 msgid "This step is just something to read"
@@ -297,6 +319,9 @@ msgid "Workshop complete, nice work."
 msgstr ""
 
 msgid "Workshop parts"
+msgstr ""
+
+msgid "You are signed in. Come back when your instructor opens it."
 msgstr ""
 
 msgid "Your browser blocked the new tab, so it opened beside the subject instead."

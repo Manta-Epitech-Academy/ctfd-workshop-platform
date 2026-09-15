@@ -31,7 +31,7 @@ from itertools import groupby
 from flask import (Blueprint, abort, current_app, jsonify, redirect,
                    render_template, url_for)
 
-from CTFd.models import Challenges, Hints, HintUnlocks, Ratings
+from CTFd.models import Hints, HintUnlocks, Ratings
 from flask_babel import lazy_gettext as _l
 
 from CTFd.utils import get_config
@@ -47,6 +47,14 @@ from CTFd.utils.user import get_current_user
 from .links import documents as _documents
 from .links import step_href, step_pages
 from .mode import is_self_serve
+# The counted population and the two numbers derived from it live in
+# progress.py, so the admin report and the Jump outbox count what this page
+# renders rather than a second opinion of it. Aliased to the private names
+# this module already used, so its call sites are unchanged.
+from .progress import NON_TASK_KINDS, count_steps, counts
+from .progress import id_set as _id_set
+from .progress import optional_ids as _optional_ids
+from .progress import ordered_challenges as _ordered_challenges
 from .runtime import declared_runtime
 
 workshop_page = Blueprint(
@@ -61,22 +69,6 @@ DONE, CURRENT, TODO, LOCKED = "done", "current", "todo", "locked"
 # not become CURRENT either — "in progress" is meaningless for something with
 # no control.
 INFO = "info"
-
-# A pure note is text rather than work: it stays out of the progress counters
-# and never becomes the current step. `rating` is NOT in here on purpose — the
-# workshop rating is the last step and it counts, so the bar reads 14/15 until
-# it is given. Nobody abandons a workshop at 93%; that is the whole point.
-NON_TASK_KINDS = ("info",)
-
-
-def _ordered_challenges():
-    """Board order = the reading order the sync wrote into `position`."""
-    return (
-        Challenges.query.filter(Challenges.state != "hidden")
-        .order_by(Challenges.position.is_(None), Challenges.position, Challenges.id)
-        .all()
-    )
-
 
 def _prerequisites(challenge, known_ids):
     reqs = (challenge.requirements or {}).get("prerequisites", [])
@@ -278,7 +270,7 @@ def _steps(user):
             "type": c.type,
             "state": state,
             "solved": is_solved,
-            "counts": not informational and c.id not in optional,
+            "counts": counts(c, optional),
             # Distinct from `counts`, which is also false for a plain note: this
             # one means "bonus work", and it is what the step summary shows. A
             # participant who does not read the chapter intro has no other way
@@ -308,12 +300,11 @@ def _aggregate(members):
     "in progress"; the groups after it are TODO or LOCKED. That is what makes
     the index readable at a glance: one card says "you are here".
     """
-    counted = [s for s in members if s["counts"]]
-    done = sum(1 for s in counted if s["solved"])
-    if not counted:
+    done, total = count_steps(members)
+    if not total:
         # A group of pure reading (the outro): it has no score to show.
         state = LOCKED if all(s["state"] == LOCKED for s in members) else INFO
-    elif done == len(counted):
+    elif done == total:
         state = DONE
     elif any(s["state"] == CURRENT for s in members):
         state = CURRENT
@@ -321,7 +312,7 @@ def _aggregate(members):
         state = LOCKED
     else:
         state = TODO
-    return {"state": state, "done": done, "total": len(counted)}
+    return {"state": state, "done": done, "total": total}
 
 
 LEAD_TITLE = re.compile(r"\A\s*<p>\s*<strong>(.*?)</strong>\s*</p>", re.S)
@@ -382,27 +373,6 @@ def _parts(steps, page_title=None):
     return parts
 
 
-def _id_set(config_key):
-    """A set of challenge ids the sync wrote to a config, or empty."""
-    raw = get_config(config_key)
-    if not raw:
-        return set()
-    try:
-        return set(json.loads(raw))
-    except (TypeError, ValueError):
-        return set()
-
-
-def _optional_ids():
-    """Steps that are bonus work: they count towards nothing.
-
-    Written by the sync from `optional: true` in the content. Without this a
-    subject with bonus steps can never read 100%, and 100% is what gets the
-    end-of-workshop feedback in (see the rating step).
-    """
-    return _id_set("workshop_optional")
-
-
 def _free_ids():
     """Steps belonging to a `topology: free` chapter — a menu, not a chain.
 
@@ -425,7 +395,7 @@ def _final_step_id():
     raw = get_config("workshop_final_step")
     # `get_config` hands back an int when the stored string is all digits
     # (CTFd/utils/__init__.py:51), so this one arrives already parsed — unlike
-    # the id *lists* above, which stay strings and need json.loads.
+    # the id *lists* (progress.id_set), which stay strings and need json.loads.
     if isinstance(raw, int):
         return raw
     try:
@@ -534,10 +504,7 @@ def _render(user, keep_ids=None, title=None, subject=None, next_doc=None,
     documents = _documents()
     _resolve_links(steps, documents, {s["id"] for s in steps})
     _open_states(steps)
-    # Both halves of the ratio count the same population, or the outro would
-    # push it to "15 / 14".
-    solved_count = sum(1 for s in steps if s["counts"] and s["solved"])
-    total_count = sum(1 for s in steps if s["counts"])
+    solved_count, total_count = count_steps(steps)
     return render_template(
         "workshop_page.html",
         parts=_parts(steps, title),
@@ -671,6 +638,7 @@ def workshop():
                                 doc_slug=documents[0]["slug"]))
 
     cards, steps = _index_cards(user, documents)
+    index_solved, index_total = count_steps(steps)
     subjects = _subjects()
     # The index belongs to the workshop, not to one subject, so it shows the
     # starter's cover: it is the first thing anyone does, and it is what the
@@ -684,8 +652,8 @@ def workshop():
         subjects=subjects,
         cover=subjects.get(first_subject) or {},
         page_title=get_config("ctf_name"),
-        solved_count=sum(1 for s in steps if s["counts"] and s["solved"]),
-        total_count=sum(1 for s in steps if s["counts"]),
+        solved_count=index_solved,
+        total_count=index_total,
     )
 
 

@@ -34,8 +34,10 @@ from CTFd.utils import get_config
 from CTFd.utils.decorators import admins_only
 
 from .mode import LABELS as MODE_NAMES, current_mode, is_self_serve
-from .page import (NON_TASK_KINDS, _documents, _optional_ids,
-                   _ordered_challenges, _validation_modes)
+from .page import _documents, _validation_modes
+from .progress import counts as _counts
+from .progress import optional_ids as _optional_ids
+from .progress import ordered_challenges as _ordered_challenges
 
 workshop_answers = Blueprint("workshop_answers", __name__,
                              template_folder="templates")
@@ -245,9 +247,9 @@ def _attendees(challenges, optional):
     normal CTFd user (there is no third type), so it would otherwise sit in
     this table as if it were a participant.
     """
-    counted = [c for c in challenges
-               if getattr(c, "quiz_type", None) not in NON_TASK_KINDS
-               and c.id not in optional]
+    # progress.counts, not a second copy of the rule: this column and the
+    # ratio the participant reads on /workshop have to be the same number.
+    counted = [c for c in challenges if _counts(c, optional)]
     total = len(counted)
     counted_ids = {c.id for c in counted}
     names = {c.id: c.name for c in challenges}

@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{#
+  One page, one sentence: the ticket was refused, or the workshop is not open
+  yet. Participant-facing, so both strings come from jump.py already
+  translated; this file only lays them out.
+
+  Why a page rather than `info_for` plus a redirect to `/`: `get_infos()`
+  filters flashes by `request.endpoint`, and `views.static_html` never calls
+  it, so a flash aimed at the front page renders nowhere at all. See the note
+  on `_notice` in jump.py.
+
+  Shaped like templates/page.html — the same brand band, the same container —
+  so a talent who lands here does not feel they fell off the platform.
+#}
+
+{% block content %}
+  <div class="epi-hero epi-hero-compact">
+    <div class="epi-hero-inner">
+      <h1 class="epi-hero-title epi-title-cursor">{{ notice_title }}</h1>
+    </div>
+  </div>
+
+  <div class="container">
+    <p class="lead">{{ notice_message }}</p>
+    <p>
+      <a class="btn btn-secondary" href="{{ url_for('views.static_html') }}">
+        {% trans %}Back to the home page{% endtrans %}
+      </a>
+    </p>
+  </div>
+{% endblock %}

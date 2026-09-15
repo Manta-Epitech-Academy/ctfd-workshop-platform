@@ -19,6 +19,9 @@
   same errors include, same Major League Cyber branch, same nonce. Only the
   layout around it is ours, so an upstream change to how CTFd authenticates does
   not have to be mirrored here.
+
+  One addition of our own: the "Continue with Jump" button, in its own `{% if %}`
+  above the MLC branch. See the comment where it is rendered.
 #}
 
 {% block content %}
@@ -45,6 +48,39 @@
       <h1 class="epi-login-title epi-title-cursor">{% trans %}Login{% endtrans %}</h1>
 
       {% include "components/errors.html" %}
+
+      {#
+        The handover, made visible. A talent is not supposed to reach this page
+        at all — they arrive on /jump/enter already signed in — but the ones who
+        do are the ones who bookmarked the URL or were sent it, and a form they
+        have no credentials for is a dead end. This is the way out.
+
+        Its own `{% if %}`, above the Major League Cyber branch and never
+        inside it, so the upstream MLC path below stays byte for byte what core
+        renders.
+
+        One button per configured key, labelled only when there are several:
+        with two, this instance really does serve two Jump environments and
+        picking one silently would send half the talents to the wrong door.
+      #}
+      {% if jump_enabled() %}
+        {% set keys = jump_keys() %}
+        {% for kid, key in keys.items() %}
+          <a class="btn btn-primary btn-lg btn-block w-100 mb-2" href="{{ key.origin }}">
+            {%- if keys|length > 1 -%}
+              {% trans label=key.label %}Continue with Jump ({{ label }}){% endtrans %}
+            {%- else -%}
+              {% trans %}Continue with Jump{% endtrans %}
+            {%- endif -%}
+          </a>
+        {% endfor %}
+
+        <hr>
+
+        <p class="text-muted small">
+          {% trans %}Signing in below is for staff. Participants come through Jump.{% endtrans %}
+        </p>
+      {% endif %}
 
       {% if integrations.mlc() %}
         <a class="btn btn-secondary btn-lg btn-block w-100" href="{{ url_for('auth.oauth_login') }}">

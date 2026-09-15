@@ -324,6 +324,51 @@ from `content/` in this checkout. The two can disagree after a page sync, which
 is what the recorded commit on the page is for.
 
 
+## 6d. The way in from Jump
+
+Every instance is reachable from Jump and, for a talent, only from Jump
+(PLAN.md §31). Jump mints a short signed ticket, opens
+`https://<host>/jump/enter?t=...` in a new tab, and the plugin creates the
+account on first arrival, opens the session and lands the talent on the
+workshop. Solved steps are queued locally and posted back to Jump so XP land
+without anybody running a script against the database.
+
+Two things have to agree, and `provision.py setup` writes both:
+
+| Config key | What it is |
+|---|---|
+| `workshop_jump_instance` | this instance's slug, which a ticket names as `workshop:<slug>`. Defaults to the instance name; set `jump_slug:` on an instance to override it. **Empty means every ticket is refused**, which is how a half-configured instance fails safely. |
+| `workshop_jump_keys` | `{key id: {origin, secret, label}}` — the Jump environments allowed to send talents here. Declared in `deploy/instances.yaml` under `defaults.jump:` (or per instance), with the secret merged in from `deploy/secrets.yaml`. |
+
+**The shared secret is one value per Jump environment, not per instance.** A
+Jump deployment reads a single `WORKSHOP_TICKET_SECRET`, so `provision.py`
+mints one secret per key id into `deploy/secrets.yaml` under `jump_secrets:`
+and prints it the first time. Copy that value into the matching Jump
+environment. If Jump already has a secret, put it into `secrets.yaml` **before**
+the first `provision.py` run — like every other value in that file it is minted
+once and then left alone.
+
+The `label` on each key namespaces the accounts that environment creates
+(`<talentId>@<label>.jump.invalid`). It is what keeps a talent from the dev Jump
+off a production scoreboard when one instance serves both, so a label belongs
+to the accounts it namespaces: once a key id has created one, no other key id
+may take that label and that key id may not walk away from it. Both are
+refused at the point of saving rather than silently orphaning the accounts —
+including the case that looks innocent, renaming a key id in
+`deploy/instances.yaml` while keeping its label.
+
+`/admin/workshop/jump` shows the same settings on a running instance, plus the
+outbox: what is still owed to Jump, what failed, and a button to send it again.
+That page is the answer to "the XP did not arrive".
+
+Accounts created this way have **no password at all**, which is what makes the
+rule enforceable rather than advisory: CTFd refuses local sign-in to a
+passwordless account, so there is no second door. It also means these instances
+hold no email address anybody can reach — `.invalid` is reserved by RFC 2606 —
+which matters on a third-party host with a public scoreboard and an audience
+under 18.
+
+
 ## 7. Verify before anyone arrives
 
 Per instance, in a browser: the landing page redirects to `/workshop`, the

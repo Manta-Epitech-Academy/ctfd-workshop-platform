@@ -57,6 +57,7 @@ from CTFd.models import Challenges, Ratings, db
 from CTFd.plugins.challenges import BaseChallenge
 from CTFd.utils.user import get_current_user
 
+from .jumpqueue import enqueue_solve
 from .mode import is_self_serve
 
 
@@ -249,6 +250,26 @@ class QuizChallenge(BaseChallenge):
         data = super().read(challenge)
         data.update({"quiz_type": challenge.quiz_type, "quiz_spec": challenge.quiz_spec})
         return data  # quiz_answers deliberately absent
+
+    @classmethod
+    def solve(cls, user, team, challenge, request):
+        """Record the solve, then queue it for Jump. Two statements, no network.
+
+        The order matters: `super().solve` is what writes the `Solves` row and
+        raises `ChallengeSolveException` on a duplicate, which the API turns
+        into "already solved" — so queuing after it means a duplicate submit
+        never queues anything.
+
+        The queue write is wrapped because a participant's solve must never
+        fail over a reporting problem. What is lost is a row the pull
+        reconciler will pick up; what would be lost otherwise is the student's
+        work, which is not a trade this feature is allowed to make.
+        """
+        super().solve(user, team, challenge, request)
+        try:
+            enqueue_solve(user.id, challenge.id)
+        except Exception:  # noqa: BLE001
+            db.session.rollback()
 
     @classmethod
     def attempt(cls, challenge, request):

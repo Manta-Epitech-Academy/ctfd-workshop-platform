@@ -34,6 +34,29 @@ defaults:
   locale: fr                # the audience is French lycéens; a participant can
                             # still change it per account in /settings
 
+  # The Jump environments allowed to send talents here (PLAN.md §31). One entry
+  # per environment, because one instance serving both the dev Jump and the
+  # production one is exactly what a demo needs and costs nothing to allow.
+  #
+  # The key id is what a ticket carries, and the `origin` below — never the
+  # ticket — is where this instance reports progress back to, so nobody can
+  # redirect its callbacks. The `label` namespaces the accounts that
+  # environment creates: it is what keeps a dev talent out of a production
+  # scoreboard, so it must differ between entries and must not be renamed once
+  # accounts exist.
+  #
+  # **No secrets here.** provision.py mints one shared secret per key id into
+  # deploy/secrets.yaml (gitignored) and prints it; paste it into that Jump
+  # environment's WORKSHOP_TICKET_SECRET. If Jump already has one, put it in
+  # secrets.yaml under `jump_secrets:` first and provision.py will keep it.
+  jump:
+    jump-prod:
+      origin: https://epiboost.fr
+      label: prod
+    jump-dev:
+      origin: https://epiboost.eu
+      label: dev
+
 # `source` is the repository an instance imports from when somebody presses Sync
 # on /admin/workshop/sync (PLAN.md §26). `content:` stays what the command line
 # imports from this checkout; the two are the same content, and the page records

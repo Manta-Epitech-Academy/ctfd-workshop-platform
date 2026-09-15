@@ -29,6 +29,7 @@ from .checkpoint import load_checkpoint
 from .syncpage import load_syncpage
 from .shell import load_shell
 from .jump import load_jump
+from .jumpqueue import load_jump_queue
 from .quiz import QuizChallenge
 
 
@@ -136,6 +137,7 @@ def load(app):
     # the talent earns XP without a script being run by hand on the database.
     # Both halves are ours — nothing under CTFd/ moves for either.
     load_jump(app)
+    load_jump_queue(app)
     register_admin_plugin_menu_bar("Jump", "/admin/workshop/jump")
     register_plugin_assets_directory(app, base_path="/plugins/workshop/assets/")
     # Caps hint images (the theme only caps description images) — see

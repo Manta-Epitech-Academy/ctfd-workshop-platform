@@ -589,6 +589,28 @@ And keep `deploy/secrets.yaml` with the backups: without it the dumps restore
 into instances nobody can log into.
 
 
+## Runtimes on a proxy (k8s)
+
+Everything above serves the dists off the server's disk. On Kubernetes there is
+no shared disk: the dists ship instead in one nginx image,
+[kevin-cazal/workshop-runtimes](https://github.com/kevin-cazal/workshop-runtimes),
+which sits in front of CTFd — `/runtime/` from the image, everything else
+proxied to CTFd. Its README and `k8s/example.yaml` are the deploy.
+
+CTFd shows the runtime pane only when `plugins/workshop/runtimes/<id>/<version>/`
+exists on its own disk, and in that shape it never does. Set this on the CTFd
+container:
+
+```
+WORKSHOP_RUNTIMES_ON_PROXY=1
+```
+
+CTFd then trusts the subject's declaration and always renders the pane. What
+that gives up: the check that caught a runtime declared but not built. The
+image covers the version half of it — it redirects any version of a runtime it
+carries to the build it has — but a runtime id the image does not carry is now
+a 404 inside the pane, and the sync page no longer warns about it.
+
 ## Things that will bite
 
 - **A plugin change needs a container restart.** `plugins/workshop/` is bind

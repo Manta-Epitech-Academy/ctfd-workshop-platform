@@ -77,8 +77,9 @@
   var handle = null, cta = null;
   var mode = MODE_SPLIT;
   var channel = null;
-  var popup = null;          // the popped-out tab, while this page opened it
-  var popupLive = false;     // ...or while one announced itself on the channel
+  var popupLive = false;     // is a popped-out tab up? It says so on the channel,
+                             // which is the only handle worth keeping: a window
+                             // reference goes stale on either side's reload.
   var remoteStep = null;     // the active step, when this window has no DOM
 
   /* ---------- who this window is ---------- */
@@ -131,8 +132,14 @@
           send({ k: "step", step: stepPayload() });
           break;
         case "bye":
+          // The tab is gone, so nothing outranks the participant's own
+          // preference any more. `hello` can have moved this page into
+          // `window` mode silently — it does that for a tab still open from
+          // an earlier session — and without this a wide screen stayed there
+          // afterwards, offering a new tab where it defaults to the split and
+          // where nobody ever asked for anything else.
           popupLive = false;
-          popup = null;
+          setMode(preferredMode(), { silent: true });
           updateLauncher();
           break;
         case "result":
@@ -143,7 +150,6 @@
           break;
         case "split":
           popupLive = false;
-          popup = null;
           setMode(MODE_SPLIT);
           setOpen(true);
           break;
@@ -565,6 +571,26 @@
 
   /* ---------- split or its own tab ---------- */
 
+  /* Which presentation this page belongs in when nothing is overriding it.
+   *
+   * A stored choice wins — somebody on a 13" laptop sets it once. With none,
+   * the viewport decides: below PANE_MIN_WIDTH a split is two columns too
+   * narrow to work in, so the launcher offers the tab instead.
+   *
+   * What is automatic is the DEFAULT, never the tab itself. Opening a window
+   * nobody asked for is hostile, and outside a click every browser blocks it
+   * anyway — so the participant still presses the button, it just says what it
+   * is going to do.
+   *
+   * Read rather than captured at startup, because it is asked twice: once on
+   * arrival, and again when a live tab that had overridden it goes away.
+   */
+  function preferredMode() {
+    var stored = ls(LS_MODE);
+    if (stored === MODE_WINDOW || stored === MODE_SPLIT) return stored;
+    return window.innerWidth < PANE_MIN_WIDTH ? MODE_WINDOW : MODE_SPLIT;
+  }
+
   function setMode(next, opts) {
     var silent = !!(opts && opts.silent);
     var want = next === MODE_WINDOW && canPopOut() ? MODE_WINDOW : MODE_SPLIT;
@@ -624,7 +650,6 @@
       note(pane.dataset.labelBlocked || "");
       return;
     }
-    popup = w;
     var here = "";
     try { here = w.location.href || ""; } catch (e) { here = ""; }
     // A fresh tab is about:blank; a tab somebody navigated elsewhere is not our
@@ -758,14 +783,8 @@
   /* The subject page. It owns the step list always, and the frame only while
      the runtime is shown as a pane. */
   function startPane() {
-    var stored = null, storedMode = null;
-    try {
-      stored = localStorage.getItem(LS_OPEN);
-      storedMode = localStorage.getItem(LS_MODE);
-      setWidth(parseFloat(localStorage.getItem(LS_WIDTH)) || cfg.size);
-    } catch (e) {
-      setWidth(cfg.size);
-    }
+    var stored = ls(LS_OPEN);
+    setWidth(parseFloat(ls(LS_WIDTH)) || cfg.size);
 
     cta = document.querySelector(".ws-runtime-cta");
     handle = document.querySelector(".ws-runtime-handle");
@@ -796,22 +815,10 @@
     }, true);
     window.addEventListener("ws:steps-changed", function () { sendStep("step"); });
 
-    /* Which presentation, on arrival.
-     *
-     * A stored choice wins — somebody on a 13" laptop sets it once. With none,
-     * the viewport decides: below PANE_MIN_WIDTH a split is two columns too
-     * narrow to work in, so the launcher offers the tab instead.
-     *
-     * What is automatic is the DEFAULT, never the tab itself. Opening a window
-     * nobody asked for is hostile, and outside a click every browser blocks it
-     * anyway — so the participant still presses the button, it just says what
-     * it is going to do. */
-    if (storedMode === MODE_WINDOW || storedMode === MODE_SPLIT) {
-      setMode(storedMode, { silent: true });
-    } else {
-      setMode(window.innerWidth < PANE_MIN_WIDTH ? MODE_WINDOW : MODE_SPLIT,
-              { silent: true });
-    }
+    // Which presentation, on arrival (`preferredMode` says how it is picked).
+    // Silent: a default is not a choice, and `localStorage` records only what
+    // the participant actually asked for.
+    setMode(preferredMode(), { silent: true });
     if (mode === MODE_SPLIT) {
       setOpen(stored === null ? pane.dataset.runtimeOpen === "1" : stored === "1");
     } else {

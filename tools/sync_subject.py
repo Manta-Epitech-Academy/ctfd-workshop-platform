@@ -138,6 +138,26 @@ def doc_slug(doc):
     return re.sub(r"[^a-z0-9]+", "-", Path(doc.path).stem.lower()).strip("-")
 
 
+def entry_document(subject):
+    """The document a participant reads first — `project.entrypoint`.
+
+    One reader of that pairing rather than one per importer. `lint` refuses a
+    subject whose entrypoint names no declared document (ws_parser), and every
+    path in here lints before it writes anything, so this raise is the second
+    lock rather than the check. It exists at all because the expression it
+    replaces was a bare `next()`, which fails with an empty message: the admin
+    sync page showed `StopIteration:` and nothing else.
+    """
+    entry = (subject.manifest.get("project") or {}).get("entrypoint")
+    doc = next((d for d in subject.documents if d.path == entry), None)
+    if doc is None:
+        raise ValueError(
+            f"{subject.slug}: `project.entrypoint` is {entry!r}, which is not one "
+            f"of the documents it declares "
+            f"({', '.join(d.path for d in subject.documents) or 'none'})")
+    return doc
+
+
 CONTEXT_OPEN = "<!-- ws:context -->"
 CONTEXT_CLOSE = "<!-- /ws:context -->"
 # The author's short version (convention §3.4) rides in the description the
@@ -690,15 +710,7 @@ def sync(subject_dir, url, admin_user, admin_pass, codes_path=None, *,
         print(f"instructor codes written to {codes_file}")
 
     # 1. entrypoint document -> index page
-    entry = subject.manifest["project"]["entrypoint"]
-    entry_doc = next((d for d in subject.documents if d.path == entry), None)
-    if entry_doc is None:
-        # The linter does not check this (it reads each document on its own), so
-        # say which name is wrong rather than dying on a bare StopIteration.
-        raise ValueError(
-            f"subject.yaml: `project.entrypoint` is {entry!r}, which is not one of "
-            f"the documents this subject declares "
-            f"({', '.join(d.path for d in subject.documents) or 'none'})")
+    entry_doc = entry_document(subject)
     # In a workshop of several subjects the public index belongs to the
     # workshop, not to whichever subject synced last (PLAN.md §19).
     if standalone:

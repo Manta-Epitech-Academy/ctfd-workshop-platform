@@ -37,7 +37,8 @@ from pathlib import Path
 import yaml
 
 sys.path.insert(0, str(Path(__file__).parent))
-from sync_subject import CTFdAdmin, sync, upsert_page, write_instance_config  # noqa: E402
+from sync_subject import (CTFdAdmin, entry_document, sync, upsert_page,  # noqa: E402
+                          write_instance_config)
 from ws_parser import lint_all  # noqa: E402
 
 
@@ -183,13 +184,7 @@ def sync_workshop(workshop_dir, url, admin_user, admin_pass, codes_dir=None, *,
         subjects_cfg[subject.slug] = result["cover"]
 
     # The public front door is the workshop's, not the last subject's.
-    entry = entry_page.manifest["project"]["entrypoint"]
-    entry_doc = next((d for d in entry_page.documents if d.path == entry), None)
-    if entry_doc is None:
-        raise ValueError(
-            f"{entry_page.slug}: `project.entrypoint` is {entry!r}, which is not one "
-            f"of the documents that subject declares "
-            f"({', '.join(d.path for d in entry_page.documents) or 'none'})")
+    entry_doc = entry_document(entry_page)
     # Upsert for the same reason sync_subject does: an instance whose Pages were
     # wiped by /admin/reset has no `index` page to PATCH.
     upsert_page(ctfd, "index", {

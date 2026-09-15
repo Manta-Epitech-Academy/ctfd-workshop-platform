@@ -38,7 +38,7 @@ Clone somewhere nginx can read, **not** under a home directory whose
 permissions stop `www-data` traversing it. `/srv/workshop` is a good choice:
 
 ```bash
-sudo git clone --recurse-submodules <this repo> /srv/workshop
+sudo git clone <this repo> /srv/workshop
 cd /srv/workshop
 ```
 

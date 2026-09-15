@@ -17,13 +17,12 @@ and §14 (runtime embedding) are the two most recent decisions.
 **Visual work: read [`DESIGN.md`](./DESIGN.md) first.** Token contract (colors, fonts, radius),
 the Bootstrap component classes that bake literal color and ignore a variable remap, and why code
 highlighting is `.ll-*` not `.hljs-*`. Its one implementation is
-`plugins/workshop/assets/epitech-theme.css` — plugin-injected, `CTFd/` untouched, same rule as the
-rest of this file.
+`plugins/workshop/assets/epitech-theme.css` — plugin-injected, CTFd core untouched, same rule as
+the rest of this file.
 
 ## Repo layout
 
 ```
-CTFd/               git submodule → kevin-cazal/CTFd (fork of Manta-Epitech-Academy/CTFd), master
 plugins/workshop/   the CTFd plugin — bind-mounted into the image, never a core edit
 tools/              ws_parser.py (shared parser/linter), sync_subject.py (repo → CTFd import)
 content/            GONE from this checkout, and not tracked on any branch — the subjects
@@ -33,18 +32,23 @@ content/            GONE from this checkout, and not tracked on any branch — t
                     instance half cannot run here until that is reconciled.
 scripts/            phase*_validate.py — the regression suite, needs a FRESH instance
 docs/               CONTENT_CONVENTION.md — the authoring convention
-docker-compose.yml  stock CTFd on :8080 (8000/8001 are taken by ctfd_replication)
+docker-compose.yml  ghcr.io/kevin-cazal/ctfd-custom on :8080 (8000/8001 are taken by ctfd_replication)
 frontend/           the early React mockup — superseded, kept for reference only
 PLAN.md             architecture + phased plan + decisions
 CLAUDE.md           this file
 ```
 
-### Never edit inside `CTFd/`
+No local CTFd checkout: the instance runs `ghcr.io/kevin-cazal/ctfd-custom`, built from
+[kevin-cazal/CTFd](https://github.com/kevin-cazal/CTFd) (a fork of Manta-Epitech-Academy/CTFd,
+master) — that repo's Dockerfile bakes this plugin, its vendored deps, and `tools/` into the
+image via its own `workshop_platform` submodule.
 
-It is a submodule and must stay pristine so upstream updates remain a `git pull`. All custom code
-goes in `plugins/workshop/`, bind-mounted over `CTFd/CTFd/plugins/workshop` at runtime. If you
-think you need to modify CTFd core, say so and stop — that is a design change, not an
-implementation detail.
+### Never edit CTFd core
+
+There is no local checkout of it to edit. All custom code goes in `plugins/workshop/`,
+bind-mounted over `/opt/CTFd/CTFd/plugins/workshop` at runtime (and baked into the image too, for
+a deploy with no bind mount). If you think you need to modify CTFd core, say so and stop — that
+is a design change for the fork's own repo, not an implementation detail here.
 
 
 ### Do not implement code until things are figured out
@@ -114,13 +118,6 @@ rendered as a linear list.
   Template to copy: `CTFd/CTFd/plugins/dynamic_challenges/__init__.py`.
 - CTFd has **no pending-review state**. Human-graded work uses the `Awards` API plus a plugin-side
   queue.
-
-## Working with the submodule
-
-```bash
-git clone --recurse-submodules <this repo>
-git submodule update --init --recursive   # if already cloned
-```
 
 ## 1 CTFd instance for one workshop
 

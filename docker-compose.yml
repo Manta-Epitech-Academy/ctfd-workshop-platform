@@ -57,7 +57,10 @@ services:
       - mirror-local:/srv/mirror
 
   ctfd:
-    build: ./CTFd
+    # Built from kevin-cazal/CTFd (master) by that repo's own CI, which feeds
+    # off its own workshop_platform submodule to bake this plugin, its
+    # vendored deps, and tools/ into the image. No local CTFd checkout here.
+    image: ghcr.io/kevin-cazal/ctfd-custom:latest
     restart: unless-stopped
     ports:
       # Loopback by default: on a public host the published port would
@@ -94,9 +97,10 @@ services:
     volumes:
       - ${WS_DATA:-./.data}/CTFd/logs:/var/log/CTFd
       - ${WS_DATA:-./.data}/CTFd/uploads:/var/uploads
-      # CTFd code comes from the image, built from the pristine submodule
-      # (Dockerfile COPYs it). No checkout mount: a read-only /opt/CTFd would
-      # prevent creating the mountpoint for the plugin overlay below.
+      # CTFd code comes from the pulled image (built and published by
+      # kevin-cazal/CTFd's own CI). No checkout mount here: a read-only
+      # /opt/CTFd would prevent creating the mountpoint for the plugin
+      # overlay below.
       # Workshop plugin overlaid into the image's plugins dir (PLAN.md §4):
       - ./plugins/workshop:/opt/CTFd/CTFd/plugins/workshop:ro
       # The platform's own tools, read-only, so the admin sync page imports a

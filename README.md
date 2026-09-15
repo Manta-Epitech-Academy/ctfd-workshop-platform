@@ -2,7 +2,8 @@
 
 CTFd as the backend for a **workshop** — guided, ordered exercises for beginners, rather than a
 capture-the-flag. It is a CTFd **plugin** plus a content pipeline: nothing in CTFd's own source is
-modified, so upgrading CTFd stays a `git pull` of the submodule.
+modified, so upgrading CTFd is a new tag of `ghcr.io/kevin-cazal/ctfd-custom` (built from
+[kevin-cazal/CTFd](https://github.com/kevin-cazal/CTFd), master), not a local checkout here.
 
 Built for and running a real programme: six workshops built from nine subjects, 145 exercises,
 ten live instances, audience French *lycéens* aged 15 to 18.
@@ -58,20 +59,24 @@ docs/               CONTENT_CONVENTION.md (the authoring convention), CONTRIBUER
                     RUNTIME_PROTOCOL.md (how a web app becomes a runtime)
 compose/            one env file per instance: port and data directory
 deploy/             instances.yaml + the nginx vhost templates
-CTFd/               submodule -> kevin-cazal/CTFd, a fork of Manta-Epitech-Academy/CTFd
 PLAN.md             the design of record: 27 numbered decisions and why they went that way
 ```
+
+No local CTFd checkout: `docker-compose.yml` pulls `ghcr.io/kevin-cazal/ctfd-custom`, built from
+[kevin-cazal/CTFd](https://github.com/kevin-cazal/CTFd) (a fork of Manta-Epitech-Academy/CTFd,
+master) with this plugin, its vendored deps, and `tools/` already baked in — that repo's own
+`workshop_platform` submodule is what feeds the image build.
 
 ## Getting started
 
 ```bash
-git clone --recurse-submodules https://github.com/kevin-cazal/workshop_platform
+git clone https://github.com/kevin-cazal/workshop_platform
 cd workshop_platform
 
 # A subject to import. They are separate repos; instances.yaml expects them here.
 git clone https://github.com/kevin-cazal/pypong_subject content/pypong
 
-docker compose up -d                       # stock CTFd on :8080, plugin bind-mounted
+docker compose up -d                       # ctfd-custom image on :8080, plugin bind-mounted
 # run the setup wizard in the browser, then:
 python3 tools/sync_subject.py content/pypong \
     --url http://localhost:8080 --admin-user admin --admin-pass '<the one you just set>'
@@ -104,8 +109,9 @@ subjects in a strict chain).
 
 ## Two rules the code keeps
 
-- **Never edit inside `CTFd/`.** It is a submodule and stays pristine, so upstream updates remain a
-  `git pull`. Everything custom is in `plugins/workshop/`.
+- **Never edit CTFd core.** There is no local checkout of it here to edit — the instance runs
+  `ghcr.io/kevin-cazal/ctfd-custom`, built from the [kevin-cazal/CTFd](https://github.com/kevin-cazal/CTFd)
+  fork. Everything custom is in `plugins/workshop/`, bind-mounted over the image's plugin dir.
 - **Platform strings are English, content is the audience's language.** Every string the platform
   emits into the CTFd UI is English until real internationalisation lands; the workshops themselves
   are written in French. `plugins/workshop/README.md` lists exactly which CTFd APIs the plugin

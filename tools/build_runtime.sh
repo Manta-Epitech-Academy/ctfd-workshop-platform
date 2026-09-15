@@ -26,14 +26,17 @@ WORK="${WORK_DIR:-${TMPDIR:-/tmp}/ws-runtime-build}"
 case "$RUNTIME_ID" in
   tic80)
     KIND="vite"
-    SOURCE="https://github.com/kevin-cazal/tic80-web-editor.git"
+    # The `_runtime` repository, not kevin-cazal/tic80-web-editor: that one
+    # is archived (2026-09-15), this one is what production builds from.
+    SOURCE="https://github.com/kevin-cazal/tic80-web-editor_runtime.git"
     # TIC-80 PRO must be compiled from source with Emscripten to get the
     # patched embed API — 20-40 minutes and several GB (see the repo's
-    # docker/tic80.Dockerfile). The published GitHub Pages build already
-    # contains that artifact, so we fetch the two WASM files from there
-    # instead of recompiling. Set TIC80_WASM_FROM=local to use your own
-    # public/tic80/ build instead.
-    WASM_BASE="https://kevin-cazal.github.io/tic80-web-editor"
+    # docker/tic80.Dockerfile). The image its CI publishes already contains
+    # that artifact, so the two WASM files are copied out of it instead of
+    # recompiling. Set TIC80_WASM_FROM=local to use your own public/tic80/
+    # build instead.
+    WASM_IMAGE="ghcr.io/kevin-cazal/tic80-web-editor_runtime:latest"
+    WASM_IMAGE_DIR="/usr/share/nginx/html/runtime/tic80/latest/tic80"
     WASM_FILES="tic80.js tic80.wasm"
     ;;
   v86)
@@ -149,12 +152,17 @@ VERSION="$(git -C "$SRC" rev-parse --short HEAD)"
 DEST="$REPO_ROOT/plugins/workshop/runtimes/$RUNTIME_ID/$VERSION"
 echo "==> $RUNTIME_ID @ $VERSION -> $DEST"
 
-if [ -n "${WASM_FILES:-}" ] && [ "${TIC80_WASM_FROM:-pages}" = "pages" ]; then
+if [ -n "${WASM_FILES:-}" ] && [ "${TIC80_WASM_FROM:-image}" = "image" ]; then
+  # `docker create` + `docker cp`: no container runs, and the files come
+  # out owned by the invoking user, unlike a bind-mounted `cp` as root.
   mkdir -p "$SRC/public/tic80"
+  docker pull -q "$WASM_IMAGE" >/dev/null
+  CID="$(docker create "$WASM_IMAGE")"
   for f in $WASM_FILES; do
-    echo "==> fetching prebuilt $f"
-    curl -fsSL -o "$SRC/public/tic80/$f" "$WASM_BASE/tic80/$f"
+    echo "==> copying prebuilt $f out of $WASM_IMAGE"
+    docker cp -q "$CID:$WASM_IMAGE_DIR/$f" "$SRC/public/tic80/$f"
   done
+  docker rm -f "$CID" >/dev/null
 fi
 
 rm -rf "$DEST"

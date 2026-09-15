@@ -638,7 +638,7 @@ into instances nobody can log into.
 
 Everything above serves the dists off the server's disk. On Kubernetes (the
 jump-k3s cluster) there is no shared disk, and each runtime runs instead as
-its own Service from its own image — `tic80-web-editor`, `shell-rpg`,
+its own Service from its own image — `tic80-web-editor_runtime`, `shell-rpg`,
 `miniasm_runtime`, `pacman-ghost-ai_runtime` on GHCR, each built by that
 repository's CI. Every image serves its app at `/runtime/<id>/latest/`, the
 same-origin path the pane embeds, and redirects any other `<version>` there,

@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
         - name: web
-          image: ghcr.io/kevin-cazal/tic80-web-editor:latest
+          image: ghcr.io/kevin-cazal/tic80-web-editor_runtime:latest
           ports:
             - containerPort: 80
           readinessProbe:

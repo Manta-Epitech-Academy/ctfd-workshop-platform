@@ -691,13 +691,25 @@ def sync(subject_dir, url, admin_user, admin_pass, codes_path=None, *,
 
     # 1. entrypoint document -> index page
     entry = subject.manifest["project"]["entrypoint"]
-    entry_doc = next(d for d in subject.documents if d.path == entry)
-    pages = ctfd.api("GET", "/pages")
-    index = next(p for p in pages if p["route"] == "index")
+    entry_doc = next((d for d in subject.documents if d.path == entry), None)
+    if entry_doc is None:
+        # The linter does not check this (it reads each document on its own), so
+        # say which name is wrong rather than dying on a bare StopIteration.
+        raise ValueError(
+            f"subject.yaml: `project.entrypoint` is {entry!r}, which is not one of "
+            f"the documents this subject declares "
+            f"({', '.join(d.path for d in subject.documents) or 'none'})")
     # In a workshop of several subjects the public index belongs to the
     # workshop, not to whichever subject synced last (PLAN.md §19).
     if standalone:
-        ctfd.api("PATCH", f"/pages/{index['id']}", json={
+        # Upsert, never PATCH by id. CTFd creates the `index` page in the setup
+        # wizard, and /admin/reset with "Pages" ticked deletes every Page
+        # including that one (CTFd/CTFd/admin/__init__.py:234) while leaving
+        # `setup` true. An instance someone just reset is exactly the instance
+        # about to be synced, so assuming the page is there made the whole
+        # import die on a bare StopIteration, after the images had been
+        # uploaded and with nothing in the log naming the cause.
+        upsert_page(ctfd, "index", {
             "title": entry_doc.title, "route": "index", "content": entry_doc.body_md,
             "format": "markdown", "draft": False, "hidden": False,
             "auth_required": False})
@@ -746,16 +758,11 @@ def sync(subject_dir, url, admin_user, admin_pass, codes_path=None, *,
             outro_position[closes_after[order].path] = order + offset + inserted
 
     # 1c. Parcours path-graph page (platform UI, filled by graph.js). Idempotent.
-    parcours = next((p for p in ctfd.api("GET", "/pages") if p["route"] == "parcours"), None)
-    parcours_payload = {
+    upsert_page(ctfd, "parcours", {
         "title": "Parcours", "route": "parcours",
         "content": "# Parcours\n\n<div id=\"ws-parcours\">Loading the path graph…</div>",
         "format": "markdown", "draft": False, "hidden": False, "auth_required": True,
-    }
-    if parcours:
-        ctfd.api("PATCH", f"/pages/{parcours['id']}", json=parcours_payload)
-    else:
-        ctfd.api("POST", "/pages", json=parcours_payload)
+    })
     print("page: 'Parcours' -> /parcours")
 
     # 1d. runtime declaration -> CTFd config, read back by the workshop page

@@ -183,10 +183,16 @@ def sync_workshop(workshop_dir, url, admin_user, admin_pass, codes_dir=None, *,
         subjects_cfg[subject.slug] = result["cover"]
 
     # The public front door is the workshop's, not the last subject's.
-    index = next(p for p in ctfd.api("GET", "/pages") if p["route"] == "index")
-    entry_doc = next(d for d in entry_page.documents
-                     if d.path == entry_page.manifest["project"]["entrypoint"])
-    ctfd.api("PATCH", f"/pages/{index['id']}", json={
+    entry = entry_page.manifest["project"]["entrypoint"]
+    entry_doc = next((d for d in entry_page.documents if d.path == entry), None)
+    if entry_doc is None:
+        raise ValueError(
+            f"{entry_page.slug}: `project.entrypoint` is {entry!r}, which is not one "
+            f"of the documents that subject declares "
+            f"({', '.join(d.path for d in entry_page.documents) or 'none'})")
+    # Upsert for the same reason sync_subject does: an instance whose Pages were
+    # wiped by /admin/reset has no `index` page to PATCH.
+    upsert_page(ctfd, "index", {
         "title": workshop.get("name") or entry_page.name, "route": "index",
         "content": manifest.get("workshop", {}).get("summary") and
         f"# {workshop['name']}\n\n{workshop['summary']}\n\n{entry_doc.body_md}"

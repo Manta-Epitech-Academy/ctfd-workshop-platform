@@ -8,6 +8,11 @@ It mints its own tickets and runs its own callback sink, so it needs no Jump:
 what it cannot prove is that the real Jump accepts what this sends, only that
 what this sends is what the contract says.
 
+One case is not an acceptance criterion but a regression: a label that already
+has accounts behind it cannot move to another key id. Both halves are checked,
+the ticket and the settings page, because provisioning writes the config
+straight and never goes through the form.
+
 Shaped like scripts/workshop_check.py — positional arguments, `check(cond,
 label)`, `ALL GREEN` or `FAILURES: [...]`, non-zero exit on any failure.
 
@@ -56,6 +61,10 @@ RUN = uuid.uuid4().hex[:6]
 # production one at once" is a claim with its own acceptance criterion.
 KID_A, SECRET_A, LABEL_A = "jumpcheck-a", "secret-a-" + RUN, "jumpcheck"
 KID_B, SECRET_B, LABEL_B = "jumpcheck-b", "secret-b-" + RUN, "jumpcheckb"
+# A third key id that claims A's label. It never becomes a way in: a label is
+# owned by the accounts it namespaces, so this is the shape of "somebody
+# renamed a key id in deploy/instances.yaml and kept its label".
+KID_C = "jumpcheck-c"
 SLUG = "jumpcheck-" + RUN
 TALENT = "talent" + RUN
 
@@ -462,6 +471,30 @@ def main():
               "the same talent id on two key ids is two distinct accounts")
         check(other[0]["email"] == f"{TALENT}@{LABEL_B}.jump.invalid",
               "and two distinct namespaces, so neither is on the other's scoreboard")
+
+    # -- a label belongs to the accounts it namespaces ---------------------
+    print("== a label that already has accounts cannot move to another key id ==")
+    stolen = dict(keys)
+    stolen[KID_C] = {"origin": origin, "secret": SECRET_A, "label": LABEL_A}
+    admin.set_configs({"workshop_jump_keys": json.dumps(stolen)})
+    r, _ = enter(base, mint(KID_C, SECRET_A))
+    check(r.status_code == 403,
+          f"a ticket whose key id reuses another's label is refused "
+          f"({r.status_code})")
+    check(not [l for l in admin.links()
+               if l["talent_id"] == TALENT and l["kid"] == KID_C],
+          "and no account was re-linked under the new key id")
+
+    # The same refusal from the other direction, because the two paths are
+    # separate: provisioning writes the config straight and never sees the form.
+    page = admin.session.post(base + "/admin/workshop/jump", timeout=30, data={
+        "nonce": admin.nonce, "instance": SLUG, "row_count": "1",
+        "kid-0": KID_C, "origin-0": origin,
+        "label-0": LABEL_A, "secret-0": SECRET_A})
+    check("already namespaces the accounts" in page.text,
+          "and the settings page refuses the same pairing rather than saving it")
+    # Whatever that POST decided, the next checks need the two real keys back.
+    admin.set_configs({"workshop_jump_keys": json.dumps(keys)})
 
     # -- AC6, AC8 ----------------------------------------------------------
     print("== solving queues one row, and it reaches the sink ==")

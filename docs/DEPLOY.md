@@ -350,9 +350,12 @@ once and then left alone.
 
 The `label` on each key namespaces the accounts that environment creates
 (`<talentId>@<label>.jump.invalid`). It is what keeps a talent from the dev Jump
-off a production scoreboard when one instance serves both, so two keys must
-never share one, and renaming one after accounts exist is refused rather than
-silently orphaning them.
+off a production scoreboard when one instance serves both, so a label belongs
+to the accounts it namespaces: once a key id has created one, no other key id
+may take that label and that key id may not walk away from it. Both are
+refused at the point of saving rather than silently orphaning the accounts —
+including the case that looks innocent, renaming a key id in
+`deploy/instances.yaml` while keeping its label.
 
 `/admin/workshop/jump` shows the same settings on a running instance, plus the
 outbox: what is still owed to Jump, what failed, and a button to send it again.

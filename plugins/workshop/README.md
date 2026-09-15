@@ -80,6 +80,12 @@ Two config keys, both provisioned by `tools/provision.py`: `workshop_jump_keys`
 (`{kid: {origin, secret, label}}`) and `workshop_jump_instance` (this instance's slug). Empty
 means every ticket is refused. `/admin/workshop/jump` edits both and shows the outbox.
 
+**A label is owned by the accounts it namespaces, not by the key row that declares it.** Each
+link row records it (`jump_label`, revision 2), and both the settings page and `resolve_account`
+refuse a second key id taking a label that already has accounts behind it — the configuration is
+rewritten wholesale by provisioning, so a rule enforced against it stops holding the first time
+somebody renames a key id.
+
 The ticket is not a JWT because there is no JWT library in the image and none can be added — the
 Dockerfile's plugin-requirements loop runs at build time over the `./CTFd` context while this
 plugin arrives at run time as a bind mount. See the `jump.py` docstring for the frozen wire

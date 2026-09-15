@@ -40,6 +40,15 @@ influence where this instance reports progress. `label` namespaces the
 synthetic email, which is what keeps a dev talent off a production scoreboard
 when one instance serves `epiboost.eu` and `epiboost.fr` at once.
 
+**A label belongs to the accounts it namespaces, not to the key row that
+declared it.** Each link row records the label it was created under, and that
+is what the settings page validates against: a key id can be renamed, removed
+and re-added, and `workshop_jump_keys` is rewritten wholesale by
+`tools/provision.py` on every `setup`, so a rule enforced against the *current
+configuration* stops holding the moment either happens. Enforced against the
+rows, two key ids can never share a namespace, and `resolve_account` refuses
+the collision a second time for the path that never sees the form.
+
 ## Two derived keys, one shared secret
 
     ticketKey   = hmac_sha256(secret, "jump/ticket").hexdigest()
@@ -144,6 +153,12 @@ class JumpLink(db.Model):
         nullable=False, unique=True)
     jump_kid = db.Column(db.String(64), nullable=False, index=True)
     jump_talent_id = db.Column(db.String(64), nullable=False)
+    # The namespace this account was created in, kept here rather than read
+    # back from `workshop_jump_keys` because the configuration is not a
+    # history: a key id can be renamed or retired, and provision.py rewrites
+    # the whole map on every setup. Nullable only for rows written before
+    # revision 2, which backfills them from the address they already carry.
+    jump_label = db.Column(db.String(32))
     created = db.Column(db.DateTime, default=datetime.utcnow)
 
 
@@ -386,10 +401,19 @@ def resolve_account(claims, key):
 
       1. the link row on `(kid, talentId)` — found, done;
       2. otherwise the synthetic email;
-      3. found by email, no link row, and a password set: **refuse**. Barely
-         reachable behind `.invalid`, but the absence of this branch is an
-         account-takeover primitive and the branch is three lines;
-      4. not found: create with no password, link it, commit.
+      3. found by email and a password set: **refuse**. Barely reachable behind
+         `.invalid`, but the absence of this branch is an account-takeover
+         primitive and the branch is three lines;
+      4. found by email and already linked to another key id: **refuse**. Same
+         reason, reached a different way: two key ids sharing one label means
+         the second one addresses the first one's accounts. The settings page
+         refuses that pairing (`_parse_rows`), but `workshop_jump_keys` is also
+         written straight to the config by `tools/provision.py`, which never
+         sees the form — so the rule is enforced here too, where the collision
+         actually lands. Without it the insert below hits the `user_id` unique
+         constraint and every returning talent gets "could not link the
+         account" forever, with nothing but the login log to say why;
+      5. not found: create with no password, link it, commit.
     """
     kid = claims["kid"]
     talent_id = claims["sub"]
@@ -407,8 +431,14 @@ def resolve_account(claims, key):
             return user
 
     user = Users.query.filter_by(email=email).first()
-    if user is not None and user.password is not None:
-        raise TicketError(f"{email} exists with a password set")
+    if user is not None:
+        if user.password is not None:
+            raise TicketError(f"{email} exists with a password set")
+        owner = JumpLink.query.filter_by(user_id=user.id).first()
+        if owner is not None:
+            raise TicketError(
+                f"{email} is already {owner.jump_kid!r}/{owner.jump_talent_id!r}; "
+                f"label {key['label']!r} cannot serve {kid!r} as well")
 
     if user is None:
         limit = int(get_config("num_users", default=0) or 0)
@@ -426,7 +456,8 @@ def resolve_account(claims, key):
         db.session.add(user)
         db.session.commit()
 
-    db.session.add(JumpLink(user_id=user.id, jump_kid=kid, jump_talent_id=talent_id))
+    db.session.add(JumpLink(user_id=user.id, jump_kid=kid, jump_talent_id=talent_id,
+                            jump_label=key["label"]))
     try:
         db.session.commit()
     except IntegrityError:
@@ -546,10 +577,32 @@ def _workshop_is_open():
 # The admin page
 # --------------------------------------------------------------------------
 
-def _linked_kids():
-    """Key ids an account is already bound to — their label cannot move."""
-    return {row.jump_kid for row in
-            db.session.query(JumpLink.jump_kid).distinct().all()}
+def _link_namespaces():
+    """`(owners, by_kid)` — which key id already owns which label.
+
+    `owners` is `{label: {kid, ...}}`, `by_kid` is `{kid: {label, ...}}`, both
+    from the link rows and never from `workshop_jump_keys`. The configuration
+    says what this instance accepts today; these rows say what it has already
+    created, and only the second can answer "would this save orphan somebody".
+    A key id that was renamed, or removed and replaced, has left the map while
+    its accounts are still addressed by its label.
+
+    Sets rather than single values because a pre-fix instance can hold two key
+    ids on one label — different talents give different emails, so nothing in
+    the database refused it. Naming both in the error beats picking one.
+
+    A row written before revision 2 carries no label. Revision 2 backfills
+    every row it can place, and one it cannot is left guarding nothing rather
+    than guarding the wrong name.
+    """
+    owners, by_kid = {}, {}
+    for kid, label in db.session.query(
+            JumpLink.jump_kid, JumpLink.jump_label).distinct().all():
+        by_kid.setdefault(kid, set())
+        if label:
+            owners.setdefault(label, set()).add(kid)
+            by_kid[kid].add(label)
+    return owners, by_kid
 
 
 def _parse_rows(form, stored):
@@ -558,9 +611,14 @@ def _parse_rows(form, stored):
     Row `i` is `kid-i` / `origin-i` / `label-i` / `secret-i` / `remove-i`. A
     blank secret on an existing kid keeps the stored one, so an admin can fix a
     typo in an origin without being handed the secret back through the DOM.
+
+    The label rules are one rule read in both directions, against the accounts
+    that exist rather than against the keys that are configured: a label is
+    owned by the rows it namespaces, so no other key id may take it and the
+    owner may not walk away from it.
     """
     keys, errors, labels = {}, [], {}
-    linked = _linked_kids()
+    owners, by_kid = _link_namespaces()
     for i in range(int(form.get("row_count") or 0)):
         kid = (form.get(f"kid-{i}") or "").strip()
         if not kid or form.get(f"remove-{i}"):
@@ -584,11 +642,21 @@ def _parse_rows(form, stored):
             # one would merge two Jump environments into one set of accounts.
             errors.append(f"{kid}: label {label!r} is already used by {labels[label]}")
             continue
-        was = stored.get(kid)
-        if was and kid in linked and was.get("label") != label:
-            errors.append(f"{kid}: accounts are already bound to label "
-                          f"{was['label']!r}; renaming it would orphan them")
+        others = owners.get(label, set()) - {kid}
+        if others:
+            # Two key ids on one label means the second one addresses the
+            # first one's accounts: same talent id, same synthetic email, an
+            # account that already belongs to somebody.
+            errors.append(f"{kid}: label {label!r} already namespaces the accounts "
+                          f"of {', '.join(sorted(others))}; two key ids cannot "
+                          f"share one")
             continue
+        mine = by_kid.get(kid) or set()
+        if mine and label not in mine:
+            errors.append(f"{kid}: accounts are already bound to label "
+                          f"{sorted(mine)[0]!r}; renaming it would orphan them")
+            continue
+        was = stored.get(kid)
         if not secret:
             if not was:
                 errors.append(f"{kid}: a new key needs its shared secret")
@@ -625,7 +693,11 @@ def settings():
         Users.id.in_([e.user_id for e in events] or [0])).all()}
     return render_template(
         "workshop_jump.html",
-        keys=stored, instance=instance_slug(), linked=_linked_kids(),
+        # `linked` is only the readonly flag on the label input: a key id with
+        # accounts cannot retype its label, and the rule behind that is
+        # _link_namespaces(), enforced in _parse_rows for the submit that
+        # ignores the attribute.
+        keys=stored, instance=instance_slug(), linked=set(_link_namespaces()[1]),
         errors=errors, saved=saved, events=events, names=names,
         pending=JumpEvent.query.filter_by(status="pending").count(),
         failed=JumpEvent.query.filter_by(status="failed").count(),

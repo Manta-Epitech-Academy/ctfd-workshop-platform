@@ -19,6 +19,7 @@ session-sized deployment and keeps the compose file to one service.
 """
 import json
 import mimetypes
+import os
 import re
 from pathlib import Path
 
@@ -53,6 +54,18 @@ DEFAULT_ICON = "play"
 # Warned-about (id, version) pairs. `declared_runtime()` runs on every workshop
 # request, so an unconditional warning would be one log line per page view.
 _warned = set()
+
+
+def _on_proxy():
+    """True when the dists are served beside CTFd by the ingress, not from
+    this container's disk — the k8s deploy, where each runtime is its own
+    Service (docs/DEPLOY.md, "Runtimes on Kubernetes"). CTFd then cannot see
+    them, so it takes the declaration on trust instead of hiding the pane."""
+    return os.environ.get("WORKSHOP_RUNTIMES_ON_PROXY", "").lower() in ("1", "true", "yes")
+
+
+def _dist_present(runtime_id, version):
+    return _on_proxy() or (RUNTIME_ROOT / runtime_id / version).is_dir()
 
 
 def _dist(runtime_id, version):
@@ -98,7 +111,7 @@ def declared_runtime():
     runtime_id, version = cfg.get("id"), cfg.get("version")
     if not (runtime_id and version):
         return None
-    if not cfg.get("external") and not (RUNTIME_ROOT / runtime_id / version).is_dir():
+    if not cfg.get("external") and not _dist_present(runtime_id, version):
         # The dist is gitignored and built per instance, so this is a deployment
         # state, not a content error — but it removes the pane, the launcher and
         # the script from every page, and it used to do so in complete silence.
@@ -152,8 +165,9 @@ def missing_dist():
     runtime_id, version = cfg.get("id"), cfg.get("version")
     if not (runtime_id and version) or cfg.get("external"):
         return None
-    path = RUNTIME_ROOT / runtime_id / version
-    return None if path.is_dir() else (runtime_id, version, str(path))
+    if _dist_present(runtime_id, version):
+        return None
+    return (runtime_id, version, str(RUNTIME_ROOT / runtime_id / version))
 
 
 def load_runtime(app):

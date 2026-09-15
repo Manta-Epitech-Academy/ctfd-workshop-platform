@@ -1,0 +1,29 @@
+# The runtimes, for a CTFd instance on Kubernetes (docs/DEPLOY.md, "Runtimes
+# on Kubernetes"). A kustomize Component: an instance overlay lists it under
+# `components:` and gets one Service per runtime, a second Ingress on the
+# instance's host that routes /runtime/<id>/ to each, and the CTFd variable
+# that makes the plugin trust the declaration instead of looking for the
+# dist on its own disk.
+#
+# Each image is that runtime's own, published by its repository's CI, and
+# serves its app at /runtime/<id>/latest/ — the same-origin path the pane
+# embeds. The overlay sets two things (see ../../overlay-example):
+#
+#   - the host of `ctfd-runtimes-ingress` (one JSON patch line)
+#   - the image tags, pinned per session with kustomize's `images:`
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+resources:
+  - runtimes.yml
+  - ingress.yml
+patches:
+  # plugins/workshop/runtime.py: the dists are not on CTFd's disk here.
+  - target:
+      kind: Deployment
+      name: ctfd
+    patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/env/-
+        value:
+          name: WORKSHOP_RUNTIMES_ON_PROXY
+          value: "1"

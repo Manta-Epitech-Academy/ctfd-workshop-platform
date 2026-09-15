@@ -192,10 +192,16 @@
    one — and a `<picture>` cannot switch on that media feature, so the swap is
    here. With no poster declared the animation is all there is, which is the
    behaviour a subject that declared no still already had. */
-.ws-hero-media-still { display: none; }
+/* Both qualified with `img`, like the rule above. A bare `.ws-hero-media-still`
+   is one class and loses to `.ws-hero-media img`, which is a class AND a type,
+   so the still stayed `display: block` and the two frames rendered stacked:
+   a 16/10 picture twice over, reading as one portrait frame. No subject
+   declared a poster until the pacman cover did, which is why a rule that never
+   worked looked like it did. */
+.ws-hero-media img.ws-hero-media-still { display: none; }
 @media (prefers-reduced-motion: reduce) {
   .ws-hero-media:has(.ws-hero-media-still) .ws-hero-media-motion { display: none; }
-  .ws-hero-media-still { display: block; }
+  .ws-hero-media img.ws-hero-media-still { display: block; }
 }
 /* Side by side once there is room for both; stacked before that, with the
    picture under the words rather than squeezed beside them. */

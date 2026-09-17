@@ -11,8 +11,10 @@ Mapping (idempotent, keyed by an admin-only Topic `ws:<subject>:<slug>`):
   trailing prose           -> the closing step (`__outro__`, same mechanic),
                               gated by the last exercise
   exercise                 -> `checkpoint` quiz challenge when the content
-                              validates by an instructor code, otherwise a
-                              standard challenge with a flag; description =
+                              validates by an instructor code, `quizset` when
+                              it validates by its own questions (every one of
+                              them must be right), otherwise a standard
+                              challenge with a flag; description =
                               context + the author's short version + body,
                               each fenced for the page to lift out
   exercise hints           -> CTFd hints (cost from the marker)
@@ -204,6 +206,23 @@ def upsert_page(ctfd, route, payload):
         ctfd.api("PATCH", f"/pages/{page['id']}", json=payload)
     else:
         ctfd.api("POST", "/pages", json=payload)
+
+
+def _quizset_answer(quiz, entry):
+    """One question's answer, normalised and tagged with the kind that grades it.
+
+    `quiz_answers.yaml` keeps its tolerant shapes ("B" / ["A", "D"] / a dict);
+    the grader needs to know which kind each question is, and the spec is not
+    what it reads.
+    """
+    if isinstance(entry, dict):
+        answer = dict(entry)
+    elif isinstance(entry, list):
+        answer = {"answers": list(entry)}
+    else:
+        answer = {"answer": entry}
+    answer["kind"] = quiz.kind
+    return answer
 
 
 def resolve_prerequisites(subject, intro_id, ex_ids, outro_ids):
@@ -808,7 +827,19 @@ def sync(subject_dir, url, admin_user, admin_pass, codes_path=None, *,
             "value": ex.points,
             "position": position_of[ex.order],  # source-reading order → board order
         }
-        if ex.validation == "checkpoint":
+        if ex.validation == "quiz":
+            # The step's own questions are its answer sheet: no instructor, no
+            # code, and `quizset` grades every question at once (quiz.py), so
+            # the step is solved only when all of them are right.
+            payload.update({
+                "type": "quiz", "quiz_type": "quizset",
+                "quiz_spec": {"questions": [
+                    {"id": q.id, "kind": q.kind, "question": q.question,
+                     "items": q.items} for q in ex.quizzes]},
+                "quiz_answers": {"questions": [
+                    _quizset_answer(q, answers[q.id]) for q in ex.quizzes]},
+            })
+        elif ex.validation == "checkpoint":
             payload.update({
                 "type": "quiz", "quiz_type": "checkpoint", "quiz_spec": None,
                 # The code lives on the challenge itself, in a column no API
@@ -820,7 +851,7 @@ def sync(subject_dir, url, admin_user, admin_pass, codes_path=None, *,
             payload["type"] = "standard"
         cid, created = upsert_challenge(ctfd, subject.slug, ex.slug, payload, existing)
         ex_ids[ex.slug] = cid
-        if ex.validation != "checkpoint":
+        if ex.validation not in ("checkpoint", "quiz"):
             set_flag(ctfd, cid, *_answer_for(ex, flags, tokens))
         replace_hints(ctfd, cid, ex.hints)
         stats["created" if created else "updated"] += 1
@@ -832,9 +863,14 @@ def sync(subject_dir, url, admin_user, admin_pass, codes_path=None, *,
     record_validation(ctfd, {ex_ids[ex.slug]: ex.validation
                              for ex in subject.exercises})
 
-    # 3. quizzes -> quiz challenges
+    # 3. quizzes -> quiz challenges. Those belonging to a `validation: quiz`
+    # step are already inside it, so they get no challenge of their own.
+    owned = {q.id for ex in subject.exercises if ex.validation == "quiz"
+             for q in ex.quizzes}
     quiz_ids = {}
     for q in subject.quizzes:
+        if q.id in owned:
+            continue
         spec = ({"left": q.left, "right": q.right} if q.kind == "match"
                 else {"items": q.items} if q.items else None)
         slug = f"quiz-{q.id}"
@@ -926,8 +962,9 @@ def sync(subject_dir, url, admin_user, admin_pass, codes_path=None, *,
         route_slug = (slug if standalone or slug == subject.slug
                       else f"{subject.slug}-{slug}")
         ids = [ex_ids[e.slug] for e in doc.exercises]
-        ids += [quiz_ids[q.id][0] for q in doc.quizzes]
-        ids += [quiz_ids[q.id][0] for e in doc.exercises for q in e.quizzes]
+        ids += [quiz_ids[q.id][0] for q in doc.quizzes if q.id in quiz_ids]
+        ids += [quiz_ids[q.id][0] for e in doc.exercises for q in e.quizzes
+                if q.id in quiz_ids]
         if doc.path in outro_ids:
             ids.append(outro_ids[doc.path])
         route = f"workshop/{route_slug}"

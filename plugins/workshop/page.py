@@ -39,6 +39,7 @@ from CTFd.utils.challenges import get_solve_ids_for_user_id
 from CTFd.utils.decorators import authed_only, during_ctf_time_only
 from CTFd.utils.decorators.visibility import check_challenge_visibility
 from CTFd.utils.helpers import markup
+from markupsafe import escape
 from CTFd.utils.user import get_current_user
 
 # Aliased to the name this module already used: a local `documents` variable
@@ -204,6 +205,29 @@ def _validation_modes():
     return {int(k): v for k, v in modes.items() if str(k).isdigit()}
 
 
+# A quiz question is one line, so it gets inline code and nothing else: a full
+# markdown pass would wrap it in <p>, which cannot live inside a <label>.
+_INLINE_CODE = re.compile(r"`([^`]+)`")
+
+
+def _inline(text):
+    return markup(_INLINE_CODE.sub(
+        lambda m: f"<code>{escape(m.group(1))}</code>", str(escape(text))))
+
+
+def _quiz_spec(challenge):
+    """The spec the template renders, with the questions' inline code resolved."""
+    spec = getattr(challenge, "quiz_spec", None) or {}
+    if getattr(challenge, "quiz_type", None) != "quizset":
+        return spec
+    return {"questions": [
+        dict(q,
+             question=_inline(q.get("question", "")),
+             items=[dict(it, text=_inline(it.get("text", "")))
+                    for it in q.get("items", [])])
+        for q in spec.get("questions", [])]}
+
+
 def _body(challenge, user, validation=None):
     """Everything a participant needs to actually do the step."""
     lead, rest = _split_context(challenge.html)
@@ -217,7 +241,7 @@ def _body(challenge, user, validation=None):
         "summary": markup(summary),
         "hints": _hints(challenge, user.account_id),
         "quiz_type": getattr(challenge, "quiz_type", None),
-        "quiz_spec": getattr(challenge, "quiz_spec", None) or {},
+        "quiz_spec": _quiz_spec(challenge),
         "answer_kind": kind,
         "note": NOTES.get(kind, ""),
         "rating": _rating(challenge, user),

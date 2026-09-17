@@ -33,6 +33,10 @@ Four kinds, all auto-graded server-side in attempt():
   multiple  set of letters                submission "A,D" (order-free)
   match     uppercase→lowercase pairs     submission "A-c,B-a" (order-free, ":" ok)
   freeform  regex (or list, any match)    submission is free text
+  quizset   several questions in one step  submission "A|B,C" ('|' between
+            questions, in spec order). Every question must be right: the step
+            is one exercise, so it is solved or it is not. Each entry carries
+            the `kind` that grades it, so a set can mix single and multiple.
 
 `quiz_answers` never reaches the client: read() only exposes `quiz_type`.
 Answers column shapes (tolerant — bare values accepted):
@@ -41,6 +45,7 @@ Answers column shapes (tolerant — bare values accepted):
   multiple  {"answers": ["A", "D"]}               or ["A", "D"]
   match     {"pairs": {"A": "c", "B": "a"}}       or {"A": "c", ...}
   freeform  {"patterns": ["^ritchie$"], "case_sensitive": false} or ["^ritchie$"]
+  quizset   {"questions": [{"kind": "single", "answer": "B"}, ...]}
 """
 import json
 import re
@@ -180,11 +185,31 @@ def _grade_checkpoint(challenge, submission):
     return False, _("Incorrect")
 
 
+def _grade_quizset(answers, submission):
+    """Every question of the step, in spec order, separated by "|".
+
+    All-or-nothing on purpose: the questions belong to one exercise, and a step
+    half solved would still gate the next one. A missing or extra part means the
+    page and the answer sheet disagree, which is never the participant's fault
+    to guess at — it simply does not grade.
+    """
+    questions = answers.get("questions") if isinstance(answers, dict) else answers
+    parts = submission.split("|")
+    if not questions or len(parts) != len(questions):
+        return False
+    for question, part in zip(questions, parts):
+        grader = GRADERS.get(question.get("kind", "single"))
+        if grader is None or not grader(question, part):
+            return False
+    return True
+
+
 GRADERS = {
     "single": _grade_single,
     "multiple": _grade_multiple,
     "match": _grade_match,
     "freeform": _grade_freeform,
+    "quizset": _grade_quizset,
 }
 
 

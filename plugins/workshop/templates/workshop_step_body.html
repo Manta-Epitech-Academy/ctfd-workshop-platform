@@ -151,6 +151,31 @@
           {% endfor %}
         </div>
 
+      {% elif step.body.quiz_type == 'quizset' and spec.get("questions") %}
+        {# L'etape EST le questionnaire : plusieurs questions, une seule
+           validation. Pas de note sous le formulaire et pas de code a demander
+           a un encadrant — c'est tout l'interet de ce type d'etape. #}
+        {% for q in spec.get("questions") %}
+          {% set qi = loop.index0 %}
+          <fieldset class="ws-quizset-q">
+            <legend class="ws-quizset-q-text">{{ q.question }}</legend>
+            <div class="ws-choices">
+              {% for item in q["items"] %}
+                <div class="form-check">
+                  <input class="form-check-input"
+                         type="{{ 'checkbox' if q.kind == 'multiple' else 'radio' }}"
+                         name="q{{ step.id }}-{{ qi }}"
+                         id="q{{ step.id }}-{{ qi }}-{{ item.letter }}"
+                         value="{{ item.letter }}">
+                  <label class="form-check-label" for="q{{ step.id }}-{{ qi }}-{{ item.letter }}">
+                    <strong>{{ item.letter }}.</strong> {{ item.text }}
+                  </label>
+                </div>
+              {% endfor %}
+            </div>
+          </fieldset>
+        {% endfor %}
+
       {% elif step.type == 'quiz' and step.body.quiz_type == 'match' and left and right %}
         <div class="ws-choices ws-match">
           {% for item in left %}

@@ -215,9 +215,6 @@ msgstr ""
 msgid "Rate this step"
 msgstr "Note cette étape"
 
-msgid "Your answers"
-msgstr "Tes réponses"
-
 msgid "%(count)s answer"
 msgid_plural "%(count)s answers"
 msgstr[0] "%(count)s réponse"

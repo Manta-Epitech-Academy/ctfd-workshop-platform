@@ -672,11 +672,9 @@
   margin: -0.15rem 0 0.4rem;
 }
 
-/* Une étape résolue garde ses questions consultables : repliées, en retrait,
-   et grisées — c'est une relecture, pas un formulaire. */
-.ws-quizset-review { margin-top: 0.5rem; }
-.ws-quizset-review > summary { cursor: pointer; font-size: 0.9rem; opacity: 0.8; }
-.ws-quizset-review[open] > summary { margin-bottom: 0.6rem; }
+/* Une étape résolue garde ses questions consultables, grisées : c'est une
+   relecture, pas un formulaire. */
+.ws-quizset-review { margin-top: 0.75rem; }
 .ws-quizset-review .ws-quizset-q { opacity: 0.85; }
 
 /* Une étape qui porte ses propres questions. Bootstrap met le <legend> à

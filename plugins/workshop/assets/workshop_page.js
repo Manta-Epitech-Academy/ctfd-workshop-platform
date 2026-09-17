@@ -682,11 +682,17 @@
   // fold is for the participant who has already read a long one; shutting it
   // sticks, so it does not spring open again on every page.
   // A step's short version (PLAN.md §25.7) folds the same way and for the same
-  // reason, so both go through one key.
-  var FOLDS = ".ws-part-lead[data-lead], .ws-summary[data-step]";
+  // reason, and so does the answers a solved quiz step shows back, so all three
+  // go through one key. The review keys on `data-review` rather than
+  // `data-step`: a step can carry both, and one key for two folds would shut
+  // the summary whenever the review is shut.
+  var FOLDS = ".ws-part-lead[data-lead], .ws-summary[data-step], " +
+              ".ws-quizset-review[data-review]";
 
   function leadKey(lead) {
-    var id = lead.dataset.lead || ("step" + lead.dataset.step);
+    var id = lead.dataset.lead
+      || (lead.dataset.review ? "review" + lead.dataset.review : null)
+      || ("step" + lead.dataset.step);
     return "ws-lead:" + window.location.pathname + ":" + id;
   }
 

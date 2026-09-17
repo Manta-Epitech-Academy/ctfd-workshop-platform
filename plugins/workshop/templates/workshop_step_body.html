@@ -113,9 +113,11 @@
     </div>
     {% if step.body.quiz_given and step.body.quiz_spec.get("questions") %}
       {# Une etape qui portait des questions les garde consultables : ce qui a
-         ete demande, et ce que le participant a repondu. Replie, parce que la
-         page montre toutes les etapes de la partie a la fois. #}
-      <details class="ws-quizset-review">
+         ete demande, et ce que le participant a repondu. Ouvert par defaut,
+         comme tout le reste de la page : c'est une relecture, et on ne fait pas
+         cliquer pour lire. Le repli est la pour celui qui a deja relu, et il
+         tient d'une visite a l'autre. #}
+      <details class="ws-quizset-review" data-review="{{ step.id }}" open>
         <summary>{% trans %}Your answers{% endtrans %}</summary>
         {% set given = step.body.quiz_given %}
         {% for q in step.body.quiz_spec.get("questions") %}

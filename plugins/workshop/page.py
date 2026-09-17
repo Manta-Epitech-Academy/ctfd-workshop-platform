@@ -211,8 +211,10 @@ _INLINE_CODE = re.compile(r"`([^`]+)`")
 
 
 def _inline(text):
-    return markup(_INLINE_CODE.sub(
-        lambda m: f"<code>{escape(m.group(1))}</code>", str(escape(text))))
+    # Escaped once, then wrapped: escaping the span a second time inside the
+    # replacement turned `distanceX < 0` into `distanceX &lt; 0` on screen.
+    # Backticks are not escaped, so the pattern still matches afterwards.
+    return markup(_INLINE_CODE.sub(r"<code>\1</code>", str(escape(text))))
 
 
 def _quiz_spec(challenge):

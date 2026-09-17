@@ -31,7 +31,7 @@ from itertools import groupby
 from flask import (Blueprint, abort, current_app, jsonify, redirect,
                    render_template, url_for)
 
-from CTFd.models import Hints, HintUnlocks, Ratings
+from CTFd.models import Hints, HintUnlocks, Ratings, Submissions
 from flask_babel import lazy_gettext as _l
 
 from CTFd.utils import get_config
@@ -228,7 +228,29 @@ def _quiz_spec(challenge):
         for q in spec.get("questions", [])]}
 
 
-def _body(challenge, user, validation=None):
+def _quiz_given(challenge, user, solved):
+    """What this participant last answered, question by question.
+
+    Two uses, one source: a solved step shows its questions back with the
+    answers that solved it, and a step reloaded mid-attempt does not lose what
+    was already ticked. Read from the participant's own submissions, never from
+    the answer sheet — what is shown is what they gave, right or wrong.
+    """
+    if getattr(challenge, "quiz_type", None) != "quizset":
+        return []
+    rows = Submissions.query.filter_by(account_id=user.account_id,
+                                       challenge_id=challenge.id)
+    if solved:
+        # The one that solved it, not a later "already solved" attempt.
+        rows = rows.filter_by(type="correct")
+    row = rows.order_by(Submissions.id.desc()).first()
+    if row is None or not row.provided:
+        return []
+    return [[p.strip().upper() for p in part.split(",") if p.strip()]
+            for part in str(row.provided).split("|")]
+
+
+def _body(challenge, user, validation=None, solved=False):
     """Everything a participant needs to actually do the step."""
     lead, rest = _split_context(challenge.html)
     summary, statement = _split_fenced(rest, RESUME_OPEN, RESUME_CLOSE)
@@ -242,6 +264,7 @@ def _body(challenge, user, validation=None):
         "hints": _hints(challenge, user.account_id),
         "quiz_type": getattr(challenge, "quiz_type", None),
         "quiz_spec": _quiz_spec(challenge),
+        "quiz_given": _quiz_given(challenge, user, solved),
         "answer_kind": kind,
         "note": NOTES.get(kind, ""),
         "rating": _rating(challenge, user),
@@ -310,7 +333,7 @@ def _steps(user):
                            for p in prereqs if p not in solved],
             # Teaching prose, not a statement: always rendered (see _lead).
             "lead": _lead(c),
-            "body": (_body(c, user, validation.get(c.id))
+            "body": (_body(c, user, validation.get(c.id), is_solved)
                      if (unlocked or is_solved) else None),
         }
         steps.append(step)

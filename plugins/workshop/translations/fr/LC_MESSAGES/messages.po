@@ -215,6 +215,9 @@ msgstr ""
 msgid "Rate this step"
 msgstr "Note cette étape"
 
+msgid "Your answers"
+msgstr "Tes réponses"
+
 msgid "Read"
 msgstr "Lire"
 

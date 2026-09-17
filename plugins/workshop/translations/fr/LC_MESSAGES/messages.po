@@ -220,6 +220,11 @@ msgid_plural "%(count)s answers"
 msgstr[0] "%(count)s réponse"
 msgstr[1] "%(count)s réponses"
 
+msgid "Not yet: look again at question %(list)s"
+msgid_plural "Not yet: look again at questions %(list)s"
+msgstr[0] "Pas encore : revois la question %(list)s"
+msgstr[1] "Pas encore : revois les questions %(list)s"
+
 msgid "Read"
 msgstr "Lire"
 

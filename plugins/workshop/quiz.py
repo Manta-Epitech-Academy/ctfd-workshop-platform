@@ -52,7 +52,7 @@ import re
 
 from flask import Blueprint
 
-from flask_babel import gettext as _
+from flask_babel import gettext as _, ngettext
 
 from CTFd.exceptions.challenges import (
     ChallengeCreateException,
@@ -204,6 +204,25 @@ def _grade_quizset(answers, submission):
     return True
 
 
+def _quizset_wrong(answers, submission):
+    """Les numeros (a partir de 1) des questions ratees, dans l'ordre du sujet.
+
+    Vide quand la copie et la feuille de reponses n'ont pas le meme nombre de
+    questions : la ou `_grade_quizset` refuse de noter, il n'y a rien a nommer
+    non plus.
+    """
+    questions = answers.get("questions") if isinstance(answers, dict) else answers
+    parts = submission.split("|")
+    if not questions or len(parts) != len(questions):
+        return []
+    wrong = []
+    for i, (question, part) in enumerate(zip(questions, parts), start=1):
+        grader = GRADERS.get(question.get("kind", "single"))
+        if grader is None or not grader(question, part):
+            wrong.append(i)
+    return wrong
+
+
 GRADERS = {
     "single": _grade_single,
     "multiple": _grade_multiple,
@@ -318,4 +337,12 @@ class QuizChallenge(BaseChallenge):
                 return True, _("Correct")
         except (AttributeError, TypeError, re.error):
             return False, _("Misconfigured quiz, please report it")
+        if challenge.quiz_type == "quizset":
+            wrong = _quizset_wrong(challenge.quiz_answers, submission)
+            if wrong:
+                listed = ", ".join(str(n) for n in wrong)
+                return False, ngettext(
+                    "Not yet: look again at question %(list)s",
+                    "Not yet: look again at questions %(list)s",
+                    len(wrong), list=listed)
         return False, _("Incorrect")

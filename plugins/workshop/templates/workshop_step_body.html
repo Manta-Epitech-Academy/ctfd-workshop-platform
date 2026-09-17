@@ -189,6 +189,18 @@
           {% set qi = loop.index0 %}
           <fieldset class="ws-quizset-q">
             <legend class="ws-quizset-q-text">{{ q.question }}</legend>
+            {% if q.expected %}
+              {# Combien de cases cocher, calcule a partir de la feuille de
+                 reponses : l'auteur ne l'ecrit plus dans son intitule, donc les
+                 deux ne peuvent plus se contredire. #}
+              <p class="ws-quizset-count">
+                {%- trans count=q.expected -%}
+                  {{ count }} answer
+                {%- pluralize -%}
+                  {{ count }} answers
+                {%- endtrans -%}
+              </p>
+            {% endif %}
             <div class="ws-choices">
               {% for item in q["items"] %}
                 <div class="form-check">

@@ -217,17 +217,38 @@ def _inline(text):
     return markup(_INLINE_CODE.sub(r"<code>\1</code>", str(escape(text))))
 
 
+def _expected_counts(challenge, total):
+    """How many boxes each question expects, from the answer sheet.
+
+    Only the count is ever rendered, never the letters — the same thing an
+    author used to type into the question by hand ("(2 réponses)"), derived
+    instead, so the two can no longer disagree. Zero means "do not say": a
+    single-choice question has radio buttons, which already say it.
+    """
+    answers = getattr(challenge, "quiz_answers", None) or {}
+    sheet = answers.get("questions") if isinstance(answers, dict) else answers
+    counts = []
+    for i in range(total):
+        entry = sheet[i] if sheet and i < len(sheet) else {}
+        counts.append(len(entry.get("answers") or [])
+                      if entry.get("kind") == "multiple" else 0)
+    return counts
+
+
 def _quiz_spec(challenge):
     """The spec the template renders, with the questions' inline code resolved."""
     spec = getattr(challenge, "quiz_spec", None) or {}
     if getattr(challenge, "quiz_type", None) != "quizset":
         return spec
+    questions = spec.get("questions", [])
+    counts = _expected_counts(challenge, len(questions))
     return {"questions": [
         dict(q,
              question=_inline(q.get("question", "")),
+             expected=counts[i],
              items=[dict(it, text=_inline(it.get("text", "")))
                     for it in q.get("items", [])])
-        for q in spec.get("questions", [])]}
+        for i, q in enumerate(questions)]}
 
 
 def _quiz_given(challenge, user, solved):

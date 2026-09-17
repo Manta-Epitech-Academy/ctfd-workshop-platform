@@ -356,3 +356,8 @@ msgstr ""
 
 msgid "Your answers"
 msgstr ""
+
+msgid "%(count)s answer"
+msgid_plural "%(count)s answers"
+msgstr[0] ""
+msgstr[1] ""

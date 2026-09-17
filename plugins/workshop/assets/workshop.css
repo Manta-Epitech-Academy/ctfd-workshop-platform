@@ -665,6 +665,13 @@
 .ws-form { margin-top: 1rem; }
 .ws-choices { margin-bottom: 0.75rem; }
 
+/* Combien de cases cocher, sous l'intitulé : une consigne, pas une phrase. */
+.ws-quizset-count {
+  font-size: 0.85rem;
+  opacity: 0.75;
+  margin: -0.15rem 0 0.4rem;
+}
+
 /* Une étape résolue garde ses questions consultables : repliées, en retrait,
    et grisées — c'est une relecture, pas un formulaire. */
 .ws-quizset-review { margin-top: 0.5rem; }

@@ -168,6 +168,15 @@
         }
         var counts = await refresh(id, hold ? performance.now() + hold : 0);
         if (status === "correct") celebrateCompletion(counts);
+        // A page that carries something other than steps says so, and gets a
+        // reload once the celebration has had its moment. The index is the one
+        // such page: acknowledging the introduction opens part 1, and the cards
+        // below it are not steps this script knows how to patch. Teaching it a
+        // second vocabulary for one page would be the drift the shared partial
+        // exists to avoid.
+        if (ROOT.dataset.reloadOnSolve) {
+          setTimeout(function () { window.location.reload(); }, hold || 0);
+        }
       } else {
         feedback(form, status, data.message || t("incorrect", "Incorrect"));
         button.disabled = false;

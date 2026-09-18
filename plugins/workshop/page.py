@@ -474,6 +474,27 @@ def _final_step_id():
         return None
 
 
+def _intro_step_id():
+    """The entrypoint step, when the index shows it instead of part 1.
+
+    `intro.md` has no exercises, so it is on no part page; the sync either
+    folds it into the first part (the old shape, and still what an advanced
+    subject does with its own) or names it here, and then the index renders it
+    above its cards. None means the old shape, so an instance synced before
+    this config existed keeps working unchanged.
+
+    Parsed like `workshop_final_step`, and for the same reason: `get_config`
+    hands an all-digit string back as an int.
+    """
+    raw = get_config("workshop_intro_step")
+    if isinstance(raw, int):
+        return raw
+    try:
+        return json.loads(raw) if raw else None
+    except (TypeError, ValueError):
+        return None
+
+
 def _subjects():
     """How each subject presents itself (`workshop_subjects`, §3.2b).
 
@@ -618,16 +639,21 @@ CARD_TEXT = {
 }
 
 
-def _index_cards(user, documents):
+def _index_cards(user, documents, visible_ids=frozenset()):
     """One card per part: where it stands, and what opens it if it is locked.
 
     Built from the same `_steps` pass as the part pages, so the two can never
     disagree about what is unlocked.
+
+    `visible_ids` is what this page renders itself — the introduction, when the
+    sync left it off every part page. A card blocked by it then links to the
+    anchor a few centimetres above rather than sending the reader to a part
+    page to find it.
     """
     steps = _steps(user)
-    # Nothing is on this page, so every blocker links to the part page it lives
-    # on rather than to a local anchor.
-    _resolve_links(steps, documents, visible_ids=set())
+    # Anything not on this page gets the part page it lives on rather than a
+    # local anchor.
+    _resolve_links(steps, documents, visible_ids=set(visible_ids))
 
     cards = []
     for index, doc in enumerate(documents, start=1):
@@ -707,7 +733,19 @@ def workshop():
         return redirect(url_for("workshop_page.workshop_document",
                                 doc_slug=documents[0]["slug"]))
 
-    cards, steps = _index_cards(user, documents)
+    # The introduction, when the sync put it here instead of at the top of
+    # part 1 (`workshop_intro_step`). It is a step like any other — the same
+    # body, the same « J'ai lu » control, the same gate on everything after it
+    # — rendered above the cards instead of inside one of them.
+    intro_id = _intro_step_id()
+    cards, steps = _index_cards(user, documents,
+                                visible_ids={intro_id} if intro_id else set())
+    intro = (next((s for s in steps if s["id"] == intro_id), None)
+             if intro_id else None)
+    if intro is not None:
+        # Folded once it has been acknowledged: it is then a page of text
+        # between the reader and the cards they came for.
+        intro["open"] = not intro["solved"]
     index_solved, index_total = count_steps(steps)
     subjects = _subjects()
     # The index belongs to the workshop, not to one subject, so it shows the
@@ -722,6 +760,7 @@ def workshop():
         subjects=subjects,
         cover=subjects.get(first_subject) or {},
         page_title=get_config("ctf_name"),
+        intro=intro,
         solved_count=index_solved,
         total_count=index_total,
     )
@@ -743,7 +782,21 @@ def workshop_document(doc_slug):
         abort(404)
     doc_index = docs.index(doc)
     next_doc = docs[doc_index + 1] if doc_index + 1 < len(docs) else None
-    return _render(get_current_user(), keep_ids=set(doc["challenge_ids"]),
+    keep_ids = set(doc["challenge_ids"])
+    # The index renders the introduction itself, so it does not belong here as
+    # well. A sync from this version already leaves it out of every document;
+    # discarding it here is what keeps an instance consistent in between, when
+    # the config names a step the old document list still contains.
+    #
+    # Never for a single-part subject, whose `/workshop` redirects straight
+    # here: there is no index to have shown it, and dropping it would leave the
+    # step that gates the whole subject on no page at all. The sync does not
+    # produce that combination; this is the page refusing to be the one that
+    # strands a step if a stale config ever says otherwise.
+    intro_id = _intro_step_id()
+    if intro_id is not None and len(docs) > 1:
+        keep_ids.discard(intro_id)
+    return _render(get_current_user(), keep_ids=keep_ids,
                    title=doc["title"], subject=doc.get("subject"),
                    next_doc=next_doc, doc_slug=doc_slug)
 

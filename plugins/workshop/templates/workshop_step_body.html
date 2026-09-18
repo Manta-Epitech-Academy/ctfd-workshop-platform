@@ -40,18 +40,25 @@
     {# The section itself is on /toolbox (page.py `_reference`). The names are
        here because "is there anything new in it" has to be answerable without
        leaving the step. #}
+    {# Exactly two children, and they have to stay two: the panel lays them out
+       with `gap`, which would otherwise put space around every comma in the
+       list. #}
     <p class="ws-toolbox-link">
-      <span aria-hidden="true">🧰</span>
-      {%- if step.body.tools %}
-        {% trans %}Tools for this step{% endtrans %} :
-        {% for tool in step.body.tools -%}
-          <span class="ws-tool-name">{{ tool }}</span>{% if not loop.last %}, {% endif %}
-        {%- endfor -%}
-        .
-      {% endif %}
-      {# Its own sentence, after a full stop: joined to the list with a comma it
-         reads as one more tool. #}
-      <a class="ws-toolbox-open" href="{{ url_for('workshop_page.toolbox') }}#step-{{ step.id }}">{% trans %}Open the toolbox{% endtrans %}</a>
+      <span class="ws-toolbox-text">
+        <span aria-hidden="true">🧰</span>
+        {%- if step.body.tools %}
+          {% trans %}Tools for this step{% endtrans %} :
+          {% for tool in step.body.tools -%}
+            <span class="ws-tool-name">{{ tool }}</span>{% if not loop.last %}, {% endif %}
+          {%- endfor -%}
+          .
+        {%- endif %}
+      </span>
+      {# The platform's own primary button, not a lookalike: hover, press and
+         disabled states, and the colours in both themes, are the theme's
+         (epitech-theme.css). Only the pill shape is added here. #}
+      <a class="btn btn-primary btn-sm ws-toolbox-open"
+         href="{{ url_for('workshop_page.toolbox') }}#step-{{ step.id }}">{% trans %}Open the toolbox{% endtrans %}</a>
     </p>
   {% endif %}
 

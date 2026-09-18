@@ -1312,11 +1312,34 @@ main > .container > .row > .col-md-12 > h3.text-muted:only-child::after,
 .ws-tool-name { white-space: nowrap; }
 .ws-tool-body > :last-child { margin-bottom: 0; }
 
-/* The line a step shows in place of its toolbox. Quiet: it is a signpost, not
-   a call to action, and the step's own submit button is what should carry the
-   eye. */
+/* The line a step shows in place of its toolbox. It sits between two blocks of
+   prose, so as plain text it reads as one more sentence and gets skipped — the
+   section it replaces was a heading and half a screen tall. A tinted panel and
+   a real button give it back the weight it had, without competing with the
+   step's own submit: that one is solid primary, this is primary at 8%. */
 .ws-toolbox-link {
-  margin: 0.75rem 0 0;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin: 1.1rem 0;
+  padding: 0.7rem 0.9rem;
   font-size: 0.95rem;
-  color: var(--bs-secondary-color, #6c757d);
+  color: var(--bs-body-color, #181818);
+  background: color-mix(in oklab, var(--bs-primary, #013afb) 8%, transparent);
+  border: 1px solid color-mix(in oklab, var(--bs-primary, #013afb) 28%, transparent);
+  border-radius: var(--bs-border-radius, 0.75rem);
+}
+/* The sentence, as one flex item: inside it the commas and the full stop are
+   ordinary text again, instead of every one of them getting a `gap`. */
+.ws-toolbox-text { flex: 1 1 auto; }
+/* Pushed to the far end of the panel, so the eye lands on the same spot on
+   every step whatever the tool names are worth in width. Everything else about
+   it — fill, hover, press, and both themes — is `.btn-primary`'s, from the
+   theme: this is the platform's button, not a lookalike. */
+.ws-toolbox-open {
+  margin-left: auto;
+  border-radius: 999px;
+  font-weight: 600;
+  white-space: nowrap;
 }

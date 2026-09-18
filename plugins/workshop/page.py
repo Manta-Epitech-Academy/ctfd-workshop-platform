@@ -57,6 +57,11 @@ from .progress import id_set as _id_set
 from .progress import optional_ids as _optional_ids
 from .progress import ordered_challenges as _ordered_challenges
 from .runtime import declared_runtime
+# The reference material an author writes beside the step that needs it, and
+# this page shows on one gathered page instead — see toolbox.py.
+from .toolbox import (GLOSSARY_OPEN, HERE, TOOLBOX_OPEN, lift_leading_heading,
+                      split_glossary, split_toolbox, strip_leading_heading,
+                      tool_names)
 
 workshop_page = Blueprint(
     "workshop_page", __name__, template_folder="templates"
@@ -277,9 +282,28 @@ def _body(challenge, user, validation=None, solved=False):
     """Everything a participant needs to actually do the step."""
     lead, rest = _split_context(challenge.html)
     summary, statement = _split_fenced(rest, RESUME_OPEN, RESUME_CLOSE)
+    # Reference material leaves the step and is replaced by a line naming what
+    # is in it (`/toolbox`). A step that opens with half a screen of reference
+    # buries the work, and the same tool is needed again five steps later, where
+    # scrolling back for it is how somebody loses their place.
+    glossary, statement = split_glossary(statement, placeholder=HERE)
+    toolbox, statement = split_toolbox(statement, placeholder=HERE)
+    # The statement is handed to the template in two halves so the link can be
+    # rendered exactly where the section was: after the step is introduced,
+    # before the work starts.
+    before, _, after = statement.partition(HERE)
     kind = _answer_kind(challenge, validation)
     return {
-        "description": markup(statement),
+        "description": markup(before.replace(HERE, "").strip()),
+        "description_after": markup(after.replace(HERE, "").strip()),
+        # Only the names, and only to render the link: the section itself is on
+        # the toolbox page. Derived from the author's own titles, so the line
+        # and the section cannot drift.
+        "tools": [markup(name) for name in tool_names(toolbox)],
+        "has_toolbox": bool(toolbox),
+        # A step whose only reference is a glossary (the introduction) still
+        # gets the line, or its table would vanish with no trace of where to.
+        "has_glossary": bool(glossary),
         # The author's short version, folded open above the statement. A
         # summary, never a substitute: §24 is what happens when a step's own
         # words are withheld from the person reading it.
@@ -763,6 +787,68 @@ def workshop():
         intro=intro,
         solved_count=index_solved,
         total_count=index_total,
+    )
+
+
+def _reference(user):
+    """(glossary, tools) — the two sections of the toolbox page.
+
+    States come from the same `_steps` pass every other view uses, so a tool is
+    open here exactly when its step is open on the workshop page. The content
+    is read from the challenge rows instead, because a locked step has no body
+    in `_steps` and this page still names it: knowing that step 7 brings a tool
+    is not the same as being handed it, and a page that grows new rows as you
+    go gives no sense of what the subject holds.
+    """
+    steps = {s["id"]: s for s in _steps(user)}
+    pages = step_pages()
+    glossary, tools = [], []
+    for challenge in _ordered_challenges():
+        step = steps.get(challenge.id)
+        if step is None:
+            continue
+        open_to_them = step["unlocked"] or step["solved"]
+        entry = {"id": challenge.id, "name": step["name"], "state": step["state"],
+                 "href": step_href(challenge.id, pages), "locked": not open_to_them}
+        if open_to_them:
+            region, rest = split_glossary(challenge.html)
+            toolbox, _ = split_toolbox(rest)
+            if region:
+                heading, body = lift_leading_heading(region)
+                glossary.append({**entry, "html": markup(body),
+                                 "title": markup(heading) if heading else ""})
+            if toolbox:
+                tools.append({**entry, "html": markup(strip_leading_heading(toolbox)),
+                              "tools": [markup(n) for n in tool_names(toolbox)]})
+        else:
+            # The markers are read from the source, not from the rendered body:
+            # nothing of a locked step's content is built here, let alone sent.
+            source = challenge.description or ""
+            if GLOSSARY_OPEN in source:
+                glossary.append({**entry, "html": "", "tools": []})
+            if TOOLBOX_OPEN in source:
+                tools.append({**entry, "html": "", "tools": []})
+    return glossary, tools
+
+
+@workshop_page.route("/toolbox")
+@during_ctf_time_only
+@check_challenge_visibility
+@authed_only
+def toolbox():
+    """Every tool and every glossary entry of the subject, in reading order.
+
+    Its own route rather than `/workshop/toolbox`: that one is a document slug,
+    and a part named "toolbox" would shadow this page — or this page would
+    shadow the part, depending on which rule Werkzeug picked.
+    """
+    user = get_current_user()
+    glossary, tools = _reference(user)
+    return render_template(
+        "workshop_toolbox.html",
+        glossary=glossary,
+        tools=tools,
+        page_title=get_config("ctf_name"),
     )
 
 

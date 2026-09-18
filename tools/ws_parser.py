@@ -32,7 +32,14 @@ from pathlib import Path
 
 import yaml
 
-WS_COMMENT = re.compile(r"<!--\s*ws:(?!resume)(.*?)-->", re.DOTALL)
+# Regions fenced by an opening and a closing comment, rather than metadata
+# attached to a heading. They carry content the platform lifts out and renders
+# elsewhere — the author's short version above the statement, the toolbox and
+# the glossary on the toolbox page — so the marker is a name, not a YAML
+# mapping, and the metadata parser has to keep its hands off it.
+FENCED_REGIONS = ("resume", "toolbox", "glossary")
+WS_COMMENT = re.compile(
+    r"<!--\s*ws:(?!(?:%s)\b)(.*?)-->" % "|".join(FENCED_REGIONS), re.DOTALL)
 RESUME_OPEN = "<!-- ws:resume -->"
 RESUME_CLOSE = "<!-- /ws:resume -->"
 HEADING = re.compile(r"^(#{1,6})\s+(.*?)\s*$")

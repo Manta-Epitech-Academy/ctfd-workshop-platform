@@ -370,3 +370,32 @@ msgstr "pour débloquer cette étape."
 msgid "your path"
 msgstr "ton parcours"
 
+msgid "Toolbox"
+msgstr "Boîte à outils"
+
+msgid "Everything the workshop has given you so far, in one place."
+msgstr "Tout ce que l'atelier t'a donné jusqu'ici, au même endroit."
+
+msgid "Glossary"
+msgstr "Glossaire"
+
+msgid "Tools, step by step"
+msgstr "Les outils, étape par étape"
+
+msgid "Unlocks with this step."
+msgstr "S'ouvre en même temps que cette étape."
+
+msgid "This subject carries no toolbox yet."
+msgstr "Ce sujet n'a pas encore de boîte à outils."
+
+msgid "Tools for this step"
+msgstr "Les outils de cette étape"
+
+msgid "Open the toolbox"
+msgstr "Ouvrir la boîte à outils"
+
+msgid "Open the toolbox in a new tab"
+msgstr "Ouvrir la boîte à outils dans un nouvel onglet"
+
+msgid "The glossary for this step is in the toolbox."
+msgstr "Le glossaire de cette étape est dans la boîte à outils."

@@ -36,6 +36,48 @@
 
   <div class="ws-statement challenge-desc">{{ step.body.description }}</div>
 
+  {% if step.body.has_toolbox or step.body.has_glossary %}
+    {# The section itself is on /toolbox (page.py `_reference`). The names are
+       here because "is there anything new in it" has to be answerable without
+       leaving the step. A step whose only region is a glossary (the
+       introduction) gets the line too: its table must not vanish with no
+       trace of where it went. #}
+    {# Exactly two children, and they have to stay two: the panel lays them out
+       with `gap`, which would otherwise put space around every comma in the
+       list. #}
+    {% set anchor = "step-" ~ step.id if step.body.has_toolbox else "glossary-" ~ step.id %}
+    <p class="ws-toolbox-link">
+      <span class="ws-toolbox-text">
+        <span aria-hidden="true">{{ "🧰" if step.body.has_toolbox else "📖" }}</span>
+        {%- if step.body.tools %}
+          {% trans %}Tools for this step{% endtrans %} :
+          {% for tool in step.body.tools -%}
+            <span class="ws-tool-name">{{ tool }}</span>{% if not loop.last %}, {% endif %}
+          {%- endfor -%}
+          .
+        {%- elif not step.body.has_toolbox %}
+          {% trans %}The glossary for this step is in the toolbox.{% endtrans %}
+        {%- endif %}
+      </span>
+      {# The platform's own primary button, not a lookalike: hover, press and
+         disabled states, and the colours in both themes, are the theme's
+         (epitech-theme.css). Only the pill shape is added here. #}
+      {# A new tab, deliberately: this is looked up *while* working on the step,
+         and coming back must not cost the runtime pane (it reloads) or the
+         place in a page of thirty steps. `noopener` for the usual reason. The
+         aria-label says what the visible label cannot fit. #}
+      <a class="btn btn-primary btn-sm ws-toolbox-open"
+         href="{{ url_for('workshop_page.toolbox') }}#{{ anchor }}"
+         target="_blank" rel="noopener"
+         aria-label="{{ _("Open the toolbox in a new tab") }}">{% trans %}Open the toolbox{% endtrans %}</a>
+    </p>
+  {% endif %}
+
+  {% if step.body.description_after %}
+    {# Whatever the author wrote after the section they fenced. #}
+    <div class="ws-statement challenge-desc">{{ step.body.description_after }}</div>
+  {% endif %}
+
   {% for hint in step.body.hints %}
     <details class="ws-hint" data-hint-id="{{ hint.id }}" data-cost="{{ hint.cost }}"
              {% if hint.unlocked %}data-loaded="1"{% endif %}>

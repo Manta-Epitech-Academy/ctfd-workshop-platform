@@ -503,7 +503,7 @@
   color: var(--bs-secondary-color, #6c757d);
 }
 .ws-step.ws-locked .ws-step-name { font-weight: 500; }
-.ws-step.ws-locked .ws-step-icon {
+.ws-step.ws-locked .ws-step-icon, .ws-tool.ws-locked .ws-step-icon {
   width: 1.4rem; height: 1.4rem; background: none;
   border: 1px solid var(--bs-border-color, #dee2e6);
 }
@@ -551,23 +551,23 @@
   font-size: 0.78em;
   line-height: 1;
 }
-.ws-step.ws-done .ws-step-icon {
+.ws-step.ws-done .ws-step-icon, .ws-tool.ws-done .ws-step-icon {
   background: color-mix(in oklab, var(--bs-success, #198754) 16%, transparent);
   border-color: transparent;
 }
-.ws-step.ws-done .ws-step-icon::before { content: "\f00c"; color: var(--bs-success, #198754); }
-.ws-step.ws-current .ws-step-icon {
+.ws-step.ws-done .ws-step-icon::before, .ws-tool.ws-done .ws-step-icon::before { content: "\f00c"; color: var(--bs-success, #198754); }
+.ws-step.ws-current .ws-step-icon, .ws-tool.ws-current .ws-step-icon {
   border-color: var(--bs-primary, #0d6efd); border-width: 2px;
 }
-.ws-step.ws-current .ws-step-icon::before { content: "\f04b"; color: var(--bs-primary, #0d6efd); }
+.ws-step.ws-current .ws-step-icon::before, .ws-tool.ws-current .ws-step-icon::before { content: "\f04b"; color: var(--bs-primary, #0d6efd); }
 /* "Not started" is the bare bordered circle: the ring is already drawn by
    .ws-step-icon, so the glyph would only be a second circle inside it. */
-.ws-step.ws-todo .ws-step-icon::before { content: none; }
-.ws-step.ws-locked .ws-step-icon {
+.ws-step.ws-todo .ws-step-icon::before, .ws-tool.ws-todo .ws-step-icon::before { content: none; }
+.ws-step.ws-locked .ws-step-icon, .ws-tool.ws-locked .ws-step-icon {
   background: var(--bs-tertiary-bg, #f1f2f6); border-color: transparent;
 }
-.ws-step.ws-locked .ws-step-icon::before { content: "\f023"; opacity: 0.7; }
-.ws-step.ws-info .ws-step-icon::before { content: "\f15c"; opacity: 0.7; }
+.ws-step.ws-locked .ws-step-icon::before, .ws-tool.ws-locked .ws-step-icon::before { content: "\f023"; opacity: 0.7; }
+.ws-step.ws-info .ws-step-icon::before, .ws-tool.ws-info .ws-step-icon::before { content: "\f15c"; opacity: 0.7; }
 .ws-chip.ws-info { opacity: 0.85; }
 .ws-step-body { padding: 0 1rem 1.1rem; border-top: 1px solid var(--bs-border-color, #dee2e6); }
 .ws-step-body:empty { border-top: none; }
@@ -1319,3 +1319,60 @@ main > .container > .row > .col-md-12 > h3.text-muted:only-child::after,
 }
 
 .ws-subject.ws-locked .ws-subject-title { opacity: 0.7; }
+
+/* ---- The toolbox page (/toolbox) and the line that replaces a section ---- */
+
+/* One block per step, reading like the step rows it mirrors: the state comes
+   from the same table as the cards and the chips, so a locked tool here and a
+   locked step there look alike. */
+.ws-toolbox-section { margin-bottom: 2.5rem; }
+.ws-tool {
+  border: 1px solid var(--bs-border-color, #dee2e6);
+  border-radius: var(--epi-radius-lg, 0.75rem);
+  padding: 1rem 1.25rem;
+  margin-bottom: 1rem;
+}
+.ws-tool.ws-locked { opacity: 0.7; }
+.ws-tool-title { font-size: 1.05rem; margin: 0 0 0.5rem; display: flex;
+                 align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+/* The names, on the page and on the step line, are the author's own titles and
+   usually contain inline code; keeping them on one line each is what makes a
+   list of three scannable. */
+.ws-tool-names { font-weight: 400; color: var(--bs-secondary-color, #6c757d); }
+/* The step a titled block came from: secondary, so the block's own heading
+   stays the thing the eye reads first. */
+.ws-tool-from { font-weight: 400; font-size: 0.9rem; margin-left: auto; }
+.ws-tool-name { white-space: nowrap; }
+.ws-tool-body > :last-child { margin-bottom: 0; }
+
+/* The line a step shows in place of its toolbox. It sits between two blocks of
+   prose, so as plain text it reads as one more sentence and gets skipped — the
+   section it replaces was a heading and half a screen tall. A tinted panel and
+   a real button give it back the weight it had, without competing with the
+   step's own submit: that one is solid primary, this is primary at 8%. */
+.ws-toolbox-link {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin: 1.1rem 0;
+  padding: 0.7rem 0.9rem;
+  font-size: 0.95rem;
+  color: var(--bs-body-color, #181818);
+  background: color-mix(in oklab, var(--bs-primary, #013afb) 8%, transparent);
+  border: 1px solid color-mix(in oklab, var(--bs-primary, #013afb) 28%, transparent);
+  border-radius: var(--bs-border-radius, 0.75rem);
+}
+/* The sentence, as one flex item: inside it the commas and the full stop are
+   ordinary text again, instead of every one of them getting a `gap`. */
+.ws-toolbox-text { flex: 1 1 auto; }
+/* Pushed to the far end of the panel, so the eye lands on the same spot on
+   every step whatever the tool names are worth in width. Everything else about
+   it — fill, hover, press, and both themes — is `.btn-primary`'s, from the
+   theme: this is the platform's button, not a lookalike. */
+.ws-toolbox-open {
+  margin-left: auto;
+  border-radius: 999px;
+  font-weight: 600;
+  white-space: nowrap;
+}

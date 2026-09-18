@@ -158,7 +158,7 @@
          ete demande, et ce que le participant a repondu. Toujours visible : un
          repli qui s'ouvre par defaut n'est plus qu'un bouton a cliquer pour
          rien. Les champs desactives disent deja que c'est un releve. #}
-      <div class="ws-quizset-review">
+      <div class="ws-quizset-review ws-quiz-box">
         {% set given = step.body.quiz_given %}
         {% for q in step.body.quiz_spec.get("questions") %}
           {% set qi = loop.index0 %}
@@ -224,7 +224,13 @@
         {% set given = step.body.quiz_given or [] %}
         {# L'etape EST le questionnaire : plusieurs questions, une seule
            validation. Pas de note sous le formulaire et pas de code a demander
-           a un encadrant — c'est tout l'interet de ce type d'etape. #}
+           a un encadrant — c'est tout l'interet de ce type d'etape.
+
+           `ws-quiz-box` le peint d'une couleur differente de la mise en
+           application : les beta-testeurs repondaient avant d'avoir fait
+           l'etape, parce que les questions etaient la seule chose cliquable
+           de la page. #}
+        <div class="ws-quiz-box">
         {% for q in spec.get("questions") %}
           {% set qi = loop.index0 %}
           <fieldset class="ws-quizset-q">
@@ -258,6 +264,7 @@
             </div>
           </fieldset>
         {% endfor %}
+        </div>
 
       {% elif step.type == 'quiz' and step.body.quiz_type == 'match' and left and right %}
         <div class="ws-choices ws-match">

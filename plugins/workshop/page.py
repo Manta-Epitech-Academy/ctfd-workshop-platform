@@ -59,6 +59,7 @@ from .progress import ordered_challenges as _ordered_challenges
 from .runtime import declared_runtime
 # The reference material an author writes beside the step that needs it, and
 # this page shows on one gathered page instead — see toolbox.py.
+from .highlight import box_apply_section
 from .toolbox import (GLOSSARY_OPEN, HERE, TOOLBOX_OPEN, lift_leading_heading,
                       split_glossary, split_toolbox, strip_leading_heading,
                       tool_names)
@@ -294,8 +295,10 @@ def _body(challenge, user, validation=None, solved=False):
     before, _, after = statement.partition(HERE)
     kind = _answer_kind(challenge, validation)
     return {
-        "description": markup(before.replace(HERE, "").strip()),
-        "description_after": markup(after.replace(HERE, "").strip()),
+        # Both halves, because a toolbox fenced before « Mise en application »
+        # puts the do-it section in the second one.
+        "description": markup(box_apply_section(before.replace(HERE, "").strip())),
+        "description_after": markup(box_apply_section(after.replace(HERE, "").strip())),
         # Only the names, and only to render the link: the section itself is on
         # the toolbox page. Derived from the author's own titles, so the line
         # and the section cannot drift.

@@ -54,7 +54,8 @@
   /* ---------- answer collection ---------- */
 
   // Turn the controls into the grammar the server grades (see quiz.py):
-  //   single "B" | multiple "A,D" | match "A-c,B-a" | freeform/flag: raw text
+  //   single "B" | multiple "A,D" | match "A-c,B-a" | quizset "A|B,C"
+  //   freeform/flag: raw text
   function collectAnswer(form) {
     var kind = form.dataset.answerKind;
     // Reading acknowledgement: the click is the answer. The server accepts it
@@ -83,6 +84,18 @@
     if (kind === "multiple") {
       return Array.from(form.querySelectorAll("input[type=checkbox]:checked"))
         .map(function (i) { return i.value; }).sort().join(",");
+    }
+    // A step that carries its own questions: one part per question, in the
+    // order the page renders them, joined by "|". An unanswered question
+    // returns "" so the form says "answer everything" instead of grading a
+    // half-filled set as wrong (quiz.py grades all-or-nothing).
+    if (kind === "quizset") {
+      var groups = Array.from(form.querySelectorAll(".ws-quizset-q"));
+      var parts = groups.map(function (group) {
+        return Array.from(group.querySelectorAll("input:checked"))
+          .map(function (i) { return i.value; }).sort().join(",");
+      });
+      return parts.some(function (p) { return !p; }) ? "" : parts.join("|");
     }
     if (kind === "match") {
       return Array.from(form.querySelectorAll(".ws-match-select"))

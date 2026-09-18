@@ -438,8 +438,8 @@ def _extract_inline(body, category, host_slug, defaults, where):
 
 
 TOPOLOGIES = ("linear", "free")
-VALIDATIONS = ("checkpoint", "flag", "token", "tests", "review")
-IMPLEMENTED_VALIDATIONS = ("checkpoint", "flag", "token")
+VALIDATIONS = ("checkpoint", "quiz", "flag", "token", "tests", "review")
+IMPLEMENTED_VALIDATIONS = ("checkpoint", "quiz", "flag", "token")
 
 
 def _topology_of(meta, where):
@@ -798,6 +798,11 @@ def _lint_problems(subject_dir):
         elif ex.validation == "token" and not ex.token_id:
             problems.append(f"exercise {ex.slug!r}: validation: token, but no "
                             f"`token_id` for the runtime to derive it from")
+        elif ex.validation == "quiz" and not ex.quizzes:
+            # The questions ARE the answer, so a step with none could never be
+            # solved — and it would import as a control with nothing in it.
+            problems.append(f"exercise {ex.slug!r}: validation: quiz, but the step "
+                            f"hosts no `type: quiz` marker")
         elif ex.validation == "flag" and not flags.get(ex.slug):
             # The answer is the flag, so a missing one is not a small gap: the
             # step would import with no way to solve it.

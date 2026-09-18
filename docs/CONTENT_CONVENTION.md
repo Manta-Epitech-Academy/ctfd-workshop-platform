@@ -359,6 +359,33 @@ A subject that marks nothing keeps the old behaviour: every section renders insi
 the toolbox page says it is empty. A platform that does not know these markers renders them as
 the invisible comments they are.
 
+### 3.4c The do-it section — a heading that starts with 🥸
+
+A step is read, then done, then checked. On screen those three used to look like
+one column of prose with clickable controls at the bottom, and beta testers did the
+obvious thing: they answered the questions without doing the step first.
+
+So the platform paints two panels, in two colours: the section you **do**, and the
+questions you **answer**. Nothing is hidden and nothing is reordered — a participant
+who wants to answer first still can.
+
+The marker is the house heading the blueprint already prescribes:
+
+```markdown
+### 🥸 Mise en application
+
+**Ton objectif :** ...
+```
+
+**A heading whose text starts with 🥸 opens the do-it section**, and that section runs
+to the end of the statement (hints and the answer control are separate structures by
+then). The wording after the emoji is free — « Mise en application », « Ta première
+réussite », anything — and no closing marker is needed. A statement with no such
+heading simply gets no panel.
+
+The questions get the other panel automatically: they are a `type: quiz` block, and
+the platform knows where they are.
+
 ### 3.5 Instructor-led review flow
 
 In instructor-led mode, marking an exercise done is a **submission for review**, not a

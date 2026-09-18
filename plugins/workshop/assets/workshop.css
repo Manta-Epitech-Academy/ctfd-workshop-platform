@@ -1376,3 +1376,55 @@ main > .container > .row > .col-md-12 > h3.text-muted:only-child::after,
   font-weight: 600;
   white-space: nowrap;
 }
+
+/* ---- The two panels of a step: what you do, and what you answer ---- */
+
+/* Beta testers answered the questions before doing the step. Both blocks are
+   given a frame and a colour of their own, so "the work" and "the check" stop
+   looking like the same page of prose: the section you do is warm, the
+   questions are violet. Neither is hidden and neither moved — a reader who
+   wants to answer first still can, they just no longer do it by accident.
+
+   Colour is never the only signal (~8% of men, and a projector): each carries
+   its own heading, and the frame + the label do the work in grayscale. */
+:root {
+  --ws-apply-accent: var(--epi-together, #ff5f3a);
+  --ws-quiz-accent: #6f4ef2;
+  /* The frame gets the brand colour; the heading gets an ink dark enough to
+     read on the tint it sits on. #ff5f3a as text is 2.73:1 there, under even
+     the 3:1 floor for large bold text; this is 4.8:1. */
+  --ws-apply-ink: #c23c1b;
+}
+:root[data-bs-theme="dark"], [data-bs-theme="dark"] {
+  /* Both lifted for a dark surface: the print colours go muddy on #0c0e13. */
+  --ws-apply-accent: #ff8a6e;
+  --ws-quiz-accent: #a894ff;
+  /* On a dark surface the lifted accent is already 7.9:1, so ink and frame are
+     the same colour. */
+  --ws-apply-ink: #ff8a6e;
+}
+
+.ws-apply,
+.ws-quiz-box {
+  border: 1px solid;
+  border-left-width: 4px;
+  border-radius: var(--bs-border-radius, 0.75rem);
+  padding: 0.9rem 1.1rem;
+  margin: 1.25rem 0;
+}
+.ws-apply {
+  border-color: color-mix(in oklab, var(--ws-apply-accent) 45%, transparent);
+  background: color-mix(in oklab, var(--ws-apply-accent) 7%, transparent);
+}
+.ws-quiz-box {
+  border-color: color-mix(in oklab, var(--ws-quiz-accent) 45%, transparent);
+  background: color-mix(in oklab, var(--ws-quiz-accent) 7%, transparent);
+}
+/* The heading the author already wrote is the label; it only needs the accent
+   so the frame and the title read as one block. */
+.ws-apply > :first-child { margin-top: 0; color: var(--ws-apply-ink); }
+.ws-apply > :last-child,
+.ws-quiz-box > :last-child { margin-bottom: 0; }
+/* Inside the form the box holds fieldsets, which have no heading of their own:
+   the first question should not sit against the frame. */
+.ws-quiz-box > .ws-quizset-q:first-child { margin-top: 0; }

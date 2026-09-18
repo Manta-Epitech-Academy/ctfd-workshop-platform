@@ -54,7 +54,8 @@
   /* ---------- answer collection ---------- */
 
   // Turn the controls into the grammar the server grades (see quiz.py):
-  //   single "B" | multiple "A,D" | match "A-c,B-a" | freeform/flag: raw text
+  //   single "B" | multiple "A,D" | match "A-c,B-a" | quizset "A|B,C"
+  //   freeform/flag: raw text
   function collectAnswer(form) {
     var kind = form.dataset.answerKind;
     // Reading acknowledgement: the click is the answer. The server accepts it
@@ -83,6 +84,18 @@
     if (kind === "multiple") {
       return Array.from(form.querySelectorAll("input[type=checkbox]:checked"))
         .map(function (i) { return i.value; }).sort().join(",");
+    }
+    // A step that carries its own questions: one part per question, in the
+    // order the page renders them, joined by "|". An unanswered question
+    // returns "" so the form says "answer everything" instead of grading a
+    // half-filled set as wrong (quiz.py grades all-or-nothing).
+    if (kind === "quizset") {
+      var groups = Array.from(form.querySelectorAll(".ws-quizset-q"));
+      var parts = groups.map(function (group) {
+        return Array.from(group.querySelectorAll("input:checked"))
+          .map(function (i) { return i.value; }).sort().join(",");
+      });
+      return parts.some(function (p) { return !p; }) ? "" : parts.join("|");
     }
     if (kind === "match") {
       return Array.from(form.querySelectorAll(".ws-match-select"))
@@ -155,6 +168,15 @@
         }
         var counts = await refresh(id, hold ? performance.now() + hold : 0);
         if (status === "correct") celebrateCompletion(counts);
+        // A page that carries something other than steps says so, and gets a
+        // reload once the celebration has had its moment. The index is the one
+        // such page: acknowledging the introduction opens part 1, and the cards
+        // below it are not steps this script knows how to patch. Teaching it a
+        // second vocabulary for one page would be the drift the shared partial
+        // exists to avoid.
+        if (ROOT.dataset.reloadOnSolve) {
+          setTimeout(function () { window.location.reload(); }, hold || 0);
+        }
       } else {
         feedback(form, status, data.message || t("incorrect", "Incorrect"));
         button.disabled = false;

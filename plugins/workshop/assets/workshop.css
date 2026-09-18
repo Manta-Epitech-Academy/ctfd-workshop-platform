@@ -664,6 +664,31 @@
 }
 .ws-form { margin-top: 1rem; }
 .ws-choices { margin-bottom: 0.75rem; }
+
+/* Combien de cases cocher, sous l'intitulé : une consigne, pas une phrase. */
+.ws-quizset-count {
+  font-size: 0.85rem;
+  opacity: 0.75;
+  margin: -0.15rem 0 0.4rem;
+}
+
+/* Une étape résolue garde ses questions consultables, grisées : c'est une
+   relecture, pas un formulaire. */
+.ws-quizset-review { margin-top: 0.75rem; }
+.ws-quizset-review .ws-quizset-q { opacity: 0.85; }
+
+/* Une étape qui porte ses propres questions. Bootstrap met le <legend> à
+   1.5rem, ce qui en ferait un titre plus gros que le corps de l'étape : une
+   question n'est pas un titre, elle se lit comme une phrase. */
+.ws-quizset-q { margin: 0 0 1.25rem; }
+.ws-quizset-q:last-of-type { margin-bottom: 0.75rem; }
+.ws-quizset-q-text {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 0.4rem;
+  float: none;
+  width: auto;
+}
 /* The label is the target, not the 13px radio next to it, so the whole row has
    to look pressable — on a phone the dot alone is under the 44px touch target
    every guideline asks for. */
@@ -742,6 +767,11 @@
  * identical, so the eye lands on the one card that is actionable.
  * ------------------------------------------------------------------ */
 .ws-index .ws-cards { margin-top: 1.25rem; }
+/* The introduction, when the index carries it (page.py,
+   `workshop_intro_step`). It is a step, so it already has every style a
+   step has; all it needs here is air between it and the cards it
+   introduces. */
+.ws-index-intro { margin-bottom: 2rem; }
 /* `.card` (epitech-theme.css) already gives every card rounded-xl + a real
    shadow; `overflow: hidden` keeps this top accent bar from poking past the
    now-rounded corners. */

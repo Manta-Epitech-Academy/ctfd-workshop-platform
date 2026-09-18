@@ -8,7 +8,7 @@ Verified against CTFd 3.8.5. Design of record: `PLAN.md` §9-12,
 
 ## Provided: challenge type `quiz` (Phase 1)
 
-Auto-graded quiz, four kinds. The **question** is authored in the challenge description
+Auto-graded quiz, six kinds. The **question** is authored in the challenge description
 (markdown); the **propositions** go in `quiz_spec` so the participant gets real controls;
 correct answers live server-side in the `quiz_answers` JSON column and are **never
 serialized to the client** (`read()` exposes only `quiz_type` and `quiz_spec`).
@@ -20,6 +20,12 @@ serialized to the client** (`read()` exposes only `quiz_type` and `quiz_spec`).
 | `match` | one select per row | `{"left": [...], "right": [...]}` (same item shape) | `{"pairs": {"A":"c","B":"a"}}` | `A-c,B-a` (order-free, `:` ok) |
 | `freeform` | text input | none | `{"patterns": ["^regex$"], "case_sensitive": false}` | free text, any pattern matches |
 | `checkpoint` | text input, or a lone button | none | `{"code": "4b279a"}` | the instructor's code, or `done` in self-serve |
+| `quizset` | every question of the step, one submit | `{"questions": [{"kind": "single", "items": [...]}, ...]}` | `{"questions": [{"kind": "single", "answer": "B"}, ...]}` | `B\|A,D` (`\|` between questions) |
+
+`quizset` is what a step declared `validation: quiz` in the content becomes
+(`tools/sync_subject.py`, convention §3.3b): its own questions are the control, graded
+together, and a wrong submission names the questions to revisit rather than saying only
+"Not yet" — never the answer.
 
 Grading happens in `attempt()` (`quiz.py`); submissions go through the standard
 `/api/v1/challenges/attempt` endpoint, so solves, scoreboard, rate limiting, and

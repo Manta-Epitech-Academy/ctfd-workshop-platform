@@ -354,3 +354,7 @@ msgstr ""
 msgid "your path"
 msgstr ""
 
+msgid "%(count)s answer"
+msgid_plural "%(count)s answers"
+msgstr[0] ""
+msgstr[1] ""

@@ -203,7 +203,7 @@ Fields (all optional — an empty `<!-- ws: type: exercise -->` is a valid minim
 | `type` | `exercise` \| `chapter` \| `prose` | `prose` — **headings without a marker are plain prose**, which solves gotcha #5 explicitly |
 | `id` | stable slug for this node | slugified heading, scoped by parent slugs (`bullet/sprite`) — explicit `id` only needed when even the scoped slug collides; the linter enforces uniqueness |
 | `points` | reward on validation | `platform.points_default` |
-| `validation` | overrides `validation_default`: `checkpoint` \| `flag` \| `token` (`tests`, `review` are specified, not implemented) | inherited |
+| `validation` | overrides `validation_default`: `checkpoint` \| `flag` \| `token` \| `quiz` (`tests`, `review` are specified, not implemented) | inherited |
 | `token_id` | `validation: token` only: the exercise's id **inside its runtime**, which is what the token is derived from | none |
 | `skills` | competency refs, slash notation `DOMAIN/SKILL/LEVEL` | none |
 | `obs` | observable ids from `ref_comp` (`slug.N`) | none |
@@ -243,7 +243,7 @@ without moving the heading or changing its level.
 
 ### 3.3b What proves a step is done
 
-Two modes are implemented, and the difference is who knows the answer:
+Four modes are implemented, and the difference is who knows the answer:
 
 - **`checkpoint`** (default) — somebody has to say the work is done. The platform generates one
   code per exercise and writes the sheet to `instructor_codes.<subject>.yaml`; the instructor
@@ -262,6 +262,19 @@ Two modes are implemented, and the difference is who knows the answer:
   and nothing is stored in the repo: rerunning the sync on another instance produces different
   tokens, so answers do not leak between sessions. What it proves is that somebody got the tests
   to pass in the normal flow — a client-side runtime cannot prove more than that.
+
+- **`quiz`** — the step's own questions are the proof. The `type: quiz` blocks the exercise
+  hosts (§3.7) become its control: the participant answers them all, submits once, and the
+  step is solved when every answer is right. Answers come from `quiz_answers.yaml`, like any
+  quiz. A wrong submission names the questions to look at again (« revois les questions 1
+  et 3 »), never the right answer. No instructor is involved, which is what makes it the right
+  mode for the first steps of a subject, where the work is reading and the room may have
+  nobody to hand out a code. The linter refuses a `validation: quiz` exercise that hosts no
+  quiz marker: it would import as a control with nothing in it.
+
+  Weigh it before using it on a step whose answer is worth guessing: naming the wrong
+  questions lets a participant solve each one on its own rather than the set as a product,
+  and a « 3 réponses sur 4 » question has only four combinations.
 
 Authored answers live in a sidecar, never in the markdown — a flag printed next to its own
 exercise is not a flag:

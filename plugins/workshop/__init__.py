@@ -30,6 +30,7 @@ from .syncpage import load_syncpage
 from .shell import load_shell
 from .jump import load_jump
 from .jumpqueue import load_jump_queue
+from .external_links import load_external_links
 from .quiz import QuizChallenge
 
 
@@ -76,6 +77,11 @@ def load(app):
     # is what revision 2 starts from.
     upgrade_plugin(plugin_name="workshop")
     CHALLENGE_CLASSES["quiz"] = QuizChallenge
+    # A link out of the workshop (the Lua manual from a toolbox, say) opens in
+    # a new tab, so coming back does not cost the runtime pane and the scroll
+    # position. Wraps the one Markdown entry point every surface renders
+    # through — see external_links.py.
+    load_external_links(app)
     load_graph(app)  # GET /api/v1/workshop/graph — challenge DAG for the user
     # The participant-facing view: the whole workshop as one page, steps as
     # accordions with progress steppers, instead of a modal per challenge.

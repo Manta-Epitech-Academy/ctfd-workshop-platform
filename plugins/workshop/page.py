@@ -31,7 +31,7 @@ from itertools import groupby
 from flask import (Blueprint, abort, current_app, jsonify, redirect,
                    render_template, url_for)
 
-from CTFd.models import Hints, HintUnlocks, Ratings
+from CTFd.models import Hints, HintUnlocks, Ratings, Submissions
 from flask_babel import lazy_gettext as _l
 
 from CTFd.utils import get_config
@@ -39,6 +39,7 @@ from CTFd.utils.challenges import get_solve_ids_for_user_id
 from CTFd.utils.decorators import authed_only, during_ctf_time_only
 from CTFd.utils.decorators.visibility import check_challenge_visibility
 from CTFd.utils.helpers import markup
+from markupsafe import escape
 from CTFd.utils.user import get_current_user
 
 # Aliased to the name this module already used: a local `documents` variable
@@ -209,7 +210,75 @@ def _validation_modes():
     return {int(k): v for k, v in modes.items() if str(k).isdigit()}
 
 
-def _body(challenge, user, validation=None):
+# A quiz question is one line, so it gets inline code and nothing else: a full
+# markdown pass would wrap it in <p>, which cannot live inside a <label>.
+_INLINE_CODE = re.compile(r"`([^`]+)`")
+
+
+def _inline(text):
+    # Escaped once, then wrapped: escaping the span a second time inside the
+    # replacement turned `distanceX < 0` into `distanceX &lt; 0` on screen.
+    # Backticks are not escaped, so the pattern still matches afterwards.
+    return markup(_INLINE_CODE.sub(r"<code>\1</code>", str(escape(text))))
+
+
+def _expected_counts(challenge, total):
+    """How many boxes each question expects, from the answer sheet.
+
+    Only the count is ever rendered, never the letters — the same thing an
+    author used to type into the question by hand ("(2 réponses)"), derived
+    instead, so the two can no longer disagree. Zero means "do not say": a
+    single-choice question has radio buttons, which already say it.
+    """
+    answers = getattr(challenge, "quiz_answers", None) or {}
+    sheet = answers.get("questions") if isinstance(answers, dict) else answers
+    counts = []
+    for i in range(total):
+        entry = sheet[i] if sheet and i < len(sheet) else {}
+        counts.append(len(entry.get("answers") or [])
+                      if entry.get("kind") == "multiple" else 0)
+    return counts
+
+
+def _quiz_spec(challenge):
+    """The spec the template renders, with the questions' inline code resolved."""
+    spec = getattr(challenge, "quiz_spec", None) or {}
+    if getattr(challenge, "quiz_type", None) != "quizset":
+        return spec
+    questions = spec.get("questions", [])
+    counts = _expected_counts(challenge, len(questions))
+    return {"questions": [
+        dict(q,
+             question=_inline(q.get("question", "")),
+             expected=counts[i],
+             items=[dict(it, text=_inline(it.get("text", "")))
+                    for it in q.get("items", [])])
+        for i, q in enumerate(questions)]}
+
+
+def _quiz_given(challenge, user, solved):
+    """What this participant last answered, question by question.
+
+    Two uses, one source: a solved step shows its questions back with the
+    answers that solved it, and a step reloaded mid-attempt does not lose what
+    was already ticked. Read from the participant's own submissions, never from
+    the answer sheet — what is shown is what they gave, right or wrong.
+    """
+    if getattr(challenge, "quiz_type", None) != "quizset":
+        return []
+    rows = Submissions.query.filter_by(account_id=user.account_id,
+                                       challenge_id=challenge.id)
+    if solved:
+        # The one that solved it, not a later "already solved" attempt.
+        rows = rows.filter_by(type="correct")
+    row = rows.order_by(Submissions.id.desc()).first()
+    if row is None or not row.provided:
+        return []
+    return [[p.strip().upper() for p in part.split(",") if p.strip()]
+            for part in str(row.provided).split("|")]
+
+
+def _body(challenge, user, validation=None, solved=False):
     """Everything a participant needs to actually do the step."""
     lead, rest = _split_context(challenge.html)
     summary, statement = _split_fenced(rest, RESUME_OPEN, RESUME_CLOSE)
@@ -241,7 +310,8 @@ def _body(challenge, user, validation=None):
         "summary": markup(summary),
         "hints": _hints(challenge, user.account_id),
         "quiz_type": getattr(challenge, "quiz_type", None),
-        "quiz_spec": getattr(challenge, "quiz_spec", None) or {},
+        "quiz_spec": _quiz_spec(challenge),
+        "quiz_given": _quiz_given(challenge, user, solved),
         "answer_kind": kind,
         "note": NOTES.get(kind, ""),
         "rating": _rating(challenge, user),
@@ -310,7 +380,7 @@ def _steps(user):
                            for p in prereqs if p not in solved],
             # Teaching prose, not a statement: always rendered (see _lead).
             "lead": _lead(c),
-            "body": (_body(c, user, validation.get(c.id))
+            "body": (_body(c, user, validation.get(c.id), is_solved)
                      if (unlocked or is_solved) else None),
         }
         steps.append(step)
@@ -420,6 +490,27 @@ def _final_step_id():
     # `get_config` hands back an int when the stored string is all digits
     # (CTFd/utils/__init__.py:51), so this one arrives already parsed — unlike
     # the id *lists* (progress.id_set), which stay strings and need json.loads.
+    if isinstance(raw, int):
+        return raw
+    try:
+        return json.loads(raw) if raw else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _intro_step_id():
+    """The entrypoint step, when the index shows it instead of part 1.
+
+    `intro.md` has no exercises, so it is on no part page; the sync either
+    folds it into the first part (the old shape, and still what an advanced
+    subject does with its own) or names it here, and then the index renders it
+    above its cards. None means the old shape, so an instance synced before
+    this config existed keeps working unchanged.
+
+    Parsed like `workshop_final_step`, and for the same reason: `get_config`
+    hands an all-digit string back as an int.
+    """
+    raw = get_config("workshop_intro_step")
     if isinstance(raw, int):
         return raw
     try:
@@ -572,16 +663,21 @@ CARD_TEXT = {
 }
 
 
-def _index_cards(user, documents):
+def _index_cards(user, documents, visible_ids=frozenset()):
     """One card per part: where it stands, and what opens it if it is locked.
 
     Built from the same `_steps` pass as the part pages, so the two can never
     disagree about what is unlocked.
+
+    `visible_ids` is what this page renders itself — the introduction, when the
+    sync left it off every part page. A card blocked by it then links to the
+    anchor a few centimetres above rather than sending the reader to a part
+    page to find it.
     """
     steps = _steps(user)
-    # Nothing is on this page, so every blocker links to the part page it lives
-    # on rather than to a local anchor.
-    _resolve_links(steps, documents, visible_ids=set())
+    # Anything not on this page gets the part page it lives on rather than a
+    # local anchor.
+    _resolve_links(steps, documents, visible_ids=set(visible_ids))
 
     cards = []
     for index, doc in enumerate(documents, start=1):
@@ -661,7 +757,19 @@ def workshop():
         return redirect(url_for("workshop_page.workshop_document",
                                 doc_slug=documents[0]["slug"]))
 
-    cards, steps = _index_cards(user, documents)
+    # The introduction, when the sync put it here instead of at the top of
+    # part 1 (`workshop_intro_step`). It is a step like any other — the same
+    # body, the same « J'ai lu » control, the same gate on everything after it
+    # — rendered above the cards instead of inside one of them.
+    intro_id = _intro_step_id()
+    cards, steps = _index_cards(user, documents,
+                                visible_ids={intro_id} if intro_id else set())
+    intro = (next((s for s in steps if s["id"] == intro_id), None)
+             if intro_id else None)
+    if intro is not None:
+        # Folded once it has been acknowledged: it is then a page of text
+        # between the reader and the cards they came for.
+        intro["open"] = not intro["solved"]
     index_solved, index_total = count_steps(steps)
     subjects = _subjects()
     # The index belongs to the workshop, not to one subject, so it shows the
@@ -676,6 +784,7 @@ def workshop():
         subjects=subjects,
         cover=subjects.get(first_subject) or {},
         page_title=get_config("ctf_name"),
+        intro=intro,
         solved_count=index_solved,
         total_count=index_total,
     )
@@ -759,7 +868,21 @@ def workshop_document(doc_slug):
         abort(404)
     doc_index = docs.index(doc)
     next_doc = docs[doc_index + 1] if doc_index + 1 < len(docs) else None
-    return _render(get_current_user(), keep_ids=set(doc["challenge_ids"]),
+    keep_ids = set(doc["challenge_ids"])
+    # The index renders the introduction itself, so it does not belong here as
+    # well. A sync from this version already leaves it out of every document;
+    # discarding it here is what keeps an instance consistent in between, when
+    # the config names a step the old document list still contains.
+    #
+    # Never for a single-part subject, whose `/workshop` redirects straight
+    # here: there is no index to have shown it, and dropping it would leave the
+    # step that gates the whole subject on no page at all. The sync does not
+    # produce that combination; this is the page refusing to be the one that
+    # strands a step if a stale config ever says otherwise.
+    intro_id = _intro_step_id()
+    if intro_id is not None and len(docs) > 1:
+        keep_ids.discard(intro_id)
+    return _render(get_current_user(), keep_ids=keep_ids,
                    title=doc["title"], subject=doc.get("subject"),
                    next_doc=next_doc, doc_slug=doc_slug)
 

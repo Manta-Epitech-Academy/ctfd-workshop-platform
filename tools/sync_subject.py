@@ -11,8 +11,10 @@ Mapping (idempotent, keyed by an admin-only Topic `ws:<subject>:<slug>`):
   trailing prose           -> the closing step (`__outro__`, same mechanic),
                               gated by the last exercise
   exercise                 -> `checkpoint` quiz challenge when the content
-                              validates by an instructor code, otherwise a
-                              standard challenge with a flag; description =
+                              validates by an instructor code, `quizset` when
+                              it validates by its own questions (every one of
+                              them must be right), otherwise a standard
+                              challenge with a flag; description =
                               context + the author's short version + body,
                               each fenced for the page to lift out
   exercise hints           -> CTFd hints (cost from the marker)
@@ -204,6 +206,23 @@ def upsert_page(ctfd, route, payload):
         ctfd.api("PATCH", f"/pages/{page['id']}", json=payload)
     else:
         ctfd.api("POST", "/pages", json=payload)
+
+
+def _quizset_answer(quiz, entry):
+    """One question's answer, normalised and tagged with the kind that grades it.
+
+    `quiz_answers.yaml` keeps its tolerant shapes ("B" / ["A", "D"] / a dict);
+    the grader needs to know which kind each question is, and the spec is not
+    what it reads.
+    """
+    if isinstance(entry, dict):
+        answer = dict(entry)
+    elif isinstance(entry, list):
+        answer = {"answers": list(entry)}
+    else:
+        answer = {"answer": entry}
+    answer["kind"] = quiz.kind
+    return answer
 
 
 def resolve_prerequisites(subject, intro_id, ex_ids, outro_ids):
@@ -586,7 +605,7 @@ def replace_hints(ctfd, cid, hints):
 
 
 def write_instance_config(ctfd, documents_cfg, optional_ids, free_ids, final_step,
-                          *, subjects_cfg=None):
+                          *, subjects_cfg=None, intro_step=None):
     """The instance-wide settings the workshop page reads back.
 
     Written in one place because they describe the *instance*, not a subject:
@@ -595,6 +614,9 @@ def write_instance_config(ctfd, documents_cfg, optional_ids, free_ids, final_ste
 
     `subjects_cfg` is keyword-only and defaults to None so the signature stays
     additive for anything that still calls this positionally.
+
+    `intro_step` is the entrypoint step when the index shows it itself; None
+    leaves the old shape, where that step is folded into the first part.
     """
     # Parts, in board order, each naming the subject it belongs to.
     ctfd.api("PATCH", "/configs/workshop_documents",
@@ -612,6 +634,12 @@ def write_instance_config(ctfd, documents_cfg, optional_ids, free_ids, final_ste
     # subject: only that one asks how the workshop went (PLAN.md §17).
     ctfd.api("PATCH", "/configs/workshop_final_step",
              json={"value": json.dumps(final_step)})
+    # The entrypoint step, when the index renders it above the cards rather
+    # than folding it into part 1. Written even when it is None: an instance
+    # re-synced after the shape changed must stop showing the intro on the
+    # index, and a stale id would keep it there.
+    ctfd.api("PATCH", "/configs/workshop_intro_step",
+             json={"value": json.dumps(intro_step)})
     # How each subject presents itself: its name, its accroche and its cover
     # image (§3.2b). Keyed by subject slug rather than folded into
     # `workshop_documents`, whose entries are per *document* — a subject's cover
@@ -624,7 +652,8 @@ def write_instance_config(ctfd, documents_cfg, optional_ids, free_ids, final_ste
 
 
 def sync(subject_dir, url, admin_user, admin_pass, codes_path=None, *,
-         ctfd=None, position_base=0, gate_on=None, standalone=True):
+         ctfd=None, position_base=0, gate_on=None, standalone=True,
+         intro_on_index=None):
     """Import one subject into an instance.
 
     `standalone` is what a workshop of several subjects turns off: the
@@ -637,6 +666,12 @@ def sync(subject_dir, url, admin_user, admin_pass, codes_path=None, *,
     lands after the first instead of interleaving with it; `gate_on` is the
     challenge the subject's intro must wait for, which is how an advanced
     subject sits behind the starter.
+
+    `intro_on_index` leaves the entrypoint step off every part page, for the
+    index to render above its cards. Defaults to `standalone`: in a workshop
+    only the starter's introduction is the workshop's front door, so an
+    advanced subject keeps its own at the top of its first part, where it is
+    reachable. None means "follow the default".
     """
     problems, advice = lint_all(subject_dir)
     if problems:
@@ -737,6 +772,7 @@ def sync(subject_dir, url, admin_user, admin_pass, codes_path=None, *,
                                         entry_doc.body_md, position_base + 1, existing,
                                         kind="ack")
     stats["created" if created else "updated"] += 1
+    wants_index = standalone if intro_on_index is None else intro_on_index
     print(f"step: {entry_doc.title!r} -> intro (acknowledgement)")
     # Everything the parser numbered from 1 moves down one place.
     offset = 1
@@ -808,7 +844,19 @@ def sync(subject_dir, url, admin_user, admin_pass, codes_path=None, *,
             "value": ex.points,
             "position": position_of[ex.order],  # source-reading order → board order
         }
-        if ex.validation == "checkpoint":
+        if ex.validation == "quiz":
+            # The step's own questions are its answer sheet: no instructor, no
+            # code, and `quizset` grades every question at once (quiz.py), so
+            # the step is solved only when all of them are right.
+            payload.update({
+                "type": "quiz", "quiz_type": "quizset",
+                "quiz_spec": {"questions": [
+                    {"id": q.id, "kind": q.kind, "question": q.question,
+                     "items": q.items} for q in ex.quizzes]},
+                "quiz_answers": {"questions": [
+                    _quizset_answer(q, answers[q.id]) for q in ex.quizzes]},
+            })
+        elif ex.validation == "checkpoint":
             payload.update({
                 "type": "quiz", "quiz_type": "checkpoint", "quiz_spec": None,
                 # The code lives on the challenge itself, in a column no API
@@ -820,7 +868,7 @@ def sync(subject_dir, url, admin_user, admin_pass, codes_path=None, *,
             payload["type"] = "standard"
         cid, created = upsert_challenge(ctfd, subject.slug, ex.slug, payload, existing)
         ex_ids[ex.slug] = cid
-        if ex.validation != "checkpoint":
+        if ex.validation not in ("checkpoint", "quiz"):
             set_flag(ctfd, cid, *_answer_for(ex, flags, tokens))
         replace_hints(ctfd, cid, ex.hints)
         stats["created" if created else "updated"] += 1
@@ -832,9 +880,14 @@ def sync(subject_dir, url, admin_user, admin_pass, codes_path=None, *,
     record_validation(ctfd, {ex_ids[ex.slug]: ex.validation
                              for ex in subject.exercises})
 
-    # 3. quizzes -> quiz challenges
+    # 3. quizzes -> quiz challenges. Those belonging to a `validation: quiz`
+    # step are already inside it, so they get no challenge of their own.
+    owned = {q.id for ex in subject.exercises if ex.validation == "quiz"
+             for q in ex.quizzes}
     quiz_ids = {}
     for q in subject.quizzes:
+        if q.id in owned:
+            continue
         spec = ({"left": q.left, "right": q.right} if q.kind == "match"
                 else {"items": q.items} if q.items else None)
         slug = f"quiz-{q.id}"
@@ -926,8 +979,9 @@ def sync(subject_dir, url, admin_user, admin_pass, codes_path=None, *,
         route_slug = (slug if standalone or slug == subject.slug
                       else f"{subject.slug}-{slug}")
         ids = [ex_ids[e.slug] for e in doc.exercises]
-        ids += [quiz_ids[q.id][0] for q in doc.quizzes]
-        ids += [quiz_ids[q.id][0] for e in doc.exercises for q in e.quizzes]
+        ids += [quiz_ids[q.id][0] for q in doc.quizzes if q.id in quiz_ids]
+        ids += [quiz_ids[q.id][0] for e in doc.exercises for q in e.quizzes
+                if q.id in quiz_ids]
         if doc.path in outro_ids:
             ids.append(outro_ids[doc.path])
         route = f"workshop/{route_slug}"
@@ -968,16 +1022,29 @@ def sync(subject_dir, url, admin_user, admin_pass, codes_path=None, *,
         })
         print(f"page: {doc.title!r} -> /{route} ({len(ids)} steps)")
 
-    # Every step must appear on at least one part page. The entrypoint step
-    # (`__intro__`) belongs to none: intro.md has no exercises, so it gets no
-    # route — yet it gates the first exercise of part 1. Left out, part 1 shows
-    # nothing but locked steps blocked by a step that is on no part page, and
-    # the participant has no way to unlock anything from there. Fold orphans
-    # into the first part; `position` still decides where they render.
+    # Every step must appear somewhere a participant can reach. The entrypoint
+    # step (`__intro__`) belongs to no document: intro.md has no exercises, so
+    # it gets no route — yet it gates the first exercise of part 1. Left with
+    # no home at all, part 1 shows nothing but locked steps blocked by a step
+    # that is on no page, and nothing can be unlocked from there.
+    #
+    # Two homes, and `on_index` picks which: the index renders it above its
+    # cards (`workshop_intro_step`, read by plugins/workshop/page.py), or it is
+    # folded into the first part like any other orphan. Either way `position`
+    # still decides where it renders.
+    # Only a subject with several parts has an index to show it on: `/workshop`
+    # sends a single-part subject straight through to that part (page.py), so
+    # an introduction taken off that page would be on no page at all — and it
+    # gates everything, which would lock the whole subject behind a step nobody
+    # can reach. That instance keeps the old shape.
+    on_index = wants_index and len(documents_cfg) > 1
     if documents_cfg:
-        every = ({intro_id} | set(ex_ids.values()) | set(outro_ids.values())
-                 | {cid for cid, _ in quiz_ids.values()})
+        every = (set() if on_index else {intro_id})
+        every |= (set(ex_ids.values()) | set(outro_ids.values())
+                  | {cid for cid, _ in quiz_ids.values()})
         assigned = {cid for d in documents_cfg for cid in d["challenge_ids"]}
+        if on_index:
+            print(f"intro: {entry_doc.title!r} shown on the index, above the part cards")
         orphans = sorted(every - assigned)
         if orphans:
             documents_cfg[0]["challenge_ids"] = orphans + documents_cfg[0]["challenge_ids"]
@@ -999,7 +1066,8 @@ def sync(subject_dir, url, admin_user, admin_pass, codes_path=None, *,
     }
     if standalone:
         write_instance_config(ctfd, documents_cfg, optional_ids, free_ids, final,
-                              subjects_cfg={subject.slug: subject_cfg})
+                              subjects_cfg={subject.slug: subject_cfg},
+                              intro_step=intro_id if on_index else None)
     if optional_ids:
         print(f"optional: {len(optional_ids)} step(s) excluded from the counters")
     if free_ids:
@@ -1013,6 +1081,10 @@ def sync(subject_dir, url, admin_user, admin_pass, codes_path=None, *,
         "ex_ids": ex_ids,
         "quiz_ids": quiz_ids,
         "intro_id": intro_id,
+        # True when this subject's intro was deliberately left off every part
+        # page, for the index to show. The workshop sync accumulates it the
+        # same way it accumulates the closing step.
+        "intro_on_index": on_index,
         "outro_ids": outro_ids,
         "documents": documents_cfg,
         "optional_ids": optional_ids,

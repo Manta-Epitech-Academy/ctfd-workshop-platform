@@ -34,6 +34,17 @@ the stock text input, so it is never un-answerable.
 All plugin-visible strings are English; localization arrives later via CTFd's i18n
 (`{% raw %}{% trans %}{% endraw %}` markers are already in place in `view.html`).
 
+## The toolbox page (`/toolbox`, convention §3.4b)
+
+Reference material an author fences in the content — `<!-- ws:toolbox -->` around a step's
+tools, `<!-- ws:glossary -->` around a glossary — is lifted out of the step and gathered on
+`/toolbox`, a navbar entry that opens in its own tab. The step keeps a line in the same
+position naming what was there (names derived from the `🧰`/`🗺️` titles, nothing to
+maintain) and linking to it. A section is open exactly when its step is: a locked step shows
+its name and nothing else, so the page has the same shape from the first minute. Everything
+lives in `toolbox.py` (pure helpers) and `page.py` (`_reference`, the route); the markers
+travel inside the challenge description like `ws:resume` does, so nothing is stored twice.
+
 ## The instance's mode (PLAN.md §25)
 
 `workshop_mode` — `instructor_led` (default) or `self_serve` — is a CTFd config key, set at

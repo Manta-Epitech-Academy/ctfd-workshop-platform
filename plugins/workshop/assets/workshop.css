@@ -1309,6 +1309,9 @@ main > .container > .row > .col-md-12 > h3.text-muted:only-child::after,
    usually contain inline code; keeping them on one line each is what makes a
    list of three scannable. */
 .ws-tool-names { font-weight: 400; color: var(--bs-secondary-color, #6c757d); }
+/* The step a titled block came from: secondary, so the block's own heading
+   stays the thing the eye reads first. */
+.ws-tool-from { font-weight: 400; font-size: 0.9rem; margin-left: auto; }
 .ws-tool-name { white-space: nowrap; }
 .ws-tool-body > :last-child { margin-bottom: 0; }
 

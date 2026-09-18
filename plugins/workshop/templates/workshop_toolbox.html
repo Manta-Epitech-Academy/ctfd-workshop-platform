@@ -19,8 +19,15 @@
   <h3 class="ws-tool-title">
     <span class="ws-step-icon" aria-hidden="true"></span>
     {# Back to the step it belongs to: this page answers "what was that tool
-       again", and the next question is always "where was I using it". #}
-    <a href="{{ entry.href }}">{{ entry.name }}</a>
+       again", and the next question is always "where was I using it". A
+       glossary block carries its own heading (« Ce que le jeu te donne ») and
+       is titled by it; the step it sits in becomes the link beside it. #}
+    {% if entry.title %}
+      {{ entry.title }}
+      <a class="ws-tool-from" href="{{ entry.href }}">{{ entry.name }}</a>
+    {% else %}
+      <a href="{{ entry.href }}">{{ entry.name }}</a>
+    {% endif %}
     {% if entry.tools %}
       <span class="ws-tool-names">
         {%- for tool in entry.tools -%}

@@ -83,11 +83,25 @@ def split_toolbox(html, placeholder=""):
     return split_region(html, TOOLBOX_OPEN, TOOLBOX_CLOSE, placeholder)
 
 
-def split_glossary(html):
-    return split_region(html, GLOSSARY_OPEN, GLOSSARY_CLOSE)
+def split_glossary(html, placeholder=""):
+    return split_region(html, GLOSSARY_OPEN, GLOSSARY_CLOSE, placeholder)
 
 
-_LEADING_HEADING = re.compile(r"^\s*<h[1-6][^>]*>.*?</h[1-6]>\s*", re.S | re.I)
+_LEADING_HEADING = re.compile(r"^\s*<h[1-6][^>]*>(.*?)</h[1-6]>\s*", re.S | re.I)
+
+
+def lift_leading_heading(region_html):
+    """(heading, rest) — a region's own opening heading, taken off the body.
+
+    A glossary region is titled by its heading (« Ce que le jeu te donne »),
+    which is a better name for the block than the step it happens to sit in;
+    the toolbox page shows it as the title and keeps the step as a link.
+    """
+    html = str(region_html or "")
+    m = _LEADING_HEADING.match(html)
+    if not m:
+        return "", html.strip()
+    return m.group(1).strip(), html[m.end():].strip()
 
 
 def strip_leading_heading(region_html):
@@ -102,7 +116,7 @@ def strip_leading_heading(region_html):
     Only for toolboxes. A glossary entry's heading is its own name (« Ce que le
     jeu te donne »), not a repetition of the section's.
     """
-    return _LEADING_HEADING.sub("", str(region_html or ""), count=1).strip()
+    return lift_leading_heading(region_html)[1]
 
 
 def tool_names(region_html):

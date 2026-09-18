@@ -58,8 +58,9 @@ from .progress import ordered_challenges as _ordered_challenges
 from .runtime import declared_runtime
 # The reference material an author writes beside the step that needs it, and
 # this page shows on one gathered page instead — see toolbox.py.
-from .toolbox import (GLOSSARY_OPEN, HERE, TOOLBOX_OPEN, split_glossary,
-                      split_toolbox, strip_leading_heading, tool_names)
+from .toolbox import (GLOSSARY_OPEN, HERE, TOOLBOX_OPEN, lift_leading_heading,
+                      split_glossary, split_toolbox, strip_leading_heading,
+                      tool_names)
 
 workshop_page = Blueprint(
     "workshop_page", __name__, template_folder="templates"
@@ -216,7 +217,7 @@ def _body(challenge, user, validation=None):
     # is in it (`/toolbox`). A step that opens with half a screen of reference
     # buries the work, and the same tool is needed again five steps later, where
     # scrolling back for it is how somebody loses their place.
-    _glossary, statement = split_glossary(statement)
+    glossary, statement = split_glossary(statement, placeholder=HERE)
     toolbox, statement = split_toolbox(statement, placeholder=HERE)
     # The statement is handed to the template in two halves so the link can be
     # rendered exactly where the section was: after the step is introduced,
@@ -231,6 +232,9 @@ def _body(challenge, user, validation=None):
         # and the section cannot drift.
         "tools": [markup(name) for name in tool_names(toolbox)],
         "has_toolbox": bool(toolbox),
+        # A step whose only reference is a glossary (the introduction) still
+        # gets the line, or its table would vanish with no trace of where to.
+        "has_glossary": bool(glossary),
         # The author's short version, folded open above the statement. A
         # summary, never a substitute: §24 is what happens when a step's own
         # words are withheld from the person reading it.
@@ -701,7 +705,9 @@ def _reference(user):
             region, rest = split_glossary(challenge.html)
             toolbox, _ = split_toolbox(rest)
             if region:
-                glossary.append({**entry, "html": markup(region)})
+                heading, body = lift_leading_heading(region)
+                glossary.append({**entry, "html": markup(body),
+                                 "title": markup(heading) if heading else ""})
             if toolbox:
                 tools.append({**entry, "html": markup(strip_leading_heading(toolbox)),
                               "tools": [markup(n) for n in tool_names(toolbox)]})

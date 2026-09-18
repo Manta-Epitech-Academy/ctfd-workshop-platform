@@ -386,3 +386,6 @@ msgstr "Ouvrir la boîte à outils"
 
 msgid "Open the toolbox in a new tab"
 msgstr "Ouvrir la boîte à outils dans un nouvel onglet"
+
+msgid "The glossary for this step is in the toolbox."
+msgstr "Le glossaire de cette étape est dans la boîte à outils."

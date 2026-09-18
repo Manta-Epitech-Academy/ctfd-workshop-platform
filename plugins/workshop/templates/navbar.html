@@ -145,8 +145,11 @@
              workshop rather than inside it, because it is looked up *while*
              working on a step and a link back into the part being read would
              lose the place it was opened from. #}
-          {{ nav_link(url_for('workshop_page.toolbox'), _("Toolbox"),
-                      here == url_for('workshop_page.toolbox'), "_blank") }}
+          {# Not a new tab when this IS the toolbox page: that would only
+             stack a copy of the tab the reader is already in. #}
+          {% set toolbox_url = url_for('workshop_page.toolbox') %}
+          {{ nav_link(toolbox_url, _("Toolbox"), here == toolbox_url,
+                      "" if here == toolbox_url else "_blank") }}
 
           {# Through `url_for`, never `page.route` raw. CTFd strips the leading
              slash off a route before storing it (schemas/pages.py), so the

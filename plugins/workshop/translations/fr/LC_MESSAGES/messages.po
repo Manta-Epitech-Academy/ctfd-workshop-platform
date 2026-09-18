@@ -383,3 +383,6 @@ msgstr "Les outils de cette étape"
 
 msgid "Open the toolbox"
 msgstr "Ouvrir la boîte à outils"
+
+msgid "Open the toolbox in a new tab"
+msgstr "Ouvrir la boîte à outils dans un nouvel onglet"

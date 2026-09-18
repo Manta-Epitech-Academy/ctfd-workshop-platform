@@ -39,7 +39,11 @@
     <a class="epi-nav-link{% if active %} epi-nav-link-active{% endif %}"
        href="{{ href }}"
        {%- if active %} aria-current="page"{% endif %}
-       {%- if target %} target="{{ target }}"{% endif %}>{{ label }}</a>
+       {#- A new tab always gets `noopener`: without it the opened page holds a
+           handle on this one through `window.opener`. Same rule as the external
+           links the plugin rewrites (external_links.py), and it applies to a
+           CTFd Page that sets `link_target` too. -#}
+       {%- if target %} target="{{ target }}" rel="noopener"{% endif %}>{{ label }}</a>
   </li>
 {%- endmacro %}
 
@@ -142,7 +146,7 @@
              working on a step and a link back into the part being read would
              lose the place it was opened from. #}
           {{ nav_link(url_for('workshop_page.toolbox'), _("Toolbox"),
-                      here == url_for('workshop_page.toolbox')) }}
+                      here == url_for('workshop_page.toolbox'), "_blank") }}
 
           {# Through `url_for`, never `page.route` raw. CTFd strips the leading
              slash off a route before storing it (schemas/pages.py), so the

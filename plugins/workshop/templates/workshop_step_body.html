@@ -57,8 +57,14 @@
       {# The platform's own primary button, not a lookalike: hover, press and
          disabled states, and the colours in both themes, are the theme's
          (epitech-theme.css). Only the pill shape is added here. #}
+      {# A new tab, deliberately: this is looked up *while* working on the step,
+         and coming back must not cost the runtime pane (it reloads) or the
+         place in a page of thirty steps. `noopener` for the usual reason. The
+         aria-label says what the visible label cannot fit. #}
       <a class="btn btn-primary btn-sm ws-toolbox-open"
-         href="{{ url_for('workshop_page.toolbox') }}#step-{{ step.id }}">{% trans %}Open the toolbox{% endtrans %}</a>
+         href="{{ url_for('workshop_page.toolbox') }}#step-{{ step.id }}"
+         target="_blank" rel="noopener"
+         aria-label="{{ _("Open the toolbox in a new tab") }}">{% trans %}Open the toolbox{% endtrans %}</a>
     </p>
   {% endif %}
 

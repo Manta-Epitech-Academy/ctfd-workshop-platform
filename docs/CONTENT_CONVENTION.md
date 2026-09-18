@@ -302,6 +302,50 @@ a summary, never a replacement. On GitHub the bullets render as a normal part of
 > needs the code above to be on the page, and the participant sitting in a room is the one
 > most likely to be pointed at it. Nothing is withheld by the mode any more.
 
+### 3.4b Reference material — toolbox and glossary, gathered on one page
+
+Two more invisible regions, same grammar as `ws:resume`. They mark the parts of a step that are
+**reference**, not work:
+
+```markdown
+<!-- ws:toolbox -->
+### Boîte à outils
+
+> 🧰 **Outil #1 : `not` « L'inverse de »**
+> ...
+<!-- /ws:toolbox -->
+
+<!-- ws:glossary -->
+## Ce que le jeu te donne
+| Terme | Signification |
+| --- | --- |
+| `me.X` `me.Y` | Position du fantôme (X,Y), en cases |
+<!-- /ws:glossary -->
+```
+
+The author keeps writing each one **beside the step that needs it** — that is where it is
+understood, and the markers do not change how the subject reads on GitHub. The platform lifts
+both out and shows them on `/toolbox`, a page of its own in the navbar, in reading order. The
+step keeps a line in the same position naming what was there, and linking to it:
+
+> 🧰 Les outils de cette étape : `if / then / end`, `not`. Ouvrir la boîte à outils
+
+Two things this buys. A step no longer opens with half a screen of reference before the work
+starts; and a tool met at step 2 is still reachable at step 7, where scrolling back through five
+steps to re-read it is how a participant loses their place.
+
+**Gated like everything else.** A section is open exactly when its step is: the toolbox page
+shows the name of a locked step and nothing else, the same contract the workshop page keeps for
+locked step titles. The page therefore has the same shape from the first minute, which is what
+lets it answer "is there anything more coming".
+
+The tool names on the step line are **derived** from the `🧰`/`🗺️` titles the author already
+wrote (`Outil #N :` and the gloss after « are dropped), so there is no second list to maintain.
+
+A subject that marks nothing keeps the old behaviour: every section renders inside its step, and
+the toolbox page says it is empty. A platform that does not know these markers renders them as
+the invisible comments they are.
+
 ### 3.5 Instructor-led review flow
 
 In instructor-led mode, marking an exercise done is a **submission for review**, not a

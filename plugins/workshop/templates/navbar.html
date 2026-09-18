@@ -136,6 +136,14 @@
           {{ nav_link(workshop_url, _("Workshop"),
                       here == workshop_url or here.startswith(workshop_url ~ '/')) }}
 
+          {# The reference material, gathered: every tool and glossary entry
+             the participant has unlocked (page.py `/toolbox`). Beside the
+             workshop rather than inside it, because it is looked up *while*
+             working on a step and a link back into the part being read would
+             lose the place it was opened from. #}
+          {{ nav_link(url_for('workshop_page.toolbox'), _("Toolbox"),
+                      here == url_for('workshop_page.toolbox')) }}
+
           {# Through `url_for`, never `page.route` raw. CTFd strips the leading
              slash off a route before storing it (schemas/pages.py), so the
              column holds `parcours`, not `/parcours` — and core's own navbar

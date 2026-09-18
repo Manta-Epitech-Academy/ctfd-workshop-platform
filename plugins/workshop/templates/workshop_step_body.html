@@ -36,6 +36,30 @@
 
   <div class="ws-statement challenge-desc">{{ step.body.description }}</div>
 
+  {% if step.body.has_toolbox %}
+    {# The section itself is on /toolbox (page.py `_reference`). The names are
+       here because "is there anything new in it" has to be answerable without
+       leaving the step. #}
+    <p class="ws-toolbox-link">
+      <span aria-hidden="true">🧰</span>
+      {%- if step.body.tools %}
+        {% trans %}Tools for this step{% endtrans %} :
+        {% for tool in step.body.tools -%}
+          <span class="ws-tool-name">{{ tool }}</span>{% if not loop.last %}, {% endif %}
+        {%- endfor -%}
+        .
+      {% endif %}
+      {# Its own sentence, after a full stop: joined to the list with a comma it
+         reads as one more tool. #}
+      <a class="ws-toolbox-open" href="{{ url_for('workshop_page.toolbox') }}#step-{{ step.id }}">{% trans %}Open the toolbox{% endtrans %}</a>
+    </p>
+  {% endif %}
+
+  {% if step.body.description_after %}
+    {# Whatever the author wrote after the section they fenced. #}
+    <div class="ws-statement challenge-desc">{{ step.body.description_after }}</div>
+  {% endif %}
+
   {% for hint in step.body.hints %}
     <details class="ws-hint" data-hint-id="{{ hint.id }}" data-cost="{{ hint.cost }}"
              {% if hint.unlocked %}data-loaded="1"{% endif %}>

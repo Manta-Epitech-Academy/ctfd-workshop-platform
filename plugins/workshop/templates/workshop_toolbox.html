@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{#
+  The toolbox page (`/toolbox`) — every tool and every glossary entry of the
+  subject, gathered in reading order (page.py `_reference`).
+
+  The author writes each section beside the step that needs it; the step page
+  keeps a line naming what is in it and links here. Two things this page buys:
+  a step no longer opens with half a screen of reference material, and a tool
+  met at step 2 is still reachable at step 7 without scrolling back through
+  five steps to find it.
+
+  A locked step shows its name and nothing else, the same contract the workshop
+  page keeps for locked step titles: the syllabus is not a secret, the content
+  is not given early, and the page does not change shape as it is unlocked.
+#}
+
+{% macro entry_head(entry) -%}
+  <h3 class="ws-tool-title">
+    <span class="ws-step-icon" aria-hidden="true"></span>
+    {# Back to the step it belongs to: this page answers "what was that tool
+       again", and the next question is always "where was I using it". #}
+    <a href="{{ entry.href }}">{{ entry.name }}</a>
+    {% if entry.tools %}
+      <span class="ws-tool-names">
+        {%- for tool in entry.tools -%}
+          <span class="ws-tool-name">{{ tool }}</span>{% if not loop.last %}, {% endif %}
+        {%- endfor -%}
+      </span>
+    {% endif %}
+  </h3>
+{%- endmacro %}
+
+{% block content %}
+<div id="ws-workshop">
+
+  <div class="epi-hero ws-hero ws-hero-index">
+    <div class="epi-hero-inner ws-head">
+      <div class="ws-hero-copy">
+        <h1 class="ws-title epi-title-cursor">{% trans %}Toolbox{% endtrans %}</h1>
+        <p class="ws-hero-tagline">
+          {% trans %}Everything the workshop has given you so far, in one place.{% endtrans %}
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <div class="container ws-page ws-toolbox">
+
+    {% if glossary %}
+      <section class="ws-toolbox-section">
+        <h2 class="ws-subject-title">{% trans %}Glossary{% endtrans %}</h2>
+        {% for entry in glossary %}
+          {# `glossary-` and not `step-`: one step can carry both sections, and
+             two elements with the same id is a page where the link from a step
+             lands on whichever the browser saw first. #}
+          <article class="ws-tool ws-{{ entry.state }}" id="glossary-{{ entry.id }}">
+            {{ entry_head(entry) }}
+            {% if entry.locked %}
+              <p class="ws-locked-note">{% trans %}Unlocks with this step.{% endtrans %}</p>
+            {% else %}
+              <div class="ws-tool-body challenge-desc">{{ entry.html }}</div>
+            {% endif %}
+          </article>
+        {% endfor %}
+      </section>
+    {% endif %}
+
+    {% if tools %}
+      <section class="ws-toolbox-section">
+        <h2 class="ws-subject-title">{% trans %}Tools, step by step{% endtrans %}</h2>
+        {% for entry in tools %}
+          <article class="ws-tool ws-{{ entry.state }}" id="step-{{ entry.id }}">
+            {{ entry_head(entry) }}
+            {% if entry.locked %}
+              <p class="ws-locked-note">{% trans %}Unlocks with this step.{% endtrans %}</p>
+            {% else %}
+              <div class="ws-tool-body challenge-desc">{{ entry.html }}</div>
+            {% endif %}
+          </article>
+        {% endfor %}
+      </section>
+    {% endif %}
+
+    {% if not glossary and not tools %}
+      {# A subject whose author marked no section at all. Saying so beats an
+         empty page that reads as broken. #}
+      <p class="ws-locked-note">
+        {% trans %}This subject carries no toolbox yet.{% endtrans %}
+      </p>
+    {% endif %}
+
+  </div>
+</div>
+{% endblock %}

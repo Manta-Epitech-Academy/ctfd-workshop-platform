@@ -79,6 +79,12 @@
 {%- endmacro %}
 
 {% block content %}
+{# `#ws-workshop` for the same reason as workshop_page.html: it is the scope
+   assets/workshop_page.js binds to, and it has to wrap the band as well as the
+   body or the counter in the band stops moving. `data-reload-on-solve` is what
+   this page adds — the cards below are not steps, so the script cannot patch
+   them in place, and acknowledging the introduction opens part 1. #}
+<div id="ws-workshop"{% if intro %} data-reload-on-solve="1"{% endif %}>
 
 {# The same band as every other page, at the comfortable density: this is the
    workshop's front door, and for most participants the first Epitech screen
@@ -122,6 +128,32 @@
 
 <div class="container ws-page ws-index">
 
+  {% if intro %}
+    {# The subject's introduction, above the cards rather than folded into part
+       1 — where it could only be read by starting the part it gates. Same step
+       as before: the same body, the same « J'ai lu », the same gate on
+       everything after it (page.py, `workshop_intro_step`). #}
+    <section class="ws-index-intro">
+      <details class="ws-step ws-{{ intro.state }}" id="step-{{ intro.id }}"
+               data-challenge-id="{{ intro.id }}" data-state="{{ intro.state }}"
+               data-counts="{{ '1' if intro.counts else '0' }}"
+               {% if intro.open %}open{% endif %}>
+        <summary class="ws-step-summary">
+          <span class="ws-step-icon" aria-hidden="true"></span>
+          <span class="ws-step-name">{{ intro.name }}</span>
+        </summary>
+        <div class="ws-step-body">
+          {# The partial names it `step`, here and in the per-part page and in
+             the endpoint that refills one after a solve: one implementation,
+             no drift. #}
+          {% with step = intro %}
+            {% include "workshop_step_body.html" %}
+          {% endwith %}
+        </div>
+      </details>
+    </section>
+  {% endif %}
+
   {% if groups %}
     {# More than one subject: show the shape of the workshop, and give each
        subject its own progress — a single bar would tell somebody who just
@@ -150,4 +182,24 @@
   {% endif %}
 
 </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+  {{ super() }}
+
+  {# Page-scoped data: the subject's cover, for the mascot in a reward float.
+     Same island name as workshop_page.html, read by the same script. #}
+  <script type="application/json" id="ws-page-data">
+    {{ {"cover": cover or {}} | tojson }}
+  </script>
+  {# Only loaded when this page has something to submit. An index with no
+     introduction on it is static, and a static page has no reason to download
+     a confetti bundle. Order and `defer` as in workshop_page.html. #}
+  {% if intro %}
+    <script defer src="/plugins/workshop/assets/vendor/confetti.browser.js"></script>
+    <script defer src="/plugins/workshop/assets/vendor/lolight.min.js"></script>
+    <script defer src="/plugins/workshop/assets/celebrate.js"></script>
+    <script defer src="/plugins/workshop/assets/workshop_page.js"></script>
+  {% endif %}
 {% endblock %}

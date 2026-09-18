@@ -586,7 +586,7 @@ def replace_hints(ctfd, cid, hints):
 
 
 def write_instance_config(ctfd, documents_cfg, optional_ids, free_ids, final_step,
-                          *, subjects_cfg=None):
+                          *, subjects_cfg=None, intro_step=None):
     """The instance-wide settings the workshop page reads back.
 
     Written in one place because they describe the *instance*, not a subject:
@@ -595,6 +595,9 @@ def write_instance_config(ctfd, documents_cfg, optional_ids, free_ids, final_ste
 
     `subjects_cfg` is keyword-only and defaults to None so the signature stays
     additive for anything that still calls this positionally.
+
+    `intro_step` is the entrypoint step when the index shows it itself; None
+    leaves the old shape, where that step is folded into the first part.
     """
     # Parts, in board order, each naming the subject it belongs to.
     ctfd.api("PATCH", "/configs/workshop_documents",
@@ -612,6 +615,12 @@ def write_instance_config(ctfd, documents_cfg, optional_ids, free_ids, final_ste
     # subject: only that one asks how the workshop went (PLAN.md §17).
     ctfd.api("PATCH", "/configs/workshop_final_step",
              json={"value": json.dumps(final_step)})
+    # The entrypoint step, when the index renders it above the cards rather
+    # than folding it into part 1. Written even when it is None: an instance
+    # re-synced after the shape changed must stop showing the intro on the
+    # index, and a stale id would keep it there.
+    ctfd.api("PATCH", "/configs/workshop_intro_step",
+             json={"value": json.dumps(intro_step)})
     # How each subject presents itself: its name, its accroche and its cover
     # image (§3.2b). Keyed by subject slug rather than folded into
     # `workshop_documents`, whose entries are per *document* — a subject's cover
@@ -624,7 +633,8 @@ def write_instance_config(ctfd, documents_cfg, optional_ids, free_ids, final_ste
 
 
 def sync(subject_dir, url, admin_user, admin_pass, codes_path=None, *,
-         ctfd=None, position_base=0, gate_on=None, standalone=True):
+         ctfd=None, position_base=0, gate_on=None, standalone=True,
+         intro_on_index=None):
     """Import one subject into an instance.
 
     `standalone` is what a workshop of several subjects turns off: the
@@ -637,6 +647,12 @@ def sync(subject_dir, url, admin_user, admin_pass, codes_path=None, *,
     lands after the first instead of interleaving with it; `gate_on` is the
     challenge the subject's intro must wait for, which is how an advanced
     subject sits behind the starter.
+
+    `intro_on_index` leaves the entrypoint step off every part page, for the
+    index to render above its cards. Defaults to `standalone`: in a workshop
+    only the starter's introduction is the workshop's front door, so an
+    advanced subject keeps its own at the top of its first part, where it is
+    reachable. None means "follow the default".
     """
     problems, advice = lint_all(subject_dir)
     if problems:
@@ -737,6 +753,7 @@ def sync(subject_dir, url, admin_user, admin_pass, codes_path=None, *,
                                         entry_doc.body_md, position_base + 1, existing,
                                         kind="ack")
     stats["created" if created else "updated"] += 1
+    wants_index = standalone if intro_on_index is None else intro_on_index
     print(f"step: {entry_doc.title!r} -> intro (acknowledgement)")
     # Everything the parser numbered from 1 moves down one place.
     offset = 1
@@ -968,16 +985,29 @@ def sync(subject_dir, url, admin_user, admin_pass, codes_path=None, *,
         })
         print(f"page: {doc.title!r} -> /{route} ({len(ids)} steps)")
 
-    # Every step must appear on at least one part page. The entrypoint step
-    # (`__intro__`) belongs to none: intro.md has no exercises, so it gets no
-    # route — yet it gates the first exercise of part 1. Left out, part 1 shows
-    # nothing but locked steps blocked by a step that is on no part page, and
-    # the participant has no way to unlock anything from there. Fold orphans
-    # into the first part; `position` still decides where they render.
+    # Every step must appear somewhere a participant can reach. The entrypoint
+    # step (`__intro__`) belongs to no document: intro.md has no exercises, so
+    # it gets no route — yet it gates the first exercise of part 1. Left with
+    # no home at all, part 1 shows nothing but locked steps blocked by a step
+    # that is on no page, and nothing can be unlocked from there.
+    #
+    # Two homes, and `on_index` picks which: the index renders it above its
+    # cards (`workshop_intro_step`, read by plugins/workshop/page.py), or it is
+    # folded into the first part like any other orphan. Either way `position`
+    # still decides where it renders.
+    # Only a subject with several parts has an index to show it on: `/workshop`
+    # sends a single-part subject straight through to that part (page.py), so
+    # an introduction taken off that page would be on no page at all — and it
+    # gates everything, which would lock the whole subject behind a step nobody
+    # can reach. That instance keeps the old shape.
+    on_index = wants_index and len(documents_cfg) > 1
     if documents_cfg:
-        every = ({intro_id} | set(ex_ids.values()) | set(outro_ids.values())
-                 | {cid for cid, _ in quiz_ids.values()})
+        every = (set() if on_index else {intro_id})
+        every |= (set(ex_ids.values()) | set(outro_ids.values())
+                  | {cid for cid, _ in quiz_ids.values()})
         assigned = {cid for d in documents_cfg for cid in d["challenge_ids"]}
+        if on_index:
+            print(f"intro: {entry_doc.title!r} shown on the index, above the part cards")
         orphans = sorted(every - assigned)
         if orphans:
             documents_cfg[0]["challenge_ids"] = orphans + documents_cfg[0]["challenge_ids"]
@@ -999,7 +1029,8 @@ def sync(subject_dir, url, admin_user, admin_pass, codes_path=None, *,
     }
     if standalone:
         write_instance_config(ctfd, documents_cfg, optional_ids, free_ids, final,
-                              subjects_cfg={subject.slug: subject_cfg})
+                              subjects_cfg={subject.slug: subject_cfg},
+                              intro_step=intro_id if on_index else None)
     if optional_ids:
         print(f"optional: {len(optional_ids)} step(s) excluded from the counters")
     if free_ids:
@@ -1013,6 +1044,10 @@ def sync(subject_dir, url, admin_user, admin_pass, codes_path=None, *,
         "ex_ids": ex_ids,
         "quiz_ids": quiz_ids,
         "intro_id": intro_id,
+        # True when this subject's intro was deliberately left off every part
+        # page, for the index to show. The workshop sync accumulates it the
+        # same way it accumulates the closing step.
+        "intro_on_index": on_index,
         "outro_ids": outro_ids,
         "documents": documents_cfg,
         "optional_ids": optional_ids,

@@ -742,6 +742,11 @@
  * identical, so the eye lands on the one card that is actionable.
  * ------------------------------------------------------------------ */
 .ws-index .ws-cards { margin-top: 1.25rem; }
+/* The introduction, when the index carries it (page.py,
+   `workshop_intro_step`). It is a step, so it already has every style a
+   step has; all it needs here is air between it and the cards it
+   introduces. */
+.ws-index-intro { margin-bottom: 2rem; }
 /* `.card` (epitech-theme.css) already gives every card rounded-xl + a real
    shadow; `overflow: hidden` keeps this top accent bar from poking past the
    now-rounded corners. */

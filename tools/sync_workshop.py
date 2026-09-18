@@ -148,6 +148,10 @@ def sync_workshop(workshop_dir, url, admin_user, admin_pass, codes_dir=None, *,
     runtime, runtime_params = {}, {}
     position, starter_final, previous_final, final_step = 0, None, None, None
     entry_page = None
+    # Only the starter's introduction is the workshop's front door, so only it
+    # moves onto the index; an advanced subject keeps its own at the top of its
+    # first part, which is the only page it can be reached from.
+    intro_step = None
 
     for entry in subjects:
         role = entry.get("role", "advanced")
@@ -156,7 +160,8 @@ def sync_workshop(workshop_dir, url, admin_user, admin_pass, codes_dir=None, *,
                  if codes_dir else None)
         result = sync(str(entry["dir"]), url, admin_user, admin_pass, codes,
                       ctfd=ctfd, position_base=position, standalone=False,
-                      gate_on=gate_for(entry, starter_final, previous_final))
+                      gate_on=gate_for(entry, starter_final, previous_final),
+                      intro_on_index=(role == "starter"))
         for key, count in (result.get("stats") or {}).items():
             totals[key] = totals.get(key, 0) + count
 
@@ -171,6 +176,8 @@ def sync_workshop(workshop_dir, url, admin_user, admin_pass, codes_dir=None, *,
         if role == "starter":
             starter_final = closing
             entry_page = subject
+            if result.get("intro_on_index"):
+                intro_step = result["intro_id"]
         # One dist serves every subject that shares a runtime; what differs is
         # data, and it travels per subject (PLAN.md §19.2).
         rt = result["runtime"]
@@ -204,7 +211,7 @@ def sync_workshop(workshop_dir, url, admin_user, admin_pass, codes_dir=None, *,
               f"({len(runtime_params)} subject-specific parameter sets)")
 
     write_instance_config(ctfd, documents, optional_ids, free_ids, final_step,
-                          subjects_cfg=subjects_cfg)
+                          subjects_cfg=subjects_cfg, intro_step=intro_step)
     print(f"workshop done: {len(subjects)} subjects, {len(documents)} parts, "
           f"{len(optional_ids)} optional and {len(free_ids)} free steps, "
           f"closing on challenge {final_step}")

@@ -61,10 +61,12 @@ never opened.
 
 An author marks the moment in the content; `cue.py` turns the marker into a 1px anchor and
 `runtime.js` watches it with an `IntersectionObserver` trimmed to the middle fifth of the
-viewport. Whichever launcher is live pulses three times, then stops. It does nothing when the
-runtime is already open, fires once per mark, and becomes a still ring under
-`prefers-reduced-motion` — the class is cleared on a timer and never on `animationend`, which
-is what lets the no-animation version end.
+viewport. Whichever launcher is live pulses, and keeps pulsing until it is pressed — not until
+a timer runs out, because the participant this exists for is the one who never noticed the
+control. It does nothing when the runtime is already open, and becomes a still ring under
+`prefers-reduced-motion`. Nothing waits on `animationend`, which is what lets the version with
+no animation end at all; the press clears the class in `activate`, and `updateLauncher` covers a
+runtime that came up some other way.
 
 Everything is in `cue.py` (a pure helper, called once at the top of `page.py`'s `_body`),
 `assets/runtime.js` (`watchCues`) and the `.ws-cue` rules in `assets/workshop.css`. A subject

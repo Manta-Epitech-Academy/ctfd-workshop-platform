@@ -404,8 +404,8 @@ The author marks the moment, and the platform paints whichever launcher is live:
    <!-- ws:cue runtime -->
 ```
 
-**On its own line**, right after the sentence it belongs to. The launcher pulses three
-times when that line reaches the middle of the screen, and then stops.
+**On its own line**, right after the sentence it belongs to. The launcher starts pulsing
+when that line reaches the middle of the screen, and keeps pulsing until it is pressed.
 
 **Inside a list, indent it to the item's own column**, as above. At column 0 a comment
 closes the list and reopens it (`<ol start="2">`), which costs nothing visually but is
@@ -416,12 +416,15 @@ Four rules it keeps, all of them deliberate:
 
 - **Nothing if the runtime is already open.** The cue is for somebody who has not opened
   it; the mark stays armed, so closing the runtime and coming back still works.
-- **Once each.** A participant who saw it and carried on has had the signal. Repeating it
-  on every scroll-back is nagging.
-- **It ends.** Three pulses, roughly four seconds. A control that pulses forever stops
-  being a signal.
-- **`prefers-reduced-motion` gets a still ring**, for the same few seconds. Less movement,
-  not less information.
+- **Pressing it is what stops it.** Not a timer, and not scrolling past. The failure being
+  fixed is a participant who never noticed the control, and a signal that gives up after a
+  few seconds is a signal aimed at somebody who was already looking.
+- **It follows the participant.** Scrolling on without pressing does not end it, and the
+  pulse moves to the other launcher when the page hands over.
+- **`prefers-reduced-motion` gets a still ring** instead, held just as long and ended by
+  the same press. Less movement, not less information — and it is the answer to the
+  obvious objection to an indefinite pulse, since the people it would cost are exactly the
+  ones who have asked for no motion.
 
 A mark inside a collapsed step waits, and fires when that step is opened.
 

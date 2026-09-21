@@ -390,18 +390,27 @@ async function theCue(browser) {
   check((v.cta && seen.cta) || (v.handle && seen.handle),
         `it paints the launcher that is on screen (cta=${seen.cta} handle=${seen.handle})`);
 
-  // It ends. Three pulses of 1.4s in workshop.css, cleared on a 4.4s timer in
-  // runtime.js — so a little past that, nothing is left lit.
-  await page.waitForTimeout(4600);
-  check(!(await cued()).any, "and it stops on its own rather than pulsing forever");
+  // It does not give up. The failure being fixed is a participant who did not
+  // notice the control at all, so a signal that stops after a few seconds is
+  // aimed at somebody who was already looking. Well past any plausible bounded
+  // run, and past the old 4.4s one this replaced.
+  await page.waitForTimeout(8000);
+  check((await cued()).any, "it keeps pulsing rather than giving up after a few seconds");
 
-  // Once each: a participant who scrolled past and carried on has had it.
+  // Including out of sight: the participant scrolled on without pressing, which
+  // is exactly the case the cue exists for.
   await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
-  await page.waitForTimeout(300);
+  await page.waitForTimeout(500);
+  check((await cued()).any, "and keeps pulsing after scrolling away from the mark");
+
+  // And the one thing that ends it.
   await page.evaluate(() => document.querySelector('.ws-cue[data-cue="runtime"]')
     .scrollIntoView({ block: "center", behavior: "instant" }));
-  await page.waitForTimeout(700);
-  check(!(await cued()).any, "and does not fire again on a scroll-back");
+  await page.waitForTimeout(400);
+  const seenNow = await launcher(page);
+  await page.click(seenNow.handle ? ".ws-runtime-handle" : ".ws-runtime-cta");
+  await page.waitForTimeout(600);
+  check(!(await cued()).any, "and the press is what stops it");
 
   await ctx.close();
 }

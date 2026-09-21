@@ -1031,11 +1031,17 @@ body.ws-has-pane { overflow-x: hidden; }
    box-shadow is ink and never layout, so the ring may spread past the right
    edge of a fixed tab without making the page scrollable.
 
-   Three pulses, then nothing: by then the participant has either looked or
-   decided not to, and a control that pulses forever is wallpaper. runtime.js
-   clears the class on a timer, so this count is what is seen and not what ends
-   it — see the reduced-motion rule below for why that distinction earns its
-   keep. */
+   It runs until the launcher is pressed. A bounded run was tried first and is
+   the wrong trade here: the whole failure being fixed is a participant who did
+   not notice the control, and a signal that gives up after four seconds is a
+   signal aimed at somebody who was already looking. So the only thing that ends
+   it is the click — runtime.js clears the class from `activate`, and from
+   `updateLauncher` for a runtime that came up some other way.
+
+   Which is also why `prefers-reduced-motion` matters more than usual here, and
+   why that rule below is not decoration: an indefinite pulse is exactly what
+   somebody who asks for less movement is asking not to get. They get the ring
+   without the motion, for as long as it would have pulsed. */
 /* The ring is absolutely positioned, so it needs a positioned ancestor — and
    `.ws-runtime-handle` already has one of its own. This says `.ws-runtime-cta`
    and not `.ws-runtime-toggle`, which both launchers carry, because that wider
@@ -1049,7 +1055,7 @@ body.ws-has-pane { overflow-x: hidden; }
   position: absolute; inset: 0;
   border-radius: inherit;
   pointer-events: none;
-  animation: ws-cue-pulse 1.4s var(--epi-ease-standard) 3;
+  animation: ws-cue-pulse 1.4s var(--epi-ease-standard) infinite;
 }
 /* The hero button is `--epi-tech` green: a ring in the primary blue around it
    reads as a focus ring, which is a different promise. Each control rings in
@@ -1057,8 +1063,8 @@ body.ws-has-pane { overflow-x: hidden; }
 .ws-runtime-cta.ws-cue-on::after { --ws-cue-ink: var(--epi-tech); }
 @keyframes ws-cue-pulse {
   from { box-shadow: 0 0 0 0
-         color-mix(in oklab, var(--ws-cue-ink, var(--bs-primary)) 75%, transparent); }
-  to   { box-shadow: 0 0 0 1.05rem
+         color-mix(in oklab, var(--ws-cue-ink, var(--bs-primary)) 80%, transparent); }
+  to   { box-shadow: 0 0 0 1.9rem
          color-mix(in oklab, var(--ws-cue-ink, var(--bs-primary)) 0%, transparent); }
 }
 /* While it is asking to be looked at, the tab sits flush rather than tucked
@@ -1067,13 +1073,14 @@ body.ws-has-pane { overflow-x: hidden; }
 
 /* Reduced motion asks for less movement, not for no signal — and the global
    rule near the top of epitech-theme.css would otherwise run this pulse for
-   0.01ms and leave nothing on screen at all. A still ring instead, for the same
-   few seconds. runtime.js removes the class on a timer and never on
-   `animationend`, which is what makes a version with no animation work. */
+   0.01ms and leave nothing on screen at all. A still ring instead, held for as
+   long as the pulse would have run and ended by the same click. Nothing here
+   waits on `animationend`, which is what lets a version with no animation end
+   at all. */
 @media (prefers-reduced-motion: reduce) {
   .ws-runtime-toggle.ws-cue-on::after {
     animation: none !important;
-    box-shadow: 0 0 0 0.3rem
+    box-shadow: 0 0 0 0.5rem
       color-mix(in oklab, var(--ws-cue-ink, var(--bs-primary)) 45%, transparent);
   }
 }

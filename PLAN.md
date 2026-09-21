@@ -3307,14 +3307,24 @@ inside its frame, where every target is present and stays put. That is a separat
 nothing here forecloses it — `ws:cue <name>` is a grammar, and a tour is a second name rather than
 a second syntax.
 
-### 33.3 The four rules it keeps
+### 33.3 The rules it keeps, and the one that changed
 
-Nothing when the runtime is already open (and the mark stays armed, so closing it and coming back
-still works). Once per mark — a participant who saw it and carried on has had the signal. It ends,
-after three pulses. And `prefers-reduced-motion` gets a still ring for the same few seconds, which
-is why the class is cleared on a timer and never on `animationend`: the global rule in
-`epitech-theme.css` collapses every animation to 0.01ms, so the version with no animation has no
-event to end on.
+Nothing when the runtime is already open, and the mark stays armed, so closing it and coming back
+still works.
+
+It then **pulses until a launcher is pressed**. The first version stopped after three pulses, on
+the reasoning that a control pulsing forever becomes wallpaper. That reasoning describes somebody
+who has seen the control; the participant this exists for is the one who never noticed it, and for
+them a signal that gives up after four seconds is aimed at the wrong person. Scrolling past does
+not end it either — that is the case the cue exists for. Only the press does, cleared in
+`activate` rather than only in `updateLauncher`, because a press that opens a tab is answered
+before that tab has said anything back over the channel.
+
+Which puts real weight on `prefers-reduced-motion`, and it carries it: a still ring, held exactly
+as long and ended by the same press. An indefinite pulse is precisely what somebody asking for
+less movement is asking not to get, and they do not get it. Nothing anywhere waits on
+`animationend` — the global rule in `epitech-theme.css` collapses every animation to 0.01ms, so
+the version with no animation has no event to end on.
 
 A mark inside a collapsed step waits and fires when the step is opened, for free: an
 `IntersectionObserver` says nothing about an element with no box.

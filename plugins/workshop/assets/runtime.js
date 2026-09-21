@@ -533,8 +533,9 @@
   // tab was simply always there and the hero had nothing.
   function updateLauncher() {
     var toWindow = mode === MODE_WINDOW;
-    // The cue has been answered. Here rather than in `setOpen`, because a
-    // runtime opened in its own tab arrives as a channel message instead.
+    // The other way it gets answered: a runtime that came up without a press
+    // here — a tab already open when this page loaded, or one that announced
+    // itself over the channel.
     if (runtimeOpen()) stopCue();
     document.querySelectorAll(".ws-runtime-toggle").forEach(function (b) {
       var label = toWindow ? b.dataset.labelWindow : b.dataset.labelSplit;
@@ -591,9 +592,7 @@
   // what the participant is reading, not when it scrapes the bottom edge on the
   // way past.
   var CUE_BAND = "-40% 0px -40% 0px";
-  // Three pulses of 1.4s in workshop.css, and a little over that here.
-  var CUE_MS = 4400;
-  var cueTimer = null;
+  var cueOn = false;
 
   function runtimeOpen() {
     return mode === MODE_WINDOW ? popupLive : !pane.hidden;
@@ -608,23 +607,20 @@
     });
   }
 
+  // Pressing a launcher is the only thing that ends it. Nothing waits on
+  // `animationend`: under `prefers-reduced-motion` the rule in workshop.css
+  // shows a still ring with no animation to end, and that ring has to go away
+  // on the same click.
   function stopCue() {
-    if (cueTimer === null) return;
-    clearTimeout(cueTimer);
-    cueTimer = null;
+    if (!cueOn) return;
+    cueOn = false;
     paintCue(false);
   }
 
   function startCue() {
-    if (cueTimer !== null) return;
+    if (cueOn) return;
+    cueOn = true;
     paintCue(true);
-    // A timer rather than `animationend`: under `prefers-reduced-motion` the
-    // rule in workshop.css shows a still ring with no animation to end, and
-    // that ring has to go away too.
-    cueTimer = setTimeout(function () {
-      cueTimer = null;
-      paintCue(false);
-    }, CUE_MS);
   }
 
   function watchCues() {
@@ -640,9 +636,6 @@
         // Already open: there is nothing to point at. The mark stays armed —
         // the participant may close the runtime and come back to this line.
         if (runtimeOpen()) return;
-        // Once each. Somebody who scrolled past and ignored it has had the
-        // signal; showing it again on every scroll-back is nagging.
-        io.unobserve(entry.target);
         startCue();
       });
     }, { rootMargin: CUE_BAND });
@@ -740,6 +733,10 @@
 
   // What a launcher press does, in either presentation.
   function activate() {
+    // The cue asked to be pressed and it has been. Here and not only in
+    // `updateLauncher`, because a press that opens a tab is answered before
+    // that tab has said anything back over the channel.
+    stopCue();
     if (mode === MODE_WINDOW) { openWindow(); return; }
     setOpen(pane.hidden);
   }

@@ -3400,3 +3400,27 @@ top of the enlarged image (positioned against a dialog that shrinks to its conte
 at 0.82 left the step text behind it readable enough that the eye kept going back to it, and the
 focus ring above. A fourth arrived with the fix — parking focus on the dialog made the UA draw a
 ring round the whole thing.
+
+## 35. Parcours leaves the navbar until it is finished (2026-09-21)
+
+The path-graph page is not done, and an unfinished page in a participant's navbar is a page a
+participant will open during a session.
+
+`tools/sync_subject.py` now writes it `hidden: True`, the same flag every per-document Page has
+carried since §30. The two CTFd helpers differ in exactly the way this needs:
+
+- `get_pages()`, which builds the navbar, filters out both `draft` and `hidden`;
+- `get_page(route)`, which serves one, filters `draft` only.
+
+So the entry goes and the route stays: whoever picks the graph back up still opens `/parcours` and
+sees it. `draft: True` would have been the stronger setting and 404s the route for everyone —
+there is no admin bypass in `get_page` — which is more than "not finished yet" asks for.
+
+It is a PATCH on a Page that already exists, so **a re-sync flips the instances that are already
+up**; a plugin restart alone does not, because this is content the sync owns rather than markup.
+Verified on the local instance: the participant navbar reads Atelier / Boîte à outils / Classement,
+and `/parcours` still answers 200 with its graph container.
+
+The comment in the document-page block claimed Parcours was one of the two remaining ways into the
+workshop. That stopped being true here, so it was rewritten rather than left to rot: the Workshop
+entry is the way in, and it always was the same surface the other two led to.

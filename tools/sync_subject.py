@@ -806,12 +806,24 @@ def sync(subject_dir, url, admin_user, admin_pass, codes_path=None, *,
             outro_position[closes_after[order].path] = order + offset + inserted
 
     # 1c. Parcours path-graph page (platform UI, filled by graph.js). Idempotent.
+    #
+    # `hidden` until the view is finished. It drops the navbar entry and keeps
+    # the route: CTFd's `get_pages()` (the nav) filters out both `draft` and
+    # `hidden`, while `get_page(route)` (serving one) filters `draft` only. So
+    # whoever is working on the graph still opens /parcours, and nobody meets
+    # it by accident in a room. `draft: True` is the stronger setting and 404s
+    # the route for everyone, admins included — there is no bypass in
+    # `get_page` — which is more than "not finished yet" asks for.
+    #
+    # It is a PATCH for a page that already exists, so a re-sync flips the
+    # instances that are already up. A plugin restart alone does not: this is
+    # content the sync owns, not markup.
     upsert_page(ctfd, "parcours", {
         "title": "Parcours", "route": "parcours",
         "content": "# Parcours\n\n<div id=\"ws-parcours\">Loading the path graph…</div>",
-        "format": "markdown", "draft": False, "hidden": False, "auth_required": True,
+        "format": "markdown", "draft": False, "hidden": True, "auth_required": True,
     })
-    print("page: 'Parcours' -> /parcours")
+    print("page: 'Parcours' -> /parcours (hidden from the navbar)")
 
     # 1d. runtime declaration -> CTFd config, read back by the workshop page
     # (plugins/workshop/runtime.py). Only the platform-facing keys are sent;
@@ -1012,11 +1024,11 @@ def sync(subject_dir, url, admin_user, admin_pass, codes_path=None, *,
             # exception to protect — dropping it also means a subject that is
             # standalone today and grows a second part later doesn't silently
             # regress into the same wrap. `hidden` keeps the route, it only
-            # drops the link; the Workshop entry and Parcours stay in the
-            # navbar unconditionally as the two other ways in. (Challenges was
-            # a third until it became admin-only — PLAN.md §30 — and Parcours
-            # now leads to the workshop page rather than to the board, so both
-            # of the remaining two are the same surface these routes are.)
+            # drops the link; the Workshop entry is the way in. (Challenges was
+            # a second until it became admin-only — PLAN.md §30 — and Parcours
+            # was a third until it was hidden in turn, above, for being
+            # unfinished. Both of those led to this same surface anyway, which
+            # is why dropping them strands nobody.)
             "hidden": True,
             "auth_required": True,
         })

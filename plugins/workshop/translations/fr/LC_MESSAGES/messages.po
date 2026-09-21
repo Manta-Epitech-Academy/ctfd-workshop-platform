@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-09-18 14:03+0400\n"
+"POT-Creation-Date: 2026-09-21 10:07+0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: fr\n"
@@ -172,6 +172,9 @@ msgstr "Ce quiz est mal configuré, préviens l'encadrant"
 #, python-format
 msgid "Next part: %(title)s"
 msgstr "Partie suivante : %(title)s"
+
+msgid "No longer part of the subject"
+msgstr "Ne fait plus partie du sujet"
 
 msgid "Nobody checks this for you: mark the step done once your work is finished."
 msgstr "Personne ne vérifie à ta place : coche l'étape quand ton travail est fini."

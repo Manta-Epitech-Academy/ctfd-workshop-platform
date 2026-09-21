@@ -1,5 +1,5 @@
-/* The runtime, in a real browser: both presentations, and the advisory rules
- * across two windows (PLAN.md §14, §30).
+/* The runtime, in a real browser: both presentations, the advisory rules
+ * across two windows, and the cue (PLAN.md §14, §30, §33).
  *
  *     node scripts/runtime_browser_check.js [base-url] [user] [password] \
  *          [path-to-playwright] [part-slug]
@@ -323,6 +323,135 @@ async function workSurvivesTheHandover(browser) {
   await ctx.close();
 }
 
+/* The cue (PLAN.md §33): the mark the author places, and the launcher that
+ * answers it. Only a browser can check this one — the whole behaviour is an
+ * IntersectionObserver reading a scroll position, and which launcher gets
+ * painted depends on which one that scroll position leaves on screen.
+ *
+ * Skipped, not failed, on a subject that places no mark: the feature is opt-in
+ * per subject and this file has to stay runnable against all of them.
+ */
+async function theCue(browser) {
+  console.log("== The runtime cue: the mark, and the launcher it paints ==");
+  const ctx = await browser.newContext();
+  const page = await login(ctx, 1280, 900);
+  await page.goto(BASE + PART, { waitUntil: "load" });
+  await page.waitForSelector("#ws-runtime", { state: "attached" });
+  await page.waitForTimeout(400);
+
+  // Every step is a `<details>`, and a mark inside a closed one has no box for
+  // the observer to see. Open them all: the participant reaching that line has
+  // opened that step, which is the state being checked.
+  await page.evaluate(() => document.querySelectorAll("details.ws-step")
+    .forEach((d) => { d.open = true; }));
+  await page.waitForTimeout(200);
+
+  const marks = await page.evaluate(
+    () => document.querySelectorAll('.ws-cue[data-cue="runtime"]').length);
+  if (!marks) {
+    console.log("  [skip] this subject places no ws:cue runtime mark");
+    await ctx.close();
+    return;
+  }
+  check(marks > 0, `${marks} cue mark(s) rendered from the content`);
+
+  // The pane may have opened from a stored preference; the cue is for somebody
+  // who has not opened it, so close it first.
+  await page.evaluate(() => {
+    const close = document.querySelector(".ws-runtime-close");
+    if (close && !document.querySelector("#ws-runtime").hidden) close.click();
+  });
+  await page.waitForTimeout(300);
+
+  const cued = () => page.evaluate(() => {
+    const on = document.querySelector(".ws-runtime-toggle.ws-cue-on");
+    return {
+      any: !!on,
+      cta: !!document.querySelector(".ws-runtime-cta.ws-cue-on"),
+      handle: !!document.querySelector(".ws-runtime-handle.ws-cue-on"),
+      ring: on ? getComputedStyle(on, "::after").animationName : null,
+    };
+  });
+
+  check(!(await cued()).any, "nothing pulses before the mark is reached");
+
+  // Into the middle band the observer watches. `center` is what a participant
+  // scrolling to that line produces.
+  await page.evaluate(() => document.querySelector('.ws-cue[data-cue="runtime"]')
+    .scrollIntoView({ block: "center", behavior: "instant" }));
+  await page.waitForTimeout(500);
+
+  let v = await cued();
+  check(v.any, "the launcher pulses once the mark reaches the middle of the screen");
+  check(v.ring === "ws-cue-pulse", `the ring is the pulse animation (${v.ring})`);
+  // Which one it is depends on where that mark sits; what must hold is that it
+  // is the one the participant can actually see.
+  const seen = await launcher(page);
+  check((v.cta && seen.cta) || (v.handle && seen.handle),
+        `it paints the launcher that is on screen (cta=${seen.cta} handle=${seen.handle})`);
+
+  // It ends. Three pulses of 1.4s in workshop.css, cleared on a 4.4s timer in
+  // runtime.js — so a little past that, nothing is left lit.
+  await page.waitForTimeout(4600);
+  check(!(await cued()).any, "and it stops on its own rather than pulsing forever");
+
+  // Once each: a participant who scrolled past and carried on has had it.
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
+  await page.waitForTimeout(300);
+  await page.evaluate(() => document.querySelector('.ws-cue[data-cue="runtime"]')
+    .scrollIntoView({ block: "center", behavior: "instant" }));
+  await page.waitForTimeout(700);
+  check(!(await cued()).any, "and does not fire again on a scroll-back");
+
+  await ctx.close();
+}
+
+/* And the other half of the rule: with the runtime already open there is
+ * nothing to point at, so the mark must stay quiet — while staying armed, since
+ * the participant may close it and come back to that line.
+ */
+async function theCueWhenAlreadyOpen(browser) {
+  console.log("== The cue with the runtime already open ==");
+  const ctx = await browser.newContext();
+  const page = await login(ctx, 1280, 900);
+  await page.goto(BASE + PART, { waitUntil: "load" });
+  await page.waitForSelector("#ws-runtime", { state: "attached" });
+  await page.evaluate(() => document.querySelectorAll("details.ws-step")
+    .forEach((d) => { d.open = true; }));
+  await page.waitForTimeout(300);
+
+  const marks = await page.evaluate(
+    () => document.querySelectorAll('.ws-cue[data-cue="runtime"]').length);
+  if (!marks) {
+    console.log("  [skip] this subject places no ws:cue runtime mark");
+    await ctx.close();
+    return;
+  }
+
+  if ((await launcher(page)).paneOpen === false) {
+    await page.evaluate(() => document.querySelector(".ws-runtime-toggle").click());
+  }
+  await ready(page);
+  await page.evaluate(() => document.querySelector('.ws-cue[data-cue="runtime"]')
+    .scrollIntoView({ block: "center", behavior: "instant" }));
+  await page.waitForTimeout(700);
+  const quiet = await page.evaluate(
+    () => !document.querySelector(".ws-runtime-toggle.ws-cue-on"));
+  check(quiet, "an open runtime is cue enough: nothing pulses");
+
+  // Still armed. Close it, come back to the line, and the cue is there.
+  await page.evaluate(() => document.querySelector(".ws-runtime-close").click());
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
+  await page.waitForTimeout(300);
+  await page.evaluate(() => document.querySelector('.ws-cue[data-cue="runtime"]')
+    .scrollIntoView({ block: "center", behavior: "instant" }));
+  await page.waitForTimeout(600);
+  const armed = await page.evaluate(
+    () => !!document.querySelector(".ws-runtime-toggle.ws-cue-on"));
+  check(armed, "and the mark is still armed once the runtime is closed again");
+  await ctx.close();
+}
+
 (async () => {
   const browser = await chromium.launch(
     process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {});
@@ -331,6 +460,8 @@ async function workSurvivesTheHandover(browser) {
     await narrowScreen(browser);
     await workSurvivesTheHandover(browser);
     await advisoryAcrossWindows(browser);
+    await theCue(browser);
+    await theCueWhenAlreadyOpen(browser);
   } finally {
     await browser.close();
   }

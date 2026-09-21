@@ -1016,6 +1016,73 @@ body.ws-has-pane { overflow-x: hidden; }
 }
 .ws-runtime-handle:active { background: color-mix(in oklab, var(--bs-primary) 82%, black); }
 
+/* The cue: a launcher pulses when the prose reaches the point that needs the
+   runtime. The author marks that point with `<!-- ws:cue runtime -->` (cue.py);
+   the observer that fires it is in assets/runtime.js.
+
+   Beta testers read straight past « clique sur le bouton Ouvrir Pac-Man ».
+   Nothing was wrong with the sentence: by the time it is on screen the hero
+   button has scrolled away and the edge tab has replaced it, so the text points
+   at a control that is no longer where it says it is. The cue paints whichever
+   of the two is live at that moment, which is the part prose cannot do.
+
+   On a pseudo-element rather than on the button, so `.ws-runtime-handle` keeps
+   its own `box-shadow` instead of having it animated away and snapped back. A
+   box-shadow is ink and never layout, so the ring may spread past the right
+   edge of a fixed tab without making the page scrollable.
+
+   Three pulses, then nothing: by then the participant has either looked or
+   decided not to, and a control that pulses forever is wallpaper. runtime.js
+   clears the class on a timer, so this count is what is seen and not what ends
+   it — see the reduced-motion rule below for why that distinction earns its
+   keep. */
+/* The ring is absolutely positioned, so it needs a positioned ancestor — and
+   `.ws-runtime-handle` already has one of its own. This says `.ws-runtime-cta`
+   and not `.ws-runtime-toggle`, which both launchers carry, because that wider
+   rule overrode the tab's `position: fixed` and dropped it out of the viewport
+   into the flow, two thousand pixels down the page, exactly while it was meant
+   to be catching the eye. scripts/runtime_browser_check.js asserts the painted
+   launcher is one that is actually on screen, which is what found it. */
+.ws-runtime-cta.ws-cue-on { position: relative; }
+.ws-runtime-toggle.ws-cue-on::after {
+  content: "";
+  position: absolute; inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  animation: ws-cue-pulse 1.4s var(--epi-ease-standard) 3;
+}
+/* The hero button is `--epi-tech` green: a ring in the primary blue around it
+   reads as a focus ring, which is a different promise. Each control rings in
+   its own colour. */
+.ws-runtime-cta.ws-cue-on::after { --ws-cue-ink: var(--epi-tech); }
+@keyframes ws-cue-pulse {
+  from { box-shadow: 0 0 0 0
+         color-mix(in oklab, var(--ws-cue-ink, var(--bs-primary)) 75%, transparent); }
+  to   { box-shadow: 0 0 0 1.05rem
+         color-mix(in oklab, var(--ws-cue-ink, var(--bs-primary)) 0%, transparent); }
+}
+/* While it is asking to be looked at, the tab sits flush rather than tucked
+   into the edge waiting for a pointer that is not coming. */
+.ws-runtime-handle.ws-cue-on { transform: translateX(0); }
+
+/* Reduced motion asks for less movement, not for no signal — and the global
+   rule near the top of epitech-theme.css would otherwise run this pulse for
+   0.01ms and leave nothing on screen at all. A still ring instead, for the same
+   few seconds. runtime.js removes the class on a timer and never on
+   `animationend`, which is what makes a version with no animation work. */
+@media (prefers-reduced-motion: reduce) {
+  .ws-runtime-toggle.ws-cue-on::after {
+    animation: none !important;
+    box-shadow: 0 0 0 0.3rem
+      color-mix(in oklab, var(--ws-cue-ink, var(--bs-primary)) 45%, transparent);
+  }
+}
+
+/* The mark itself. A point in the prose, never something to look at: 1px rather
+   than zero so it has a box for the observer to intersect, and no margin so it
+   cannot open a gap between two paragraphs. */
+.ws-cue { display: block; height: 1px; margin: 0; }
+
 /* The runtime believes the active step looks done. Advisory only — it marks the
    step, it never solves it (PLAN.md §14.3 rule 0) — so it is a tint on the
    card, at the weight the `.ws-runtime-hint` sentence below it already has, and

@@ -59,6 +59,7 @@ from .progress import ordered_challenges as _ordered_challenges
 from .runtime import declared_runtime
 # The reference material an author writes beside the step that needs it, and
 # this page shows on one gathered page instead — see toolbox.py.
+from .cue import place_cues
 from .highlight import box_apply_section
 from .toolbox import (GLOSSARY_OPEN, HERE, TOOLBOX_OPEN, lift_leading_heading,
                       split_glossary, split_toolbox, strip_leading_heading,
@@ -281,7 +282,9 @@ def _quiz_given(challenge, user, solved):
 
 def _body(challenge, user, validation=None, solved=False):
     """Everything a participant needs to actually do the step."""
-    lead, rest = _split_context(challenge.html)
+    # Before anything is split: a cue is a point in the prose and the author may
+    # have put it in the short version as well as the statement (cue.py).
+    lead, rest = _split_context(place_cues(challenge.html))
     summary, statement = _split_fenced(rest, RESUME_OPEN, RESUME_CLOSE)
     # Reference material leaves the step and is replaced by a line naming what
     # is in it (`/toolbox`). A step that opens with half a screen of reference

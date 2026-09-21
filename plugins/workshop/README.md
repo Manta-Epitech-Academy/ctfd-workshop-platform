@@ -51,6 +51,30 @@ its name and nothing else, so the page has the same shape from the first minute.
 lives in `toolbox.py` (pure helpers) and `page.py` (`_reference`, the route); the markers
 travel inside the challenge description like `ws:resume` does, so nothing is stored twice.
 
+## The runtime cue (`<!-- ws:cue runtime -->`, convention §3.4d)
+
+The page carries **two launchers for one action** — the hero button while it is in view, the
+fixed edge tab once it has scrolled away — and `runtime.js` shows exactly one at a time. So a
+sentence that says « clique sur le bouton en haut de cette page » is read at a moment when that
+button is no longer there, which is how beta testers reached the first step with the runtime
+never opened.
+
+An author marks the moment in the content; `cue.py` turns the marker into a 1px anchor and
+`runtime.js` watches it with an `IntersectionObserver` trimmed to the middle fifth of the
+viewport. Whichever launcher is live pulses three times, then stops. It does nothing when the
+runtime is already open, fires once per mark, and becomes a still ring under
+`prefers-reduced-motion` — the class is cleared on a timer and never on `animationend`, which
+is what lets the no-animation version end.
+
+Everything is in `cue.py` (a pure helper, called once at the top of `page.py`'s `_body`),
+`assets/runtime.js` (`watchCues`) and the `.ws-cue` rules in `assets/workshop.css`. A subject
+with no marker behaves exactly as before.
+
+**A guided tour does not belong here.** The intended split is that the platform owns this cue —
+one signal, on a control it owns, whose position it alone knows — and a runtime owns any tour of
+its own interface, inside its frame, where the targets are always present. A tour library driven
+from this side would be measuring `.ws-runtime-handle` while it still carries `hidden`.
+
 ## The instance's mode (PLAN.md §25)
 
 `workshop_mode` — `instructor_led` (default) or `self_serve` — is a CTFd config key, set at

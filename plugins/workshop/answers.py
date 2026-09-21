@@ -52,6 +52,7 @@ MODE_LABELS = {
     "flag": "Answer",
     "token": "Runtime token",
     "quiz": "Quiz",
+    "quizset": "Quiz — several questions",
     "single": "Quiz — one answer",
     "multiple": "Quiz — several answers",
     "match": "Quiz — pairs",
@@ -119,16 +120,16 @@ def _infer_mode(challenge, content, token_ids):
     return "unknown", False
 
 
-def _quiz_answer(challenge):
-    """The correct answer, rendered the way the content author wrote it.
+def _one_answer(kind, answers):
+    """One question's correct answer, rendered the way the author wrote it.
 
     Shapes are the tolerant ones quiz.py grades (bare values accepted), so
-    each branch handles both the dict form and the shorthand.
+    each branch handles both the dict form and the shorthand. Taking `kind`
+    as an argument rather than reading the challenge is what lets a quizset
+    reuse it: inside one, every question is graded by passing its own dict to
+    the same grader (quiz.py `_grade_quizset`), so the answer shapes are
+    identical to a standalone quiz's.
     """
-    kind = getattr(challenge, "quiz_type", None)
-    answers = getattr(challenge, "quiz_answers", None)
-    if kind in NO_ANSWER or answers is None:
-        return ""
     if kind == "checkpoint":
         # The instructor's code. It is stored whatever the instance's mode is,
         # and only *required* in instructor-led — see plugins/workshop/mode.py.
@@ -151,6 +152,82 @@ def _quiz_answer(challenge):
             patterns = answers if isinstance(answers, list) else [answers]
         return "  |  ".join(str(p) for p in patterns)
     return ""
+
+
+def _questions(payload):
+    """The question list of a quizset, in either shape quiz.py accepts."""
+    if isinstance(payload, dict):
+        payload = payload.get("questions")
+    return payload if isinstance(payload, list) else []
+
+
+def _labels(spec_question, value):
+    """What the letters in `value` actually say, from the step's own spec.
+
+    "1. B" tells an instructor nothing on its own — they would have to open the
+    subject to know what B was, which is the lookup this page exists to spare
+    them. The spec carries the items, so the answer can read "B — Droite".
+
+    Backticks go: the item text is authored markdown (`` `true` ``) and this is
+    a table cell, not a rendered page. Silent when the spec has no items, which
+    is the case for a freeform answer and for any step imported before specs
+    carried them.
+    """
+    items = (spec_question or {}).get("items") or []
+    texts = {str(i.get("letter", "")).strip().upper(): str(i.get("text", ""))
+             for i in items if isinstance(i, dict)}
+    out = []
+    for letter in (v.strip() for v in value.split(",")):
+        text = texts.get(letter.upper())
+        if text:
+            out.append(text.replace("`", "").strip())
+    return out
+
+
+def _quiz_answer_rows(challenge):
+    """The answer as the page shows it: one row per question of the step.
+
+    A quizset is several questions in one step, and the participant submits
+    them joined by "|" (quiz.py `_grade_quizset`). Flattening that into one
+    string is what made this page say "nothing to answer" for every quizset in
+    the subject: `_quiz_answer` had no branch for the kind at all. One row per
+    question instead, numbered the way the "look again at question 2" message
+    numbers them, so the sheet and the message agree.
+
+    A single-question step returns one unnumbered row, which is every other
+    kind of answer this page already showed.
+    """
+    kind = getattr(challenge, "quiz_type", None)
+    answers = getattr(challenge, "quiz_answers", None)
+    if kind in NO_ANSWER or answers is None:
+        return []
+    if kind != "quizset":
+        value = _one_answer(kind, answers)
+        return [{"n": None, "value": value, "labels": []}] if value else []
+
+    spec = _questions(getattr(challenge, "quiz_spec", None))
+    rows = []
+    for i, question in enumerate(_questions(answers)):
+        if not isinstance(question, dict):
+            continue
+        value = _one_answer(question.get("kind", "single"), question)
+        if not value:
+            continue
+        rows.append({
+            "n": i + 1,
+            "value": value,
+            "labels": _labels(spec[i] if i < len(spec) else None, value),
+        })
+    return rows
+
+
+def _quiz_answer(challenge):
+    """The same answer as one string, for the CSV and for anything that wants
+    a cell rather than a list."""
+    rows = _quiz_answer_rows(challenge)
+    if len(rows) == 1:
+        return rows[0]["value"]
+    return " · ".join(f"{r['n']}. {r['value']}" for r in rows)
 
 
 def _quiz_notes(challenge):
@@ -194,8 +271,10 @@ def _row(challenge, flags, modes, token_ids, solvers):
         mode, guessed = _infer_mode(challenge, content, token_ids)
 
     if challenge.type == "quiz":
+        answer_rows = _quiz_answer_rows(challenge)
         answer = _quiz_answer(challenge)
     else:
+        answer_rows = []
         answer = "  |  ".join(f.content for f in static)
 
     notes = _quiz_notes(challenge)
@@ -217,6 +296,10 @@ def _row(challenge, flags, modes, token_ids, solvers):
         "guessed": guessed,
         "per_instance": mode in PER_INSTANCE,
         "answer": answer,
+        # The page shows a quizset question by question, with what each letter
+        # says; the CSV keeps the one string above. Empty for every other kind,
+        # which the template then renders the way it always did.
+        "answer_rows": answer_rows if any(r["n"] for r in answer_rows) else [],
         "notes": notes,
         "points": challenge.value,
         "solvers": solvers.get(challenge.id, 0),

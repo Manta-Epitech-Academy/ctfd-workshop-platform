@@ -51,6 +51,31 @@ its name and nothing else, so the page has the same shape from the first minute.
 lives in `toolbox.py` (pure helpers) and `page.py` (`_reference`, the route); the markers
 travel inside the challenge description like `ws:resume` does, so nothing is stored twice.
 
+## Enlarging an image, and its caption (`assets/zoom.js`)
+
+`workshop.css` caps content images at `max-height: 26rem`, because a 750px screenshot pushed the
+first step of a part below the fold. That cap is right for reading the page and wrong for the one
+moment the image is doing its job: a participant holding their own screen against it.
+
+Clicking one opens it in a `<dialog>` at up to 78vh, with the image's `alt` shown underneath as a
+visible caption. The `alt` is the caption by convention — `workshop-capture` writes it as one —
+and until now it reached screen readers and nobody else.
+
+A `<dialog>` rather than a positioned div: the top layer clears the runtime pane without either
+knowing the other's z-index, and Escape, the backdrop and the focus trap come from the platform.
+Focus is parked on the dialog itself, because `showModal()` otherwise focuses the close button and
+Chromium counts that as `:focus-visible` — opening with the mouse drew a keyboard focus ring.
+
+Registered globally with `register_plugin_script`, like `hints.js`: `.challenge-desc` is core's own
+container, so the board at `/challenges` renders subject images too, and this plugin's CSS has
+always styled them there. The selector is exactly the two containers the CSS caps, so what is
+zoomable is what was shrunk. A linked image is left alone — the author meant "go there".
+
+**Images get no `tabindex`, deliberately.** A screen reader already announces the `alt`, which is
+all the dialog adds, so the tab stop would buy an assistive-technology user nothing while costing
+every keyboard user one stop per image on a page that is mostly images. The trade runs the other
+way for a sighted keyboard-only reader; the comment in `workshop.css` marks the line to revisit.
+
 ## The runtime cue (`<!-- ws:cue runtime -->`, convention §3.4d)
 
 The page carries **two launchers for one action** — the hero button while it is in view, the

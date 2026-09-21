@@ -37,6 +37,116 @@
   object-fit: contain;
 }
 
+/* The cap above is a reading decision, and assets/zoom.js is the way out of it:
+   click the image and it opens at the size it was captured, with its `alt` as a
+   visible caption. `zoom-in` is what says so — the only affordance an image
+   gets, since nothing else about it changes.
+
+   Not given a `tabindex` here or in the script, deliberately. A screen reader
+   already reads the `alt`, which is the whole of what the dialog adds, so the
+   tab stop would buy an assistive-technology user nothing — while costing every
+   keyboard user one stop per image on a page that is mostly images, between
+   them and the answer field. The trade is the other way round for a sighted
+   keyboard-only reader; if that room shows up, this is the line to revisit. */
+.challenge-desc img,
+.challenge-hints img { cursor: zoom-in; }
+/* Except where the author linked it: then the link is the meaning. */
+.challenge-desc a img,
+.challenge-hints a img { cursor: pointer; }
+
+/* The enlarged view. A `<dialog>` in the top layer, so it clears the runtime
+   pane (z-index 1025) without either of them knowing about the other. Reset
+   first: the UA gives a dialog a border, a white ground and a centring margin,
+   all three of which are in the way here. */
+.ws-zoom {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: #ffffff;
+  max-width: 100vw;
+  max-height: 100vh;
+  overflow: visible;
+}
+/* Dark enough that the page stops competing. At 0.82 the step text behind it
+   was still readable and the eye kept going back to it, which defeats the
+   point of enlarging anything. The blur is what separates the caption from
+   whatever paragraph happens to sit under it. */
+/* Focus is parked here so it is not on the close button (zoom.js says why), and
+   the dialog is a container rather than a control — so the ring the UA draws
+   round the whole thing is noise. The close button keeps its own. */
+.ws-zoom:focus,
+.ws-zoom:focus-visible { outline: none; }
+.ws-zoom::backdrop {
+  background: rgb(6 8 11 / 0.93);
+  backdrop-filter: blur(3px);
+}
+.ws-zoom-img {
+  display: block;
+  margin: 0 auto;
+  /* Room left under it for the caption, and `contain` so a tall diagram and a
+     wide one are both shown whole rather than one of them cropped. */
+  max-width: 94vw;
+  max-height: 78vh;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: var(--bs-border-radius, 0.375rem);
+  /* The same dark mat the page gives them: subject media is pixel art from a
+     game that only exists on black. */
+  background: var(--epi-grey-900, #14171d);
+  cursor: zoom-out;
+}
+.ws-zoom-cap {
+  max-width: min(94vw, 46rem);
+  margin: 0.85rem auto 0;
+  text-align: center;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: #e8eaee;
+  text-wrap: balance;
+  cursor: auto;
+}
+.ws-zoom-cap[hidden] { display: none; }
+/* Fixed to the viewport corner, not to the dialog: the dialog shrinks to the
+   image, so an absolute corner put this button on top of the screenshot — over
+   the score line, in the first image it was tried on. A dialog is in the top
+   layer, so `fixed` here means the viewport and nothing else. */
+.ws-zoom-close {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 0.14);
+  color: #ffffff;
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.ws-zoom-close:hover { background: rgb(255 255 255 / 0.26); }
+.ws-zoom-close:focus-visible {
+  outline: 2px solid var(--epi-tech, #00ff97);
+  outline-offset: 2px;
+}
+/* Phone: the close button has no margin to hang in, so it comes inside. */
+@media (max-width: 30rem) {
+  .ws-zoom-close { top: 0.5rem; right: 0.5rem; }
+  .ws-zoom-img { max-height: 70vh; }
+}
+
+/* It arrives rather than appears. Small and quick — this is a response to a
+   click, not an entrance. The global reduced-motion rule in epitech-theme.css
+   shortens it to nothing, which is exactly right here: the dialog is still
+   there, it just does not travel. */
+@keyframes ws-zoom-in {
+  from { opacity: 0; transform: scale(0.97); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.ws-zoom[open] { animation: ws-zoom-in 140ms var(--epi-ease-standard, ease-out); }
+
 /* Headings inside authored content are the author's structure, not the page's:
    they stay in the body face. Anton is display-only (DESIGN.md), and an
    uppercase condensed `### Mise en application` would outrank the part title

@@ -170,6 +170,13 @@ def load(app):
     # Makes free (cost-0) hints read as free and skip the unlock dialog, while
     # keeping CTFd's native HintUnlocks reveal tracking — see assets/hints.js.
     register_plugin_script(url="/plugins/workshop/assets/hints.js")
+    # Click an image to see it at full size, with its `alt` as a visible
+    # caption — see assets/zoom.js. Registered globally, like hints.js and
+    # unlike the page's own bundle: `.challenge-desc` is core's own container,
+    # so the core board at /challenges renders subject images too, and this
+    # file's CSS has always styled them there. Two kilobytes, no dependency,
+    # and one behaviour rather than one per surface.
+    register_plugin_script(url="/plugins/workshop/assets/zoom.js")
     # Branching next-challenge button + the Parcours path graph — see
     # assets/graph.js, backed by GET /api/v1/workshop/graph.
     register_plugin_script(url="/plugins/workshop/assets/graph.js")

@@ -3346,3 +3346,57 @@ render time, never shown.
 The subject's own wording. « En haut de cette page » is still wrong for the same reason the cue
 exists, and fixing it is a content decision in the subject repo, not this one. A subject with no
 mark behaves exactly as before.
+
+## 34. The image you cannot read (2026-09-21)
+
+Content images are capped at `max-height: 26rem` (§29). The cap earned its place: a 750px
+screenshot pushed the first step of a part below the fold, and a page whose first screen is one
+picture reads as a gallery rather than a workshop.
+
+### 34.1 But the cap fights the image's job
+
+A subject screenshot exists so a participant can hold it against their own screen: *is this what
+I should be seeing?* That is criterion V1, and the whole reason the workshop has images at all.
+A console showing six lines of a Lua error, or the interface shot with a yellow focus ring on one
+of three panes, does not survive being scaled to 26rem. The cap is right for the page and wrong
+for the moment.
+
+Both can be true at once, which is what a click is for. `assets/zoom.js` opens the image in a
+`<dialog>` at up to 78vh.
+
+### 34.2 And the caption was never on screen
+
+The authoring convention treats an image's `alt` as its caption — `workshop-capture` says so
+outright: *« The alt text is the caption. It is the only place text belongs (never in the image),
+so write a sentence saying what the reader should be seeing. »* Authors have been writing those
+sentences all along. The page rendered them into an attribute, where a screen reader reached them
+and no one else did.
+
+So the two are one feature: enlarging is exactly the moment that sentence is worth showing, and it
+arrives with the image. An image with no `alt` gets no caption bar rather than an empty one.
+
+### 34.3 Choices worth keeping written down
+
+A `<dialog>`, not a positioned div: the top layer clears the runtime pane (z-index 1025) without
+either of them knowing about the other, and Escape, the backdrop and the focus trap stop being
+ours to write. Focus is parked on the dialog rather than left to land on the close button, because
+Chromium treats that programmatic focus as `:focus-visible` and the thing opened with a keyboard
+ring drawn on it under a mouse click.
+
+Registered globally, like `hints.js` and unlike the page's own bundle: `.challenge-desc` is core's
+container, the board at `/challenges` renders subject images too, and this plugin's CSS has always
+styled them there. Two kilobytes, no dependency, one behaviour instead of one per surface.
+
+**No `tabindex` on the images.** A screen reader already announces the `alt`, which is all the
+dialog adds, so the tab stop buys an assistive-technology user nothing while costing every keyboard
+user one stop per image on a page that is mostly images, between them and the answer field. The
+trade runs the other way for a sighted keyboard-only reader; `workshop.css` carries the comment
+marking where to change it.
+
+### 34.4 Found by looking, not by reasoning
+
+Three defects survived a careful write and died on the first screenshot: the close button sat on
+top of the enlarged image (positioned against a dialog that shrinks to its content), the backdrop
+at 0.82 left the step text behind it readable enough that the eye kept going back to it, and the
+focus ring above. A fourth arrived with the fix — parking focus on the dialog made the UA draw a
+ring round the whole thing.

@@ -22,6 +22,8 @@ from flask import Blueprint, redirect, render_template, request, url_for
 from CTFd.utils import get_config, set_config
 from CTFd.utils.decorators import admins_only
 
+from .staff import supervisor_code, supervisors
+
 INSTRUCTOR_LED = "instructor_led"
 SELF_SERVE = "self_serve"
 MODES = (INSTRUCTOR_LED, SELF_SERVE)
@@ -61,8 +63,13 @@ def settings():
             saved = True
         else:
             return redirect(url_for("workshop_mode.settings"))
-    return render_template("workshop_settings.html", mode=current_mode(),
-                           labels=LABELS, saved=saved)
+    return render_template(
+        "workshop_settings.html", mode=current_mode(), labels=LABELS, saved=saved,
+        # The supervisor tier is managed on this page too (staff.py handles
+        # the POSTs, at /admin/workshop/supervisors); `notice` is what one of
+        # them has to say on the way back.
+        supervisor_code=supervisor_code(), supervisors=supervisors(),
+        notice=request.args.get("notice"))
 
 
 def load_mode(app):

@@ -1,4 +1,4 @@
-{% extends "admin/base.html" %}
+{% extends base_template|default("admin/base.html") %}
 
 {#
   The feedback report (PLAN.md §17). Instructor-facing, so every string is
@@ -118,7 +118,7 @@
         {% for row in steps %}
           <tr class="{{ 'table-warning' if row.down and row.down >= row.up else '' }}">
             <td>
-              <a href="/admin/challenges/{{ row.id }}">{{ row.name }}</a>
+              {% if is_admin() %}<a href="/admin/challenges/{{ row.id }}">{{ row.name }}</a>{% else %}{{ row.name }}{% endif %}
               {{ comments(row) }}
             </td>
             <td class="text-muted">{{ row.category }}</td>
@@ -142,7 +142,7 @@
     <ul class="ws-fb-unrated">
       {% for row in unrated %}
         <li>
-          <a href="/admin/challenges/{{ row.id }}">{{ row.name }}</a>
+          {% if is_admin() %}<a href="/admin/challenges/{{ row.id }}">{{ row.name }}</a>{% else %}{{ row.name }}{% endif %}
           <span class="text-muted">— {{ row.category }}, {{ row.solvers }} solved</span>
         </li>
       {% endfor %}

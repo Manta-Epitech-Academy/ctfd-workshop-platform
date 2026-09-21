@@ -25,9 +25,9 @@ from flask import Blueprint, Response, render_template
 
 from CTFd.models import Challenges, Ratings, Solves, db
 from CTFd.utils import get_config
-from CTFd.utils.decorators import admins_only
 
 from .page import _documents, _final_step_id
+from .staff import staff_base, staff_only
 
 workshop_feedback = Blueprint("workshop_feedback", __name__,
                               template_folder="templates")
@@ -129,13 +129,14 @@ def collect():
 
 
 @workshop_feedback.route("/admin/workshop/feedback")
-@admins_only
+@staff_only
 def report():
-    return render_template("workshop_feedback.html", **collect())
+    return render_template("workshop_feedback.html", base_template=staff_base(),
+                           **collect())
 
 
 @workshop_feedback.route("/admin/workshop/feedback.csv")
-@admins_only
+@staff_only
 def report_csv():
     data = collect()
     out = io.StringIO()

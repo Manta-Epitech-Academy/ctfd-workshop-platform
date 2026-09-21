@@ -65,6 +65,21 @@ needs: reading the codes back (`quiz_answers` is excluded from every read schema
 converting a pre-§25 instance in place — `standard` challenge plus a `Flags` row becomes a
 checkpoint challenge, same id, same solves.
 
+## Supervisors (PLAN.md §32)
+
+The people running the room, without the admin panel. CTFd has two user types and no group
+system, so the tier is plugin-side: a supervisor is an ordinary `user` row, `hidden=True`, that
+the `workshop_staff` table names (migration `7d2f5a9c41be`). `staff.py` carries the predicate,
+the `staff_only` decorator (`admins_only` widened to supervisors), the way in and the management
+POST. `is_admin()` stays false for them, so everything under `/admin` keeps refusing them by
+default; what opens is exactly the plugin's read-only pages — `stats.py` and `submissions.py`
+(new, in place of core's Statistics and Submissions), `answers.py` and `feedback.py`.
+
+The way in is `/supervisor/join` with the `workshop_supervisor_code` config, empty by default
+and empty means closed. It deliberately ignores `registration_visibility`, like the Jump route
+does. Accounts are managed on `/admin/workshop/settings`: code, create, grant, revoke, delete.
+`scripts/supervisor_check.py` is the feature's test suite.
+
 ## Syncing from the subject repository (PLAN.md §26)
 
 `/admin/workshop/sync` imports the instance's workshop straight from GitHub: resolve the ref
@@ -159,10 +174,21 @@ contract shared with the Jump repository; changing either half means changing bo
   API (`create/read/update/attempt`), `register_plugin_assets_directory`,
   `ChallengeCreateException/ChallengeUpdateException`, and the two admin template blocks
   (`header`, `value`) extended by `assets/*.html`.
-- The two admin-side pages (`feedback.py`, `answers.py`) touch core only through
-  `admins_only`, `register_admin_plugin_menu_bar`, and `{% raw %}{% extends "admin/base.html" %}{% endraw %}`
-  with its `content` block. They are plain Blueprints — nothing about them is challenge-type
-  machinery, so they survive a CTFd upgrade as long as the admin theme keeps that block.
+- The four staff pages (`stats.py`, `answers.py`, `submissions.py`, `feedback.py`) touch core
+  only through `admins_only` / `is_admin`, `register_admin_plugin_menu_bar`, and
+  `{% raw %}{% extends base_template %}{% endraw %}` with its `content` block, where
+  `base_template` is `admin/base.html` for an admin. They are plain Blueprints — nothing about
+  them is challenge-type machinery, so they survive a CTFd upgrade as long as the admin theme
+  keeps that block.
+- **`templates/workshop_staff_base.html` is a copy of the admin theme's `admin/base.html`** with
+  the nav replaced (PLAN.md §32): what a supervisor's page extends, because core's nav is inline
+  in that file rather than in a block. It restates the head — the four admin stylesheets, the
+  `init` object, `main.js` and the registered admin scripts and stylesheets. After a CTFd upgrade
+  diff it against `admin/base.html` and carry over whatever moved.
+- **`staff.py` is the plugin's second piece of authentication code**, after the Jump handoff. It
+  creates accounts the way core's register does (`Users(...)`, `login_user`) and deletes them the
+  way core's `DELETE /api/v1/users/<id>` does — the list of tables it clears first is copied from
+  `api/v1/users.py` and has to follow it.
   `answers.py` additionally reads the `workshop_validation` config key written by the sync; if
   it is missing the page infers the mode and says so, so an un-synced instance still renders.
 - Tables are created by `app.db.create_all()` in `load()` (new tables only), **and then**

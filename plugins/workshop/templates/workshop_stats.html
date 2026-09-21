@@ -1,0 +1,126 @@
+{% extends base_template|default("admin/base.html") %}
+
+{#
+  Workshop statistics (stats.py). Staff-facing, so every string is English
+  like the rest of the platform UI; step and part names come from the content.
+
+  Three things, in the order somebody standing in a room needs them: how the
+  room is doing as a whole, where people are right now, and which step is
+  costing the most attempts. Names are on the Answers page, not here: this
+  page is about the workshop, that one is about the people.
+#}
+
+{% macro bar(percent, colour="success") -%}
+  <span class="ws-st-bar" role="img" aria-label="{{ percent }}%">
+    <span class="ws-st-bar-fill bg-{{ colour }}" style="width: {{ percent }}%"></span>
+  </span>
+  <span class="ws-st-pct">{{ percent }}%</span>
+{%- endmacro %}
+
+{% block content %}
+<div class="jumbotron">
+  <div class="container">
+    <h1>Workshop statistics</h1>
+    <p class="lead mb-0">
+      How far the room has got, and which step is holding it.
+    </p>
+  </div>
+</div>
+
+<div class="container">
+  <div class="row text-center ws-st-totals">
+    <div class="col-6 col-md-3"><h5><b>{{ totals.participants }}</b> <small class="text-muted">participant{{ "" if totals.participants == 1 else "s" }}</small></h5></div>
+    <div class="col-6 col-md-3"><h5><b>{{ totals.started }}</b> <small class="text-muted">started</small></h5></div>
+    <div class="col-6 col-md-3"><h5><b>{{ totals.finished }}</b> <small class="text-muted">finished</small></h5></div>
+    <div class="col-6 col-md-3"><h5><b>{{ totals.fails }}</b> <small class="text-muted">wrong attempt{{ "" if totals.fails == 1 else "s" }}</small></h5></div>
+  </div>
+
+  {% if totals.participants == 0 %}
+    <p class="text-muted">Nobody has registered on this instance yet.</p>
+  {% else %}
+    <h2 class="ws-st-h">Where the room is</h2>
+    <p class="text-muted">
+      How many people have done exactly that many of the {{ totals.required }}
+      step{{ "" if totals.required == 1 else "s" }} that count. A pile at the left is a room
+      that has not started; a pile in the middle is a step everybody is on at once.
+      Names are on the <a href="{{ url_for('workshop_answers.sheet') }}#ws-an-people-section">Answers</a> page.
+    </p>
+    {% set peak = distribution | map(attribute="people") | max %}
+    <div class="ws-st-spread" role="img" aria-label="Distribution of progress">
+      {% for bucket in distribution %}
+        <div class="ws-st-col" title="{{ bucket.people }} at {{ bucket.done }} step{{ '' if bucket.done == 1 else 's' }}">
+          <div class="ws-st-col-bar{% if bucket.done == totals.required %} bg-success{% else %} bg-primary{% endif %}"
+               style="height: {{ (100 * bucket.people / peak) | round if peak else 0 }}%"></div>
+          <div class="ws-st-col-n">{{ bucket.people or "" }}</div>
+          <div class="ws-st-col-label">{{ bucket.done }}</div>
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <h2 class="ws-st-h">Step by step</h2>
+  <p class="text-muted">
+    "Wrong" is the share of everything typed at the step that was refused — the number
+    that says a step is unclear. "Stuck now" is how many people have that step open and
+    unsolved at this moment.
+  </p>
+  {% for part in parts %}
+    <h3 class="ws-st-part">{{ part.title }}</h3>
+    <table class="table table-striped ws-st-table">
+      <thead>
+        <tr>
+          <th>Step</th>
+          <th class="ws-st-num">Solved</th>
+          <th>Of the room</th>
+          <th class="ws-st-num">Wrong</th>
+          <th class="ws-st-num">Stuck now</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in part.rows %}
+          <tr class="{{ 'table-warning' if row.stuck and row.stuck >= 3 else '' }}">
+            <td>
+              {% if is_admin() %}<a href="/admin/challenges/{{ row.id }}">{{ row.name }}</a>{% else %}{{ row.name }}{% endif %}
+              {% if row.optional %}<span class="badge badge-light">bonus</span>{% endif %}
+              {% if not row.counts and not row.optional %}<span class="badge badge-light">note</span>{% endif %}
+            </td>
+            <td class="ws-st-num">{{ row.solved }}</td>
+            <td class="ws-st-nowrap">{{ bar(row.percent) }}</td>
+            <td class="ws-st-num {{ 'text-danger' if row.wrong_rate and row.wrong_rate >= 50 else 'text-muted' }}">
+              {% if row.wrong_rate is not none %}{{ row.wrong_rate }}%{% else %}<span class="ws-st-dash">—</span>{% endif %}
+            </td>
+            <td class="ws-st-num">{{ row.stuck or "" }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="text-muted">No steps in this instance yet. Run the sync to import a subject.</p>
+  {% endfor %}
+</div>
+
+<style>
+  .ws-st-totals { margin: 0.5rem 0 1.5rem; }
+  .ws-st-h { font-size: 1.3rem; margin: 1.6rem 0 0.6rem; }
+  .ws-st-part { font-size: 1.05rem; opacity: 0.75; margin: 1.2rem 0 0.4rem; }
+  .ws-st-table td, .ws-st-table th { vertical-align: middle; }
+  .ws-st-num { text-align: right; font-variant-numeric: tabular-nums; }
+  .ws-st-nowrap { white-space: nowrap; }
+  .ws-st-dash { opacity: 0.5; }
+  .ws-st-bar {
+    display: inline-block; width: 6rem; height: 0.5rem; margin-right: 0.5rem;
+    border-radius: 0.25rem; background: var(--bs-border-color, #dee2e6);
+    overflow: hidden; vertical-align: middle;
+  }
+  .ws-st-bar-fill { display: block; height: 100%; }
+  .ws-st-pct { font-variant-numeric: tabular-nums; font-size: 0.85rem; opacity: 0.75; }
+  .ws-st-spread {
+    display: flex; align-items: flex-end; gap: 0.25rem; height: 9rem;
+    padding: 0.5rem 0 0; border-bottom: 1px solid var(--bs-border-color, #dee2e6);
+  }
+  .ws-st-col { flex: 1 1 0; display: flex; flex-direction: column; justify-content: flex-end; height: 100%; text-align: center; min-width: 0; }
+  .ws-st-col-bar { width: 100%; border-radius: 0.2rem 0.2rem 0 0; min-height: 1px; }
+  .ws-st-col-n { font-size: 0.8rem; opacity: 0.75; order: -1; }
+  .ws-st-col-label { font-size: 0.8rem; opacity: 0.6; margin-top: 0.25rem; }
+</style>
+{% endblock %}

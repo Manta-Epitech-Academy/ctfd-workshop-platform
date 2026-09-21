@@ -187,6 +187,15 @@
             {{ nav_link(url_for('challenges.listing'), _("Challenges"),
                         here == url_for('challenges.listing')) }}
           {% endif %}
+
+          {# The room's own pages (PLAN.md §32): statistics, answers,
+             submissions, feedback. A supervisor has no other way to them
+             — the account menu's "Admin Panel" is admins only — and an
+             admin gets the same shortcut. #}
+          {% if is_staff() %}
+            {% set staff_url = url_for('workshop_stats.stats') %}
+            {{ nav_link(staff_url, _("Supervision"), here.startswith('/admin/workshop/')) }}
+          {% endif %}
         </ul>
       </nav>
     {% endif %}

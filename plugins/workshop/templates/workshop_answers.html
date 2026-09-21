@@ -1,4 +1,4 @@
-{% extends "admin/base.html" %}
+{% extends base_template|default("admin/base.html") %}
 
 {#
   The answer sheet (PLAN.md §23). Instructor-facing, so every string is English
@@ -34,8 +34,8 @@
     <div class="alert alert-secondary">
       <strong>This instance is self-serve.</strong> The instructor codes below are stored
       and still work if you switch it back, but nobody is asked for one: a step is
-      validated by its button. Change that on the
-      <a href="/admin/workshop/settings">Workshop mode</a> page.
+      validated by its button.{% if is_admin() %} Change that on the
+      <a href="/admin/workshop/settings">Workshop mode</a> page.{% endif %}
     </div>
   {% endif %}
 
@@ -84,7 +84,7 @@
         {% for row in part.rows %}
           <tr>
             <td>
-              <a href="/admin/challenges/{{ row.id }}">{{ row.name }}</a>
+              {% if is_admin() %}<a href="/admin/challenges/{{ row.id }}">{{ row.name }}</a>{% else %}{{ row.name }}{% endif %}
               {% if row.optional %}<span class="badge badge-light">bonus</span>{% endif %}
             </td>
             <td class="text-muted">
@@ -133,7 +133,7 @@
         {% for a in attendees %}
           <tr class="{{ 'table-warning' if a.done == 0 else '' }}">
             <td>
-              <a href="/admin/users/{{ a.id }}">{{ a.name }}</a>
+              {% if is_admin() %}<a href="/admin/users/{{ a.id }}">{{ a.name }}</a>{% else %}<span class="ws-an-name">{{ a.name }}</span>{% endif %}
               {% if a.banned %}<span class="badge badge-danger">banned</span>{% endif %}
             </td>
             <td class="ws-an-nowrap">{{ progress(a.done, a.total, a.percent) }}</td>
@@ -201,7 +201,7 @@
   (function () {
     // Blur the answers on demand. Deliberately not persisted and not a
     // permission: it stops a shoulder, not an attacker, and anybody on this
-    // page is already an admin.
+    // page is already staff.
     var toggle = document.getElementById("ws-an-toggle");
     if (toggle) {
       toggle.addEventListener("click", function () {
@@ -217,7 +217,7 @@
       filter.addEventListener("input", function () {
         var needle = filter.value.trim().toLowerCase();
         table.querySelectorAll("tbody tr").forEach(function (row) {
-          var name = (row.querySelector("td a") || {}).textContent || "";
+          var name = (row.querySelector("td a, td .ws-an-name") || {}).textContent || "";
           row.hidden = needle && name.toLowerCase().indexOf(needle) === -1;
         });
       });

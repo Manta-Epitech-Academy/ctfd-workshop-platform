@@ -18,10 +18,10 @@ instance, and tokens are an HMAC of the instance's own secret, both on purpose
 Reading the live database rather than any file is what makes the page correct
 for all three without knowing which it is looking at.
 
-Admin-only for now. CTFd has exactly two user types — `user` and `admin`
-(models/__init__.py:434) — and no group system, so a real instructor tier has
-to be a plugin-side role. That is deferred with instructor-led mode; when it
-lands, the decorator on these two routes is the only thing that changes.
+Staff-only: admins, and the supervisors staff.py names (PLAN.md §32). CTFd
+has exactly two user types — `user` and `admin` (models/__init__.py:434) —
+and no group system, so the supervisor tier is a plugin-side role, and
+`staff_only` is the one thing that differs between this page and an admin's.
 """
 import csv
 import io
@@ -31,7 +31,6 @@ from flask import Blueprint, Response, render_template
 
 from CTFd.models import Flags, Solves, Users, db
 from CTFd.utils import get_config
-from CTFd.utils.decorators import admins_only
 
 from flask_babel import lazy_gettext as _l
 
@@ -40,6 +39,7 @@ from .page import _documents, _validation_modes
 from .progress import counts as _counts
 from .progress import optional_ids as _optional_ids
 from .progress import ordered_challenges as _ordered_challenges
+from .staff import staff_base, staff_only
 
 workshop_answers = Blueprint("workshop_answers", __name__,
                              template_folder="templates")
@@ -339,6 +339,7 @@ def _attendees(challenges, optional):
             "total": total,
             "percent": round(100 * done / total) if total else 0,
             "current": current.name if current else None,
+            "current_id": current.id if current else None,
             "finished": total and done == total,
             "last_step": names.get(last_id),
             "last_at": last_at,
@@ -392,13 +393,14 @@ def collect():
 
 
 @workshop_answers.route("/admin/workshop/answers")
-@admins_only
+@staff_only
 def sheet():
-    return render_template("workshop_answers.html", **collect())
+    return render_template("workshop_answers.html", base_template=staff_base(),
+                           **collect())
 
 
 @workshop_answers.route("/admin/workshop/answers.csv")
-@admins_only
+@staff_only
 def sheet_csv():
     data = collect()
     out = io.StringIO()

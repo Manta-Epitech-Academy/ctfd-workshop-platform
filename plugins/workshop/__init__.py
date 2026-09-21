@@ -31,6 +31,9 @@ from .shell import load_shell
 from .jump import load_jump
 from .jumpqueue import load_jump_queue
 from .external_links import load_external_links
+from .staff import load_staff
+from .stats import load_stats
+from .submissions import load_submissions
 from .quiz import QuizChallenge
 
 
@@ -82,6 +85,11 @@ def load(app):
     # position. Wraps the one Markdown entry point every surface renders
     # through — see external_links.py.
     load_external_links(app)
+    # The supervisor tier (PLAN.md §32): a plugin-side role, since CTFd has
+    # no third user type, and the `staff_only` guard the room's pages use.
+    # Before the pages, because they import it; it registers /supervisor/join
+    # and the management POST on the settings page.
+    load_staff(app)
     load_graph(app)  # GET /api/v1/workshop/graph — challenge DAG for the user
     # The participant-facing view: the whole workshop as one page, steps as
     # accordions with progress steppers, instead of a modal per challenge.
@@ -114,10 +122,17 @@ def load(app):
     # Every step's answer, and how far each participant got (PLAN.md §23). The
     # codes are minted per instance and the sheet only ever existed on the
     # maintainer's laptop, so an instructor in the room had no way to read one.
-    # Admin-only until the instructor role lands with instructor-led mode:
-    # CTFd has no third user type, so that tier has to be plugin-side.
+    # Staff-only: admins and supervisors (§32).
     load_answers(app)
     register_admin_plugin_menu_bar("Answers", "/admin/workshop/answers")
+    # The two pages a supervisor gets in place of core's Statistics and
+    # Submissions (§32): the same questions asked of a workshop rather than a
+    # CTF, and read-only by construction. Admins get them in the menu bar too;
+    # a supervisor reaches them from their own reduced nav.
+    load_stats(app)
+    register_admin_plugin_menu_bar("Workshop stats", "/admin/workshop/stats")
+    load_submissions(app)
+    register_admin_plugin_menu_bar("Workshop submissions", "/admin/workshop/submissions")
     # Instructor-led or self-serve (PLAN.md §25). One instance, one mode: it
     # decides whether a checkpoint step asks for the instructor's code or
     # offers a button, and what the page says under the step. Read at render

@@ -119,9 +119,9 @@
     </a>
 
     {# Nothing in the nav is reachable before signing in — /workshop is
-       `@authed_only`, the Parcours page is `auth_required`, and these instances
-       are all registration-code gated — so an anonymous visitor would get four
-       links that all bounce off the login wall. jump's own login screen carries
+       `@authed_only`, every Page the sync writes is `auth_required`, and these
+       instances are all registration-code gated — so an anonymous visitor
+       would get a row of links that all bounce off the login wall. jump's own login screen carries
        no nav either, so hiding it is both the correct and the faithful call. #}
     {% if authed() %}
       <span class="epi-header-divider" aria-hidden="true"></span>

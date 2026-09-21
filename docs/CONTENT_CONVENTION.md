@@ -386,6 +386,54 @@ heading simply gets no panel.
 The questions get the other panel automatically: they are a `type: quiz` block, and
 the platform knows where they are.
 
+### 3.4d « Le runtime, c'est maintenant » — a cue the author places
+
+A step that needs the runtime says so in prose, and in beta tests that prose was read
+straight past: participants reached « Étape 0 » with the runtime never opened.
+
+Nothing is wrong with the sentence. The problem is where it points. The page has **two**
+launchers for one action — a labelled button in the hero, and an edge tab once the hero
+has scrolled away — and exactly one of them is on screen at a time. By the time
+« clique sur le bouton **Ouvrir Pac-Man** » is being read, the hero is gone and the tab
+has replaced it, so the text names a control that has moved.
+
+The author marks the moment, and the platform paints whichever launcher is live:
+
+```markdown
+1. Clique sur le bouton **Ouvrir Pac-Man** : le jeu s'ouvre à côté des instructions.
+   <!-- ws:cue runtime -->
+```
+
+**On its own line**, right after the sentence it belongs to. The launcher starts pulsing
+when that line reaches the middle of the screen, and keeps pulsing until it is pressed.
+
+**Inside a list, indent it to the item's own column**, as above. At column 0 a comment
+closes the list and reopens it (`<ol start="2">`), which costs nothing visually but is
+not what anyone meant to write. Indented, the mark lands inside the `<li>` where the
+sentence is.
+
+Four rules it keeps, all of them deliberate:
+
+- **Nothing if the runtime is already open.** The cue is for somebody who has not opened
+  it; the mark stays armed, so closing the runtime and coming back still works.
+- **Pressing it is what stops it.** Not a timer, and not scrolling past. The failure being
+  fixed is a participant who never noticed the control, and a signal that gives up after a
+  few seconds is a signal aimed at somebody who was already looking.
+- **It follows the participant.** Scrolling on without pressing does not end it, and the
+  pulse moves to the other launcher when the page hands over.
+- **`prefers-reduced-motion` gets a still ring** instead, held just as long and ended by
+  the same press. Less movement, not less information — and it is the answer to the
+  obvious objection to an indefinite pulse, since the people it would cost are exactly the
+  ones who have asked for no motion.
+
+A mark inside a collapsed step waits, and fires when that step is opened.
+
+`runtime` is the only cue anything listens to today. The name is part of the grammar, not
+a fixed list: a guided tour **inside** the runtime frame is a second name rather than a
+second syntax. A name nothing listens to renders an invisible mark and does nothing —
+which is also what a subject gets on a platform that does not know the marker at all, and
+what a subject with no mark gets: the behaviour before this existed, unchanged.
+
 ### 3.5 Instructor-led review flow
 
 In instructor-led mode, marking an exercise done is a **submission for review**, not a

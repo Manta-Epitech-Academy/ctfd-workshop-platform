@@ -38,8 +38,16 @@ import yaml
 # the glossary on the toolbox page — so the marker is a name, not a YAML
 # mapping, and the metadata parser has to keep its hands off it.
 FENCED_REGIONS = ("resume", "toolbox", "glossary")
+# Standalone marks: a point in the prose rather than a region, and the platform
+# reads them where they are instead of lifting anything out. `ws:cue <name>`
+# says "this is the moment the runtime is needed" (convention §3.4d). Same
+# reason they are listed here: the marker is a name, not a YAML mapping, and the
+# metadata parser must keep its hands off it and leave it in the body, which is
+# how it reaches the rendered page at all.
+MARKS = ("cue",)
 WS_COMMENT = re.compile(
-    r"<!--\s*ws:(?!(?:%s)\b)(.*?)-->" % "|".join(FENCED_REGIONS), re.DOTALL)
+    r"<!--\s*ws:(?!(?:%s)\b)(.*?)-->" % "|".join(FENCED_REGIONS + MARKS),
+    re.DOTALL)
 RESUME_OPEN = "<!-- ws:resume -->"
 RESUME_CLOSE = "<!-- /ws:resume -->"
 HEADING = re.compile(r"^(#{1,6})\s+(.*?)\s*$")

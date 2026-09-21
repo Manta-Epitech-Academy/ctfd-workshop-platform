@@ -533,6 +533,10 @@
   // tab was simply always there and the hero had nothing.
   function updateLauncher() {
     var toWindow = mode === MODE_WINDOW;
+    // The other way it gets answered: a runtime that came up without a press
+    // here — a tab already open when this page loaded, or one that announced
+    // itself over the channel.
+    if (runtimeOpen()) stopCue();
     document.querySelectorAll(".ws-runtime-toggle").forEach(function (b) {
       var label = toWindow ? b.dataset.labelWindow : b.dataset.labelSplit;
       if (label) {
@@ -567,6 +571,75 @@
       ctaVisible = entries[entries.length - 1].isIntersecting;
       updateLauncher();
     }).observe(cta);
+  }
+
+  /* ---------- « c'est maintenant qu'il te faut le runtime » ---------- */
+
+  /* Beta testers reached the first step with the runtime never opened, having
+     read straight past the line that tells them to open it. Nothing was wrong
+     with the line: by the time it is on screen the hero button has scrolled
+     away and `updateLauncher` has put the edge tab in its place, so the text
+     points at a control that is no longer where it says it is.
+
+     The author marks the spot — `<!-- ws:cue runtime -->`, cue.py — and this
+     paints whichever launcher is live when the mark reaches the middle of the
+     screen. Deliberately not a guided tour: a tour is modal, runs on arrival,
+     and would be measuring `.ws-runtime-handle` while it is still `hidden`.
+     A tour belongs inside the runtime frame, where it has one target that is
+     always there, and that is a separate piece of work. */
+
+  // The middle fifth of the viewport. The cue fires when the line it follows is
+  // what the participant is reading, not when it scrapes the bottom edge on the
+  // way past.
+  var CUE_BAND = "-40% 0px -40% 0px";
+  var cueOn = false;
+
+  function runtimeOpen() {
+    return mode === MODE_WINDOW ? popupLive : !pane.hidden;
+  }
+
+  // Both launchers at once, because only one of them is on screen and which one
+  // that is can change mid-cue: the participant keeps scrolling, the hero goes,
+  // the tab arrives, and the signal has to survive the handover.
+  function paintCue(on) {
+    document.querySelectorAll(".ws-runtime-toggle").forEach(function (b) {
+      b.classList.toggle("ws-cue-on", on);
+    });
+  }
+
+  // Pressing a launcher is the only thing that ends it. Nothing waits on
+  // `animationend`: under `prefers-reduced-motion` the rule in workshop.css
+  // shows a still ring with no animation to end, and that ring has to go away
+  // on the same click.
+  function stopCue() {
+    if (!cueOn) return;
+    cueOn = false;
+    paintCue(false);
+  }
+
+  function startCue() {
+    if (cueOn) return;
+    cueOn = true;
+    paintCue(true);
+  }
+
+  function watchCues() {
+    var marks = document.querySelectorAll('.ws-cue[data-cue="runtime"]');
+    if (!marks.length) return;
+    if (typeof IntersectionObserver !== "function") return;
+    // A mark inside a collapsed step has no box, so the observer simply stays
+    // quiet until that step is opened and then fires on its own. Nothing here
+    // needs to know about `<details>`.
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (!entry.isIntersecting) return;
+        // Already open: there is nothing to point at. The mark stays armed —
+        // the participant may close the runtime and come back to this line.
+        if (runtimeOpen()) return;
+        startCue();
+      });
+    }, { rootMargin: CUE_BAND });
+    marks.forEach(function (mark) { io.observe(mark); });
   }
 
   /* ---------- split or its own tab ---------- */
@@ -660,6 +733,10 @@
 
   // What a launcher press does, in either presentation.
   function activate() {
+    // The cue asked to be pressed and it has been. Here and not only in
+    // `updateLauncher`, because a press that opens a tab is answered before
+    // that tab has said anything back over the channel.
+    stopCue();
     if (mode === MODE_WINDOW) { openWindow(); return; }
     setOpen(pane.hidden);
   }
@@ -801,6 +878,7 @@
 
     initResizer();
     watchCta();
+    watchCues();
     fetchSnapshot();
     watchStorage();
     // Is a popped-out tab already open? It announces itself when it starts, so

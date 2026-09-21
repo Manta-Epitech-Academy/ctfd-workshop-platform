@@ -3262,3 +3262,87 @@ made.
 
 The §11 review queue, supervisors arriving through Jump, provisioning the code per instance in
 `deploy/secrets.yaml`, and any ability for a supervisor to validate a checkpoint or edit content.
+
+## 33. The runtime nobody opened (2026-09-21)
+
+In a test round with real participants, people reached **Partie 1, étape 0** without the runtime
+open, and read past the line that tells them to open it.
+
+### 33.1 The line was not the problem
+
+« En haut de cette page, clique sur le bouton **Ouvrir Pac-Man** » is unambiguous. What it points
+at is the problem: §30 gave the page **two launchers for one action**, and `runtime.js`
+(`updateLauncher`) shows exactly one at a time — the labelled hero button while it is in view, the
+fixed edge tab once it has scrolled away. That sentence sits in the « 🥸 Mise en application »
+section, well below the hero. By the time it is read, the thing it names is off screen and a
+different control has taken over. The text was describing a page state that no longer existed.
+
+Which also says where the fix belongs: not in the prose, because no wording can name a control
+whose identity depends on scroll position. Only `runtime.js` knows which launcher is live.
+
+### 33.2 A cue, not a tour
+
+The author marks the moment with `<!-- ws:cue runtime -->` (convention §3.4d, same grammar as
+`ws:toolbox`), `cue.py` turns it into a 1px anchor, and `runtime.js` observes it with an
+`IntersectionObserver` trimmed to the middle fifth of the viewport. Whichever launcher is on
+screen pulses three times.
+
+Two tour libraries were considered first and both rejected, for reasons specific to this page:
+
+- the target is `hidden` half the time — `.ws-runtime-handle` ships with the attribute and
+  `updateLauncher` clears it — and a tour measures its target's rectangle when the tour starts;
+- every step is a `<details>`, so anything running on page load is pointing into collapsed
+  accordions;
+- a tour is modal, arrives once, and is dismissed. This signal is ambient, recurs at every step
+  that needs the runtime, and must not cost a click;
+- intro.js is AGPL-3.0 without a commercial licence, on a platform deployed over a network to a
+  school.
+
+An `IntersectionObserver` was already in the file (`watchCta`) for the launcher handover, so the
+cue cost ~40 lines and no dependency.
+
+**A tour is still the right tool one layer down.** The split settled on: the platform owns the cue,
+on a control it owns, whose position only it knows; a runtime owns any tour of its own interface,
+inside its frame, where every target is present and stays put. That is a separate piece of work and
+nothing here forecloses it — `ws:cue <name>` is a grammar, and a tour is a second name rather than
+a second syntax.
+
+### 33.3 The rules it keeps, and the one that changed
+
+Nothing when the runtime is already open, and the mark stays armed, so closing it and coming back
+still works.
+
+It then **pulses until a launcher is pressed**. The first version stopped after three pulses, on
+the reasoning that a control pulsing forever becomes wallpaper. That reasoning describes somebody
+who has seen the control; the participant this exists for is the one who never noticed it, and for
+them a signal that gives up after four seconds is aimed at the wrong person. Scrolling past does
+not end it either — that is the case the cue exists for. Only the press does, cleared in
+`activate` rather than only in `updateLauncher`, because a press that opens a tab is answered
+before that tab has said anything back over the channel.
+
+Which puts real weight on `prefers-reduced-motion`, and it carries it: a still ring, held exactly
+as long and ended by the same press. An indefinite pulse is precisely what somebody asking for
+less movement is asking not to get, and they do not get it. Nothing anywhere waits on
+`animationend` — the global rule in `epitech-theme.css` collapses every animation to 0.01ms, so
+the version with no animation has no event to end on.
+
+A mark inside a collapsed step waits and fires when the step is opened, for free: an
+`IntersectionObserver` says nothing about an element with no box.
+
+### 33.4 What else it touches
+
+`tools/ws_parser.py` had to learn the marker, or the metadata parser would have tried to read
+`cue runtime` as YAML. The negative lookahead that already skipped the fenced regions now skips
+standalone marks too. That file is **vendored from `workshop-content-tools`**, so
+`tools/check_parser_sync.py` fails until the same two lines are pushed there — the divergence is
+loud by design (convention §3.9) and this is exactly the case it exists for.
+
+`scripts/phase2_validate.py` asserts no authoring marker leaks into a stored description. `ws:cue`
+is the third that legitimately stays, beside `ws:context` and `ws:resume`: stored, consumed at
+render time, never shown.
+
+### 33.5 Not in this
+
+The subject's own wording. « En haut de cette page » is still wrong for the same reason the cue
+exists, and fixing it is a content decision in the subject repo, not this one. A subject with no
+mark behaves exactly as before.

@@ -325,8 +325,13 @@ def main():
     # the author. They are what lets the page lift a part's opening prose and
     # the step's short version out of the statement, while the description
     # stays self-sufficient on CTFd's own board (PLAN.md §25.7).
+    # `ws:cue <name>` is the third (convention §3.4d): written by the author,
+    # kept in the description, and turned into an invisible anchor at render
+    # time by the plugin's cue.py. Same status as the other two — stored, never
+    # shown.
     comments = [c.strip() for c in re.findall(r"<!--(.*?)-->", detail["description"], re.S)]
     check(all(c in ("ws:context", "/ws:context", "ws:resume", "/ws:resume")
+              or re.fullmatch(r"ws:cue\s+[a-z][a-z0-9-]*", c, re.I)
               for c in comments),
           f"no authoring markers leak in description (found {comments})")
 

@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{#
+  Where a supervisor makes their account (staff.py `join`). Same layout as
+  the login page — jump's brand panel beside the form — because it is the
+  same moment: somebody who is not a participant arriving at the door.
+
+  Not core's register form: that one is behind `registration_visibility`,
+  which a production instance keeps closed, and it has no field for this
+  code. The four fields here are the four the account needs and nothing
+  else; a supervisor has no country or website to declare.
+
+  Translated like the login page is, not English like the admin pages: the
+  person filling this in has not signed in yet, so the instance's language
+  is the only cue they have.
+#}
+
+{% block content %}
+<div class="epi-login">
+
+  <aside class="epi-login-panel on-dark">
+    <div class="epi-login-panel-body">
+      <p class="epi-login-kicker">&lt;Workshop&gt;</p>
+      <p class="epi-login-lead">{{ Configs.ctf_name }}</p>
+      <p class="epi-login-desc">{% trans %}Supervisor access{% endtrans %}</p>
+    </div>
+    <p class="epi-login-signature">
+      <span class="epi-login-brace">{</span>
+      &lt;Tech Together Tomorrow&gt;
+      <span class="epi-login-brace">}</span>
+      <span class="epi-login-since">Since 1999</span>
+    </p>
+  </aside>
+
+  <div class="epi-login-form">
+    <div class="epi-login-form-body">
+      <h1 class="epi-login-title epi-title-cursor">{% trans %}Join as a supervisor{% endtrans %}</h1>
+
+      <p class="text-muted">
+        {% trans %}For the people running the room. You will see the answers, who is where, what was submitted and the feedback — and you will not appear among the participants.{% endtrans %}
+      </p>
+
+      {% include "components/errors.html" %}
+
+      <form method="post" accept-charset="utf-8" autocomplete="on">
+        <div class="mb-3">
+          <b><label class="form-label" for="ws-join-code">{% trans %}Supervisor code{% endtrans %} <span class="text-danger">*</span></label></b>
+          <input class="form-control" type="text" id="ws-join-code" name="code" required
+                 autocomplete="one-time-code" autocapitalize="off" spellcheck="false">
+          <small class="form-text text-muted">{% trans %}The code you were given by whoever set this instance up.{% endtrans %}</small>
+        </div>
+
+        <div class="mb-3">
+          <b><label class="form-label" for="ws-join-name">{% trans %}User Name{% endtrans %} <span class="text-danger">*</span></label></b>
+          <input class="form-control" type="text" id="ws-join-name" name="name" required
+                 value="{{ name }}" autocomplete="username">
+        </div>
+
+        <div class="mb-3">
+          <b><label class="form-label" for="ws-join-email">{% trans %}Email{% endtrans %} <span class="text-danger">*</span></label></b>
+          <input class="form-control" type="email" id="ws-join-email" name="email" required
+                 value="{{ email }}" autocomplete="email">
+        </div>
+
+        <div class="mb-3">
+          <b><label class="form-label" for="ws-join-password">{% trans %}Password{% endtrans %} <span class="text-danger">*</span></label></b>
+          <input class="form-control" type="password" id="ws-join-password" name="password" required
+                 autocomplete="new-password">
+        </div>
+
+        <div class="row pt-3">
+          <div class="col-6 col-md-8">
+            <a class="align-middle" href="{{ url_for('auth.login') }}">
+              {% trans %}Already have an account? Log in{% endtrans %}
+            </a>
+          </div>
+          <div class="col-6 col-md-4">
+            <button type="submit" class="btn btn-block btn-primary w-100">{% trans %}Join{% endtrans %}</button>
+          </div>
+        </div>
+
+        <input type="hidden" name="nonce" value="{{ Session.nonce }}">
+      </form>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

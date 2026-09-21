@@ -1,4 +1,4 @@
-{% extends "admin/base.html" %}
+{% extends base_template|default("admin/base.html") %}
 
 {#
   The answer sheet (PLAN.md §23). Instructor-facing, so every string is English
@@ -34,8 +34,8 @@
     <div class="alert alert-secondary">
       <strong>This instance is self-serve.</strong> The instructor codes below are stored
       and still work if you switch it back, but nobody is asked for one: a step is
-      validated by its button. Change that on the
-      <a href="/admin/workshop/settings">Workshop mode</a> page.
+      validated by its button.{% if is_admin() %} Change that on the
+      <a href="/admin/workshop/settings">Workshop mode</a> page.{% endif %}
     </div>
   {% endif %}
 
@@ -84,14 +84,29 @@
         {% for row in part.rows %}
           <tr>
             <td>
-              <a href="/admin/challenges/{{ row.id }}">{{ row.name }}</a>
+              {% if is_admin() %}<a href="/admin/challenges/{{ row.id }}">{{ row.name }}</a>{% else %}{{ row.name }}{% endif %}
               {% if row.optional %}<span class="badge badge-light">bonus</span>{% endif %}
             </td>
             <td class="text-muted">
               {{ row.label }}{% if row.guessed %}<span title="inferred, not recorded">&nbsp;?</span>{% endif %}
             </td>
             <td>
-              {% if row.answer %}
+              {% if row.answer_rows %}
+                {# A quizset. Numbered the way the "look again at question 2"
+                   message numbers them — except when the step holds a single
+                   question, where "1." would only be noise. #}
+                {% set several = row.answer_rows | length > 1 %}
+                <{{ "ol" if several else "div" }} class="ws-an-qs{{ "" if several else " ws-an-qs-one" }}">
+                  {% for q in row.answer_rows %}
+                    <{{ "li" if several else "div" }}>
+                      <code class="ws-an-answer">{{ q.value }}</code>
+                      {% if q.labels %}
+                        <span class="ws-an-label">{{ q.labels | join(" · ") }}</span>
+                      {% endif %}
+                    </{{ "li" if several else "div" }}>
+                  {% endfor %}
+                </{{ "ol" if several else "div" }}>
+              {% elif row.answer %}
                 <code class="ws-an-answer">{{ row.answer }}</code>
               {% else %}
                 <span class="text-muted ws-an-dash">nothing to answer</span>
@@ -133,7 +148,7 @@
         {% for a in attendees %}
           <tr class="{{ 'table-warning' if a.done == 0 else '' }}">
             <td>
-              <a href="/admin/users/{{ a.id }}">{{ a.name }}</a>
+              {% if is_admin() %}<a href="/admin/users/{{ a.id }}">{{ a.name }}</a>{% else %}<span class="ws-an-name">{{ a.name }}</span>{% endif %}
               {% if a.banned %}<span class="badge badge-danger">banned</span>{% endif %}
             </td>
             <td class="ws-an-nowrap">{{ progress(a.done, a.total, a.percent) }}</td>
@@ -172,6 +187,14 @@
   .ws-an-num { text-align: right; font-variant-numeric: tabular-nums; }
   .ws-an-nowrap { white-space: nowrap; }
   .ws-an-answer { font-size: 0.95rem; word-break: break-word; }
+  /* The questions of one quizset. Numbered by the browser so the markup
+     carries the order rather than repeating it in text, and tight enough to
+     stay one table row. */
+  .ws-an-qs { margin: 0; padding-left: 1.4rem; }
+  .ws-an-qs-one { padding-left: 0; }
+  .ws-an-qs li { margin-bottom: 0.15rem; }
+  .ws-an-qs li:last-child { margin-bottom: 0; }
+  .ws-an-label { font-size: 0.85rem; opacity: 0.7; margin-left: 0.35rem; }
   .ws-an-dash { font-style: italic; }
   .ws-an-filter { max-width: 22rem; }
   .ws-an-table tbody tr[hidden] { display: none; }
@@ -186,11 +209,18 @@
   .ws-an-count { font-variant-numeric: tabular-nums; font-size: 0.85rem; opacity: 0.75; }
   /* Projected on a classroom wall, the answers are the one thing that must not
      be readable over the instructor's shoulder. */
-  body.ws-an-hidden .ws-an-answer {
+  body.ws-an-hidden .ws-an-answer,
+  /* The label says what the correct letter means, and only the correct ones
+     are listed — leaving it readable while the letters are blurred would give
+     the answer away just as plainly. */
+  body.ws-an-hidden .ws-an-label {
     filter: blur(0.35rem); user-select: none; cursor: pointer;
   }
   body.ws-an-hidden .ws-an-answer:hover,
-  body.ws-an-hidden .ws-an-answer:focus { filter: none; }
+  body.ws-an-hidden .ws-an-answer:focus,
+  body.ws-an-hidden .ws-an-qs li:hover .ws-an-label,
+  body.ws-an-hidden .ws-an-qs-one:hover .ws-an-label,
+  body.ws-an-hidden .ws-an-label:hover { filter: none; }
   @media print {
     .jumbotron, #ws-an-toggle, #ws-an-people-section { display: none; }
     .ws-an-table { font-size: 0.85rem; }
@@ -201,7 +231,7 @@
   (function () {
     // Blur the answers on demand. Deliberately not persisted and not a
     // permission: it stops a shoulder, not an attacker, and anybody on this
-    // page is already an admin.
+    // page is already staff.
     var toggle = document.getElementById("ws-an-toggle");
     if (toggle) {
       toggle.addEventListener("click", function () {
@@ -217,7 +247,7 @@
       filter.addEventListener("input", function () {
         var needle = filter.value.trim().toLowerCase();
         table.querySelectorAll("tbody tr").forEach(function (row) {
-          var name = (row.querySelector("td a") || {}).textContent || "";
+          var name = (row.querySelector("td a, td .ws-an-name") || {}).textContent || "";
           row.hidden = needle && name.toLowerCase().indexOf(needle) === -1;
         });
       });

@@ -123,6 +123,15 @@
           {{ form.nonce() }}
         </form>
       {% endwith %}
+
+      {# The supervisor door (staff.py), shown only while it is open: a
+         teacher told "sign in on the instance" should not need the URL as
+         well as the code. Behind the code, so advertising it costs nothing. #}
+      {% if supervisor_joining_open() %}
+        <p class="text-muted small pt-3 mb-0">
+          <a href="{{ url_for('workshop_staff.join') }}">{% trans %}Running the room? Join as a supervisor with your code.{% endtrans %}</a>
+        </p>
+      {% endif %}
     </div>
   </div>
 

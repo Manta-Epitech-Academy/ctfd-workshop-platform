@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-09-21 10:07+0400\n"
+"POT-Creation-Date: 2026-09-21 11:48+0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -28,6 +28,9 @@ msgid "%(n)s pts"
 msgstr ""
 
 msgid "Admin Panel"
+msgstr ""
+
+msgid "Already have an account? Log in"
 msgstr ""
 
 msgid "Answer"
@@ -88,10 +91,19 @@ msgstr ""
 msgid "Could not save that — try again."
 msgstr ""
 
+msgid "Email"
+msgstr ""
+
 msgid "Everything the workshop has given you so far, in one place."
 msgstr ""
 
 msgid "Finish"
+msgstr ""
+
+msgid ""
+"For the people running the room. You will see the answers, who is where, "
+"what was submitted and the feedback — and you will not appear among the "
+"participants."
 msgstr ""
 
 msgid "Forgot your password?"
@@ -136,6 +148,12 @@ msgid "Incorrect"
 msgstr ""
 
 msgid "Introduction"
+msgstr ""
+
+msgid "Join"
+msgstr ""
+
+msgid "Join as a supervisor"
 msgstr ""
 
 msgid "Just something to read"
@@ -222,10 +240,29 @@ msgstr ""
 msgid "Part complete."
 msgstr ""
 
+msgid "Password"
+msgstr ""
+
+#, python-format
+msgid "Password must be at least %(n)s characters"
+msgstr ""
+
+msgid "Pick a longer password"
+msgstr ""
+
+msgid "Pick a longer user name"
+msgstr ""
+
+msgid "Pick a shorter password"
+msgstr ""
+
 msgid "Pick or type an answer first."
 msgstr ""
 
 msgid "Pick 👍 or 👎 first"
+msgstr ""
+
+msgid "Please enter a valid email address"
 msgstr ""
 
 msgid "Poor"
@@ -247,6 +284,9 @@ msgid "Register"
 msgstr ""
 
 msgid "Review"
+msgstr ""
+
+msgid "Running the room? Join as a supervisor with your code."
 msgstr ""
 
 msgid "Save"
@@ -283,6 +323,15 @@ msgstr ""
 msgid "Submit"
 msgstr ""
 
+msgid "Supervision"
+msgstr ""
+
+msgid "Supervisor access"
+msgstr ""
+
+msgid "Supervisor code"
+msgstr ""
+
 msgid "Team"
 msgstr ""
 
@@ -290,6 +339,18 @@ msgid "Thanks for the feedback!"
 msgstr ""
 
 msgid "Thanks!"
+msgstr ""
+
+msgid "That email has already been used"
+msgstr ""
+
+msgid "That supervisor code is not right"
+msgstr ""
+
+msgid "That user name is already taken"
+msgstr ""
+
+msgid "The code you were given by whoever set this instance up."
 msgstr ""
 
 msgid "The glossary for this step is in the toolbox."
@@ -339,6 +400,9 @@ msgstr ""
 msgid "Unlocks with this step."
 msgstr ""
 
+msgid "User Name"
+msgstr ""
+
 msgid "Validation code"
 msgstr ""
 
@@ -369,6 +433,12 @@ msgid "You are signed in. Come back when your instructor opens it."
 msgstr ""
 
 msgid "Your browser blocked the new tab, so it opened beside the subject instead."
+msgstr ""
+
+msgid "Your email address is not from an allowed domain"
+msgstr ""
+
+msgid "Your user name cannot be an email address"
 msgstr ""
 
 msgid "available"

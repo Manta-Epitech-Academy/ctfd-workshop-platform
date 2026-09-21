@@ -67,6 +67,141 @@
 
   <hr>
 
+  <h2 class="ws-settings-h" id="supervisors">Supervisors</h2>
+  <p class="text-muted">
+    The people running the room. A supervisor signs in like anybody else and reads the
+    <a href="/admin/workshop/stats">statistics</a>, the
+    <a href="/admin/workshop/answers">answers</a>, the
+    <a href="/admin/workshop/submissions">submissions</a> and the
+    <a href="/admin/workshop/feedback">feedback</a> — and nothing else of the admin panel.
+    They are hidden from the scoreboard and from every count, so walking the subject
+    themselves costs nothing.
+  </p>
+
+  {% if notice == "code-open" %}
+    <div class="alert alert-success">Code saved. Supervisors can now join at
+      <a href="/supervisor/join">/supervisor/join</a> with it.</div>
+  {% elif notice == "code-closed" %}
+    <div class="alert alert-success">Code cleared. Joining is closed; current supervisors keep their access.</div>
+  {% elif notice == "granted" %}
+    <div class="alert alert-success">Done — they are a supervisor, and hidden from the participant lists from now on.</div>
+  {% elif notice == "revoked" %}
+    <div class="alert alert-success">Revoked. The account stays, still hidden; delete or unhide it under
+      <a href="/admin/users">Users</a> if you need to.</div>
+  {% elif notice == "nobody" %}
+    <div class="alert alert-warning">No account by that name or email.</div>
+  {% elif notice == "already" %}
+    <div class="alert alert-info">They already are a supervisor.</div>
+  {% elif notice == "is-admin" %}
+    <div class="alert alert-info">That account is an admin, which already sees everything.</div>
+  {% elif notice == "created" %}
+    <div class="alert alert-success">Account created. Give them the name and password; they sign in on the login page like anybody else.</div>
+  {% elif notice == "deleted" %}
+    <div class="alert alert-success">Account deleted.</div>
+  {% elif notice == "invalid" %}
+    <div class="alert alert-danger">Not created: {{ request.args.get("why") }}</div>
+  {% endif %}
+
+  <form method="POST" action="/admin/workshop/supervisors" class="ws-settings-inline">
+    <input type="hidden" name="nonce" value="{{ Session.nonce }}">
+    <input type="hidden" name="action" value="code">
+    <label for="ws-sup-code"><strong>Supervisor code</strong></label>
+    <div class="form-row align-items-center">
+      <div class="col-auto">
+        <input type="text" class="form-control" id="ws-sup-code" name="code"
+               value="{{ supervisor_code }}" autocomplete="off" spellcheck="false"
+               placeholder="empty: joining is closed">
+      </div>
+      <div class="col-auto"><button type="submit" class="btn btn-primary">Save code</button></div>
+    </div>
+    <small class="form-text text-muted">
+      Anybody with this code can make themselves a supervisor account at
+      <code>/supervisor/join</code>, whatever the registration setting says. Leave it empty
+      to close that door; the supervisors already in keep their access.
+      {% if supervisor_code %}<strong>Joining is open.</strong>{% else %}<strong>Joining is closed.</strong>{% endif %}
+    </small>
+  </form>
+
+  <form method="POST" action="/admin/workshop/supervisors" class="ws-settings-inline">
+    <input type="hidden" name="nonce" value="{{ Session.nonce }}">
+    <input type="hidden" name="action" value="grant">
+    <label for="ws-sup-who"><strong>Make an existing account a supervisor</strong></label>
+    <div class="form-row align-items-center">
+      <div class="col-auto">
+        <input type="text" class="form-control" id="ws-sup-who" name="who"
+               placeholder="user name or email" autocomplete="off">
+      </div>
+      <div class="col-auto"><button type="submit" class="btn btn-secondary">Grant</button></div>
+    </div>
+    <small class="form-text text-muted">
+      For somebody who already has an account here. It becomes hidden, so any progress they
+      made as a participant leaves the reports.
+    </small>
+  </form>
+
+  <form method="POST" action="/admin/workshop/supervisors" class="ws-settings-inline" autocomplete="off">
+    <input type="hidden" name="nonce" value="{{ Session.nonce }}">
+    <input type="hidden" name="action" value="create">
+    <label for="ws-sup-name"><strong>Create a supervisor account</strong></label>
+    <div class="form-row align-items-center">
+      <div class="col-auto">
+        <input type="text" class="form-control" id="ws-sup-name" name="name"
+               placeholder="user name" required autocomplete="off">
+      </div>
+      <div class="col-auto">
+        <input type="email" class="form-control" name="email" placeholder="email"
+               required autocomplete="off" aria-label="Email">
+      </div>
+      <div class="col-auto">
+        <input type="text" class="form-control" name="password" placeholder="password"
+               required autocomplete="off" aria-label="Password">
+      </div>
+      <div class="col-auto"><button type="submit" class="btn btn-secondary">Create</button></div>
+    </div>
+    <small class="form-text text-muted">
+      No code needed: for when you would rather hand somebody a login than a code. The
+      password is typed in the clear so you can read it back to them; they can change it
+      afterwards in their own settings.
+    </small>
+  </form>
+
+  {% if supervisors %}
+    <table class="table table-sm ws-settings-table">
+      <thead><tr><th>Supervisor</th><th>Email</th><th>Since</th><th>Let in by</th><th></th></tr></thead>
+      <tbody>
+        {% for s in supervisors %}
+          <tr>
+            <td><a href="/admin/users/{{ s.id }}">{{ s.name }}</a></td>
+            <td class="text-muted">{{ s.email }}</td>
+            <td class="text-muted">{{ s.created.strftime("%Y-%m-%d") if s.created else "" }}</td>
+            <td class="text-muted">{{ "the code" if s.granted_by == "code" else "an admin" }}</td>
+            <td class="text-right ws-settings-actions">
+              <form method="POST" action="/admin/workshop/supervisors" class="d-inline">
+                <input type="hidden" name="nonce" value="{{ Session.nonce }}">
+                <input type="hidden" name="action" value="revoke">
+                <input type="hidden" name="user_id" value="{{ s.id }}">
+                <button type="submit" class="btn btn-outline-secondary btn-sm"
+                        title="Take the role away; the account stays">Revoke</button>
+              </form>
+              <form method="POST" action="/admin/workshop/supervisors" class="d-inline"
+                    onsubmit="return confirm('Delete the account {{ s.name | e }} and everything it did?');">
+                <input type="hidden" name="nonce" value="{{ Session.nonce }}">
+                <input type="hidden" name="action" value="delete">
+                <input type="hidden" name="user_id" value="{{ s.id }}">
+                <button type="submit" class="btn btn-outline-danger btn-sm"
+                        title="Remove the account entirely">Delete</button>
+              </form>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="text-muted">No supervisor yet.</p>
+  {% endif %}
+
+  <hr>
+
   <p class="text-muted">
     <strong>The codes stay put either way.</strong> Switching to self-serve does not
     delete or reveal an instructor code: it stops requiring it. That is what makes
@@ -81,4 +216,12 @@
     with the mode already set.
   </p>
 </div>
+<style>
+  .ws-settings-h { font-size: 1.3rem; margin: 1.2rem 0 0.6rem; }
+  .ws-settings-inline { margin: 1rem 0 1.25rem; }
+  .ws-settings-table { margin-top: 1rem; }
+  .ws-settings-table td { vertical-align: middle; }
+  .ws-settings-actions { white-space: nowrap; }
+  .ws-settings-actions form + form { margin-left: 0.25rem; }
+</style>
 {% endblock %}

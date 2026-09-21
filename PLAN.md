@@ -1845,9 +1845,11 @@ to design around when that lands, neither of them a bug:
 - locked challenges are filtered for non-admins (`api/v1/challenges.py:196`), so an instructor's
   view of the whole subject has to come from the plugin's own pages, not the challenge list.
 
-**Decision: not yet.** The role ships with instructor-led mode (§11), because a login tier is only
-worth its cost once there is a console behind it. Until then the answer sheet is `@admins_only`,
-and switching it over is a one-line decorator change.
+**Decision at the time: not yet.** The role was to ship with instructor-led mode (§11), because a
+login tier is only worth its cost once there is a console behind it. It shipped on its own instead,
+as the supervisor tier of §32, exactly in the shape this section describes: `Users.type` stays
+`user`, `hidden=True`, a plugin table names the account, and the plugin's own decorator guards the
+plugin's own pages. The decorator swap on the answer sheet was the one-line change predicted here.
 
 ### 23.3 What was built
 
@@ -1886,6 +1888,21 @@ participant, a live checkpoint code appears under the label that says whose it i
 instance infers nothing, the sync wrote the map the page reads, the quiz answer the API still
 refuses to hand out is on the page, the participant is in the progress table and the admin is not,
 and the CSV carries the same rows.
+
+**A quizset shows its questions one by one (2026-09-21).** `_quiz_answer` had a branch for every
+quiz kind except `quizset` — the one the subjects actually use — so every such row read "nothing to
+answer", which is the opposite of this page's whole purpose. A quizset is several questions in one
+step, each graded by passing its own dict to the same per-kind grader (`quiz.py:_grade_quizset`),
+so the renderer takes the kind as an argument and the rows reuse it. Each question is numbered the
+way the "look again at question 2" message numbers them, and carries what its letters *say*, read
+from `quiz_spec.items`: "B" alone would still send an instructor to the subject to find out what B
+was, which is the lookup this page exists to spare them. Those labels blur with the answers under
+"Hide answers" — only the correct options are listed, so leaving them readable on a projected
+screen would give the answer away just as plainly. The CSV keeps one cell per step
+(`1. A, B, D · 2. B`). A step holding a single question is not numbered.
+
+Not covered by `phase2_validate.py`: `content/pypong` has no quizset to assert against. Verified
+instead against a live instance carrying four of them, page and CSV.
 
 One thing the page deliberately does not repeat: `case_insensitive`, which
 `tools/sync_subject.py:354` writes on every flag it creates. Stating the default on all forty-three
@@ -3163,3 +3180,85 @@ the header alone.
 - **`Fields` / `FieldEntries` for the talent id** — it would surface in the admin user form and in
   public profiles.
 - **`@ratelimit` as it stands** — it buckets a whole classroom behind one NAT together.
+
+## 32. The supervisor tier: the people running the room, without the admin panel (2026-09-21)
+
+The beta sessions had one account that could read the answer sheet, and it was the admin's. A
+teacher walking the room needed the answers, who is where, what was just typed at a step and the
+feedback — and the only way to give them that was the password to an account that can also delete
+the instance. The role §23.2 had deferred became necessary before the review queue (§11) did, so it
+ships alone.
+
+### 32.1 Shape
+
+Exactly what §23.2 laid out, because the constraints have not moved:
+
+- **No third `Users.type`.** The admin user form hardcodes two choices, and every schema's
+  `views[view]` lookup (`schemas/users.py`, `teams.py`, `tokens.py`) raises `KeyError` on an
+  unknown value — a supervisor typed `supervisor` would 500 `/api/v1/users`. So a supervisor is a
+  `user` row that a plugin table, `workshop_staff (user_id, role, created, granted_by)`, names.
+  Revision `7d2f5a9c41be` creates it.
+- **`hidden=True`, `verified=True`.** Hidden is load-bearing: it is what keeps a supervisor off the
+  scoreboard, out of the answer sheet's "who is where" (`answers.py` already filtered on it), out of
+  every count in the new pages, and out of `num_users`. A supervisor who walks the subject to see
+  what a step looks like costs the room's numbers nothing.
+- **`staff_only`** (`staff.py`) is `admins_only` widened to supervisors, with the same two refusals.
+  It guards the plugin's read-only pages and nothing else. `is_admin()` stays false for a
+  supervisor, which is the safety property the whole design rests on: **a route nobody thought
+  about is closed, never open**, and no write route exists behind the wider guard.
+- **The way in is a code, not the instance's registration.** `/supervisor/join` deliberately ignores
+  `registration_visibility` — the same call `jump.py` makes for the same reason (§31): a production
+  instance keeps `/register` a 404, and the people running the room still have to get in. The code
+  is `workshop_supervisor_code`, **empty by default, and empty means closed**, so no instance changes
+  until an admin fills it in. Constant-time, case-insensitive comparison; rate-limited at 20 per
+  five minutes per subject, wide enough for a staff room behind one NAT.
+
+### 32.2 What a supervisor opens
+
+| Page | Where from |
+|---|---|
+| `/admin/workshop/stats` | new, `stats.py` — participants, started, finished; a histogram of how many steps each person has done; per step the solve count, the share of the room, the share of wrong attempts, and how many people are parked on it right now |
+| `/admin/workshop/answers` (+ `.csv`) | the §23 sheet, decorator swapped |
+| `/admin/workshop/submissions` | new, `submissions.py` — core's `/admin/submissions` without the admin nav and without the delete controls, participants only, filterable by result, step and name |
+| `/admin/workshop/feedback` (+ `.csv`) | the §17 report, decorator swapped |
+
+The two new pages are **not** copies of core's Statistics and Submissions. Core's count a CTF —
+points, keys, distinct IPs — and both extend `admin/base.html`, whose nav is inline rather than in a
+Jinja block, so a supervisor extending it would see Config, Users and Challenges as links that bounce
+to the login page, and the submissions page's delete buttons would 403. Every number on the new
+stats page comes from the same readers the answer sheet and the participant's page use
+(`progress.py`, `answers._attendees`), so the three cannot disagree.
+
+Which shell a page extends is decided by the view: `staff_base()` hands an admin `admin/base.html`
+and a supervisor `workshop_staff_base.html`, a copy of the admin head with the nav reduced to those
+four pages, Workshop and Logout. The templates `{% extends base_template %}`. Links into
+`/admin/challenges/<id>` and `/admin/users/<id>` on the shared pages render as plain text for a
+supervisor. The Epitech shell's navbar gains a "Supervision" entry for staff, since the account
+menu's "Admin Panel" is admins only.
+
+### 32.3 Managed from the settings page
+
+`/admin/workshop/settings` (admin only) is where the accounts are managed, so nothing needs
+`/admin/users`: set or clear the code, **create** a supervisor account outright (name, email,
+password, no code), **grant** the role to an existing account by name or email (the account becomes
+hidden, so any progress they made as a participant leaves the reports), **revoke** it (the role goes,
+the account stays hidden) or **delete** the account (the way core's `DELETE /api/v1/users` does it,
+every table then the user; refused for an account that is not a supervisor, and for oneself).
+Clearing the code closes the door and keeps the supervisors already in.
+
+### 32.4 Covered by the suite
+
+`scripts/supervisor_check.py <url> <admin-pass>`, in the shape of the other check scripts. The list
+that matters is the refusals: with a supervisor session it asserts every named admin page bounces to
+login and every named admin API returns 403 (or 404 for a hidden account), that the code and the
+mode cannot be changed, and that the supervisor is absent from the public user list and from the
+answer sheet. Then the door: 404 while the code is empty, refused on a wrong code with no account
+created, and a login-page link only while it is open. Then management: grant, revoke (and the
+revoked account still signs in as a participant), create, a duplicate refused with the reason,
+delete refused for a non-supervisor and honoured for one. It restores the code and deletes what it
+made.
+
+### 32.5 Not in this
+
+The §11 review queue, supervisors arriving through Jump, provisioning the code per instance in
+`deploy/secrets.yaml`, and any ability for a supervisor to validate a checkpoint or edit content.

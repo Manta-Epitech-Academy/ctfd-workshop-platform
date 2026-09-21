@@ -1,0 +1,105 @@
+{% extends base_template|default("admin/base.html") %}
+
+{#
+  What participants submitted (submissions.py). Staff-facing, so every string
+  is English like the rest of the platform UI. Read-only: the page has no
+  controls because the route has no way to change anything.
+#}
+
+{% block content %}
+<div class="jumbotron">
+  <div class="container">
+    <h1>{% if kind %}{{ kind | title }} submissions{% else %}Submissions{% endif %}</h1>
+    <p class="lead mb-0">
+      Everything participants typed at a step, newest first.
+    </p>
+  </div>
+</div>
+
+<div class="container">
+  <form method="get" class="form-inline ws-sb-filters" role="search">
+    <select class="form-control mr-2 mb-2" name="type" aria-label="Kind">
+      <option value="" {{ "selected" if not kind }}>All</option>
+      <option value="correct" {{ "selected" if kind == "correct" }}>Correct</option>
+      <option value="incorrect" {{ "selected" if kind == "incorrect" }}>Incorrect</option>
+    </select>
+    <select class="form-control mr-2 mb-2 ws-sb-step" name="step" aria-label="Step">
+      <option value="" {{ "selected" if not step }}>Every step</option>
+      {% for id, name in steps %}
+        <option value="{{ id }}" {{ "selected" if step == id }}>{{ name }}</option>
+      {% endfor %}
+    </select>
+    <input type="search" class="form-control mr-2 mb-2" name="q" value="{{ q }}"
+           placeholder="Participant" aria-label="Filter by participant name">
+    <button type="submit" class="btn btn-primary mb-2">Filter</button>
+    {% if kind or step or q %}
+      <a class="btn btn-link mb-2" href="{{ url_for('workshop_submissions.listing') }}">Clear</a>
+    {% endif %}
+  </form>
+
+  <p class="text-muted">
+    {{ total }} submission{{ "" if total == 1 else "s" }}{% if pages > 1 %}, page {{ page }} of {{ pages }}{% endif %}.
+  </p>
+
+  {% if rows %}
+    <table class="table table-striped ws-sb-table">
+      <thead>
+        <tr>
+          <th>When</th><th>Participant</th><th>Step</th><th>Result</th><th>Submitted</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+          <tr>
+            <td class="text-muted ws-sb-nowrap">
+              {{ r.date.strftime("%d/%m %H:%M") if r.date else "" }}
+            </td>
+            <td>
+              {% if is_admin() %}<a href="/admin/users/{{ r.user_id }}">{{ r.user }}</a>{% else %}{{ r.user }}{% endif %}
+            </td>
+            <td>
+              {% if is_admin() %}<a href="/admin/challenges/{{ r.challenge_id }}">{{ r.step }}</a>{% else %}{{ r.step }}{% endif %}
+              {% if r.part %}<div class="text-muted"><small>{{ r.part }}</small></div>{% endif %}
+            </td>
+            <td>
+              {% if r.kind == "correct" %}
+                <span class="badge badge-success">correct</span>
+              {% elif r.kind == "incorrect" %}
+                <span class="badge badge-danger">incorrect</span>
+              {% else %}
+                <span class="badge badge-secondary">{{ r.kind }}</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if r.provided %}
+                <code class="ws-sb-provided" {% if r.truncated %}title="{{ r.full }}"{% endif %}>{{ r.provided }}{% if r.truncated %}…{% endif %}</code>
+              {% else %}
+                <span class="text-muted ws-sb-dash">nothing</span>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    {% if prev_page or next_page %}
+      <nav class="ws-sb-pages" aria-label="Pages">
+        {% if prev_page %}<a class="btn btn-outline-secondary btn-sm" href="{{ prev_page }}">&larr; Newer</a>{% endif %}
+        {% if next_page %}<a class="btn btn-outline-secondary btn-sm" href="{{ next_page }}">Older &rarr;</a>{% endif %}
+      </nav>
+    {% endif %}
+  {% else %}
+    <p class="text-muted">Nothing submitted{% if kind or step or q %} that matches{% endif %} yet.</p>
+  {% endif %}
+</div>
+
+<style>
+  .ws-sb-filters { margin: 0.5rem 0 1rem; }
+  .ws-sb-step { max-width: 22rem; }
+  .ws-sb-table td, .ws-sb-table th { vertical-align: middle; }
+  .ws-sb-nowrap { white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .ws-sb-provided { font-size: 0.9rem; word-break: break-word; }
+  .ws-sb-dash { font-style: italic; }
+  .ws-sb-pages { display: flex; gap: 0.5rem; justify-content: center; margin: 1rem 0 2rem; }
+</style>
+{% endblock %}

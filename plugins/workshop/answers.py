@@ -33,6 +33,8 @@ from CTFd.models import Flags, Solves, Users, db
 from CTFd.utils import get_config
 from CTFd.utils.decorators import admins_only
 
+from flask_babel import lazy_gettext as _l
+
 from .mode import LABELS as MODE_NAMES, current_mode, is_self_serve
 from .page import _documents, _validation_modes
 from .progress import counts as _counts
@@ -227,13 +229,59 @@ def _solver_counts():
     return dict(rows)
 
 
-def _part_titles():
-    """challenge id -> the part it belongs to, from the sync's document map.
+# Steps that no longer belong to any part of the subject: an older version's
+# steps, left behind by a re-sync that no longer names them. They keep their
+# solves and their codes, so they are shown — at the end, under their own
+# heading, never interleaved with the subject.
+ORPHANS = _l("No longer part of the subject")
 
-    Same reasoning as the feedback report: `category` is the chapter heading,
-    but a closing step belongs to the part it closes.
+
+def group_for_sheet(challenges, documents, intro_first=True):
+    """[(title, [challenge])] — the sheet's order, taken from the documents.
+
+    Board `position` is not the order here, deliberately. A re-sync numbers the
+    steps it imports, but a step the subject dropped keeps the number it had,
+    and two steps then share a position. Walking the board by position puts one
+    part's leftovers between another part's steps, and a sheet that starts a
+    group whenever the heading changes shows the same part three times. That is
+    a real instance, not a hypothesis (ctf-1000, September 2026).
+
+    The documents map is what the participant's own pages are built from, so
+    ordering by it makes the sheet read exactly like the workshop.
+
+    Anything outside every document keeps its board order and goes to one end:
+    before the first part if it sits before it (the introduction, which belongs
+    to no part), otherwise to an `ORPHANS` group at the bottom.
     """
-    return {cid: d["title"] for d in _documents() for cid in d["challenge_ids"]}
+    by_id = {c.id: c for c in challenges}
+    place = {cid: (di, i) for di, d in enumerate(documents)
+             for i, cid in enumerate(d["challenge_ids"])}
+
+    def pos(c):
+        return (c.position is None, c.position or 0, c.id)
+
+    first = min((pos(by_id[cid]) for cid in place if cid in by_id), default=None)
+    lead, orphans = [], []
+    for c in challenges:
+        if c.id in place:
+            continue
+        if intro_first and first is not None and pos(c) < first:
+            lead.append(c)
+        else:
+            orphans.append(c)
+
+    groups = []
+    if lead:
+        # Its own heading, from the step itself: on every subject so far this is
+        # the introduction, and it is titled after the subject.
+        groups.append((lead[0].category or lead[0].name, lead))
+    for doc in documents:
+        rows = [by_id[cid] for cid in doc["challenge_ids"] if cid in by_id]
+        if rows:
+            groups.append((doc["title"], rows))
+    if orphans:
+        groups.append((ORPHANS, orphans))
+    return groups
 
 
 def _attendees(challenges, optional):
@@ -308,17 +356,15 @@ def collect():
     token_ids = _token_ids()
     solvers = _solver_counts()
     optional = _optional_ids()
-    part_of = _part_titles()
 
-    parts, seen = [], None
-    for challenge in challenges:
-        row = _row(challenge, flags.get(challenge.id, []), modes, token_ids, solvers)
-        row["optional"] = challenge.id in optional
-        title = part_of.get(challenge.id) or challenge.category or "Steps"
-        if title != seen:
-            parts.append({"title": title, "rows": []})
-            seen = title
-        parts[-1]["rows"].append(row)
+    parts = []
+    for title, members in group_for_sheet(challenges, _documents()):
+        rows = []
+        for challenge in members:
+            row = _row(challenge, flags.get(challenge.id, []), modes, token_ids, solvers)
+            row["optional"] = challenge.id in optional
+            rows.append(row)
+        parts.append({"title": title, "rows": rows})
 
     attendees, required = _attendees(challenges, optional)
     answered = [r for p in parts for r in p["rows"] if r["answer"]]

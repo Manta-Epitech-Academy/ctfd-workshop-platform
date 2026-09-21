@@ -1889,6 +1889,21 @@ instance infers nothing, the sync wrote the map the page reads, the quiz answer 
 refuses to hand out is on the page, the participant is in the progress table and the admin is not,
 and the CSV carries the same rows.
 
+**A quizset shows its questions one by one (2026-09-21).** `_quiz_answer` had a branch for every
+quiz kind except `quizset` — the one the subjects actually use — so every such row read "nothing to
+answer", which is the opposite of this page's whole purpose. A quizset is several questions in one
+step, each graded by passing its own dict to the same per-kind grader (`quiz.py:_grade_quizset`),
+so the renderer takes the kind as an argument and the rows reuse it. Each question is numbered the
+way the "look again at question 2" message numbers them, and carries what its letters *say*, read
+from `quiz_spec.items`: "B" alone would still send an instructor to the subject to find out what B
+was, which is the lookup this page exists to spare them. Those labels blur with the answers under
+"Hide answers" — only the correct options are listed, so leaving them readable on a projected
+screen would give the answer away just as plainly. The CSV keeps one cell per step
+(`1. A, B, D · 2. B`). A step holding a single question is not numbered.
+
+Not covered by `phase2_validate.py`: `content/pypong` has no quizset to assert against. Verified
+instead against a live instance carrying four of them, page and CSV.
+
 One thing the page deliberately does not repeat: `case_insensitive`, which
 `tools/sync_subject.py:354` writes on every flag it creates. Stating the default on all forty-three
 rows says nothing, so the note marks the exception instead — a flag added by hand that is

@@ -108,14 +108,13 @@
             {{ form.password(class="form-control", value=password, autocomplete="current-password") }}
           </div>
 
+          {# Core's login offers "Forgot your password?" here. It is dropped:
+             the reset form mails a token and no instance of this platform has
+             SMTP configured, so the link went to a page that could never
+             finish. Staff who lose a password ask an admin, which is what they
+             had to do anyway. The submit button takes the row on its own. #}
           <div class="row pt-3">
-            <div class="col-6 col-md-8">
-              <a class="align-middle" href="{{ url_for('auth.reset_password') }}">
-                {% trans %}Forgot your password?{% endtrans %}
-              </a>
-            </div>
-
-            <div class="col-6 col-md-4">
+            <div class="col-12">
               {{ form.submit(class="btn btn-block btn-primary w-100") }}
             </div>
           </div>

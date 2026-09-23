@@ -3424,3 +3424,43 @@ and `/parcours` still answers 200 with its graph container.
 The comment in the document-page block claimed Parcours was one of the two remaining ways into the
 workshop. That stopped being true here, so it was rewritten rather than left to rot: the Workshop
 entry is the way in, and it always was the same surface the other two led to.
+
+## 36. The intro page was not responsive when signed out (2026-09-23)
+
+`https://halloween2026.epiboost.fr/` signed out is the first thing a visitor sees, and on a phone
+it came out **1246px wide on a 390px viewport**, with the demo GIF running off the side.
+
+### 36.1 Scope, not a missing rule
+
+Every image rule in `assets/workshop.css` is scoped to `.challenge-desc` / `.challenge-hints` —
+the cap, `max-width: 100%`, the dark mat, and since §34 the click-to-enlarge. An authored CTFd
+Page renders through the plugin's `templates/page.html`, whose content sat in a bare
+`.container`, so it matched none of them: `max-width: none`, images at natural width, the layout
+broken around them.
+
+Signed in, `/` redirects to `/workshop`, which does render through `.challenge-desc`. That is why
+the bug was only ever visible to someone not logged in — which is to say, to everyone arriving.
+
+### 36.2 One word
+
+`page.html`'s container gains `challenge-desc`. That class is already this plugin's name for
+*rendered subject markdown* rather than for a challenge's description specifically — the toolbox
+page has used it that way since §3.4b — so nothing new was defined and the authored Pages simply
+join the surfaces that were already handled.
+
+What comes with it, beyond the fix: the dark mat and rounded corners the same images already wear
+inside a step, the 26rem cap, the table borders, and click-to-enlarge. The intro page now looks
+like the rest of the site instead of like raw markdown.
+
+**The cap does shrink the demo GIF on a wide screen**, 1230px to 527px. That is the same cap every
+other subject image obeys, and 1230px was overflowing its container, but it is a visible change to
+the page's own hero and worth a second opinion.
+
+### 36.3 Checked
+
+Measured signed out at 1400px and 390px, before and after: horizontal overflow on both widths
+before, none after. `/parcours`, `/toolbox`, `/workshop` and a part page all still render with no
+JS error and no overflow — the Parcours graph in particular, since it draws into a container that
+now carries the class.
+
+Production was read only throughout; it was measured, not touched.

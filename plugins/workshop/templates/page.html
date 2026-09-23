@@ -24,7 +24,14 @@
     </div>
   {% endif %}
 
-  <div class="container">
+  {# `challenge-desc` is this plugin's class for *rendered subject markdown*,
+     not for challenge descriptions specifically — the toolbox page already
+     uses it for the same reason. Without it an authored Page got none of the
+     image rules in assets/workshop.css, so the subject's own screenshots
+     rendered at their natural width: on a 390px phone the intro page came out
+     1246px wide with the demo GIF running off the side, and that page is the
+     first thing a signed-out visitor sees. #}
+  <div class="container challenge-desc">
     {{ content | safe }}
   </div>
 {% endblock %}

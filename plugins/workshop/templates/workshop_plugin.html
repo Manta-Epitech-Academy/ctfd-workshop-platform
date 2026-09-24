@@ -59,6 +59,79 @@
     </div>
   </div>
 
+  <div class="card mb-4">
+    <div class="card-body">
+      <h2 class="h5 card-title">Protected administrator</h2>
+
+      {% if notice == "pinned" %}
+        <div class="alert alert-success">Saved.</div>
+      {% elif notice == "unpinned" %}
+        <div class="alert alert-warning">
+          No account is protected any more. Anyone with admin rights can now
+          delete any administrator, including the one this instance was set up
+          with.
+        </div>
+      {% endif %}
+
+      <p class="card-text">
+        CTFd only stops an admin from deleting <em>themselves</em>. Without
+        this, a second admin can remove the account the instance was set up
+        with, and nothing recreates it.
+      </p>
+
+      <p class="card-text mb-1">On the protected account, nobody may:</p>
+      <ul>
+        <li>delete it, demote it, ban it or rename it, not even itself;</li>
+        <li>change its password or its email, except that account itself;</li>
+        <li>reset the instance or restore it from a backup, except that account
+          itself. Both replace every account, so an admin who cannot delete it
+          one row at a time must not be able to do it in one upload.</li>
+      </ul>
+
+      <p class="card-text">
+        Everything else stays editable by any admin. To rename it, set this to
+        <em>nobody</em>, rename it, then pin it back by id: the rename becomes
+        something you did on purpose rather than a side effect.
+      </p>
+
+      {% if keeper %}
+        <p class="card-text">
+          Currently protected:
+          <strong>{{ keeper.name }}</strong>
+          <span class="text-muted">(#{{ keeper.id }})</span>
+        </p>
+      {% else %}
+        <div class="alert alert-warning">
+          <strong>Nothing is protected.</strong> No account is pinned below and
+          none of your administrators is named <code>admin</code> — the name
+          CTFd's setup gives the first one. Pick one below.
+        </div>
+      {% endif %}
+
+      <form method="POST" action="/admin/workshop/protected" class="form-inline">
+        <input type="hidden" name="nonce" value="{{ Session.nonce }}">
+        <label class="mr-2" for="ws-protected-user">Protect</label>
+        <select class="form-control mr-2" id="ws-protected-user" name="user_id">
+          <option value="">nobody</option>
+          {% for admin in admins %}
+            <option value="{{ admin.id }}"
+                    {% if keeper and admin.id == keeper.id %}selected{% endif %}>
+              {{ admin.name }} (#{{ admin.id }})
+            </option>
+          {% endfor %}
+        </select>
+        <button type="submit" class="btn btn-primary">Save</button>
+      </form>
+
+      <p class="card-text mt-3 mb-0 text-muted">
+        Leave it on the account named <code>admin</code> unless you have
+        renamed it. The id is not used to find it by default, because an
+        instance restored from a CTFd backup keeps the account and loses the
+        number.
+      </p>
+    </div>
+  </div>
+
   <h2 class="h5">What disabling turns off</h2>
   <ul>
     <li>The workshop pages: <code>/workshop</code>, each part, the toolbox and

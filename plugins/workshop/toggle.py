@@ -43,8 +43,16 @@ from flask import Blueprint, abort, redirect, render_template, request, url_for
 from CTFd.utils import get_config, set_config
 from CTFd.utils.decorators import admins_only
 
+from .protect import admins, protected_user
+
 CONFIG_KEY = "workshop_enabled"
 ROUTE = "/admin/workshop/plugin"
+
+# Blueprints the switch never touches. The switch's own, obviously — it is the
+# way back. And `workshop_protect` (PLAN.md §40): an instance with the workshop
+# turned off is still an instance whose first admin account should survive a
+# misclick, so that guard is not part of what "off" means.
+ALWAYS_ON = ("workshop_toggle", "workshop_protect")
 
 workshop_toggle = Blueprint("workshop_toggle", __name__,
                             template_folder="templates")
@@ -100,7 +108,13 @@ def plugin():
         return redirect(url_for("workshop_toggle.plugin", saved=1))
     return render_template("workshop_plugin.html",
                            enabled=workshop_enabled(),
-                           saved=request.args.get("saved"))
+                           saved=request.args.get("saved"),
+                           # The protected-administrator picker lives on this
+                           # page because this is the plugin's instance-level
+                           # page and the only one that answers in both states
+                           # — protect.py owns the rule and the POST (§40).
+                           keeper=protected_user(), admins=admins(),
+                           notice=request.args.get("notice"))
 
 
 def guard_routes(app):
@@ -111,7 +125,7 @@ def guard_routes(app):
         name for name, bp in app.blueprints.items()
         if (getattr(bp, "import_name", "") or "") == root
         or (getattr(bp, "import_name", "") or "").startswith(root + ".")
-    ) - {workshop_toggle.name}
+    ) - set(ALWAYS_ON)
 
     @app.before_request
     def _workshop_off():

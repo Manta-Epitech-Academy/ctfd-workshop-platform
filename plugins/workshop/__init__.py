@@ -10,6 +10,7 @@ Deployed by bind-mounting this directory into CTFd/CTFd/plugins/workshop
 import os
 from CTFd.plugins import (
     register_admin_plugin_menu_bar,
+    register_admin_plugin_script,
     register_plugin_assets_directory,
     register_plugin_script,
     register_plugin_stylesheet,
@@ -18,6 +19,7 @@ from CTFd.plugins.challenges import CHALLENGE_CLASSES
 from CTFd.plugins.migrations import upgrade as upgrade_plugin
 
 from .toggle import load_toggle, guard_routes
+from .protect import load_protect
 from .graph import load_graph
 from .landing import load_landing
 from .page import load_page
@@ -87,6 +89,11 @@ def load(app):
     # registered further down land in it.
     load_toggle(app)
     register_admin_plugin_menu_bar("Workshop plugin", "/admin/workshop/plugin")
+    # The account nothing may delete, demote or ban (PLAN.md §40). Not subject
+    # to the switch above: an instance with the workshop off still has an admin
+    # account worth keeping, so `toggle.ALWAYS_ON` carries its blueprint.
+    load_protect(app)
+    register_admin_plugin_script(url="/plugins/workshop/assets/protect-admin.js")
     # A link out of the workshop (the Lua manual from a toolbox, say) opens in
     # a new tab, so coming back does not cost the runtime pane and the scroll
     # position. Wraps the one Markdown entry point every surface renders

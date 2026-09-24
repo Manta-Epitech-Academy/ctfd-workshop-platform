@@ -102,6 +102,31 @@ one signal, on a control it owns, whose position it alone knows — and a runtim
 its own interface, inside its frame, where the targets are always present. A tour library driven
 from this side would be measuring `.ws-runtime-handle` while it still carries `hidden`.
 
+## The protected administrator (PLAN.md §40)
+
+CTFd stops an admin from deleting *themselves* and stops there, so a second admin can delete the
+account the instance was set up with, and nothing recreates it. One account is therefore pinned.
+
+**Which one** is not decided by `id`: an instance restored from a CTFd backup keeps the account
+and loses the number. Two rules, in order: `workshop_protected_user` when it holds the id of an
+existing admin, otherwise the admin **named** `admin`, case-insensitively. Neither invents one —
+with the name changed and nothing pinned, nothing is protected and the page says so.
+
+On that account, refused for everyone: delete, demote, ban, rename. Refused for everyone except
+that account itself: changing its password or its email, and `POST /admin/reset` or
+`POST /admin/import`, both of which replace every account. Exporting and the CSV import are
+untouched.
+
+Set it at `/admin/workshop/plugin`. **Not subject to the workshop switch** (§39): an instance with
+the workshop off still has an administrator worth keeping, so `toggle.ALWAYS_ON` carries this
+blueprint. `assets/protect-admin.js` takes the delete control away in the admin panel, because
+CTFd's own handlers check `response.success` and do nothing at all when it is false — a refusal
+with no UI reads as a broken button. That file is the explanation, never the protection.
+
+`scripts/protect_check.py <base-url> <admin-pass>` walks every refusal. Run it against a
+development instance: it aims real destructive requests at a real administrator, and orders them
+so the irreversible one is never the probe that discovers the guard is missing.
+
 ## Switching the plugin off (PLAN.md §39)
 
 `workshop_enabled` — a CTFd config key, unset meaning **on** — is flipped at

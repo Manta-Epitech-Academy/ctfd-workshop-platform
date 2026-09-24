@@ -3622,3 +3622,88 @@ theme is still on with the plugin off. ALL GREEN on 9091.
 
 Routes are matched by href and never by label: the participant shell renders in the reader's
 language, and the first version of the check failed because « Atelier » is not "Workshop".
+
+## 40. The account nobody may delete (2026-09-24)
+
+CTFd refuses to let an admin delete **themselves** (`api/v1/users.py`, "You cannot delete
+yourself") and stops there. Two admins can delete each other, and the admin panel's user list
+makes deletion a checkbox plus a button behind a confirmation that names a count rather than a
+person. One misclick removes the account the instance was set up with. Nothing recreates it:
+`/admin/reset` does, but only by wiping every account and sending the instance back to the setup
+wizard.
+
+### 40.1 Which account, and why not by id
+
+The first version of this pinned **the oldest admin** — lowest `id` with `type = admin` — which is
+id 1, `admin`, on a freshly provisioned instance. That was wrong, and the instance that proves it
+already exists: restored from a CTFd backup, `admin` comes back as **id 520** with somebody else
+at id 1. An id is not an identity across an import.
+
+Two rules, in order:
+
+1. `workshop_protected_user`, when it holds the id of an account that is still an admin. Set from
+   `/admin/workshop/plugin`.
+2. otherwise the admin **named** `admin`, case-insensitively. CTFd's own setup default, and what
+   survives an import. `type` must be `admin` too, so a participant who signed up as "Admin" is
+   never mistaken for it.
+
+Neither rule invents a protected account. Rename the account with nothing pinned and **nothing is
+protected** — the page says so in as many words, which is better than silently guarding whichever
+row happens to sort first.
+
+### 40.2 The refusals
+
+On the protected account, through `DELETE`/`PATCH /api/v1/users/<id>` — the single endpoint the
+user's own page, the list's bulk delete and the list's bulk edit all funnel through:
+
+| | refused for | because |
+|---|---|---|
+| delete | everyone | the thing being prevented |
+| demote | everyone | otherwise: demote, then delete the ordinary user that is left |
+| ban | everyone | a banned admin cannot sign in, so the instance is as locked as if the row were gone |
+| rename | everyone | rule 2 finds it *by name*, so a rename is the quietest bypass of all |
+| password, email | everyone but itself | otherwise any admin walks in the front door and the four above are decoration |
+
+And instance-wide, while a protected account exists: only that account may `POST /admin/reset` or
+`POST /admin/import`. Both end with every account replaced or gone, so an admin who cannot delete
+it one row at a time must not be able to do it in one upload. `admin.export_ctf` is untouched —
+reading the instance out is not losing it — and so is `admin.import_csv`, which adds rows rather
+than replacing them.
+
+Every `PATCH` test compares against the **stored** value, because the admin form serializes the
+whole row: `name`, `email`, `type` and `banned` arrive on every save, unchanged. Refusing their
+mere presence would have made the account uneditable rather than protected.
+
+### 40.3 Not part of the switch
+
+`toggle.ALWAYS_ON` gains `workshop_protect`. An instance with the workshop turned off (§39) is
+still an instance whose administrator should survive a misclick, and a protection that a second
+admin can lift by flipping an unrelated switch is not one. The guard hangs on the app, not on a
+blueprint, so only the picker's route and the small JSON endpoint needed the exemption.
+
+### 40.4 The button that did nothing
+
+CTFd's delete handlers are `.then(r => { if (r.success) { ...navigate... } })` with no else branch
+(`themes/admin/assets/js/pages/user.js`, `users.js`). A refused delete therefore closes its
+confirmation dialog and does nothing at all, which reads as a bug and invites a second try.
+
+`assets/protect-admin.js`, injected through `register_admin_plugin_script`, takes the control away
+before it is clicked: it disables the row's checkbox in the list and replaces the trash icon on the
+account's own page with a shield. Every selector is one CTFd's own code already depends on, and
+every step is guarded — if an upgrade moves any of it the file quietly does nothing and the server
+still refuses. It is the explanation, never the protection.
+
+### 40.5 Checked
+
+`scripts/protect_check.py <base-url> <admin-pass>`, ALL GREEN on 9091: the five refusals on the
+protected account, the takeover attempts from a **second admin's session** (which is the only way
+to exercise the actor test), the two instance-wide refusals, that the protected account is not
+itself locked out, that the guard holds with the workshop switched off, both identification rules,
+and that an ordinary admin can still be demoted, banned and deleted.
+
+**Its order is a safety property, not a style choice.** The reversible attacks run first and the
+delete runs only if they were refused, because a delete that is *not* refused destroys the account
+the script exists to protect. The first draft failed that: it moved the pin onto a throwaway and
+then deleted the account the pin had just left, to prove the pin had moved. It now proves that by
+watching the throwaway become undeletable instead. A test that has to destroy what it tests is not
+a test.

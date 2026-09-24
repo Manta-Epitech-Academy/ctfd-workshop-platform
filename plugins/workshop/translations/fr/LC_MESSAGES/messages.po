@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-09-21 11:48+0400\n"
+"POT-Creation-Date: 2026-09-23 17:04+0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: fr\n"
@@ -34,6 +34,11 @@ msgstr ""
 
 msgid "Already have an account? Log in"
 msgstr "Déjà un compte ? Se connecter"
+
+msgid "An email address can be a user name only if it is the account's own"
+msgstr ""
+"Une adresse e-mail ne peut servir de nom d'utilisateur que si c'est celle "
+"du compte"
 
 msgid "Answer"
 msgstr "Réponse"
@@ -106,10 +111,10 @@ msgid ""
 "For the people running the room. You will see the answers, who is where, "
 "what was submitted and the feedback — and you will not appear among the "
 "participants."
-msgstr "Pour les personnes qui encadrent la salle. Vous verrez les réponses, où en est chacun, ce qui a été soumis et les retours, et vous n'apparaîtrez pas parmi les participants."
-
-msgid "Forgot your password?"
 msgstr ""
+"Pour les personnes qui encadrent la salle. Vous verrez les réponses, où "
+"en est chacun, ce qui a été soumis et les retours, et vous n'apparaîtrez "
+"pas parmi les participants."
 
 msgid "Glossary"
 msgstr "Glossaire"
@@ -449,9 +454,6 @@ msgstr "Ton navigateur a bloqué le nouvel onglet, donc il s'ouvre à côté du 
 msgid "Your email address is not from an allowed domain"
 msgstr "Ton adresse e-mail n'est pas d'un domaine autorisé"
 
-msgid "Your user name cannot be an email address"
-msgstr "Ton nom d'utilisateur ne peut pas être une adresse e-mail"
-
 msgid "available"
 msgstr "accessible"
 
@@ -478,4 +480,10 @@ msgstr "pour débloquer cette étape."
 
 msgid "your path"
 msgstr "ton parcours"
+
+#~ msgid "Forgot your password?"
+#~ msgstr ""
+
+#~ msgid "Your user name cannot be an email address"
+#~ msgstr "Ton nom d'utilisateur ne peut pas être une adresse e-mail"
 

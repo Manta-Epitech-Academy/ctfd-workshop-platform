@@ -3505,3 +3505,42 @@ subject gives the subject title on `/workshop` and `/toolbox`, zero and two both
 uses of `Configs.ctf_name` (the login lead, the supervisor join lead, the staff footer) were left
 alone: those answer "which instance am I on", which is the one place the box's own name is the
 right answer.
+
+## 38. A supervisor whose user name is their email (2026-09-23)
+
+`/admin/users/new` lets an admin create `toto@domain.com` / `toto@domain.com` and then
+`/admin/workshop/settings` promotes it. The settings page's own *Create a supervisor account*
+form refused the same pair. Two ways to make the same account, two answers.
+
+### 38.1 Why core bans it, and why that reason stops here
+
+`account_errors()` copies core's register checks, one of which rejects any user name that parses
+as an email address. The reason is login, not taste: `CTFd/auth.py:461` looks a name that parses
+as an email up **by email**, not by name. So an account called `a@b.c` whose own address is
+`x@y.z` can never be signed into by its name, and the string it answers to may belong to somebody
+else's account.
+
+Both failures need the two values to *differ*. When the name is the account's own email address
+the login lookup lands on that very row, and no second account can hold the string either — the
+uniqueness checks on name and on email both cover it. That is why core's own admin page accepts
+the pair, and it is the exact case asked for.
+
+### 38.2 The change
+
+One condition: `validators.validate_email(name) and name.lower() != email_address.lower()`.
+Compared case-insensitively because both callers lower the email and neither lowers the name, so
+`Toto@Domain.com` typed in both fields is the same intent.
+
+It lives in `account_errors()`, which `/supervisor/join` shares with the admin page, so the
+self-serve form accepts it too. Leaving the two apart would have recreated, one level down, the
+inconsistency this fixes.
+
+The message changes with the rule: *An email address can be a user name only if it is the
+account's own*, catalogue regenerated. The same pass retired « Forgot your password? », whose
+link `templates/login.html` dropped a commit earlier: the catalogue had not been rebuilt since.
+
+### 38.3 Checked
+
+On 9091: the pair is created from `/admin/workshop/settings`, appears in the supervisor list, and
+the account signs in **both** by user name and by email. An email-shaped name that is not the
+account's own is still refused, in French. The test supervisor was deleted afterwards.

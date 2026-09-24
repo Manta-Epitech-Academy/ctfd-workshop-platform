@@ -543,6 +543,23 @@ def _subjects():
     return subjects if isinstance(subjects, dict) else {}
 
 
+def instance_title():
+    """What this instance calls itself, on every page that has no title of its own.
+
+    The CTFd instance name until a subject is synced onto it, then that
+    subject's own title. An instance named "CTF 1000" that serves exactly one
+    subject *is* that subject to everyone reading it: the participant arrived
+    for « IA du fantôme de Pac-Man », not for the box it is deployed in.
+
+    Only when there is exactly one. A workshop of several subjects has no
+    single name to borrow (PLAN.md §19) and the instance's own name is then the
+    only thing that describes the whole of it, which is also the case before
+    any sync has run.
+    """
+    titles = [t for t in ((s or {}).get("title") for s in _subjects().values()) if t]
+    return titles[0] if len(titles) == 1 else (get_config("ctf_name") or "")
+
+
 def _cover_for(subject, documents=None, doc_slug=None):
     """The cover to show, most specific first.
 
@@ -631,6 +648,11 @@ def _render(user, keep_ids=None, title=None, subject=None, next_doc=None,
         parts=_parts(steps, title),
         documents=documents,
         page_title=title,
+        # `title` is what base.html puts in <title>; the heading below comes
+        # from `page_title`. Passing both keeps the tab and the h1 saying the
+        # same thing on a page that has a name of its own (a part), and the
+        # instance's name on the one that does not.
+        title=title or instance_title(),
         cover=_cover_for(subject, documents, doc_slug),
         # Only a document-scoped view can offer the pop-out, since the route it
         # opens is per document (see `workshop_runtime` below).
@@ -789,7 +811,8 @@ def workshop():
         groups=_subject_groups(cards),
         subjects=subjects,
         cover=subjects.get(first_subject) or {},
-        page_title=get_config("ctf_name"),
+        page_title=instance_title(),
+        title=instance_title(),
         intro=intro,
         solved_count=index_solved,
         total_count=index_total,
@@ -854,7 +877,8 @@ def toolbox():
         "workshop_toolbox.html",
         glossary=glossary,
         tools=tools,
-        page_title=get_config("ctf_name"),
+        page_title=instance_title(),
+        title=instance_title(),
     )
 
 
@@ -951,3 +975,7 @@ def step_body(challenge_id):
 
 def load_page(app):
     app.register_blueprint(workshop_page)
+    # Templates need the same fallback the views use: a page rendered without a
+    # `page_title` still has to name something, and `Configs.ctf_name` was that
+    # something until a subject was synced onto the instance.
+    app.jinja_env.globals["workshop_title"] = instance_title

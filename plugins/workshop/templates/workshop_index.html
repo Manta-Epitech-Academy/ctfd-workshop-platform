@@ -93,7 +93,7 @@
   <div class="epi-hero-inner ws-head">
     <div class="ws-hero-copy">
     {# No back arrow: this IS the workshop's index, so there is nothing above it. #}
-    <h1 class="ws-title epi-title-cursor">{{ page_title or Configs.ctf_name }}</h1>
+    <h1 class="ws-title epi-title-cursor">{{ page_title or workshop_title() }}</h1>
     <div class="ws-overall" data-solved="{{ solved_count }}" data-total="{{ total_count }}">
       <div class="ws-overall-badge">
         <span class="ws-overall-num">{{ solved_count }}/{{ total_count }}</span>

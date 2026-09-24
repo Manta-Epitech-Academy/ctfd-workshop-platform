@@ -3464,3 +3464,44 @@ JS error and no overflow — the Parcours graph in particular, since it draws in
 now carries the class.
 
 Production was read only throughout; it was measured, not touched.
+
+## 37. The instance is named after the box, the page after the subject (2026-09-23)
+
+Production is deployed on an instance called **CTF 1000**, so `/workshop` opened with
+`<title>CTF 1000</title>` and `<h1 class="ws-title">CTF 1000</h1>`. That is the name of the
+deployment, not the name of the thing the participant came for.
+
+### 37.1 The rule
+
+The instance name is the **default**, not the answer. Once a subject has been synced onto the
+instance, the subject's own title is what every page with no title of its own carries.
+
+Only when there is exactly one subject. A workshop of several (§19) has no single name to borrow
+and the instance's name is then the only thing that describes the whole of it, which is also the
+case before any sync has run. `page.py:instance_title()` is those three lines, and it reads
+`workshop_subjects` — the config the sync already writes from `project.name`, so nothing new is
+stored and no re-sync is needed on an instance synced since §3.2b.
+
+### 37.2 Where it applies
+
+- `/workshop` and `/toolbox`: `page_title` was `get_config("ctf_name")` and is now the helper.
+- The templates' fallback, `{{ page_title or Configs.ctf_name }}`, becomes
+  `{{ page_title or workshop_title() }}` — the same function, exposed as a Jinja global in
+  `load_page` so a view that renders without a `page_title` cannot drift from one that does.
+- `<title>`: core's `base.html` renders `{{ title or Configs.ctf_name }}` and the workshop views
+  never passed `title`, so every tab said the instance name. They pass it now, equal to the
+  heading the page shows: a part page's tab reads *Partie 1 : Arbre de décision*, the index's
+  reads the subject.
+
+`base.html` itself is untouched — `CTFd/` stays pristine, and a default `title` injected through a
+context processor would have given ToS and privacy the hero band `templates/page.html` deliberately
+withholds from them.
+
+### 37.3 Checked
+
+On 9091, all three branches, by moving `workshop_subjects` and putting it back byte-exact: one
+subject gives the subject title on `/workshop` and `/toolbox`, zero and two both fall back to
+`ctf_name`. Both part pages render their own title in the tab and the heading. The staff-facing
+uses of `Configs.ctf_name` (the login lead, the supervisor join lead, the staff footer) were left
+alone: those answer "which instance am I on", which is the one place the box's own name is the
+right answer.

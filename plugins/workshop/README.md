@@ -102,6 +102,25 @@ one signal, on a control it owns, whose position it alone knows — and a runtim
 its own interface, inside its frame, where the targets are always present. A tour library driven
 from this side would be measuring `.ws-runtime-handle` while it still carries `hidden`.
 
+## Switching the plugin off (PLAN.md §39)
+
+`workshop_enabled` — a CTFd config key, unset meaning **on** — is flipped at
+`/admin/workshop/plugin`, which is the only workshop page that answers in both states.
+
+Off, every route this plugin registers is a 404 and `/` is CTFd's own front door again, so the
+instance behaves as a plain CTFd between two sessions. The set of routes is read off the app at
+boot (`toggle.py:guard_routes`: every blueprint whose `import_name` is inside this package), so
+a blueprint added later is covered the day it is written.
+
+Three things are deliberately left on: **the Epitech theme**, in full — the shell overrides and
+both stylesheets, because turning the workshop off is not a request for CTFd's dark navbar back;
+**the `quiz` challenge type**, because taking it out of `CHALLENGE_CLASSES` would break every
+quiz already in the database; and **the content**, meaning challenges, solves, the authored Pages
+the sync created and every supervisor account. A switch that deleted content would not be a
+switch.
+
+`scripts/toggle_check.py <base-url> <admin-pass>` walks both states and puts the instance back.
+
 ## The instance's mode (PLAN.md §25)
 
 `workshop_mode` — `instructor_led` (default) or `self_serve` — is a CTFd config key, set at

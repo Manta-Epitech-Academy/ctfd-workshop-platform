@@ -136,7 +136,10 @@
         <ul class="epi-nav-list">
           {# First, and hardcoded, because it is this platform's home and until
              now it was reachable only by clicking the logo — which nobody
-             discovers. #}
+             discovers. Absent while the plugin is switched off (toggle.py,
+             PLAN.md §39): the routes 404 then, and a nav entry that leads
+             nowhere is worse than no entry. #}
+          {% if workshop_enabled() %}
           {{ nav_link(workshop_url, _("Workshop"),
                       here == workshop_url or here.startswith(workshop_url ~ '/')) }}
 
@@ -150,6 +153,7 @@
           {% set toolbox_url = url_for('workshop_page.toolbox') %}
           {{ nav_link(toolbox_url, _("Toolbox"), here == toolbox_url,
                       "" if here == toolbox_url else "_blank") }}
+          {% endif %}
 
           {# Through `url_for`, never `page.route` raw. CTFd strips the leading
              slash off a route before storing it (schemas/pages.py), so the
@@ -167,6 +171,22 @@
             {{ nav_link(page_url, page.title, page_url == here, page.link_target or "") }}
           {% endfor %}
 
+          {# Switched off, this shell has to offer what core's navbar offers,
+             and these are the two entries the workshop deliberately drops: a
+             room of lyceens working through a subject has no use for a roster
+             of who else is on the box. A plain CTFd does. Core's own order and
+             core's own visibility conditions, so the page reads the same
+             (CTFd/themes/core/templates/components/navbar.html). The labels
+             come from CTFd's catalogue, which already translates both. #}
+          {% if not workshop_enabled() and Configs.account_visibility != 'admins' %}
+            {{ nav_link(url_for('users.listing'), _("Users"),
+                        here == url_for('users.listing')) }}
+            {% if Configs.user_mode == 'teams' %}
+              {{ nav_link(url_for('teams.listing'), _("Teams"),
+                          here == url_for('teams.listing')) }}
+            {% endif %}
+          {% endif %}
+
           {% if Configs.account_visibility != 'admins' and Configs.score_visibility != 'admins' %}
             {{ nav_link(url_for('scoreboard.listing'), _("Scoreboard"),
                         here == url_for('scoreboard.listing')) }}
@@ -183,7 +203,10 @@
              the link, not the route. The other way in was the Parcours graph,
              whose nodes now point at the workshop page instead
              (graph.py, assets/graph.js, PLAN.md §30). #}
-          {% if is_admin() %}
+          {#- ...and for everybody once the plugin is switched off, where the
+             board is not a second way to the steps but the only page there
+             is. #}
+          {% if is_admin() or not workshop_enabled() %}
             {{ nav_link(url_for('challenges.listing'), _("Challenges"),
                         here == url_for('challenges.listing')) }}
           {% endif %}
@@ -192,7 +215,7 @@
              submissions, feedback. A supervisor has no other way to them
              — the account menu's "Admin Panel" is admins only — and an
              admin gets the same shortcut. #}
-          {% if is_staff() %}
+          {% if is_staff() and workshop_enabled() %}
             {% set staff_url = url_for('workshop_stats.stats') %}
             {{ nav_link(staff_url, _("Supervision"), here.startswith('/admin/workshop/')) }}
           {% endif %}

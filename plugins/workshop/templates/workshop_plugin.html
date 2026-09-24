@@ -1,0 +1,89 @@
+{% extends "admin/base.html" %}
+
+{#
+  The workshop switch (PLAN.md §39). Admin-facing, so every string is English
+  like the rest of the platform UI.
+
+  This page answers in both states — it is the way back — so it says plainly
+  what the other state looks like before anybody presses the button.
+#}
+
+{% block content %}
+<div class="jumbotron">
+  <div class="container">
+    <h1>Workshop plugin</h1>
+    <p class="lead mb-0">
+      Whether this instance runs a workshop, or behaves as a plain CTFd.
+    </p>
+  </div>
+</div>
+
+<div class="container">
+  {% if saved %}
+    <div class="alert alert-success">
+      Saved. {% if enabled %}The workshop is back: the pages, the runtime, Jump
+      and the admin tools all answer again.{% else %}The workshop is off. This
+      page is the way back.{% endif %}
+    </div>
+  {% endif %}
+
+  <div class="card mb-4">
+    <div class="card-body">
+      <h2 class="h5 card-title">
+        Status:
+        {% if enabled %}
+          <span class="badge badge-success">enabled</span>
+        {% else %}
+          <span class="badge badge-secondary">disabled</span>
+        {% endif %}
+      </h2>
+
+      <p class="card-text">
+        {% if enabled %}
+          Participants land on <code>/workshop</code>, the navbar leads to the
+          subject and the toolbox, and the admin bar carries the workshop tools.
+        {% else %}
+          Participants land on the challenge board. Every workshop route answers
+          404, and this is the only workshop page left in the admin bar.
+        {% endif %}
+      </p>
+
+      <form method="POST">
+        <input type="hidden" name="nonce" value="{{ Session.nonce }}">
+        <input type="hidden" name="enabled" value="{{ "off" if enabled else "on" }}">
+        <button type="submit"
+                class="btn {{ 'btn-outline-danger' if enabled else 'btn-primary' }}">
+          {{ "Disable the workshop" if enabled else "Enable the workshop" }}
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <h2 class="h5">What disabling turns off</h2>
+  <ul>
+    <li>The workshop pages: <code>/workshop</code>, each part, the toolbox and
+      the runtime pop-out.</li>
+    <li>The landing redirect. <code>/</code> serves the index Page again and
+      login goes to <code>/challenges</code>.</li>
+    <li>The runtime dist, the saved work-in-progress API and the path graph.</li>
+    <li>Jump: the button on the login page, <code>/jump/enter</code> and the
+      queue that posts solves back.</li>
+    <li>The supervisor tier: <code>/supervisor/join</code> and the room's
+      pages. Supervisor accounts stay, as ordinary hidden users.</li>
+    <li>The workshop admin pages: mode, answers, stats, submissions, feedback,
+      sync and Jump.</li>
+  </ul>
+
+  <h2 class="h5">What it deliberately leaves alone</h2>
+  <ul>
+    <li><strong>The Epitech theme.</strong> The shell and the stylesheets stay.
+      Turning the workshop off is not a request for CTFd's own navbar back.</li>
+    <li><strong>Your content.</strong> Challenges, solves, the authored Pages
+      the sync created ("Parcours", the subject index) and every supervisor
+      account are untouched. Delete them from the admin panel if you want them
+      gone; a switch that deleted content would not be a switch.</li>
+    <li><strong>Quiz challenges.</strong> They keep working on the board: taking
+      the challenge type away would break every quiz already imported.</li>
+  </ul>
+</div>
+{% endblock %}

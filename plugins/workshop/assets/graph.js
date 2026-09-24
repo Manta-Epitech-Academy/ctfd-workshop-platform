@@ -27,6 +27,10 @@
       method: "GET",
       headers: { Accept: "application/json" },
     });
+    // 404 while the plugin is switched off (toggle.py). This file still ships
+    // with the theme, so both features have to read "nothing to draw" rather
+    // than throw inside a MutationObserver callback.
+    if (!r.ok) return null;
     var j = await r.json();
     CACHE = j.data;
     return CACHE;
@@ -137,6 +141,7 @@
       alertEl.appendChild(host);
     }
     var graph = await fetchGraph(true); // solve just changed the solved set
+    if (!graph) return;
     renderNextButtons(host, graph, currentId);
   }
 
@@ -314,7 +319,9 @@
     if (!root || root.dataset.wsRendered) return;
     root.dataset.wsRendered = "1";
     try {
-      renderParcours(root, await fetchGraph(true));
+      var graph = await fetchGraph(true);
+      if (!graph) { root.textContent = ""; return; }
+      renderParcours(root, graph);
     } catch (e) {
       root.textContent = t("graphError", "Could not load the path graph.");
     }

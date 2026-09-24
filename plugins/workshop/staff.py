@@ -182,8 +182,17 @@ def account_errors(name, email_address, password):
     errors = []
     if not name:
         errors.append(_l("Pick a longer user name"))
-    if validators.validate_email(name):
-        errors.append(_l("Your user name cannot be an email address"))
+    if validators.validate_email(name) and name.lower() != email_address.lower():
+        # Core bans an email-shaped user name outright (CTFd/auth.py register),
+        # and the reason is login, not taste: a name that parses as an email is
+        # looked up *by email* (auth.py:461). An account called "a@b.c" whose
+        # own address is something else can therefore never be signed into by
+        # its name, and the string it answers to may belong to somebody else.
+        # Neither is possible when the two are the same value, which is also
+        # why core's own /admin/users/new accepts that pair — and why the two
+        # ways of making a supervisor now agree (PLAN.md §38).
+        errors.append(_l("An email address can be a user name only if it is "
+                         "the account's own"))
     if not validators.validate_email(email_address):
         errors.append(_l("Please enter a valid email address"))
     if (email_util.check_email_is_whitelisted(email_address) is False

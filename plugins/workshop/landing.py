@@ -20,6 +20,8 @@ from flask import redirect, request, url_for
 from CTFd.models import Challenges
 from CTFd.utils.user import authed
 
+from .toggle import workshop_enabled
+
 # Endpoints whose default post-authentication redirect we retarget.
 AUTH_ENDPOINTS = ("auth.login", "auth.register")
 
@@ -32,6 +34,9 @@ def load_landing(app):
     def root_to_workshop():
         if request.method != "GET" or request.path != "/" or not authed():
             return None
+        # Switched off, `/` is CTFd's own front door again (toggle.py, §39).
+        if not workshop_enabled():
+            return None
         # On an instance with no content yet (fresh install, before the first
         # sync) the workshop page has nothing to show — leave the index alone.
         if Challenges.query.count() == 0:
@@ -40,7 +45,7 @@ def load_landing(app):
 
     @app.after_request
     def post_auth_to_workshop(response):
-        if request.endpoint not in AUTH_ENDPOINTS:
+        if request.endpoint not in AUTH_ENDPOINTS or not workshop_enabled():
             return response
         if response.status_code not in (301, 302, 303, 307, 308):
             return response

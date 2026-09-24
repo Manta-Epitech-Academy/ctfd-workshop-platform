@@ -100,6 +100,8 @@ from CTFd.utils.logging import log
 from CTFd.utils.security.auth import login_user
 from CTFd.utils.user import get_ip
 
+from .toggle import workshop_enabled
+
 CONFIG_KEYS = "workshop_jump_keys"
 CONFIG_INSTANCE = "workshop_jump_instance"
 
@@ -251,7 +253,8 @@ def instance_slug():
 
 def jump_enabled():
     """Is there a configured way in? Read by login.html."""
-    return bool(jump_keys()) and bool(instance_slug())
+    return (workshop_enabled() and bool(jump_keys())
+            and bool(instance_slug()))
 
 
 def derived_key(secret, purpose):

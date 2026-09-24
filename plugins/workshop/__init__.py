@@ -17,6 +17,7 @@ from CTFd.plugins import (
 from CTFd.plugins.challenges import CHALLENGE_CLASSES
 from CTFd.plugins.migrations import upgrade as upgrade_plugin
 
+from .toggle import load_toggle, guard_routes
 from .graph import load_graph
 from .landing import load_landing
 from .page import load_page
@@ -80,6 +81,12 @@ def load(app):
     # is what revision 2 starts from.
     upgrade_plugin(plugin_name="workshop")
     CHALLENGE_CLASSES["quiz"] = QuizChallenge
+    # The switch (PLAN.md §39). First, because everything below it asks
+    # `workshop_enabled()` — the navbar, `jump_enabled`, the landing redirect —
+    # and because it wraps `app.admin_plugin_menu_bar` before the seven entries
+    # registered further down land in it.
+    load_toggle(app)
+    register_admin_plugin_menu_bar("Workshop plugin", "/admin/workshop/plugin")
     # A link out of the workshop (the Lua manual from a toolbox, say) opens in
     # a new tab, so coming back does not cost the runtime pane and the scroll
     # position. Wraps the one Markdown entry point every surface renders
@@ -180,3 +187,6 @@ def load(app):
     # Branching next-challenge button + the Parcours path graph — see
     # assets/graph.js, backed by GET /api/v1/workshop/graph.
     register_plugin_script(url="/plugins/workshop/assets/graph.js")
+    # Last: the 404 guard reads the set of this plugin's blueprints off the
+    # app, so every one of them has to be registered by now.
+    guard_routes(app)

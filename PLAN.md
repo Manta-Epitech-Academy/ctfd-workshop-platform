@@ -3544,3 +3544,81 @@ link `templates/login.html` dropped a commit earlier: the catalogue had not been
 On 9091: the pair is created from `/admin/workshop/settings`, appears in the supervisor list, and
 the account signs in **both** by user name and by email. An email-shaped name that is not the
 account's own is still refused, in French. The test supervisor was deleted afterwards.
+
+## 39. Switching the workshop off, without uninstalling it (2026-09-24)
+
+An instance is not always running a workshop. Between two sessions, or when the box is reused
+for an ordinary CTF, everything this plugin adds is in the way: `/` lands on a subject instead of
+the board, the navbar leads to parts that are not there, and the admin bar carries eight entries
+about a room nobody is in. The answer is a switch, not an uninstall: removing the plugin
+directory would take the `quiz` challenge type with it and break every quiz already imported.
+
+### 39.1 One key, default on
+
+`workshop_enabled`, a CTFd config key. **Unset reads as on**, which is what every instance in the
+field in fact is, so nothing changes until somebody presses the button. Flipped at
+`/admin/workshop/plugin` — admins only, never `staff_only`: a supervisor runs the room, and
+whether the room exists at all is not theirs to decide.
+
+It rides CTFd's own config cache, so it propagates to every worker and every pod exactly the way
+`ctf_name` does. No new failure mode, and nothing to restart.
+
+### 39.2 The guard reads the routes off the app
+
+One `before_request`, and the set it checks is computed rather than typed out: every blueprint
+whose `import_name` is inside this package, minus the switch's own. Fourteen blueprints today,
+and the fifteenth is covered the day it is written, with nothing to remember. The blueprint test
+comes first so a core request never pays a config lookup to learn it is not ours.
+
+404, not a redirect: the point is that the route is not there, which is what a plain CTFd looks
+like.
+
+Three surfaces the guard cannot reach, each handled where it lives:
+
+- `landing.py` hangs its redirect on the **app**, not on a blueprint, so `/` and the post-login
+  fallback check the switch themselves.
+- The navbar drops Workshop, Toolbox and Supervision, and shows **Challenges to everyone** — off,
+  the board is not a second way to the steps, it is the only page there is. It also grows the two
+  entries the workshop deliberately drops, **Users** and **Teams**: a room of lycéens working
+  through a subject has no use for a roster of who else is on the box, and a plain CTFd does.
+  Core's own order and core's own visibility conditions, and the labels come from CTFd's
+  catalogue, which already translates both.
+- `jump_enabled()` returns False, which is what takes the Jump button off the login page. One
+  function, because `login.html` already asked nothing else.
+
+`assets/graph.js` ships with the theme and therefore keeps loading. `fetchGraph` now returns
+`null` on a non-OK response and both callers treat that as nothing to draw, instead of throwing
+inside a `MutationObserver` callback.
+
+### 39.3 The admin bar, and the way back
+
+`app.admin_plugin_menu_bar` becomes a `list` subclass that filters in `__iter__`. The admin theme
+does `{% for menu in get_admin_plugin_menu_bar() %}` on whatever that attribute holds, so that is
+the entire change and no core template moves. A subclass and not a property because
+`register_admin_plugin_menu_bar` **appends** to this object — including for a plugin that loads
+after this one, whose entries are matched by route prefix and never filtered.
+
+Off, it keeps exactly one entry: `/admin/workshop/plugin`. That page states what the other state
+looks like before anybody presses the button, because it is the only door back.
+
+### 39.4 What stays on, deliberately
+
+- **The Epitech theme**, in full: the three shell overrides and both stylesheets. Turning the
+  workshop off is not a request for CTFd's own dark navbar back, and an instance that changed its
+  face between sessions would be a different decision from the one asked for.
+- **The `quiz` challenge type.** Removing it from `CHALLENGE_CLASSES` would make every quiz
+  challenge already in the database raise a `KeyError` on the board — the same failure mode
+  CTFd's missing user types have (§32). A disabled plugin must never cost an instance its data.
+- **The content.** Challenges, solves, the authored Pages the sync created ("Parcours", the
+  subject index) and every supervisor account, which stays an ordinary hidden user. They are the
+  admin's to delete.
+
+### 39.5 Checked
+
+`scripts/toggle_check.py <base-url> <admin-pass>` is this feature's test suite, shaped like
+`supervisor_check.py` and restoring whichever state it found. It walks ten routes in both
+states, `/`, the board, the participant navbar, the admin bar and the login page, and asserts the
+theme is still on with the plugin off. ALL GREEN on 9091.
+
+Routes are matched by href and never by label: the participant shell renders in the reader's
+language, and the first version of the check failed because « Atelier » is not "Workshop".

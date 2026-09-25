@@ -3622,3 +3622,82 @@ theme is still on with the plugin off. ALL GREEN on 9091.
 
 Routes are matched by href and never by label: the participant shell renders in the reader's
 language, and the first version of the check failed because « Atelier » is not "Workshop".
+
+## 41. The emoji was the marker (2026-09-25)
+
+The do-it panel — the boxed « Mise en application » that stops a participant answering
+the questions before doing the step (§3.4c) — was found like this:
+
+```python
+_APPLY = re.compile(r"(<h[1-6][^>]*>\s*(?:<[^>]+>\s*)*🥸.*)\Z", re.S | re.I)
+```
+
+**A heading whose text started with 🥸.** The emoji was the marker.
+
+### 41.1 Why that is worth a change on three repos
+
+A marker nobody can see is a marker is a bad marker, in four ways that are not
+aesthetic:
+
+- it does not survive a copy-paste that drops the character, and nothing says why the
+  panel vanished — there is no error, only an absence;
+- an author cannot find a rule they have not been told about. Every other behaviour in
+  this format is an explicit `ws:` mark you can grep for; this one was a glyph;
+- it puts a rendering decision inside a title the participant reads, so the panel and
+  the wording cannot be changed independently;
+- and it makes the panel unobtainable without that exact character, which is a hard
+  requirement to discover and an easy one to fail.
+
+### 41.2 `<!-- ws:doit -->`, in the `ws:cue` family
+
+```markdown
+### 🥸 Mise en application
+<!-- ws:doit -->
+
+**Ton objectif :** ...
+```
+
+On its own line, right after the heading that opens the section. The panel still runs
+from that heading to the end of the statement, with no closing marker. The heading's
+wording is free and so is the emoji, which stays as decoration.
+
+**Not a `type:`.** The §3.3 markers are node metadata: the parser consumes them to
+build the tree, and they never reach the page. This is a rendering boundary *inside* a
+step's body — exactly what `ws:cue` is — so it belongs to `MARKS`, which is what lets
+it survive `WS_COMMENT` and arrive in the HTML at all. One line in the parser:
+`MARKS = ("cue", "doit")`.
+
+`ws-apply` becomes `ws-doit` throughout, in `highlight.py`, `page.py` and the CSS: the
+authored name and the class the CSS paints should be the same word.
+
+### 41.3 The case that produced broken HTML
+
+Wrapping from the heading to the end of the document is fine when the mark is on a line
+of its own. Written mid-sentence it is not: `<section>` opens inside a `<p>` and closes
+after the `</p>`, and what the browser does to repair that is nobody's intent.
+
+So a mark inside a paragraph that holds other text is **left exactly as written**. An
+HTML comment renders nothing either way, so the cost of the misuse is a missing panel
+rather than a damaged page. A paragraph holding nothing but the mark is a different
+thing and is absorbed whole — that is what cmark produces for a mark inside a list item.
+
+### 41.4 The transition is not free
+
+The emoji rule is gone rather than deprecated, so **a subject that has not been
+re-synced shows no panel**. That is the state it was in before the feature existed, and
+it is fixed by a re-sync — but it means the image and the content move together:
+deploy, then sync. Only the Pac-Man subject was using it, and it is migrated in the same
+round (16 marks across the two parts).
+
+### 41.5 Checked
+
+Six shapes of input against `box_doit_section`, each asserted for both the panel and
+balanced `<section>` tags: a heading above, a mark wrapped in its own paragraph, a mark
+with no heading above, no mark at all, a mark mid-paragraph (no panel, untouched), and a
+mark inside a list item (panel).
+
+Then end to end on 9091: parser synced and `check_parser_sync.py` green, subject
+re-synced (21 updated, 18 exercises), and the rendered part page carries
+`class="ws-doit"` with the mark consumed — no `ws:doit` anywhere in the HTML, no
+`ws-apply` left, sections balanced, and the emoji still in the heading where the author
+put it.

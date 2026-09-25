@@ -40,11 +40,12 @@ import yaml
 FENCED_REGIONS = ("resume", "toolbox", "glossary")
 # Standalone marks: a point in the prose rather than a region, and the platform
 # reads them where they are instead of lifting anything out. `ws:cue <name>`
-# says "this is the moment the runtime is needed" (convention §3.4d). Same
-# reason they are listed here: the marker is a name, not a YAML mapping, and the
-# metadata parser must keep its hands off it and leave it in the body, which is
-# how it reaches the rendered page at all.
-MARKS = ("cue",)
+# says "this is the moment the runtime is needed" (convention §3.4d), and
+# `ws:doit` says "the work starts here" (§3.4c). Same reason they are listed
+# here: the marker is a name, not a YAML mapping, and the metadata parser must
+# keep its hands off it and leave it in the body, which is how it reaches the
+# rendered page at all.
+MARKS = ("cue", "doit")
 WS_COMMENT = re.compile(
     r"<!--\s*ws:(?!(?:%s)\b)(.*?)-->" % "|".join(FENCED_REGIONS + MARKS),
     re.DOTALL)

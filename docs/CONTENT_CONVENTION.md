@@ -359,7 +359,7 @@ A subject that marks nothing keeps the old behaviour: every section renders insi
 the toolbox page says it is empty. A platform that does not know these markers renders them as
 the invisible comments they are.
 
-### 3.4c The do-it section — a heading that starts with 🥸
+### 3.4c The do-it section — `<!-- ws:doit -->`
 
 A step is read, then done, then checked. On screen those three used to look like
 one column of prose with clickable controls at the bottom, and beta testers did the
@@ -369,19 +369,32 @@ So the platform paints two panels, in two colours: the section you **do**, and t
 questions you **answer**. Nothing is hidden and nothing is reordered — a participant
 who wants to answer first still can.
 
-The marker is the house heading the blueprint already prescribes:
+The author marks where the work starts:
 
 ```markdown
 ### 🥸 Mise en application
+<!-- ws:doit -->
 
 **Ton objectif :** ...
 ```
 
-**A heading whose text starts with 🥸 opens the do-it section**, and that section runs
-to the end of the statement (hints and the answer control are separate structures by
-then). The wording after the emoji is free — « Mise en application », « Ta première
-réussite », anything — and no closing marker is needed. A statement with no such
-heading simply gets no panel.
+**On its own line, right after the heading that opens the section.** The panel runs
+from that heading to the end of the statement — hints and the answer control are
+separate structures by then, so no closing marker is needed. Without a heading above
+it the panel starts at the mark itself, which is the sensible reading of a mark with
+nothing to attach to.
+
+The heading's wording is free, and so is the emoji: « Mise en application », « Ta
+première réussite », with a 🥸 or without. A statement with no mark gets no panel,
+which is what a subject written before this had.
+
+> Changed 2026-09-25. This used to be *« a heading whose text starts with 🥸 »*, with
+> the emoji itself as the marker. A marker nobody can see is a marker is a bad
+> marker: it does not survive a copy-paste that drops the character, it cannot be
+> found by an author who does not already know to look for it, it puts a rendering
+> decision inside a reader-facing title, and it makes the panel unobtainable without
+> that one glyph. It is now the same grammar as `ws:cue` (§3.4d) — an invisible mark
+> the author places — and the emoji stays as decoration for anyone who likes it.
 
 The questions get the other panel automatically: they are a `type: quiz` block, and
 the platform knows where they are.

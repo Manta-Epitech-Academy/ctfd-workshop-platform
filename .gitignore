@@ -67,3 +67,9 @@ session
 # Vendored dependencies the CTFd image does not ship (tools/build_vendor.sh).
 plugins/workshop/vendor/
 plugins/workshop/assets/vendor/
+
+# Local content checkouts: `content/<subject>` is where an instance manifest
+# points (tools/provision.py), and on a development machine it is usually a
+# symlink to a subject repo somewhere else. That path exists on one laptop.
+content/*
+!content/.gitkeep

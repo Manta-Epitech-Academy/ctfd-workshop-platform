@@ -130,6 +130,8 @@ body,
 [data-bs-theme="light"] {
   --bs-primary: #013afb;
   --bs-primary-rgb: 1, 58, 251;
+  /* jump's --primary-foreground: the text on a --bs-primary fill. */
+  --epi-on-primary: #ffffff;
   --bs-link-color: #013afb;
   --bs-link-color-rgb: 1, 58, 251;
   --bs-link-hover-color: #013afb;
@@ -166,6 +168,8 @@ body,
 [data-bs-theme="dark"] {
   --bs-primary: #809dfd;
   --bs-primary-rgb: 128, 157, 253;
+  /* White on #809dfd is 2.6:1; jump puts near-black on its dark primary. */
+  --epi-on-primary: #0c0e13;
   --bs-link-color: #809dfd;
   --bs-link-color-rgb: 128, 157, 253;
   --bs-link-hover-color: #809dfd;
@@ -256,12 +260,21 @@ body,
 
 /* ============================================================================
    Component-level overrides. Bootstrap bakes these as literal hex in their own
-   --bs-btn-*/--bs-*-active-bg vars at build time, so the root remap above
+   --bs-btn-* and --bs-*-active-bg vars at build time, so the root remap above
    never reaches them — this list IS the fix, not decoration. See DESIGN.md
    "Bootstrap limitations".
+
+   Never write a glob against a slash in a comment here: the two characters
+   close the comment, and the parser then drops the next rule as part of a
+   garbage selector. Until 2026-09-29 this very comment did that to
+   `.btn-primary` below, and every primary button on the platform rendered in
+   Bootstrap's own #0d6efd.
    ============================================================================ */
 .btn-primary {
-  --bs-btn-color: #fff;
+  --bs-btn-color: var(--epi-on-primary);
+  --bs-btn-hover-color: var(--epi-on-primary);
+  --bs-btn-active-color: var(--epi-on-primary);
+  --bs-btn-disabled-color: var(--epi-on-primary);
   --bs-btn-bg: var(--bs-primary);
   --bs-btn-border-color: var(--bs-primary);
   --bs-btn-hover-bg: color-mix(in oklab, var(--bs-primary) 85%, black);
@@ -274,6 +287,8 @@ body,
 .btn-outline-primary {
   --bs-btn-color: var(--bs-primary);
   --bs-btn-border-color: var(--bs-primary);
+  --bs-btn-hover-color: var(--epi-on-primary);
+  --bs-btn-active-color: var(--epi-on-primary);
   --bs-btn-hover-bg: var(--bs-primary);
   --bs-btn-hover-border-color: var(--bs-primary);
   --bs-btn-active-bg: var(--bs-primary);

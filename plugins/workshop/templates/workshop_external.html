@@ -1,0 +1,166 @@
+{% extends "admin/base.html" %}
+
+{#
+  The other way in (external.py, PLAN.md §42). Admin-facing, so every string is
+  English like the rest of the platform UI.
+
+  Its own page rather than a box on the settings page: this decides whether the
+  instance has a second door, who may walk through it, and what happens to the
+  people who already did. It is also the **only** place the route is named —
+  nothing participant-facing links to it or mentions it, and that is the point.
+#}
+
+{% block content %}
+<div class="jumbotron">
+  <div class="container">
+    <h1>External access</h1>
+    <p class="lead mb-0">
+      A second way in, for participants who do not arrive through Jump.
+    </p>
+  </div>
+</div>
+
+<div class="container">
+  {% if notice == "open" %}
+    <div class="alert alert-success">Saved. The door is open.</div>
+  {% elif notice == "no-code" %}
+    <div class="alert alert-warning">
+      Saved, but there is no code, so the route still answers 404. A door with no
+      code would be open registration at an address people pass around.
+    </div>
+  {% elif notice == "closed" %}
+    <div class="alert alert-success">Saved. The route answers 404 again.</div>
+  {% elif notice == "added" %}
+    <div class="alert alert-success">Code added. It admits people as soon as the
+      switch is on.</div>
+  {% elif notice == "duplicate" %}
+    <div class="alert alert-info">That code is already live. Codes are compared
+      without case, so two that differ only in case would be one code wearing two
+      labels.</div>
+  {% elif notice == "removed" %}
+    <div class="alert alert-success">Code removed. It admits nobody new; the
+      accounts it already admitted are untouched and keep it.</div>
+  {% elif notice == "revoked" %}
+    <div class="alert alert-warning">Banned every account on
+      <code>{{ subject }}</code>. They cannot sign in. Undo it here.</div>
+  {% elif notice == "restored" %}
+    <div class="alert alert-success">Un-banned every account on
+      <code>{{ subject }}</code>.</div>
+  {% endif %}
+
+  <div class="card mb-4">
+    <div class="card-body">
+      <h2 class="h5 card-title">
+        Status:
+        {% if enabled and codes %}
+          <span class="badge badge-success">open</span>
+        {% elif enabled %}
+          <span class="badge badge-warning">on, but no code</span>
+        {% else %}
+          <span class="badge badge-secondary">closed</span>
+        {% endif %}
+      </h2>
+
+      <p class="card-text">
+        Participants reach it at <code>/external/join</code> and make their own
+        account with one of the codes below. <strong>Nothing links to that
+        address</strong> — not the navbar, not the login page, not an error
+        message. Hand out the URL and a code together, and put neither on a page.
+      </p>
+
+      <form method="POST" class="form-inline">
+        <input type="hidden" name="nonce" value="{{ Session.nonce }}">
+        <input type="hidden" name="action" value="switch">
+        <div class="custom-control custom-switch mr-3">
+          <input type="checkbox" class="custom-control-input" id="ws-ext-on"
+                 name="enabled" value="on" {% if enabled %}checked{% endif %}>
+          <label class="custom-control-label" for="ws-ext-on">Offer this way in</label>
+        </div>
+        <button type="submit" class="btn btn-primary">Save</button>
+      </form>
+      <small class="form-text text-muted">
+        Off by default. Turning it off keeps the codes below for next time instead
+        of making you re-issue them.
+      </small>
+    </div>
+  </div>
+
+  <h2 class="h5">Codes</h2>
+  <p class="text-muted">
+    Several at once, because several groups are — one per event or per school, so
+    a cohort can be counted and shut out on its own. Each account keeps the code
+    it came in on.
+  </p>
+
+  <form method="POST" class="form-inline mb-3">
+    <input type="hidden" name="nonce" value="{{ Session.nonce }}">
+    <input type="hidden" name="action" value="add">
+    {# No placeholder. A greyed-out example in a field whose contents are a
+       secret reads like a value that is already there, and the one thing an
+       admin must be sure of here is what this box actually holds. #}
+    <input type="text" class="form-control mr-2" name="code" autocomplete="off"
+           spellcheck="false" aria-label="New registration code" required>
+    <button type="submit" class="btn btn-primary">Add</button>
+  </form>
+
+  <table class="table table-striped">
+    <thead>
+      <tr>
+        <th>Code</th>
+        <th>Accounts</th>
+        <th>State</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {# Live codes first, then codes that are gone but still have a cohort:
+         a cohort does not stop existing because its code did. #}
+      {% set seen = [] %}
+      {% for code in codes %}
+        {% if seen.append(code) %}{% endif %}
+        {% include "workshop_external_row.html" %}
+      {% endfor %}
+      {% for code in cohorts.keys() %}
+        {% if code not in seen %}
+          {% include "workshop_external_row.html" %}
+        {% endif %}
+      {% endfor %}
+
+      {% if not codes and not cohorts %}
+        <tr><td colspan="4" class="text-muted">No code yet, so the route answers 404.</td></tr>
+      {% endif %}
+    </tbody>
+  </table>
+
+  <h2 class="h5">What the accounts are</h2>
+  <ul>
+    <li><strong>Ordinary participants.</strong> No permissions, nothing a supervisor
+      or an admin has. They appear on the scoreboard and in the counters like
+      everybody else.</li>
+    <li>Verified on creation, because these instances send no mail and an unverified
+      account could never do anything.</li>
+    <li>The code is stored on the account as the CTFd custom field
+      <strong>External code</strong>: the account's own page shows it and an export
+      carries it. The <a href="/admin/users">Users</a> listing cannot search custom
+      fields, which is why the accounts are listed above rather than linked to a
+      filter that would not work.</li>
+    <li><strong>Revoke bans, it does not delete.</strong> Banned accounts cannot sign
+      in and keep their solves, and the button here undoes it. Deleting one account
+      stays under <a href="/admin/users">Users</a>, where the confirmation names the
+      person. An account that has since become an admin or a supervisor is skipped.</li>
+  </ul>
+
+  <h2 class="h5">How it stays hidden</h2>
+  <ul>
+    <li>Off, or with no code, the route answers <strong>404</strong> rather than a
+      closed page: an instance not using this looks like one that never heard of it.</li>
+    <li>Ten wrong codes from one address stop it answering that address for fifteen
+      minutes — also a 404, so running out of tries tells a prober nothing that "no
+      such route" would not. A correct code clears the count, because a classroom is
+      one address and somebody mistyping twice is not a prober.</li>
+    <li>It is independent of
+      <a href="/admin/config#visibility">Registration Visibility</a>, in both
+      directions.</li>
+  </ul>
+</div>
+{% endblock %}

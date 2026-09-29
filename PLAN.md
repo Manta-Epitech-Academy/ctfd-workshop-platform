@@ -3769,3 +3769,198 @@ On a throwaway MariaDB and Redis stack, from the worktree:
 - ctf-1000's state, simulated: no row, ledger one revision back, and the missing value memoized
   in Redis. With the cache clear disabled, the row became `fr` and the page stayed English.
   Restored, the page was French.
+
+## 42. The other way in (2026-09-29)
+
+Jump is the door to a workshop instance, and `/supervisor/join` is the door for the people
+running the room. There was no door for a participant who is in the room but not in Jump: a
+partner school, a visiting group, an afternoon where the usual way in is not available. The
+answer had been an admin making accounts by hand.
+
+CTFd's own `/register` is not it. It is one switch for the whole instance
+(`registration_visibility`), it knows nothing about a code that can be rotated or revoked on its
+own, and turning it on opens the instance to anybody who finds the URL.
+
+### 42.1 Hidden is a requirement, not a side effect
+
+Nothing participant-facing links to `/external/join` or names it — not the navbar, not the login
+page, not an error message anywhere else. The address is half the secret and the code is the
+other half, which decides three behaviours:
+
+- switched off, or with no code, the route answers **404** and not a closed page: an instance not
+  using this has to look like one that never heard of it;
+- ten wrong codes from one address stop it answering that address for fifteen minutes, **also**
+  with a 404, so running out of tries tells a prober nothing that "no such route" would not. A
+  correct code clears the count, because a classroom is one address and somebody mistyping twice
+  is not a prober;
+- the only place the route is named is `/admin/workshop/external`, which is `admins_only`.
+
+**The throttle is written out rather than decorated.** `@ratelimit` is a no-op on this fork —
+`_ratelimit_check_and_increment` returns `None` (`357509b2`, "yolo: disable ratelimits") — so
+decorating this route would have looked like a control and been nothing. A hidden door that
+answers unlimited guesses is a door with a code and no lock. `/supervisor/join` still carries
+that decorator and therefore still has no throttle; worth fixing, not fixed here.
+
+### 42.2 The admin owns both halves
+
+A stored code is not consent. The switch says whether the instance offers the door; the codes say
+who may walk through it. Off by default, so an instance that has never been told about this has
+no such route, and turning it off keeps the codes instead of forcing them to be re-issued.
+
+**Several codes are live at once**, because several groups are. `RUN-EVENT-0929` and
+`PAR-LYCEE-1234` admit people on the same afternoon. Codes are unique case-insensitively, since
+that is how they are compared at the door — two differing only in case would be one code wearing
+two labels, and the cohorts would be indistinguishable. `match_code` compares every candidate
+even after a hit, so the time taken does not say which matched or how many exist.
+
+### 42.3 The code is on the account, in a CTFd custom field
+
+Not a table of this plugin's own. The field (`External code`, `public=False`, `editable=False`)
+travels with the account through an export, shows on the account's own page, and needed no
+migration to store one string. It is created the first time somebody actually uses the door: an
+instance that never opens this should not grow a field in its user schema for a feature it does
+not use.
+
+`accounts_by_code()` reads the field every time rather than keeping a counter — a counter drifts
+the first time somebody deletes an account from `/admin/users`, and this cannot. Codes that have
+been retired still appear while they have accounts, which is the point: a cohort does not stop
+existing because its code did.
+
+**`/admin/users` cannot search it.** That listing filters on real columns of `users` only
+(`CTFd/admin/users.py:22`, `Users.__mapper__.has_property(field)`). The first version of the page
+linked to `/admin/users?field=…`, which would have been a dead end; the accounts are listed on
+the page itself instead.
+
+### 42.4 Revoke bans, it does not delete
+
+Shutting a cohort out is a decision made in a hurry, and deleting takes their solves and their
+history with them, irreversibly. Banning stops them signing in, clears their sessions, and is
+undone from the same button. Deleting one account stays under `/admin/users`, where the
+confirmation names the person. An account that has since become an admin or a supervisor is
+skipped: a bulk action aimed at participants must not be able to lock out the room's staff.
+
+### 42.5 Checked
+
+`scripts/external_check.py <base-url> <admin-pass>`, ALL GREEN on 9091, restoring the switch, the
+codes and every account it makes. It covers: either half missing is a 404 and the codes survive
+being switched off; two codes admitting people at once, each account carrying its own in the
+custom field; the account being refused by every staff and admin door while the workshop itself
+opens; revoking one cohort without touching the other, and undoing it; retiring a code keeping
+its people and admitting nobody new; a wrong code making no account and enough of them closing
+the address; and six surfaces asserted **not** to name the route, against the one that should.
+
+Two defects the suite found in its own first draft, both worth keeping in mind: it scraped every
+`<code>` in the table and so could not tell a live code from a retired one — a test that cannot
+tell them apart passes when retiring stops working; and it fills the throttle on purpose, so a
+second run inside fifteen minutes now exits saying why instead of failing obscurely.
+
+## 43. Two audiences on one instance (2026-09-29)
+
+§42 put a second door on the instance. That immediately raised the question the door does not
+answer: a visiting group's names and scores have no business on the scoreboard the Jump talents
+read, and the reverse is just as true.
+
+### 43.1 The rule is the code, not the door
+
+**The audience of an account is the external code it carries**, or `""` for everybody else —
+Jump, an admin creating an account by hand, a supervisor who joined with the staff code.
+`RUN-EVENT-0929` sees `RUN-EVENT-0929`; `""` sees `""`. Two external cohorts do not see each
+other either, and that is the same rule applied rather than a second rule bolted on.
+
+Three audiences that are not a code:
+
+- **staff** see everything. They are the people who have to answer "where is everyone", and the
+  supervision pages are unfiltered by design (§32).
+- **anonymous** is given `""`. A visitor on a public scoreboard has not signed in at all, and an
+  external cohort is precisely the group we were asked to keep out of sight.
+- **teams mode is not filtered**, deliberately. A scoreboard row is then a *team*, an audience is
+  a property of a *user*, and a team with members from both cohorts has no correct answer. These
+  instances run in users mode; a teams instance keeps the behaviour it had.
+
+`split_applies()` short-circuits the whole thing when no account carries a code, so an instance
+that never opened the second door pays one dictionary lookup and behaves exactly as before.
+
+### 43.2 Brackets are a tab, not a wall
+
+CTFd does have a notion of a divided scoreboard. `Brackets` annotate every row with
+`bracket_id`/`bracket_name`, and `/api/v1/scoreboard` takes `?bracket_id=` — but the **response
+still contains every row**, and the core theme renders them as nav pills the reader can click
+"All" on. That separates a display; it does not keep one group's names out of another group's
+browser.
+
+There is no hook in `get_standings()`, `app.overridden_functions` covers only `export_ctf` and
+`import_ctf`, and `CTFd/` stays pristine. So the wall is built in the plugin, in two hooks:
+
+- **`before_request`** returns **404** — not 403 — for another cohort's account and everything
+  hanging off it (`users.public`, `api.users_user_public`, and its `/solves`, `/fails`,
+  `/awards`). 404 is the answer a deleted account gives, and says nothing about who else is on
+  the instance.
+- **`after_request`** filters the three list responses and **renumbers what is left**. A cohort
+  that reads 4th, 7th and 9th is a cohort being told exactly how many people it cannot see.
+
+`/scoreboard` and the score graph are Alpine components reading those APIs
+(`themes/core/templates/scoreboard.html`), so filtering the API filters the page and no markup
+moves.
+
+### 43.3 The one page that is not an API
+
+`/users` is rendered server-side and CTFd's view queries before the template runs, so there is
+nothing to intercept. `templates/users/users.html` is therefore overridden — one word, a filter
+on the loop — and `shell.py` gains its fourth entry. A page may show fewer than fifty rows as a
+result; that is the intended cost of filtering after the query, and staff are unaffected because
+`ws_visible` answers true for them on every row.
+
+### 43.4 Checked
+
+`scripts/audience_check.py <base-url> <admin-pass>`, ALL GREEN on 9091. It builds three accounts
+— one with no code standing in for a Jump arrival, one in each of two external cohorts — gives
+each a score worth hiding, and asks every listing and detail surface as each of them in turn.
+
+**Each surface is asserted twice**, and the second assertion is the point: the other cohorts are
+absent, *and the reader's own cohort is present*. A feature that hides things passes a careless
+test by hiding everything, and a scoreboard that shows nobody would have sailed through a
+one-sided check. It also asserts that staff still see all three, and that an instance with the
+external accounts removed goes back to filtering nothing.
+
+## 44. Nine entries on the admin bar (2026-09-29)
+
+`register_admin_plugin_menu_bar` makes flat entries, and this plugin had grown nine of them —
+Workshop plugin, External access, Feedback, Answers, Workshop stats, Workshop submissions,
+Workshop mode, Sync content, Jump. They pushed CTFd's own **Config** off the end of the bar and
+buried the two that actually get used during a session.
+
+They fold into one **Workshop** dropdown, in the shape the admin theme already uses for its own
+Pages and Submissions: `li.nav-item.dropdown`, a `dropdown-toggle` and a `dropdown-menu` of
+`dropdown-item` links, Bootstrap 4's `data-toggle` like its neighbours.
+
+### 44.1 Why in the browser and not in the template
+
+The markup lives in `admin/base.html`, which also carries `{{ Plugins.scripts }}`, the nonce
+island and every future upstream change to the admin shell. Owning it to group nine links is the
+trade `shell.py` already refuses for the participant `base.html`: a large surface taken over for
+a small gain, and an override that keeps serving our copy silently after an upgrade.
+
+So `assets/admin-menu.js`, registered with `register_admin_plugin_script`. Every step is guarded:
+if an upgrade moves any of it the entries simply stay flat, which is where they are today. The
+file tidies the bar; it is not what makes the pages reachable.
+
+Ours are found by `href` rather than by label — the labels are ours to rename, the routes are
+what the blueprint registers. And **a single entry is left alone**: with the workshop switched
+off (§39) only one remains, and a dropdown holding one item would be worse than the link it
+replaced.
+
+### 44.2 The bug only a browser could find
+
+The first version read `first.parentNode` *after* the loop that removed every old `<li>`,
+including `first`. On a detached node that is `null`, so the insert threw: **all nine entries
+disappeared and nothing replaced them.**
+
+Fetching the page would have proved nothing — the nine entries are in the markup either way,
+since the fold happens client-side. `scripts/admin_menu_check.js` drives a real Chromium, signs
+in and reads the bar as rendered, which is what caught it. It asserts the dropdown holds all
+nine, that no workshop link is left at top level, that **Config is still on the bar**, that
+clicking opens it and the items navigate, and that a bar with one entry is left as a plain link.
+
+Two things the check had to learn about this instance: the Epitech login override renders
+WTForms' `submit`, which is an `<input>` and not the `<button>` core uses; and `/admin/statistics`
+polls, so `networkidle` never arrives and the wait has to be on the fold itself.

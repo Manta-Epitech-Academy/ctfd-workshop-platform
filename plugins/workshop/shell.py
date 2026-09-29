@@ -44,6 +44,11 @@ from CTFd.plugins import override_template
 #                           on Jump; `login_is_staff()` in jump.py picks.
 OVERRIDES = {
     "components/navbar.html": "plugins/workshop/templates/navbar.html",
+    #   users/users.html      the public account list. One word changes: the
+    #                         loop drops accounts outside the reader's cohort
+    #                         (audience.py, §43). CTFd's view queries before the
+    #                         template runs, so this is the only place left.
+    "users/users.html": "plugins/workshop/templates/users/users.html",
     "page.html": "plugins/workshop/templates/page.html",
     "login.html": "plugins/workshop/templates/login.html",
 }

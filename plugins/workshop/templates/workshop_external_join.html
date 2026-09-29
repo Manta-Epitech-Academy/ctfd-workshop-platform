@@ -1,0 +1,61 @@
+{% extends "workshop_login_layout.html" %}
+
+{#
+  Where a participant who does not come through Jump makes their account
+  (external.py `join`, PLAN.md §42). Built on the shared door layout, like the
+  login page and the supervisor's, so the three cannot drift: the copies that
+  layout replaced had already drifted once.
+
+  Nothing links here, by requirement. So the page says nothing about what the
+  instance is for beyond its name, carries **no `login_switch`** — a way to the
+  other door would be a way to learn this one exists from the other side — and
+  keeps only the ordinary link back to the login page. Somebody who reached this
+  address already knows why they are here, and anybody who reached it by
+  accident should learn nothing from it.
+
+  No accroche either, for the same reason: the panel's line is the instance's
+  pitch, and this page is not a place to pitch anything.
+#}
+
+{% block login_head %}
+  <h1 class="epi-login-title epi-title-cursor">{% trans %}Create your account{% endtrans %}</h1>
+  <p class="epi-login-sub">
+    {% trans %}With the code you were given. Your account works like any other participant's.{% endtrans %}
+  </p>
+{% endblock %}
+
+{% block login_main %}
+  <form class="epi-login-fields" method="post" accept-charset="utf-8" autocomplete="on">
+    <div>
+      <label class="form-label epi-login-label" for="ws-ext-code">{% trans %}Code{% endtrans %}</label>
+      <input class="form-control epi-login-input" type="text" id="ws-ext-code" name="code" required
+             autocomplete="one-time-code" autocapitalize="off" spellcheck="false">
+    </div>
+
+    <div>
+      <label class="form-label epi-login-label" for="ws-ext-name">{% trans %}User Name{% endtrans %}</label>
+      <input class="form-control epi-login-input" type="text" id="ws-ext-name" name="name" required
+             value="{{ name }}" autocomplete="username">
+    </div>
+
+    <div>
+      <label class="form-label epi-login-label" for="ws-ext-email">{% trans %}Email{% endtrans %}</label>
+      <input class="form-control epi-login-input" type="email" id="ws-ext-email" name="email" required
+             value="{{ email }}" autocomplete="email">
+    </div>
+
+    <div>
+      <label class="form-label epi-login-label" for="ws-ext-password">{% trans %}Password{% endtrans %}</label>
+      <input class="form-control epi-login-input" type="password" id="ws-ext-password" name="password" required
+             autocomplete="new-password">
+    </div>
+
+    <button type="submit" class="btn btn-primary epi-login-btn w-100">{% trans %}Join{% endtrans %}</button>
+
+    <input type="hidden" name="nonce" value="{{ Session.nonce }}">
+  </form>
+
+  <p class="epi-login-sub pt-3 mb-0">
+    <a href="{{ url_for('auth.login') }}">{% trans %}Already have an account? Log in{% endtrans %}</a>
+  </p>
+{% endblock %}

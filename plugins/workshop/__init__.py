@@ -10,6 +10,7 @@ Deployed by bind-mounting this directory into CTFd/CTFd/plugins/workshop
 import os
 from CTFd.plugins import (
     register_admin_plugin_menu_bar,
+    register_admin_plugin_script,
     register_plugin_assets_directory,
     register_plugin_script,
     register_plugin_stylesheet,
@@ -33,6 +34,8 @@ from .jump import load_jump
 from .jumpqueue import load_jump_queue
 from .external_links import load_external_links
 from .staff import load_staff
+from .external import load_external
+from .audience import load_audience
 from .stats import load_stats
 from .submissions import load_submissions
 from .quiz import QuizChallenge
@@ -98,6 +101,14 @@ def load(app):
     # Before the pages, because they import it; it registers /supervisor/join
     # and the management POST on the settings page.
     load_staff(app)
+    # A second way in, at an address nothing links to, with a code of its own
+    # (PLAN.md §42). After `load_staff`, whose `account_errors` it reuses.
+    load_external(app)
+    register_admin_plugin_menu_bar("External access", "/admin/workshop/external")
+    # Two populations, each seeing only its own (PLAN.md §43). After
+    # `load_external`, whose field it reads, and after `load_shell`, whose
+    # `users/users.html` override asks it.
+    load_audience(app)
     load_graph(app)  # GET /api/v1/workshop/graph — challenge DAG for the user
     # The participant-facing view: the whole workshop as one page, steps as
     # accordions with progress steppers, instead of a modal per challenge.
@@ -168,6 +179,11 @@ def load(app):
     load_jump(app)
     load_jump_queue(app)
     register_admin_plugin_menu_bar("Jump", "/admin/workshop/jump")
+    # Nine flat entries push CTFd's own Config off the end of the admin bar, so
+    # they are folded into one "Workshop" dropdown, in the shape the theme uses
+    # for Pages and Submissions (PLAN.md §44). Client-side on purpose: owning
+    # admin/base.html to group nine links is the trade shell.py already refuses.
+    register_admin_plugin_script(url="/plugins/workshop/assets/admin-menu.js")
     register_plugin_assets_directory(app, base_path="/plugins/workshop/assets/")
     # Caps hint images (the theme only caps description images) — see
     # assets/workshop.css. Injected via {{ Plugins.styles }} in base.html.

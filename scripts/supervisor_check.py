@@ -147,8 +147,11 @@ check("supervisor" not in anon.get(STAFF_DOOR, timeout=20).text.lower(),
 
 print("open door")
 admin.set_config("workshop_supervisor_code", CODE)
-check(anon.get(BASE + "/supervisor/join", timeout=20).status_code == 200,
-      "with a code set, /supervisor/join renders")
+joining = anon.get(BASE + "/supervisor/join", timeout=20)
+check(joining.status_code == 200, "with a code set, /supervisor/join renders")
+# Core's footer is hidden on every page built on the login layout, so the
+# credit is the layout's to draw (workshop_login_layout.html).
+check("epi-login-credit" in joining.text, "on the login layout, credit included")
 check("/supervisor/join" in anon.get(STAFF_DOOR, timeout=20).text,
       "and the login page's staff door links to it")
 

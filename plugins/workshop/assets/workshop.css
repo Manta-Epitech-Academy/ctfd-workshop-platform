@@ -140,12 +140,24 @@
 /* It arrives rather than appears. Small and quick — this is a response to a
    click, not an entrance. The global reduced-motion rule in epitech-theme.css
    shortens it to nothing, which is exactly right here: the dialog is still
-   there, it just does not travel. */
-@keyframes ws-zoom-in {
-  from { opacity: 0; transform: scale(0.97); }
-  to   { opacity: 1; transform: scale(1); }
+   there, it just does not travel.
+
+   The scale is on the image and caption, never on the dialog: a transformed
+   element is the containing block of its `fixed` descendants, so scaling the
+   dialog pinned the close button to the image's corner for the length of the
+   animation, then dropped it to the viewport corner once it ended. Opacity
+   does not do that, so the dialog keeps the fade. */
+@keyframes ws-zoom-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
-.ws-zoom[open] { animation: ws-zoom-in 140ms var(--epi-ease-standard, ease-out); }
+@keyframes ws-zoom-in {
+  from { transform: scale(0.97); }
+  to   { transform: scale(1); }
+}
+.ws-zoom[open] { animation: ws-zoom-fade 140ms var(--epi-ease-standard, ease-out); }
+.ws-zoom[open] .ws-zoom-img,
+.ws-zoom[open] .ws-zoom-cap { animation: ws-zoom-in 140ms var(--epi-ease-standard, ease-out); }
 
 /* Headings inside authored content are the author's structure, not the page's:
    they stay in the body face. Anton is display-only (DESIGN.md), and an

@@ -109,7 +109,15 @@ def make(name, password, code=None):
     row = next((u for u in (api("GET", f"/users?view=admin&q={name}&field=name")
                             .json().get("data") or []) if u["name"] == name), None)
     if row is None:
-        sys.exit(f"could not create {name}")
+        # Almost always the throttle: `external_check.py` fills it on purpose,
+        # so running the two back to back inside fifteen minutes leaves this
+        # address locked out of the door. Say that instead of "could not
+        # create", which sent one run looking for a bug that was not there.
+        shut = requests.get(BASE + "/external/join", timeout=20).status_code == 404
+        sys.exit(f"could not create {name}"
+                 + (" — the external door is answering 404 for this address. "
+                    "The throttle is probably full from an earlier run; wait "
+                    "fifteen minutes or run from another address." if shut else ""))
     made.append(row["id"])
     # A score, so there is something worth hiding on the scoreboard.
     r = api("POST", "/awards", json={"user_id": row["id"], "name": "probe",

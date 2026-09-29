@@ -3921,3 +3921,46 @@ absent, *and the reader's own cohort is present*. A feature that hides things pa
 test by hiding everything, and a scoreboard that shows nobody would have sailed through a
 one-sided check. It also asserts that staff still see all three, and that an instance with the
 external accounts removed goes back to filtering nothing.
+
+## 44. Nine entries on the admin bar (2026-09-29)
+
+`register_admin_plugin_menu_bar` makes flat entries, and this plugin had grown nine of them —
+Workshop plugin, External access, Feedback, Answers, Workshop stats, Workshop submissions,
+Workshop mode, Sync content, Jump. They pushed CTFd's own **Config** off the end of the bar and
+buried the two that actually get used during a session.
+
+They fold into one **Workshop** dropdown, in the shape the admin theme already uses for its own
+Pages and Submissions: `li.nav-item.dropdown`, a `dropdown-toggle` and a `dropdown-menu` of
+`dropdown-item` links, Bootstrap 4's `data-toggle` like its neighbours.
+
+### 44.1 Why in the browser and not in the template
+
+The markup lives in `admin/base.html`, which also carries `{{ Plugins.scripts }}`, the nonce
+island and every future upstream change to the admin shell. Owning it to group nine links is the
+trade `shell.py` already refuses for the participant `base.html`: a large surface taken over for
+a small gain, and an override that keeps serving our copy silently after an upgrade.
+
+So `assets/admin-menu.js`, registered with `register_admin_plugin_script`. Every step is guarded:
+if an upgrade moves any of it the entries simply stay flat, which is where they are today. The
+file tidies the bar; it is not what makes the pages reachable.
+
+Ours are found by `href` rather than by label — the labels are ours to rename, the routes are
+what the blueprint registers. And **a single entry is left alone**: with the workshop switched
+off (§39) only one remains, and a dropdown holding one item would be worse than the link it
+replaced.
+
+### 44.2 The bug only a browser could find
+
+The first version read `first.parentNode` *after* the loop that removed every old `<li>`,
+including `first`. On a detached node that is `null`, so the insert threw: **all nine entries
+disappeared and nothing replaced them.**
+
+Fetching the page would have proved nothing — the nine entries are in the markup either way,
+since the fold happens client-side. `scripts/admin_menu_check.js` drives a real Chromium, signs
+in and reads the bar as rendered, which is what caught it. It asserts the dropdown holds all
+nine, that no workshop link is left at top level, that **Config is still on the bar**, that
+clicking opens it and the items navigate, and that a bar with one entry is left as a plain link.
+
+Two things the check had to learn about this instance: the Epitech login override renders
+WTForms' `submit`, which is an `<input>` and not the `<button>` core uses; and `/admin/statistics`
+polls, so `networkidle` never arrives and the wait has to be on the fold itself.

@@ -10,6 +10,7 @@ Deployed by bind-mounting this directory into CTFd/CTFd/plugins/workshop
 import os
 from CTFd.plugins import (
     register_admin_plugin_menu_bar,
+    register_admin_plugin_script,
     register_plugin_assets_directory,
     register_plugin_script,
     register_plugin_stylesheet,
@@ -178,6 +179,11 @@ def load(app):
     load_jump(app)
     load_jump_queue(app)
     register_admin_plugin_menu_bar("Jump", "/admin/workshop/jump")
+    # Nine flat entries push CTFd's own Config off the end of the admin bar, so
+    # they are folded into one "Workshop" dropdown, in the shape the theme uses
+    # for Pages and Submissions (PLAN.md §44). Client-side on purpose: owning
+    # admin/base.html to group nine links is the trade shell.py already refuses.
+    register_admin_plugin_script(url="/plugins/workshop/assets/admin-menu.js")
     register_plugin_assets_directory(app, base_path="/plugins/workshop/assets/")
     # Caps hint images (the theme only caps description images) — see
     # assets/workshop.css. Injected via {{ Plugins.styles }} in base.html.

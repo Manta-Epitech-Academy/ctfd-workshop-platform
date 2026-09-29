@@ -26,7 +26,9 @@ function check(cond, label) {
   const browser = await chromium.launch();
   const page = await browser.newPage();
 
-  await page.goto(BASE + "/login");
+  // `/login` is the talents' door and shows only the Jump buttons since the
+  // two-door split; the password form lives behind `?staff=1` (login.html).
+  await page.goto(BASE + "/login?staff=1");
   await page.fill('input[name="name"]', "admin");
   await page.fill('input[name="password"]', PASS);
   // The Epitech login override renders WTForms' `submit`, which is an <input>,

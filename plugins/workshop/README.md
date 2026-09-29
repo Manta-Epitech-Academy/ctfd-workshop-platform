@@ -37,8 +37,9 @@ write the wire grammar into the Alpine `submission` state and mirror it into a h
 value — the core `view.js` is reused untouched. A quiz without `quiz_spec` falls back to
 the stock text input, so it is never un-answerable.
 
-All plugin-visible strings are English; localization arrives later via CTFd's i18n
-(`{% raw %}{% trans %}{% endraw %}` markers are already in place in `view.html`).
+Plugin-visible strings are English msgids, marked with `{% raw %}{% trans %}{% endraw %}`
+in `view.html`. The participant path carries a French translation in `translations/`,
+and the `3a6016a2732e` migration sets every instance to French by default (PLAN.md §42).
 
 ## The toolbox page (`/toolbox`, convention §3.4b)
 
@@ -270,6 +271,11 @@ contract shared with the Jump repository; changing either half means changing bo
   fresh instance `create_all()` has already built the table by the time the revision runs. The
   current head is in the `workshop_alembic_version` config key. `upgrade()` short-circuits to
   `create_all()` on sqlite, so a revision is only ever exercised on MySQL/MariaDB or Postgres.
+- **Revision `3a6016a2732e` writes a core setting.** It inserts `default_locale = fr` into
+  core's `config` table when no row exists, then calls `CTFd.cache.clear_config()` (PLAN.md §42).
+  After a CTFd upgrade, check three things: `get_locale()` in `utils/user/__init__.py` still
+  reads `default_locale`, the table is still `config(key, value)`, and a `PRESET_CONFIGS` entry
+  still outranks the database. That last one is why the key must never go into a preset.
 - **The Jump handoff (`jump.py`, `jumpqueue.py`) is the plugin's only authentication code**, and
   it deliberately bypasses the instance's registration path — see the `jump.py` docstring. Its
   touch points with core are `login_user`, `session.regenerate()`, `cache.add`, `Users`, and

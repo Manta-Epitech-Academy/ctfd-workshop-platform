@@ -64,8 +64,9 @@ def _load_translations(app):
 
 def load(app):
     # The participant-facing strings are translatable, and French is what an
-    # instance is set to by default (tools/provision.py). Registered first so
-    # every blueprint below renders through it.
+    # instance is set to by default (the 3a6016a2732e migration, run by
+    # upgrade_plugin below). Registered first so every blueprint below renders
+    # through it.
     _load_translations(app)
     # Creates the plugin's missing tables (quiz, workspace, the two Jump
     # tables). Idempotent — existing tables are untouched — and kept even

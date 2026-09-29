@@ -40,6 +40,8 @@ from CTFd.plugins import override_template
 #                           otherwise empty page; this puts jump's brand panel
 #                           beside it. The form itself stays core's, field for
 #                           field, so an upstream auth change is not mirrored.
+#                           Two doors, talent (Jump) and staff (the form), as
+#                           on Jump; `login_is_staff()` in jump.py picks.
 OVERRIDES = {
     "components/navbar.html": "plugins/workshop/templates/navbar.html",
     "page.html": "plugins/workshop/templates/page.html",

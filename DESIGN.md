@@ -191,6 +191,20 @@ matter:
 `blueprint-grid-inverse`, three half-opacity white pixel squares, two densities (comfortable and
 compact). `LoginBrandPanel.svelte` is the same recipe as a column, and is what `/login` uses.
 
+**`/login` is two doors, as on `jump`.** `jump` has `/login` for talents and `/staff/login` for
+staff, each ending on `LoginFooter.svelte`'s link to the other. Here both are one page, because the
+form posts to core's `auth.login` and core re-renders `login.html` after a failure: `/login` opens
+on the talent door (the "Continuer avec Jump" button alone), `/login?staff=1` on core's form.
+`login_is_staff()` (`jump.py`) also opens the staff door when the talent one would be wrong: no Jump
+configured, a failed attempt being re-rendered, an admin page in `next`. The form column copies
+`jump`'s login rather than the platform's defaults: small uppercase muted labels, 3rem fields, a
+3rem bold call to action (`.btn.epi-login-btn`, geometry only, colour from `.btn-primary`), no
+required-field `*`. The header's own Login CTA is dropped on this page, which it would link to.
+
+**Core's footer is hidden on `/login`, and only there.** The panel runs the full height of the
+viewport, and a strip of page background under it cut the screen in two. Its credit ("Propulsé par
+CTFd") is rendered at the foot of the form column instead, which is where `jump` puts its own.
+
 **Full-bleed is structural, never `margin-left: calc(50% - 50vw)`.** `{% block content %}` renders
 straight into `<main>`, which has no padding, so a direct child of `main` is already full width. The
 negative-margin trick needs a compensating `overflow-x: hidden`, and **that kills `position: sticky`
@@ -486,7 +500,14 @@ Already handled in `epitech-theme.css`, and the reason each needed its own block
 
 - `.btn-primary`, `.btn-dark` (also every **unsolved challenge-board card** —
   `.challenge-button.btn-dark`), `.btn-success`, `.btn-danger`, `.btn-warning`,
-  `.btn-outline-primary` — literal `--bs-btn-bg`/`-border-color`/`-hover-*`/`-active-*`.
+  `.btn-outline-primary` — literal `--bs-btn-bg`/`-border-color`/`-hover-*`/`-active-*`. Their
+  text on a `--bs-primary` fill is `--epi-on-primary`, `jump`'s `--primary-foreground`: white in
+  light, `#0c0e13` in dark, where white on `#809dfd` is 2.6:1.
+- **Never write `*` then `/` inside a CSS comment**, a glob like `--bs-btn-*` followed by a slash
+  included. It closes the comment, and the parser drops the next rule as part of a garbage selector.
+  That is what hid the `.btn-primary` block above from the reskin's first commit until 2026-09-29:
+  every primary button rendered in Bootstrap's own `#0d6efd`, and nothing but a computed style said
+  so.
 - `.form-control:focus` / `.form-select:focus` — Bootstrap's alpha box-shadow ring, replaced with
   a solid outline (same reasoning `jump` gives: a box-shadow ring doesn't survive an
   `overflow-hidden` ancestor — the challenge modal, here — an outline does).

@@ -96,15 +96,12 @@ def run_setup():
         "_submit": "Finish", "nonce": nonce,
     })
     check(r.status_code == 200, "setup completed")
-    # What tools/provision.py sets on every real instance. The participant path
-    # is translated, so a suite running against an English instance would be
-    # asserting copy nobody ships.
-    nonce = get_nonce(s, "/admin/config")
-    s.patch(BASE + "/api/v1/configs", json={"default_locale": "fr"},
-            headers={"CSRF-Token": nonce, "Content-Type": "application/json"})
-    check(s.get(BASE + "/login").text.count("Mot de passe") > 0
-          or "S'identifier" in s.get(BASE + "/login").text,
-          "the instance serves French, as a provisioned one does")
+    # Nothing is set: the plugin's migration makes a fresh instance French
+    # (PLAN.md §42), and an English browser must not change that. The rest of
+    # the suite asserts French copy, so it depends on this holding.
+    login = requests.get(BASE + "/login", headers={"Accept-Language": "en"}).text
+    check("Mot de passe" in login or "S'identifier" in login,
+          "a fresh instance serves French to an English browser")
 
 
 def register_attendee():

@@ -34,6 +34,9 @@ patches:
       kind: Deployment
       name: ctfd
     patch: |-
+      # No default_locale here: the plugin makes the instance French by default
+      # (PLAN.md §42), and a preset outranks the database, so it would lock
+      # Admin → Config → Localization for the instance's lifetime.
       - op: add
         path: /spec/template/spec/containers/0/env/-
         value:

@@ -39,7 +39,9 @@ function check(cond, label) {
 async function login(ctx, width, height) {
   const page = await ctx.newPage();
   await page.setViewportSize({ width, height });
-  await page.goto(BASE + "/login", { waitUntil: "domcontentloaded" });
+  // The staff door: on an instance with Jump, a bare /login is the talent
+  // door, which has no form to fill (login.html).
+  await page.goto(BASE + "/login?staff=1", { waitUntil: "domcontentloaded" });
   await page.fill('input[name="name"]', USER);
   await page.fill('input[name="password"]', PASS);
   await Promise.all([

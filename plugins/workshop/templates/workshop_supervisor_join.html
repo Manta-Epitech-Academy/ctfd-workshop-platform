@@ -70,7 +70,7 @@
 
         <div class="row pt-3">
           <div class="col-6 col-md-8">
-            <a class="align-middle" href="{{ url_for('auth.login') }}">
+            <a class="align-middle" href="{{ url_for('auth.login', staff=1) }}">
               {% trans %}Already have an account? Log in{% endtrans %}
             </a>
           </div>

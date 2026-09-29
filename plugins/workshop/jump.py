@@ -257,6 +257,30 @@ def jump_enabled():
             and bool(instance_slug()))
 
 
+def login_is_staff():
+    """Which of login.html's two doors to draw: the staff form, or the Jump one.
+
+    The talent door is the default, as on Jump's own login, and `?staff=1` is
+    the other one. One URL rather than a route of our own, because the form
+    posts to core's `auth.login` and core re-renders `login.html` itself after
+    a failed attempt — a second route would have to re-implement signing in.
+
+    The staff form wins whenever the talent door would be the wrong answer:
+
+      - there is no talent door (`jump_enabled()` false, which also covers the
+        plugin switched off) and a page with only a way out is a dead end;
+      - the request is a POST, which only the staff form sends, so the error
+        after a wrong password lands next to the form that caused it;
+      - `next` is an admin page: core's `admins_only` and our `staff_only`
+        (staff.py) both bounce to `auth.login` with `next=request.full_path`,
+        and nobody Jump signs in is going there.
+    """
+    return (not jump_enabled()
+            or request.method == "POST"
+            or "staff" in request.args
+            or (request.args.get("next") or "").startswith("/admin"))
+
+
 def derived_key(secret, purpose):
     """`ticketKey` or `callbackKey` — the hex digest, as an ASCII string.
 
@@ -717,6 +741,8 @@ def requeue(event):
 
 def load_jump(app):
     app.register_blueprint(workshop_jump)
-    # login.html asks whether there is a door before drawing one.
+    # login.html asks whether there is a door before drawing one, and which of
+    # its two doors to open on.
     app.jinja_env.globals["jump_enabled"] = jump_enabled
     app.jinja_env.globals["jump_keys"] = jump_keys
+    app.jinja_env.globals["login_is_staff"] = login_is_staff

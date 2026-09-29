@@ -189,7 +189,10 @@ matter:
 
 **The primitive is `jump`'s `PageHero.svelte`**, ported: `--epi-blue`, `.on-dark`,
 `blueprint-grid-inverse`, three half-opacity white pixel squares, two densities (comfortable and
-compact). `LoginBrandPanel.svelte` is the same recipe as a column, and is what `/login` uses.
+compact). `LoginBrandPanel.svelte` is the same recipe as a column, and is what `/login` uses. It
+lives in one template, `workshop_login_layout.html`, which the login page and the supervisor's
+join page both extend: they used to be two copies of the markup, and the copies drifted the first
+time the login side moved.
 
 **`/login` is two doors, as on `jump`.** `jump` has `/login` for talents and `/staff/login` for
 staff, each ending on `LoginFooter.svelte`'s link to the other. Here both are one page, because the
@@ -201,9 +204,11 @@ configured, a failed attempt being re-rendered, an admin page in `next`. The for
 3rem bold call to action (`.btn.epi-login-btn`, geometry only, colour from `.btn-primary`), no
 required-field `*`. The header's own Login CTA is dropped on this page, which it would link to.
 
-**Core's footer is hidden on `/login`, and only there.** The panel runs the full height of the
-viewport, and a strip of page background under it cut the screen in two. Its credit ("Propulsé par
-CTFd") is rendered at the foot of the form column instead, which is where `jump` puts its own.
+**Core's footer is hidden on the pages built on that layout, and only there.** The panel runs the
+full height of the viewport, and a strip of page background under it cut the screen in two. Its
+credit ("Propulsé par CTFd") is rendered at the foot of the form column instead, which is where
+`jump` puts its own, and the layout draws it on every page it carries so the rule that hides the
+footer cannot strip the credit from one of them.
 
 **Full-bleed is structural, never `margin-left: calc(50% - 50vw)`.** `{% block content %}` renders
 straight into `<main>`, which has no padding, so a direct child of `main` is already full width. The

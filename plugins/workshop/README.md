@@ -213,8 +213,9 @@ contract shared with the Jump repository; changing either half means changing bo
     door and the staff form, and the MLC branch stays inside the staff door, byte for byte what
     core renders, so an upstream change to it is a straight re-copy. The page also leans on core
     re-rendering `login.html` itself after a failed POST (that is how the error lands on the staff
-    door) and on core's footer being `body > .footer`, which `epitech-theme.css` hides on this page
-    only.
+    door) and on core's footer being `body > .footer`, which `epitech-theme.css` hides on the pages
+    built on `workshop_login_layout.html` — this one and the supervisor's join page — whose foot
+    carries the credit instead.
 - **The runtime pop-out renders its own page, not `base.html`** (`templates/workshop_runtime.html`,
   PLAN.md §30). It carries one frame and one bar, so inheriting the shell only to hide a header, a
   hero and a footer would be more markup rather than less. It therefore restates three things

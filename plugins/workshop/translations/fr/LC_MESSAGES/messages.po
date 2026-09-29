@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-09-29 12:13+0900\n"
+"POT-Creation-Date: 2026-09-29 12:32+0900\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: fr\n"
@@ -32,8 +32,8 @@ msgstr "%(n)s pts"
 msgid "Admin Panel"
 msgstr ""
 
-msgid "Already have an account? Log in"
-msgstr "Déjà un compte ? Se connecter"
+msgid "Already have an account?"
+msgstr "Déjà un compte ?"
 
 msgid "An email address can be a user name only if it is the account's own"
 msgstr ""
@@ -517,4 +517,7 @@ msgstr "ton parcours"
 
 #~ msgid "Taking part in the workshop?"
 #~ msgstr "Tu participes au workshop ?"
+
+#~ msgid "Already have an account? Log in"
+#~ msgstr "Déjà un compte ? Se connecter"
 

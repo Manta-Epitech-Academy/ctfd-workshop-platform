@@ -1165,7 +1165,8 @@ main > #ws-workshop > .container {
    jump's `LoginBrandPanel.svelte`: a full-bleed epi-blue column with the
    blueprint grid, half-opacity pixel squares and the charte's signature block,
    the form beside it, the panel gone below `lg`. Markup in
-   plugins/workshop/templates/login.html.
+   plugins/workshop/templates/workshop_login_layout.html, which the login page
+   and the supervisor's join page both extend.
    ============================================================================ */
 /* `main` is `flex: 1 0 auto` in the body column, but it is not itself a flex
    container, so a child cannot be told to fill it. Making it one only for this
@@ -1414,10 +1415,11 @@ main:has(> .epi-login) {
 .epi-login-credit a:hover {
   color: var(--bs-body-color);
 }
-/* Core's own footer, not on this page. The panel runs the full height of the
-   viewport, and a strip of page background across the bottom of it cut the
-   screen in two. Its one line — the credit — is rendered in the form column
-   instead (login.html), which is where jump puts its own. */
+/* Core's own footer, not on a page built on the login layout. The panel runs
+   the full height of the viewport, and a strip of page background across the
+   bottom of it cut the screen in two. Its one line — the credit — is rendered
+   in the form column instead (workshop_login_layout.html), which is where jump
+   puts its own. */
 body:has(> main > .epi-login) > .footer {
   display: none;
 }

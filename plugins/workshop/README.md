@@ -162,6 +162,30 @@ Everything is decided at `/admin/workshop/external`, `admins_only`, which is als
 the route is named. `scripts/external_check.py <base-url> <admin-pass>` walks all of it and puts
 the instance back.
 
+## Two audiences on one instance (PLAN.md §43)
+
+A participant who came through Jump and one who came through `/external/join` are in the same
+room and not in the same cohort. **The audience of an account is the external code it carries**,
+or `""` for everybody else — Jump, an admin-made account, a supervisor. Each sees only its own,
+and two external cohorts do not see each other either, which is the same rule rather than a
+second one.
+
+Staff see everything. An anonymous visitor is given `""`, because an external cohort is exactly
+the group we were asked to keep out of sight. **Teams mode is not filtered at all**: a scoreboard
+row is then a team, an audience is a property of a user, and a team drawn from both cohorts has
+no correct answer.
+
+CTFd has no hook in `get_standings()` and its only notion of a divided scoreboard is *brackets*,
+which annotate every row and let the **client** filter — a tab, not a wall. So `audience.py`
+builds the wall: 404 on another cohort's account and everything hanging off it, and the list
+responses filtered on the way out. `/scoreboard` and the score graph are Alpine components
+reading those APIs, so no markup moves. `/users` is the exception — CTFd renders it server-side
+and queries before the template runs, so `templates/users/users.html` is overridden and the loop
+drops the rows there.
+
+`scripts/audience_check.py <base-url> <admin-pass>` builds three accounts in three cohorts, gives
+each a score, and asks every surface as each of them.
+
 ## Supervisors (PLAN.md §32)
 
 The people running the room, without the admin panel. CTFd has two user types and no group

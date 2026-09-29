@@ -34,6 +34,7 @@ from .jumpqueue import load_jump_queue
 from .external_links import load_external_links
 from .staff import load_staff
 from .external import load_external
+from .audience import load_audience
 from .stats import load_stats
 from .submissions import load_submissions
 from .quiz import QuizChallenge
@@ -103,6 +104,10 @@ def load(app):
     # (PLAN.md §42). After `load_staff`, whose `account_errors` it reuses.
     load_external(app)
     register_admin_plugin_menu_bar("External access", "/admin/workshop/external")
+    # Two populations, each seeing only its own (PLAN.md §43). After
+    # `load_external`, whose field it reads, and after `load_shell`, whose
+    # `users/users.html` override asks it.
+    load_audience(app)
     load_graph(app)  # GET /api/v1/workshop/graph — challenge DAG for the user
     # The participant-facing view: the whole workshop as one page, steps as
     # accordions with progress steppers, instead of a modal per challenge.

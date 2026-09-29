@@ -3853,3 +3853,71 @@ Two defects the suite found in its own first draft, both worth keeping in mind: 
 `<code>` in the table and so could not tell a live code from a retired one — a test that cannot
 tell them apart passes when retiring stops working; and it fills the throttle on purpose, so a
 second run inside fifteen minutes now exits saying why instead of failing obscurely.
+
+## 43. Two audiences on one instance (2026-09-29)
+
+§42 put a second door on the instance. That immediately raised the question the door does not
+answer: a visiting group's names and scores have no business on the scoreboard the Jump talents
+read, and the reverse is just as true.
+
+### 43.1 The rule is the code, not the door
+
+**The audience of an account is the external code it carries**, or `""` for everybody else —
+Jump, an admin creating an account by hand, a supervisor who joined with the staff code.
+`RUN-EVENT-0929` sees `RUN-EVENT-0929`; `""` sees `""`. Two external cohorts do not see each
+other either, and that is the same rule applied rather than a second rule bolted on.
+
+Three audiences that are not a code:
+
+- **staff** see everything. They are the people who have to answer "where is everyone", and the
+  supervision pages are unfiltered by design (§32).
+- **anonymous** is given `""`. A visitor on a public scoreboard has not signed in at all, and an
+  external cohort is precisely the group we were asked to keep out of sight.
+- **teams mode is not filtered**, deliberately. A scoreboard row is then a *team*, an audience is
+  a property of a *user*, and a team with members from both cohorts has no correct answer. These
+  instances run in users mode; a teams instance keeps the behaviour it had.
+
+`split_applies()` short-circuits the whole thing when no account carries a code, so an instance
+that never opened the second door pays one dictionary lookup and behaves exactly as before.
+
+### 43.2 Brackets are a tab, not a wall
+
+CTFd does have a notion of a divided scoreboard. `Brackets` annotate every row with
+`bracket_id`/`bracket_name`, and `/api/v1/scoreboard` takes `?bracket_id=` — but the **response
+still contains every row**, and the core theme renders them as nav pills the reader can click
+"All" on. That separates a display; it does not keep one group's names out of another group's
+browser.
+
+There is no hook in `get_standings()`, `app.overridden_functions` covers only `export_ctf` and
+`import_ctf`, and `CTFd/` stays pristine. So the wall is built in the plugin, in two hooks:
+
+- **`before_request`** returns **404** — not 403 — for another cohort's account and everything
+  hanging off it (`users.public`, `api.users_user_public`, and its `/solves`, `/fails`,
+  `/awards`). 404 is the answer a deleted account gives, and says nothing about who else is on
+  the instance.
+- **`after_request`** filters the three list responses and **renumbers what is left**. A cohort
+  that reads 4th, 7th and 9th is a cohort being told exactly how many people it cannot see.
+
+`/scoreboard` and the score graph are Alpine components reading those APIs
+(`themes/core/templates/scoreboard.html`), so filtering the API filters the page and no markup
+moves.
+
+### 43.3 The one page that is not an API
+
+`/users` is rendered server-side and CTFd's view queries before the template runs, so there is
+nothing to intercept. `templates/users/users.html` is therefore overridden — one word, a filter
+on the loop — and `shell.py` gains its fourth entry. A page may show fewer than fifty rows as a
+result; that is the intended cost of filtering after the query, and staff are unaffected because
+`ws_visible` answers true for them on every row.
+
+### 43.4 Checked
+
+`scripts/audience_check.py <base-url> <admin-pass>`, ALL GREEN on 9091. It builds three accounts
+— one with no code standing in for a Jump arrival, one in each of two external cohorts — gives
+each a score worth hiding, and asks every listing and detail surface as each of them in turn.
+
+**Each surface is asserted twice**, and the second assertion is the point: the other cohorts are
+absent, *and the reader's own cohort is present*. A feature that hides things passes a careless
+test by hiding everything, and a scoreboard that shows nobody would have sailed through a
+one-sided check. It also asserts that staff still see all three, and that an instance with the
+external accounts removed goes back to filtering nothing.

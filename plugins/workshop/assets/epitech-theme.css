@@ -1331,7 +1331,9 @@ main:has(> .epi-login) {
 
 /* The fields and the button, jump's `LoginEmailStep`: `space-y-5`, small
    uppercase muted labels, 3rem controls. The radius is already the platform's
-   control radius (--bs-border-radius, jump's rounded-xl). */
+   control radius (--bs-border-radius, jump's rounded-xl). Horizontal padding
+   is not jump's `px-4` and cannot be: CTFd's own `input { padding: .6rem
+   !important }` owns it (DESIGN.md, "Bootstrap limitations"). */
 .epi-login-fields {
   display: flex;
   flex-direction: column;
@@ -1348,7 +1350,6 @@ main:has(> .epi-login) {
 }
 .epi-login-input {
   height: 3rem;
-  padding-inline: 1rem;
   font-size: 1rem;
 }
 /* The login's one call to action, on both doors. Geometry only: the fill is

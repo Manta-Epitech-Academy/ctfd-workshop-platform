@@ -3253,10 +3253,10 @@ that matters is the refusals: with a supervisor session it asserts every named a
 login and every named admin API returns 403 (or 404 for a hidden account), that the code and the
 mode cannot be changed, and that the supervisor is absent from the public user list and from the
 answer sheet. Then the door: 404 while the code is empty, refused on a wrong code with no account
-created, and a login-page link only while it is open. Then management: grant, revoke (and the
-revoked account still signs in as a participant), create, a duplicate refused with the reason,
-delete refused for a non-supervisor and honoured for one. It restores the code and deletes what it
-made.
+created, and a link on the login page's staff door (`/login?staff=1`) only while it is open. Then
+management: grant, revoke (and the revoked account still signs in as a participant), create, a
+duplicate refused with the reason, delete refused for a non-supervisor and honoured for one. It
+restores the code and deletes what it made.
 
 ### 32.5 Not in this
 

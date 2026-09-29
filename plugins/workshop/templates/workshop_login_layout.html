@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{#
+  The layout of every page where somebody arrives at the door: the login page
+  (login.html, both of its doors) and the supervisor's join page
+  (workshop_supervisor_join.html). One file, because the two used to be two
+  copies of the same markup, and the copies drifted the first time the login
+  side moved.
+
+  The layout is jump's own `LoginBrandPanel.svelte` — a full-bleed epi-blue
+  column carrying the blueprint grid, a few half-opacity pixel squares and the
+  charte's signature block, with the form beside it. Two adaptations, both
+  because jump's login has no app bar above it: the panel does not repeat the
+  wordmark (the header two lines up already carries it), and it continues the
+  header's band down the page rather than starting its own.
+
+  Hidden below 992px, exactly as jump hides it: on a phone the form is the whole
+  job and a decorative column would push it under the fold.
+
+  The form column is jump's `max-w-sm space-y-8`: three blocks, head, main and
+  foot, and a page fills them rather than laying out its own. The foot always
+  ends on the credit, because core's footer is hidden on every page built on
+  this layout (epitech-theme.css): under a full-height panel, a white strip
+  across the bottom of the screen cut the page in two. jump's
+  `LoginFooter.svelte` puts its own credit in the same place.
+
+  What a page supplies:
+
+    login_accroche   a top-level `{% set %}`, the line under the name in the
+                     panel, drawn in the charte's code tag. Empty draws none.
+    login_head       the title and the line under it.
+    login_main       the door itself. The errors include comes first, here,
+                     so every page reports a failed POST in the same place.
+    login_switch     the way to the other door, above the credit. Optional.
+#}
+
+{% block content %}
+<div class="epi-login">
+
+  <aside class="epi-login-panel on-dark">
+    <div class="epi-login-panel-body">
+      <p class="epi-login-kicker">&lt;Workshop&gt;</p>
+      <p class="epi-login-lead epi-title-cursor">{{ Configs.ctf_name }}</p>
+      {% if login_accroche %}
+        {# The charte's code tag, jump's `CodeTag.svelte`: the delimiters are
+           decoration, so a screen reader reads the accroche and not "less
+           than". #}
+        <p class="epi-login-desc">
+          <span class="epi-code-delim" aria-hidden="true">&lt;</span>
+          {{ login_accroche }}
+          <span class="epi-code-delim" aria-hidden="true">/&gt;</span>
+        </p>
+      {% endif %}
+    </div>
+    <p class="epi-login-signature">
+      <span class="epi-login-brace">{</span>
+      &lt;Tech Together Tomorrow&gt;
+      <span class="epi-login-brace">}</span>
+      <span class="epi-login-since">Since 1999</span>
+    </p>
+  </aside>
+
+  <div class="epi-login-form">
+    <div class="epi-login-form-body">
+      <header class="epi-login-head">
+        {% block login_head %}{% endblock %}
+      </header>
+
+      <div class="epi-login-main">
+        {% include "components/errors.html" %}
+        {% block login_main %}{% endblock %}
+      </div>
+
+      <footer class="epi-login-foot">
+        {% block login_switch %}{% endblock %}
+        <p class="epi-login-credit">
+          <a href="https://ctfd.io">{% trans %}Powered by CTFd{% endtrans %}</a>
+        </p>
+      </footer>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

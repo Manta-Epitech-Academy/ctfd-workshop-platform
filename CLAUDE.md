@@ -57,7 +57,7 @@ I wan't the plan to be fully clarified before implementing code.
 
 ## Commits
 
-Conventional Commits (`type(scope): subject`), the same format as the `jump` repo, for example
+Conventional Commits (`type(scope): subject`), for example
 `fix(zoom): keep the close button in the viewport corner`. **Keep the subject line under 72
 characters including the `type(scope):` prefix.** Trim wording to fit and push detail into the
 body rather than a long subject; one logical change per commit.

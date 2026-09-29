@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{#
+  Where a participant who does not come through Jump makes their account
+  (external.py `join`). Same layout as the login page, because it is the same
+  moment: somebody arriving at a door.
+
+  Nothing links here, by requirement. The page therefore says nothing about
+  what the instance is for beyond its name, and carries no link back out except
+  the ordinary one to the login page — somebody who reached this address
+  already knows why they are here, and anybody who reached it by accident
+  should learn nothing from it.
+
+  Translated like the login page, not English like the admin pages: whoever
+  fills this in has not signed in yet, so the instance's language is the only
+  cue they have.
+#}
+
+{% block content %}
+<div class="epi-login">
+
+  <aside class="epi-login-panel on-dark">
+    <div class="epi-login-panel-body">
+      <p class="epi-login-kicker">&lt;Workshop&gt;</p>
+      <p class="epi-login-lead">{{ Configs.ctf_name }}</p>
+    </div>
+    <p class="epi-login-signature">
+      <span class="epi-login-brace">{</span>
+      &lt;Tech Together Tomorrow&gt;
+      <span class="epi-login-brace">}</span>
+      <span class="epi-login-since">Since 1999</span>
+    </p>
+  </aside>
+
+  <div class="epi-login-form">
+    <div class="epi-login-form-body">
+      <h1 class="epi-login-title epi-title-cursor">{% trans %}Create your account{% endtrans %}</h1>
+
+      <p class="text-muted">
+        {% trans %}With the code you were given. Your account works like any other participant's.{% endtrans %}
+      </p>
+
+      {% include "components/errors.html" %}
+
+      <form method="post" accept-charset="utf-8" autocomplete="on">
+        <div class="mb-3">
+          <b><label class="form-label" for="ws-ext-code">{% trans %}Code{% endtrans %} <span class="text-danger">*</span></label></b>
+          <input class="form-control" type="text" id="ws-ext-code" name="code" required
+                 autocomplete="one-time-code" autocapitalize="off" spellcheck="false">
+        </div>
+
+        <div class="mb-3">
+          <b><label class="form-label" for="ws-ext-name">{% trans %}User Name{% endtrans %} <span class="text-danger">*</span></label></b>
+          <input class="form-control" type="text" id="ws-ext-name" name="name" required
+                 value="{{ name }}" autocomplete="username">
+        </div>
+
+        <div class="mb-3">
+          <b><label class="form-label" for="ws-ext-email">{% trans %}Email{% endtrans %} <span class="text-danger">*</span></label></b>
+          <input class="form-control" type="email" id="ws-ext-email" name="email" required
+                 value="{{ email }}" autocomplete="email">
+        </div>
+
+        <div class="mb-3">
+          <b><label class="form-label" for="ws-ext-password">{% trans %}Password{% endtrans %} <span class="text-danger">*</span></label></b>
+          <input class="form-control" type="password" id="ws-ext-password" name="password" required
+                 autocomplete="new-password">
+        </div>
+
+        <div class="row pt-3">
+          <div class="col-6 col-md-8">
+            <a class="align-middle" href="{{ url_for('auth.login') }}">
+              {% trans %}Already have an account? Log in{% endtrans %}
+            </a>
+          </div>
+          <div class="col-6 col-md-4">
+            <button type="submit" class="btn btn-block btn-primary w-100">{% trans %}Join{% endtrans %}</button>
+          </div>
+        </div>
+
+        <input type="hidden" name="nonce" value="{{ Session.nonce }}">
+      </form>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

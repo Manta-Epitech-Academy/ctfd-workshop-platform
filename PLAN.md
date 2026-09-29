@@ -3769,3 +3769,87 @@ On a throwaway MariaDB and Redis stack, from the worktree:
 - ctf-1000's state, simulated: no row, ledger one revision back, and the missing value memoized
   in Redis. With the cache clear disabled, the row became `fr` and the page stayed English.
   Restored, the page was French.
+
+## 42. The other way in (2026-09-29)
+
+Jump is the door to a workshop instance, and `/supervisor/join` is the door for the people
+running the room. There was no door for a participant who is in the room but not in Jump: a
+partner school, a visiting group, an afternoon where the usual way in is not available. The
+answer had been an admin making accounts by hand.
+
+CTFd's own `/register` is not it. It is one switch for the whole instance
+(`registration_visibility`), it knows nothing about a code that can be rotated or revoked on its
+own, and turning it on opens the instance to anybody who finds the URL.
+
+### 42.1 Hidden is a requirement, not a side effect
+
+Nothing participant-facing links to `/external/join` or names it — not the navbar, not the login
+page, not an error message anywhere else. The address is half the secret and the code is the
+other half, which decides three behaviours:
+
+- switched off, or with no code, the route answers **404** and not a closed page: an instance not
+  using this has to look like one that never heard of it;
+- ten wrong codes from one address stop it answering that address for fifteen minutes, **also**
+  with a 404, so running out of tries tells a prober nothing that "no such route" would not. A
+  correct code clears the count, because a classroom is one address and somebody mistyping twice
+  is not a prober;
+- the only place the route is named is `/admin/workshop/external`, which is `admins_only`.
+
+**The throttle is written out rather than decorated.** `@ratelimit` is a no-op on this fork —
+`_ratelimit_check_and_increment` returns `None` (`357509b2`, "yolo: disable ratelimits") — so
+decorating this route would have looked like a control and been nothing. A hidden door that
+answers unlimited guesses is a door with a code and no lock. `/supervisor/join` still carries
+that decorator and therefore still has no throttle; worth fixing, not fixed here.
+
+### 42.2 The admin owns both halves
+
+A stored code is not consent. The switch says whether the instance offers the door; the codes say
+who may walk through it. Off by default, so an instance that has never been told about this has
+no such route, and turning it off keeps the codes instead of forcing them to be re-issued.
+
+**Several codes are live at once**, because several groups are. `RUN-EVENT-0929` and
+`PAR-LYCEE-1234` admit people on the same afternoon. Codes are unique case-insensitively, since
+that is how they are compared at the door — two differing only in case would be one code wearing
+two labels, and the cohorts would be indistinguishable. `match_code` compares every candidate
+even after a hit, so the time taken does not say which matched or how many exist.
+
+### 42.3 The code is on the account, in a CTFd custom field
+
+Not a table of this plugin's own. The field (`External code`, `public=False`, `editable=False`)
+travels with the account through an export, shows on the account's own page, and needed no
+migration to store one string. It is created the first time somebody actually uses the door: an
+instance that never opens this should not grow a field in its user schema for a feature it does
+not use.
+
+`accounts_by_code()` reads the field every time rather than keeping a counter — a counter drifts
+the first time somebody deletes an account from `/admin/users`, and this cannot. Codes that have
+been retired still appear while they have accounts, which is the point: a cohort does not stop
+existing because its code did.
+
+**`/admin/users` cannot search it.** That listing filters on real columns of `users` only
+(`CTFd/admin/users.py:22`, `Users.__mapper__.has_property(field)`). The first version of the page
+linked to `/admin/users?field=…`, which would have been a dead end; the accounts are listed on
+the page itself instead.
+
+### 42.4 Revoke bans, it does not delete
+
+Shutting a cohort out is a decision made in a hurry, and deleting takes their solves and their
+history with them, irreversibly. Banning stops them signing in, clears their sessions, and is
+undone from the same button. Deleting one account stays under `/admin/users`, where the
+confirmation names the person. An account that has since become an admin or a supervisor is
+skipped: a bulk action aimed at participants must not be able to lock out the room's staff.
+
+### 42.5 Checked
+
+`scripts/external_check.py <base-url> <admin-pass>`, ALL GREEN on 9091, restoring the switch, the
+codes and every account it makes. It covers: either half missing is a 404 and the codes survive
+being switched off; two codes admitting people at once, each account carrying its own in the
+custom field; the account being refused by every staff and admin door while the workshop itself
+opens; revoking one cohort without touching the other, and undoing it; retiring a code keeping
+its people and admitting nobody new; a wrong code making no account and enough of them closing
+the address; and six surfaces asserted **not** to name the route, against the one that should.
+
+Two defects the suite found in its own first draft, both worth keeping in mind: it scraped every
+`<code>` in the table and so could not tell a live code from a retired one — a test that cannot
+tell them apart passes when retiring stops working; and it fills the throttle on purpose, so a
+second run inside fifteen minutes now exits saying why instead of failing obscurely.

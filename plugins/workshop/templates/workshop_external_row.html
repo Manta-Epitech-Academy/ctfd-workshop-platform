@@ -1,0 +1,61 @@
+{# One cohort's row. Included twice — live codes and retired ones get the same
+   cell and the same actions, and writing them twice is how they drift apart. #}
+{% set users = cohorts.get(code, []) %}
+{% set banned = users and users | selectattr("banned") | list | length == users | length %}
+<tr>
+  <td><code>{{ code or "(no code)" }}</code></td>
+
+  <td>
+    {% if users %}
+      <details>
+        <summary>
+          {{ users | length }} account{{ "s" if users | length > 1 }}
+          {% if banned %}<span class="badge badge-danger">banned</span>{% endif %}
+        </summary>
+        {# Listed here and not linked to /admin/users?field=…: that page filters
+           on real columns of `users` only (CTFd/admin/users.py), so it cannot
+           search a custom field and a link pretending otherwise would be a
+           dead end. #}
+        <div class="pt-2">
+          {% for user in users %}
+            <a href="/admin/users/{{ user.id }}"
+               class="badge {{ "badge-danger" if user.banned else "badge-light" }} mr-1">
+              {{ user.name }}</a>
+          {% endfor %}
+        </div>
+      </details>
+    {% else %}
+      <span class="text-muted">none yet</span>
+    {% endif %}
+  </td>
+
+  <td>
+    {% if code in codes %}
+      <span class="badge badge-success">admits people</span>
+    {% else %}
+      <span class="badge badge-secondary">retired</span>
+    {% endif %}
+  </td>
+
+  <td class="text-right">
+    {% if code in codes %}
+      <form method="POST" class="d-inline">
+        <input type="hidden" name="nonce" value="{{ Session.nonce }}">
+        <input type="hidden" name="action" value="remove">
+        <input type="hidden" name="code" value="{{ code }}">
+        <button type="submit" class="btn btn-sm btn-outline-secondary">Retire</button>
+      </form>
+    {% endif %}
+    {% if users %}
+      <form method="POST" class="d-inline"
+            onsubmit="return confirm('{{ users | length }} account(s) on {{ code }} will be {{ "un-banned" if banned else "banned" }}.');">
+        <input type="hidden" name="nonce" value="{{ Session.nonce }}">
+        <input type="hidden" name="action" value="{{ "restore" if banned else "revoke" }}">
+        <input type="hidden" name="code" value="{{ code }}">
+        <button type="submit" class="btn btn-sm {{ "btn-outline-success" if banned else "btn-outline-danger" }}">
+          {{ "Restore" if banned else "Revoke" }}
+        </button>
+      </form>
+    {% endif %}
+  </td>
+</tr>

@@ -136,6 +136,32 @@ needs: reading the codes back (`quiz_answers` is excluded from every read schema
 converting a pre-§25 instance in place — `standard` challenge plus a `Flags` row becomes a
 checkpoint challenge, same id, same solves.
 
+## The other way in (PLAN.md §42)
+
+`/external/join` is a second door for participants who do not arrive through Jump: a partner
+school, a visiting group, a room where the usual way in is not available on the day. It is
+independent of CTFd's `registration_visibility` in both directions.
+
+**It is hidden, by requirement.** Nothing participant-facing links to it or names it. Switched
+off, with no code, or after ten wrong codes from one address, it answers **404** rather than a
+closed page, so an instance not using it looks like one that never heard of it. The throttle is
+written out in `external.py` rather than taken from `@ratelimit`, which is a no-op on this fork
+(`357509b2`).
+
+**Several codes are live at once**, because several groups are — `RUN-EVENT-0929` and
+`PAR-LYCEE-1234` on the same afternoon. Each account keeps the code it came in on, in the CTFd
+custom field **External code**, so a cohort can be counted, listed and revoked without touching
+another. Retiring a code stops it admitting anybody new and leaves its accounts alone.
+
+**The accounts are ordinary participants**: no role row, no permissions, on the scoreboard like
+anybody else. *Revoke* bans a cohort and is undone from the same page; deleting one account stays
+under `/admin/users`, where the confirmation names the person. Admins and supervisors are skipped
+by the bulk action.
+
+Everything is decided at `/admin/workshop/external`, `admins_only`, which is also the only place
+the route is named. `scripts/external_check.py <base-url> <admin-pass>` walks all of it and puts
+the instance back.
+
 ## Supervisors (PLAN.md §32)
 
 The people running the room, without the admin panel. CTFd has two user types and no group

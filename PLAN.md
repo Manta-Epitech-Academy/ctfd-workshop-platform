@@ -3701,3 +3701,71 @@ re-synced (21 updated, 18 exercises), and the rendered part page carries
 `class="ws-doit"` with the mark consumed — no `ws:doit` anywhere in the HTML, no
 `ws-apply` left, sections balanced, and the emoji still in the heading where the author
 put it.
+
+---
+
+## 42. French by default, on every deploy path (2026-09-29)
+
+ctf-1000.epiboost.fr showed its interface in English. Nobody had changed it: `default_locale`
+had never been set there. The one writer was `tools/provision.py setup`, which the Compose
+instances of §22 go through and the k8s instances never do. Those are configured by
+`PRESET_CONFIGS` in their jump-k3s overlay, and neither the overlays nor our
+`deploy/k8s/overlay-example` carried the key. With no default, CTFd's `get_locale()` falls
+through to `Accept-Language`: on the live site, `fr` got « S'identifier » and `en` or no header
+got "Login". ctf-0001 and ctf-1001 behaved the same.
+
+### 42.1 Decision: French, not the browser's language
+
+Following the browser was considered, since it is what those instances were doing, and it
+looks friendlier. It is not, for this platform:
+
+- **The content is French whatever the browser says.** A Russian browser would get CTFd's
+  chrome in Russian around instructions it cannot read either.
+- **Our catalogue is `fr` only.** The same browser would get CTFd core in Russian, our strings
+  falling back to their English msgids, and French content: three languages on one page.
+- **Many lycéens run an English browser** (a phone or PC they set up themselves). They would get
+  exactly the English-around-French look §29.4 was written to remove.
+
+Nobody is locked in: `get_locale()` checks the account's own language first, so a participant
+who wants another one picks it in /settings.
+
+### 42.2 Where the default lives: a plugin migration
+
+`plugins/workshop/migrations/3a6016a2732e_default_the_instance_to_french.py` inserts
+`default_locale = fr` when the instance has no such row, then clears the config cache. The
+plugin ships the French catalogue, so the plugin carries the default, and no deploy path can
+forget it. `provision.py` stopped writing it, which also stops `setup` from resetting an admin's
+choice on every run.
+
+Two other places were rejected:
+
+- **`CTFd.constants.setup.DEFAULTS`.** `_get_config` reports an empty value as missing, so the
+  blank "auto-detect" choice in Admin → Config → Localization would silently read as French.
+- **`set_config` in `load()`.** It runs on every boot of every worker, and it races itself on a
+  fresh instance.
+
+A migration runs once per instance and never again, so an admin's later choice, blank
+included, stands. The cache clear matters on k8s: Redis survives a pod restart, and without the
+clear the row said `fr` while the page stayed English until the memoized value expired.
+
+`PRESET_CONFIGS` must not carry `default_locale`: a preset outranks the database, so it would
+lock the admin setting for the instance's lifetime. The overlay template says so.
+
+### 42.3 Rollout
+
+No overlay changes. A k8s instance becomes French when the `kevin-cazal/CTFd` image picks up
+this plugin revision and its pod restarts. Until then, Admin → Config → Localization →
+Français does the same thing by hand, and the migration leaves that choice alone.
+
+### 42.4 Checked
+
+On a throwaway MariaDB and Redis stack, from the worktree:
+
+- A fresh instance is French for `Accept-Language: en`, for `ru` and with no header. The ledger
+  is at `3a6016a2732e`.
+- A participant who sets `language=en` gets English, and anonymous visitors stay French.
+- An admin who sets Localization to blank gets auto-detection back after a restart, and the
+  migration does not run again.
+- ctf-1000's state, simulated: no row, ledger one revision back, and the missing value memoized
+  in Redis. With the cache clear disabled, the row became `fr` and the page stayed English.
+  Restored, the page was French.

@@ -181,8 +181,10 @@ gettext. That has not changed: an English msgid is still what you type.
 
 What changed is that the i18n phase happened, for the participant path only — the workshop index,
 a part page, a step and its controls, the shell around them. Those are wrapped in `{% trans %}` /
-`gettext` and carry a French translation in `plugins/workshop/translations/`, and an instance is
-set to `fr` by default (`tools/provision.py`). The audience is French lycéens, under 18, arriving
+`gettext` and carry a French translation in `plugins/workshop/translations/`, and every instance
+is set to `fr` by default by the plugin's own migration, whichever path deployed it (PLAN.md §42).
+Not the browser's language: that was tried by accident on the k8s instances and gave English
+chrome to every lycéen whose browser is in English. The audience is French lycéens, under 18, arriving
 from Jump — which speaks to them in French, with emoji. English chrome around French content was
 the single loudest thing telling them they had left.
 

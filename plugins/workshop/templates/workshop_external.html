@@ -95,8 +95,11 @@
   <form method="POST" class="form-inline mb-3">
     <input type="hidden" name="nonce" value="{{ Session.nonce }}">
     <input type="hidden" name="action" value="add">
+    {# No placeholder. A greyed-out example in a field whose contents are a
+       secret reads like a value that is already there, and the one thing an
+       admin must be sure of here is what this box actually holds. #}
     <input type="text" class="form-control mr-2" name="code" autocomplete="off"
-           spellcheck="false" placeholder="RUN-EVENT-0929" required>
+           spellcheck="false" aria-label="New registration code" required>
     <button type="submit" class="btn btn-primary">Add</button>
   </form>
 

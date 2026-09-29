@@ -55,6 +55,29 @@ is a design change for the fork's own repo, not an implementation detail here.
 
 I wan't the plan to be fully clarified before implementing code.
 
+## Commits
+
+Conventional Commits (`type(scope): subject`), for example
+`fix(zoom): keep the close button in the viewport corner`. **Keep the subject line under 72
+characters including the `type(scope):` prefix.** Trim wording to fit and push detail into the
+body rather than a long subject; one logical change per commit.
+
+- **Types:** `feat`, `fix`, `refactor`, `docs`, `test`, `perf`, `chore`, `ci`, `build`, `style`.
+- **Scope:** the area touched, named the way a reader would grep for it: `workshop` for the plugin
+  at large, or narrower when the change is (`zoom`, `theme`, `i18n`, `sync`, `parser`,
+  `provision`, `validate`).
+
+**Commits are written in English**, subject and body, whatever language the conversation used.
+Pull request titles too. A commit sits next to code whose identifiers are English, and it is read
+through `git log` and `git blame` long after the discussion that produced it.
+
+The history before this rule is French and untyped (`Ne pas suivre content/pacman, ...`). Do not
+match it: a branch's own history is the only style guide the next agent gets, so one French
+subject makes every later commit on that branch French by imitation.
+
+What stays French is what a participant reads: workshop content, and the translated strings of
+the participant path (see *Platform strings* below).
+
 ## Context: this is a real workshop, not a hypothetical
 
 - **Audience: French lycéens, 15 to 18 years old, beginner to intermediate.**

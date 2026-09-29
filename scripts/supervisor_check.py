@@ -131,20 +131,29 @@ def join(s, code, name):
 
 
 # --------------------------------------------------------------------------
+# The link is on the login page's staff door, never the talent one
+# (login.html). `?staff=1` draws the staff door whether or not the instance
+# has Jump configured, where a bare /login would be the talent door on every
+# provisioned instance and the checks below would test nothing.
+STAFF_DOOR = BASE + "/login?staff=1"
+
 print("closed door")
 admin.set_config("workshop_supervisor_code", "")
 anon = requests.Session()
 check(anon.get(BASE + "/supervisor/join", timeout=20).status_code == 404,
       "with no code set, /supervisor/join is a 404")
-check("supervisor" not in anon.get(BASE + "/login", timeout=20).text.lower(),
-      "and the login page does not mention it")
+check("supervisor" not in anon.get(STAFF_DOOR, timeout=20).text.lower(),
+      "and the login page's staff door does not mention it")
 
 print("open door")
 admin.set_config("workshop_supervisor_code", CODE)
-check(anon.get(BASE + "/supervisor/join", timeout=20).status_code == 200,
-      "with a code set, /supervisor/join renders")
-check("/supervisor/join" in anon.get(BASE + "/login", timeout=20).text,
-      "and the login page links to it")
+joining = anon.get(BASE + "/supervisor/join", timeout=20)
+check(joining.status_code == 200, "with a code set, /supervisor/join renders")
+# Core's footer is hidden on every page built on the login layout, so the
+# credit is the layout's to draw (workshop_login_layout.html).
+check("epi-login-credit" in joining.text, "on the login layout, credit included")
+check("/supervisor/join" in anon.get(STAFF_DOOR, timeout=20).text,
+      "and the login page's staff door links to it")
 
 wrong = requests.Session()
 name_wrong = "svcheckw" + RUN

@@ -130,6 +130,8 @@ body,
 [data-bs-theme="light"] {
   --bs-primary: #013afb;
   --bs-primary-rgb: 1, 58, 251;
+  /* jump's --primary-foreground: the text on a --bs-primary fill. */
+  --epi-on-primary: #ffffff;
   --bs-link-color: #013afb;
   --bs-link-color-rgb: 1, 58, 251;
   --bs-link-hover-color: #013afb;
@@ -166,6 +168,8 @@ body,
 [data-bs-theme="dark"] {
   --bs-primary: #809dfd;
   --bs-primary-rgb: 128, 157, 253;
+  /* White on #809dfd is 2.6:1; jump puts near-black on its dark primary. */
+  --epi-on-primary: #0c0e13;
   --bs-link-color: #809dfd;
   --bs-link-color-rgb: 128, 157, 253;
   --bs-link-hover-color: #809dfd;
@@ -256,12 +260,21 @@ body,
 
 /* ============================================================================
    Component-level overrides. Bootstrap bakes these as literal hex in their own
-   --bs-btn-*/--bs-*-active-bg vars at build time, so the root remap above
+   --bs-btn-* and --bs-*-active-bg vars at build time, so the root remap above
    never reaches them — this list IS the fix, not decoration. See DESIGN.md
    "Bootstrap limitations".
+
+   Never write a glob against a slash in a comment here: the two characters
+   close the comment, and the parser then drops the next rule as part of a
+   garbage selector. Until 2026-09-29 this very comment did that to
+   `.btn-primary` below, and every primary button on the platform rendered in
+   Bootstrap's own #0d6efd.
    ============================================================================ */
 .btn-primary {
-  --bs-btn-color: #fff;
+  --bs-btn-color: var(--epi-on-primary);
+  --bs-btn-hover-color: var(--epi-on-primary);
+  --bs-btn-active-color: var(--epi-on-primary);
+  --bs-btn-disabled-color: var(--epi-on-primary);
   --bs-btn-bg: var(--bs-primary);
   --bs-btn-border-color: var(--bs-primary);
   --bs-btn-hover-bg: color-mix(in oklab, var(--bs-primary) 85%, black);
@@ -274,6 +287,8 @@ body,
 .btn-outline-primary {
   --bs-btn-color: var(--bs-primary);
   --bs-btn-border-color: var(--bs-primary);
+  --bs-btn-hover-color: var(--epi-on-primary);
+  --bs-btn-active-color: var(--epi-on-primary);
   --bs-btn-hover-bg: var(--bs-primary);
   --bs-btn-hover-border-color: var(--bs-primary);
   --bs-btn-active-bg: var(--bs-primary);
@@ -1150,7 +1165,8 @@ main > #ws-workshop > .container {
    jump's `LoginBrandPanel.svelte`: a full-bleed epi-blue column with the
    blueprint grid, half-opacity pixel squares and the charte's signature block,
    the form beside it, the panel gone below `lg`. Markup in
-   plugins/workshop/templates/login.html.
+   plugins/workshop/templates/workshop_login_layout.html, which the login page
+   and the supervisor's join page both extend.
    ============================================================================ */
 /* `main` is `flex: 1 0 auto` in the body column, but it is not itself a flex
    container, so a child cannot be told to fill it. Making it one only for this
@@ -1175,7 +1191,6 @@ main:has(> .epi-login) {
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
     flex: 1 1 44%;
     padding: 3rem;
     background-color: var(--epi-blue);
@@ -1185,7 +1200,10 @@ main:has(> .epi-login) {
       linear-gradient(90deg, rgb(255 255 255 / 0.045) 1px, transparent 1px);
     background-size: 48px 48px;
   }
-  /* Pixel squares, offset and overlapping, on the panel's own scale. */
+  /* Pixel squares, offset and overlapping: jump's three, at jump's sizes,
+     places and alphas (`bg-white/15`, `bg-white/10`, `bg-epi-tech/15`). The
+     accent is the only non-white note, and at 15% it stays a tint over the
+     blue rather than a block of its own. */
   .epi-login-panel::after {
     content: "";
     position: absolute;
@@ -1194,19 +1212,29 @@ main:has(> .epi-login) {
     background-image:
       linear-gradient(rgb(255 255 255 / 0.15) 0 0),
       linear-gradient(rgb(255 255 255 / 0.1) 0 0),
-      /* One accent square, the only non-white note: the charte's texture is
-         half-opacity brand rectangles, so it stays a tint and never a block. */
-      linear-gradient(rgb(0 255 151 / 0.55) 0 0);
+      linear-gradient(rgb(0 255 151 / 0.15) 0 0);
     background-repeat: no-repeat;
-    background-size: 6rem 4rem, 4rem 5rem, 3.5rem 2.5rem;
-    background-position: top 18% right 22%, top 24% right 8%, bottom 24% left 14%;
-    opacity: 0.4;
+    background-size: 6rem 4rem, 4rem 5rem, 5rem 3.5rem;
+    background-position: top 18% right 22%, top 24% right 12%, bottom 26% left 14%;
+  }
+}
+/* jump's `xl:p-16`. */
+@media (min-width: 1200px) {
+  .epi-login-panel {
+    padding: 4rem;
   }
 }
 .epi-login-panel-body,
 .epi-login-signature {
   position: relative;
   z-index: 1;
+}
+/* Centred in the column, the signature pinned under it. jump gets the same
+   balance from `justify-between` over three children, the first being its
+   wordmark; ours has no wordmark (the header carries it), and two children
+   spaced apart left the headline at the top over a blue void. */
+.epi-login-panel-body {
+  margin-block: auto;
 }
 .epi-login-kicker {
   font-family: "Space Mono", "IBM Plex Mono", ui-monospace, monospace;
@@ -1215,21 +1243,36 @@ main:has(> .epi-login) {
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--epi-tech);
-  margin: 0 0 0.75rem;
+  margin: 0 0 1rem;
 }
+/* jump's `text-display-xl xl:text-display-2xl`. Anton's ascenders sit above
+   its line box at a line-height this tight, hence the padding/margin pair. */
 .epi-login-lead {
   font-family: "Anton", sans-serif;
   text-transform: uppercase;
-  font-size: 2.25rem;
-  line-height: 1.05;
+  font-size: 2.5rem;
+  line-height: 1;
+  letter-spacing: -0.01em;
   margin: -0.375rem 0 0;
   padding: 0.375rem 0;
 }
+@media (min-width: 1200px) {
+  .epi-login-lead {
+    font-size: 3.5rem;
+    line-height: 0.95;
+  }
+}
+/* The accroche, in jump's code tag: mono, 70% white, delimiters at 60% of
+   that. */
 .epi-login-desc {
-  margin: 1rem 0 0;
+  margin: 1.5rem 0 0;
   max-width: 28rem;
-  font-size: 1rem;
-  color: rgb(255 255 255 / 0.8);
+  font-family: "Space Mono", "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.875rem;
+  color: rgb(255 255 255 / 0.7);
+}
+.epi-code-delim {
+  opacity: 0.6;
 }
 .epi-login-signature {
   font-family: "Space Mono", "IBM Plex Mono", ui-monospace, monospace;
@@ -1251,24 +1294,134 @@ main:has(> .epi-login) {
   align-items: center;
   justify-content: center;
   flex: 1 1 56%;
-  padding: 3rem 1rem;
+  padding: 3rem 1.5rem;
 }
-@media (min-width: 768px) {
+@media (min-width: 576px) {
   .epi-login-form {
-    padding-inline: 2rem;
+    padding: 3rem;
   }
 }
+/* jump's `max-w-sm space-y-8`: head, door and footer as three blocks with one
+   gap between them, so no block carries a margin the next one has to know
+   about. */
 .epi-login-form-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
   width: 100%;
   max-width: 24rem;
 }
 .epi-login-title {
   font-family: "Anton", sans-serif;
   text-transform: uppercase;
-  font-size: 1.5rem;
+  font-size: 1.875rem;
   line-height: 1.1;
-  margin: -0.375rem 0 1.5rem;
+  margin: -0.375rem 0 0.5rem;
   padding: 0.375rem 0;
+}
+.epi-login-sub {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--bs-secondary-color);
+}
+/* Core's alerts carry their own bottom margin; with nothing above them in
+   this block, that margin is the only spacing they need. */
+.epi-login-main .alert {
+  margin-bottom: 1rem;
+}
+
+/* The fields and the button, jump's `LoginEmailStep`: `space-y-5`, small
+   uppercase muted labels, 3rem controls. The radius is already the platform's
+   control radius (--bs-border-radius, jump's rounded-xl). Horizontal padding
+   is not jump's `px-4` and cannot be: CTFd's own `input { padding: .6rem
+   !important }` owns it (DESIGN.md, "Bootstrap limitations"). */
+.epi-login-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+.epi-login-label {
+  display: block;
+  margin-bottom: 0.5rem;
+  padding-left: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--bs-secondary-color);
+}
+.epi-login-input {
+  height: 3rem;
+  font-size: 1rem;
+}
+/* The login's one call to action, on both doors. Geometry only: the fill is
+   the `.btn-primary` remap above, and the press scale is the platform's.
+   Paired with `.btn` to reach 0,2,0 over Bootstrap's own `.btn` sizing. */
+.btn.epi-login-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 3rem;
+  padding-block: 0.5rem;
+  border-radius: var(--bs-border-radius);
+  font-size: 1rem;
+  font-weight: 700;
+  box-shadow: var(--epi-shadow-raised);
+}
+.btn.epi-login-btn + .btn.epi-login-btn {
+  margin-top: 0.75rem;
+}
+.epi-login-note {
+  margin: 1.25rem 0 0;
+  font-size: 0.875rem;
+  text-align: center;
+}
+
+/* jump's `LoginFooter.svelte`: the way to the other door, then the credit. */
+.epi-login-foot {
+  text-align: center;
+}
+.epi-login-switch {
+  margin: 0 0 0.75rem;
+  font-size: 0.875rem;
+  color: var(--bs-secondary-color);
+}
+.epi-login-switch a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin-left: 0.125rem;
+  font-weight: 600;
+  color: var(--bs-primary);
+  text-decoration: none;
+}
+.epi-login-switch a:hover {
+  text-decoration: underline;
+}
+.epi-login-switch a i {
+  font-size: 0.75rem;
+  transition: transform var(--epi-dur-fast) var(--epi-ease-standard);
+}
+.epi-login-switch a:hover i {
+  transform: translateX(2px);
+}
+.epi-login-credit {
+  margin: 0;
+  font-size: 0.75rem;
+}
+.epi-login-credit a {
+  color: var(--bs-secondary-color);
+  text-decoration: none;
+}
+.epi-login-credit a:hover {
+  color: var(--bs-body-color);
+}
+/* Core's own footer, not on a page built on the login layout. The panel runs
+   the full height of the viewport, and a strip of page background across the
+   bottom of it cut the screen in two. Its one line — the credit — is rendered
+   in the form column instead (workshop_login_layout.html), which is where jump
+   puts its own. */
+body:has(> main > .epi-login) > .footer {
+  display: none;
 }
 
 /* Core hangs the footer off `position: absolute` with a 100px margin reserved

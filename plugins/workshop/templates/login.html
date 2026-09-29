@@ -1,138 +1,139 @@
-{% extends "base.html" %}
+{% extends "workshop_login_layout.html" %}
 
 {#
   Override of the core theme's login page. It exists because this is the
   handover: a participant arrives here from Jump's talent space, and what they
-  landed on was a form floating in the middle of an empty white page.
+  landed on was a form floating in the middle of an empty white page. The panel
+  beside the form, and the credit under it, are the shared layout's
+  (workshop_login_layout.html).
 
-  The layout is jump's own `LoginBrandPanel.svelte` — a full-bleed epi-blue
-  column carrying the blueprint grid, a few half-opacity pixel squares and the
-  charte's signature block, with the form beside it. Two adaptations, both
-  because jump's login has no app bar above it: the panel does not repeat the
-  wordmark (the header two lines up already carries it), and it continues the
-  header's band down the page rather than starting its own.
-
-  Hidden below 992px, exactly as jump hides it: on a phone the form is the whole
-  job and a decorative column would push it under the fold.
+  Two doors, as on Jump, where `/login` is the talents' and `/staff/login` the
+  staff's, each linking to the other at the bottom. Here both are this one
+  page: `/login` opens on the talent door (the Jump button and nothing else),
+  `/login?staff=1` on the staff form. `login_is_staff()` (jump.py) picks, and
+  also opens the staff door whenever the talent one would be wrong — no Jump
+  configured, a failed attempt being re-rendered, an admin page in `next`.
 
   The form itself is core's, field for field — same `Forms.auth.LoginForm()`,
   same errors include, same Major League Cyber branch, same nonce. Only the
-  layout around it is ours, so an upstream change to how CTFd authenticates does
-  not have to be mirrored here.
-
-  One addition of our own: the "Continue with Jump" button, in its own `{% if %}`
-  above the MLC branch. See the comment where it is rendered.
+  layout and the classes around it are ours, so an upstream change to how CTFd
+  authenticates does not have to be mirrored here.
 #}
 
-{% block content %}
-<div class="epi-login">
+{% set staff = login_is_staff() %}
+{% set login_accroche = Configs.ctf_description %}
 
-  <aside class="epi-login-panel on-dark">
-    <div class="epi-login-panel-body">
-      <p class="epi-login-kicker">&lt;Workshop&gt;</p>
-      <p class="epi-login-lead">{{ Configs.ctf_name }}</p>
-      {% if Configs.ctf_description %}
-        <p class="epi-login-desc">{{ Configs.ctf_description }}</p>
-      {% endif %}
-    </div>
-    <p class="epi-login-signature">
-      <span class="epi-login-brace">{</span>
-      &lt;Tech Together Tomorrow&gt;
-      <span class="epi-login-brace">}</span>
-      <span class="epi-login-since">Since 1999</span>
+{% block login_head %}
+  <h1 class="epi-login-title epi-title-cursor">{% trans %}Login{% endtrans %}</h1>
+  {# Tu on the talent door and vous on the staff one: the participant path
+     speaks to lycéens the way Jump does, the staff strings of this plugin
+     already say vous. #}
+  <p class="epi-login-sub">
+    {% if staff %}
+      {% trans %}Staff area: sign in with your username or email.{% endtrans %}
+    {% else %}
+      {% trans %}Sign in with your Jump account.{% endtrans %}
+    {% endif %}
+  </p>
+{% endblock %}
+
+{% block login_main %}
+  {% if not staff %}
+    {#
+      The handover, made visible. A talent is not supposed to reach this page
+      at all — they arrive on /jump/enter already signed in — but the ones who
+      do are the ones who bookmarked the URL or were sent it, and a form they
+      have no credentials for is a dead end. This is the way out, and on this
+      door it is the only thing there is.
+
+      One button per configured key, labelled only when there are several:
+      with two, this instance really does serve two Jump environments and
+      picking one silently would send half the talents to the wrong door.
+    #}
+    {% set keys = jump_keys() %}
+    {% for kid, key in keys.items() %}
+      <a class="btn btn-primary epi-login-btn w-100" href="{{ key.origin }}">
+        {%- if keys|length > 1 -%}
+          {% trans label=key.label %}Continue with Jump ({{ label }}){% endtrans %}
+        {%- else -%}
+          {% trans %}Continue with Jump{% endtrans %}
+        {%- endif -%}
+      </a>
+    {% endfor %}
+  {% else %}
+    {# Core's MLC branch, byte for byte what core renders. #}
+    {% if integrations.mlc() %}
+      <a class="btn btn-secondary btn-lg btn-block w-100" href="{{ url_for('auth.oauth_login') }}">
+        Login with Major League Cyber
+      </a>
+
+      <hr>
+    {% endif %}
+
+    {% with form = Forms.auth.LoginForm() %}
+      {# No `action`: the form posts to the URL it was served on, so a `next`
+         in the query string survives the round trip, as it does on core's. #}
+      <form class="epi-login-fields" method="post" accept-charset="utf-8">
+        {# Core marks both fields with a red `*`. Every field here is required,
+           so the mark tells nobody anything; jump's form has none. #}
+        <div>
+          {{ form.name.label(class="form-label epi-login-label") }}
+          {{ form.name(class="form-control epi-login-input", value=name, autocomplete="username email") }}
+        </div>
+
+        <div>
+          {{ form.password.label(class="form-label epi-login-label") }}
+          {{ form.password(class="form-control epi-login-input", value=password, autocomplete="current-password") }}
+        </div>
+
+        {# Core's login offers "Forgot your password?" here. It is dropped: the
+           reset form mails a token and no instance of this platform has SMTP
+           configured, so the link went to a page that could never finish.
+           Staff who lose a password ask an admin, which is what they had to do
+           anyway.
+
+           The label says what the button does rather than core's "Submit".
+           Only the value changes: the field is still `_submit`, which core
+           never reads anyway. #}
+        {{ form.submit(class="btn btn-primary epi-login-btn w-100", value=_("Sign in")) }}
+
+        {{ form.nonce() }}
+      </form>
+    {% endwith %}
+
+    {# The supervisor door (staff.py), shown only while it is open: a teacher
+       told "sign in on the instance" should not need the URL as well as the
+       code. Behind the code, so advertising it costs nothing.
+
+       On the staff door, not the talent one. A supervisor is staff, the
+       talent door's "Staff sign-in" link is one click away, and the talent
+       door keeps the Jump button as the only thing on it. #}
+    {% if supervisor_joining_open() %}
+      <p class="epi-login-note">
+        <a href="{{ url_for('workshop_staff.join') }}">{% trans %}Running the room? Join as a supervisor with your code.{% endtrans %}</a>
+      </p>
+    {% endif %}
+  {% endif %}
+{% endblock %}
+
+{#
+  The staff door only links back when there is a talent door to link back to.
+  `next` rides along to the staff door, the only one that can honour it.
+#}
+{% block login_switch %}
+  {% if not staff %}
+    <p class="epi-login-switch">
+      {% trans %}Staff member?{% endtrans %}
+      <a href="{{ url_for('auth.login', staff=1, next=request.args.get('next')) }}">
+        {% trans %}Staff sign-in{% endtrans %}<i class="fas fa-arrow-right" aria-hidden="true"></i>
+      </a>
     </p>
-  </aside>
-
-  <div class="epi-login-form">
-    <div class="epi-login-form-body">
-      <h1 class="epi-login-title epi-title-cursor">{% trans %}Login{% endtrans %}</h1>
-
-      {% include "components/errors.html" %}
-
-      {#
-        The handover, made visible. A talent is not supposed to reach this page
-        at all — they arrive on /jump/enter already signed in — but the ones who
-        do are the ones who bookmarked the URL or were sent it, and a form they
-        have no credentials for is a dead end. This is the way out.
-
-        Its own `{% if %}`, above the Major League Cyber branch and never
-        inside it, so the upstream MLC path below stays byte for byte what core
-        renders.
-
-        One button per configured key, labelled only when there are several:
-        with two, this instance really does serve two Jump environments and
-        picking one silently would send half the talents to the wrong door.
-      #}
-      {% if jump_enabled() %}
-        {% set keys = jump_keys() %}
-        {% for kid, key in keys.items() %}
-          <a class="btn btn-primary btn-lg btn-block w-100 mb-2" href="{{ key.origin }}">
-            {%- if keys|length > 1 -%}
-              {% trans label=key.label %}Continue with Jump ({{ label }}){% endtrans %}
-            {%- else -%}
-              {% trans %}Continue with Jump{% endtrans %}
-            {%- endif -%}
-          </a>
-        {% endfor %}
-
-        <hr>
-
-        <p class="text-muted small">
-          {% trans %}Signing in below is for staff. Participants come through Jump.{% endtrans %}
-        </p>
-      {% endif %}
-
-      {% if integrations.mlc() %}
-        <a class="btn btn-secondary btn-lg btn-block w-100" href="{{ url_for('auth.oauth_login') }}">
-          Login with Major League Cyber
-        </a>
-
-        <hr>
-      {% endif %}
-
-      {% with form = Forms.auth.LoginForm() %}
-        <form method="post" accept-charset="utf-8">
-          <div class="mb-3">
-            <b>
-              {{ form.name.label(class="form-label") }}
-              <span class="text-danger">*</span>
-            </b>
-            {{ form.name(class="form-control", value=name, autocomplete="username email") }}
-          </div>
-
-          <div class="mb-3">
-            <b>
-              {{ form.password.label(class="form-label") }}
-              <span class="text-danger">*</span>
-            </b>
-            {{ form.password(class="form-control", value=password, autocomplete="current-password") }}
-          </div>
-
-          {# Core's login offers "Forgot your password?" here. It is dropped:
-             the reset form mails a token and no instance of this platform has
-             SMTP configured, so the link went to a page that could never
-             finish. Staff who lose a password ask an admin, which is what they
-             had to do anyway. The submit button takes the row on its own. #}
-          <div class="row pt-3">
-            <div class="col-12">
-              {{ form.submit(class="btn btn-block btn-primary w-100") }}
-            </div>
-          </div>
-
-          {{ form.nonce() }}
-        </form>
-      {% endwith %}
-
-      {# The supervisor door (staff.py), shown only while it is open: a
-         teacher told "sign in on the instance" should not need the URL as
-         well as the code. Behind the code, so advertising it costs nothing. #}
-      {% if supervisor_joining_open() %}
-        <p class="text-muted small pt-3 mb-0">
-          <a href="{{ url_for('workshop_staff.join') }}">{% trans %}Running the room? Join as a supervisor with your code.{% endtrans %}</a>
-        </p>
-      {% endif %}
-    </div>
-  </div>
-
-</div>
+  {% elif jump_enabled() %}
+    <p class="epi-login-switch">
+      {% trans %}Are you a student?{% endtrans %}
+      <a href="{{ url_for('auth.login') }}">
+        {% trans %}Continue with Jump{% endtrans %}<i class="fas fa-arrow-right" aria-hidden="true"></i>
+      </a>
+    </p>
+  {% endif %}
 {% endblock %}

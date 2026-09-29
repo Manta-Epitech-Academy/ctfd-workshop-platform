@@ -294,9 +294,13 @@
             {% trans %}Register{% endtrans %}
           </a>
         {% endif %}
-        <a class="epi-cta-on-band btn btn-primary btn-sm" href="{{ url_for('auth.login') }}">
-          {% trans %}Login{% endtrans %}
-        </a>
+        {# Not on the login page itself, where it would be a button to the page
+           the reader is already on, beside a form offering the same. #}
+        {% if request.endpoint != 'auth.login' %}
+          <a class="epi-cta-on-band btn btn-primary btn-sm" href="{{ url_for('auth.login') }}">
+            {% trans %}Login{% endtrans %}
+          </a>
+        {% endif %}
       {% endif %}
     </div>
 

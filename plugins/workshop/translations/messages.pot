@@ -8,14 +8,14 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-09-23 17:04+0400\n"
+"POT-Creation-Date: 2026-09-29 12:32+0900\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: Babel 2.10.3\n"
+"Generated-By: Babel 2.18.0\n"
 
 #, python-format
 msgid "%(count)s answer"
@@ -30,7 +30,7 @@ msgstr ""
 msgid "Admin Panel"
 msgstr ""
 
-msgid "Already have an account? Log in"
+msgid "Already have an account?"
 msgstr ""
 
 msgid "An email address can be a user name only if it is the account's own"
@@ -40,6 +40,9 @@ msgid "Answer"
 msgstr ""
 
 msgid "Anything to add? (optional)"
+msgstr ""
+
+msgid "Are you a student?"
 msgstr ""
 
 msgid "Available now"
@@ -268,6 +271,9 @@ msgstr ""
 msgid "Poor"
 msgstr ""
 
+msgid "Powered by CTFd"
+msgstr ""
+
 msgid "Preview"
 msgstr ""
 
@@ -307,7 +313,19 @@ msgstr ""
 msgid "Side by side"
 msgstr ""
 
-msgid "Signing in below is for staff. Participants come through Jump."
+msgid "Sign in"
+msgstr ""
+
+msgid "Sign in with your Jump account."
+msgstr ""
+
+msgid "Staff area: sign in with your username or email."
+msgstr ""
+
+msgid "Staff member?"
+msgstr ""
+
+msgid "Staff sign-in"
 msgstr ""
 
 msgid "Start"
@@ -333,6 +351,9 @@ msgid "Supervisor code"
 msgstr ""
 
 msgid "Team"
+msgstr ""
+
+msgid "Teams"
 msgstr ""
 
 msgid "Thanks for the feedback!"
@@ -394,6 +415,7 @@ msgstr ""
 msgid "Tools, step by step"
 msgstr ""
 
+#, python-brace-format
 msgid "Unlock this hint for {n} points?"
 msgstr ""
 
@@ -401,6 +423,9 @@ msgid "Unlocks with this step."
 msgstr ""
 
 msgid "User Name"
+msgstr ""
+
+msgid "Users"
 msgstr ""
 
 msgid "Validation code"

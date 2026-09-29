@@ -401,6 +401,44 @@ def main():
     sink.start()
     atexit.register(sink.destroy)
 
+    # -- the login page's two doors (login.html, jump.py login_is_staff) ---
+    print("== the login page opens on the talent door, the staff form behind it ==")
+    anon = requests.Session()
+    talent = anon.get(base + "/login", timeout=20).text
+    check(talent.count(f'href="{origin}"') == 2,
+          "one Jump button per configured key")
+    # The label in its parentheses, as the button renders it: LABEL_A alone
+    # is a substring of LABEL_B and of the sink's host name in both hrefs,
+    # so a bare `in` would pass with key A unlabelled.
+    check(f"({LABEL_A})" in talent and f"({LABEL_B})" in talent,
+          "labelled by environment, since there are two")
+    check('name="password"' not in talent, "and no password field")
+    check('href="/login?staff=1"' in talent, "a link leads to the staff door")
+    deep = anon.get(base + "/login?next=/scoreboard", timeout=20).text
+    check('href="/login?staff=1&amp;next=%2Fscoreboard"' in deep,
+          "and carries `next` there, the only door that can honour it")
+    staff = anon.get(base + "/login?staff=1", timeout=20).text
+    check('name="password"' in staff, "the staff door is the form")
+    check('href="/login"' in staff and f'href="{origin}"' not in staff,
+          "which links back to the talent door rather than to Jump itself")
+    r = anon.post(base + "/login", timeout=20, data={
+        "name": "nobody" + RUN, "password": "wrong",
+        "nonce": nonce(anon, base, "/login")})
+    check('name="password"' in r.text and "alert-danger" in r.text,
+          "a wrong password is answered next to the form, not on the talent door")
+    bounced = anon.get(base + "/login?next=/admin/workshop/stats", timeout=20).text
+    check('name="password"' in bounced,
+          "an admin page bounced to the login opens on the staff door")
+    check("epi-login-credit" in talent and "epi-login-credit" in staff,
+          "both doors carry the credit core's hidden footer used to")
+    # The header's Login button links to the page it would sit on. Present
+    # on the anonymous front page, so its absence here is the login page's
+    # doing (navbar.html) and not a header that lost it everywhere.
+    front = anon.get(base + "/", timeout=20).text
+    check("epi-cta-on-band" in front
+          and "epi-cta-on-band" not in talent and "epi-cta-on-band" not in staff,
+          "the header drops its Login button on the login page, and only there")
+
     # -- AC1, AC4 ----------------------------------------------------------
     print("== a cold entry creates one account and one link ==")
     before = len(admin.links())

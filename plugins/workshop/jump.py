@@ -274,6 +274,12 @@ def login_is_staff():
       - `next` is an admin page: core's `admins_only` and our `staff_only`
         (staff.py) both bounce to `auth.login` with `next=request.full_path`,
         and nobody Jump signs in is going there.
+
+    One admin URL does not carry a `next`: core's bare `/admin`
+    (CTFd/admin/__init__.py `view`) redirects to `auth.login` with nothing
+    after it, so it lands on the talent door, one "Staff sign-in" click from
+    the form. Left alone on purpose: telling it apart would mean reading the
+    Referer or hooking a core route, and neither is worth one click.
     """
     return (not jump_enabled()
             or request.method == "POST"

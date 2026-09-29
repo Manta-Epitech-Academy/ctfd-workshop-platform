@@ -103,7 +103,11 @@
 
     {# The supervisor door (staff.py), shown only while it is open: a teacher
        told "sign in on the instance" should not need the URL as well as the
-       code. Behind the code, so advertising it costs nothing. #}
+       code. Behind the code, so advertising it costs nothing.
+
+       On the staff door, not the talent one. A supervisor is staff, the
+       talent door's "Staff sign-in" link is one click away, and the talent
+       door keeps the Jump button as the only thing on it. #}
     {% if supervisor_joining_open() %}
       <p class="epi-login-note">
         <a href="{{ url_for('workshop_staff.join') }}">{% trans %}Running the room? Join as a supervisor with your code.{% endtrans %}</a>

@@ -401,6 +401,31 @@ def main():
     sink.start()
     atexit.register(sink.destroy)
 
+    # -- the login page's two doors (login.html, jump.py login_is_staff) ---
+    print("== the login page opens on the talent door, the staff form behind it ==")
+    anon = requests.Session()
+    talent = anon.get(base + "/login", timeout=20).text
+    check(talent.count(f'href="{origin}"') == 2,
+          "one Jump button per configured key")
+    check(LABEL_A in talent and LABEL_B in talent,
+          "labelled by environment, since there are two")
+    check('name="password"' not in talent, "and no password field")
+    check('href="/login?staff=1"' in talent, "a link leads to the staff door")
+    staff = anon.get(base + "/login?staff=1", timeout=20).text
+    check('name="password"' in staff, "the staff door is the form")
+    check('href="/login"' in staff and f'href="{origin}"' not in staff,
+          "which links back to the talent door rather than to Jump itself")
+    r = anon.post(base + "/login", timeout=20, data={
+        "name": "nobody" + RUN, "password": "wrong",
+        "nonce": nonce(anon, base, "/login")})
+    check('name="password"' in r.text and "alert-danger" in r.text,
+          "a wrong password is answered next to the form, not on the talent door")
+    bounced = anon.get(base + "/login?next=/admin/workshop/stats", timeout=20).text
+    check('name="password"' in bounced,
+          "an admin page bounced to the login opens on the staff door")
+    check("epi-login-credit" in talent and "epi-login-credit" in staff,
+          "both doors carry the credit core's hidden footer used to")
+
     # -- AC1, AC4 ----------------------------------------------------------
     print("== a cold entry creates one account and one link ==")
     before = len(admin.links())

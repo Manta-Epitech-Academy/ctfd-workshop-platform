@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-09-29 12:06+0900\n"
+"POT-Creation-Date: 2026-09-29 12:13+0900\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -40,6 +40,9 @@ msgid "Answer"
 msgstr ""
 
 msgid "Anything to add? (optional)"
+msgstr ""
+
+msgid "Are you a student?"
 msgstr ""
 
 msgid "Available now"
@@ -345,9 +348,6 @@ msgid "Supervisor access"
 msgstr ""
 
 msgid "Supervisor code"
-msgstr ""
-
-msgid "Taking part in the workshop?"
 msgstr ""
 
 msgid "Team"

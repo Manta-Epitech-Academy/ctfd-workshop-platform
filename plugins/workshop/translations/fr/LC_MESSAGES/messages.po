@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-09-29 12:06+0900\n"
+"POT-Creation-Date: 2026-09-29 12:13+0900\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: fr\n"
@@ -45,6 +45,9 @@ msgstr "Réponse"
 
 msgid "Anything to add? (optional)"
 msgstr "Un mot à ajouter ? (facultatif)"
+
+msgid "Are you a student?"
+msgstr "Tu es élève ?"
 
 msgid "Available now"
 msgstr "À toi de jouer"
@@ -356,9 +359,6 @@ msgstr "Accès superviseur"
 msgid "Supervisor code"
 msgstr "Code superviseur"
 
-msgid "Taking part in the workshop?"
-msgstr "Tu participes au workshop ?"
-
 msgid "Team"
 msgstr ""
 
@@ -514,4 +514,7 @@ msgstr "ton parcours"
 #~ "La connexion ci-dessous est réservée "
 #~ "à l'équipe. Les participants passent par"
 #~ " Jump."
+
+#~ msgid "Taking part in the workshop?"
+#~ msgstr "Tu participes au workshop ?"
 

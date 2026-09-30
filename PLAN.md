@@ -3964,3 +3964,53 @@ clicking opens it and the items navigate, and that a bar with one entry is left 
 Two things the check had to learn about this instance: the Epitech login override renders
 WTForms' `submit`, which is an `<input>` and not the `<button>` core uses; and `/admin/statistics`
 polls, so `networkidle` never arrives and the wait has to be on the fold itself.
+
+## 45. The name follows the subject to the door as well (2026-09-30)
+
+§24 made `/workshop`, its parts and `/toolbox` carry the subject's name instead of the instance's.
+It stopped there, deliberately: the login lead, the supervisor-join lead and the staff footer were
+left on `Configs.ctf_name` on the reasoning that those answer *"which instance am I on"*.
+
+That reasoning was wrong for the door. Somebody reading `/login` arrived **for the workshop**, not
+for the box it is deployed in, and on production the box is called `CTF 1000`.
+
+### 45.1 Why it looked fixed on the development instance
+
+It did not. The development instance's `ctf_name` is `Pac-Man — IA du fantôme`, which somebody
+typed; the subject's name is `IA du fantôme de Pac-Man`. Different words, different order. The
+login page was showing `ctf_name` on both instances all along, and one of them happened to have a
+value that looked right. Two instances, same code, same template, different config.
+
+### 45.2 The `<title>` half, and why a context processor
+
+The lead is one word in `workshop_login_layout.html`. The browser tab is not: core's `base.html`
+renders `{{ title or Configs.ctf_name }}`, and most views pass no `title` — including
+`auth.login`, which this plugin does not own and cannot hand an argument to.
+
+So a **context processor**, supplying `title` for every render that does not already have one.
+Two properties make it safe, and both are load-bearing:
+
+- **Explicit wins.** `Flask.update_template_context` copies the original context, lets the
+  processors update it, and then `context.update(orig_ctx)` puts the explicit values back on top.
+  A part page still titles itself *Partie 1 : Arbre de décision*; an authored Page still titles
+  itself *Parcours*. The processor is only ever the fallback.
+- **Three endpoints are excluded**, because `templates/page.html` gates its brand band on
+  `{% if title %}` (§36). An authored Page passes a title and gets a band. `/tos` and `/privacy`
+  pass none and are meant to get none.
+
+**`views.tos` and `views.privacy` are not `views.static_html`.** The first version of this excluded
+only `static_html`, and would have given the terms and the privacy page a hero band titled after
+the subject — the exact regression §24 refused a context processor to avoid. They are three
+separate endpoints rendering the same template (`CTFd/views.py:367`, `:379`).
+
+### 45.3 Checked
+
+On 9091, with the subject synced: the talent door, the staff door and the external door all read
+*IA du fantôme de Pac-Man* in the tab and in the panel; `/workshop` the same; `/workshop/atelier1`
+still *Partie 1 : Arbre de décision* in both tab and heading, which is the proof that an explicit
+title still wins; `/parcours` still *Parcours* with its band. `/tos`, enabled for the test and put
+back, renders **no band** and falls back to `ctf_name` in the tab.
+
+The navbar's logo `alt` and `aria-label` move too — they name the thing the logo links to. The
+staff footer in `workshop_staff_base.html` stays on `ctf_name`: that one really is "which instance
+am I on", and it is only ever read by somebody with an admin session.

@@ -40,7 +40,10 @@
   <aside class="epi-login-panel on-dark">
     <div class="epi-login-panel-body">
       <p class="epi-login-kicker">&lt;Workshop&gt;</p>
-      <p class="epi-login-lead epi-title-cursor">{{ Configs.ctf_name }}</p>
+      {# The subject's name when one is synced, the instance's otherwise
+         (page.py `instance_title`, §24/§45). Somebody at this door arrived for
+         the workshop, not for the box it is deployed in. #}
+      <p class="epi-login-lead epi-title-cursor">{{ workshop_title() }}</p>
       {% if login_accroche %}
         {# The charte's code tag, jump's `CodeTag.svelte`: the delimiters are
            decoration, so a screen reader reads the accroche and not "less

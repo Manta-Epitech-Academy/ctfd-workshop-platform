@@ -28,8 +28,8 @@ import json
 import re
 from itertools import groupby
 
-from flask import (Blueprint, abort, current_app, jsonify, redirect,
-                   render_template, url_for)
+from flask import (Blueprint, abort, current_app, g, jsonify, redirect,
+                   render_template, request, url_for)
 
 from CTFd.models import Hints, HintUnlocks, Ratings, Submissions
 from flask_babel import lazy_gettext as _l
@@ -556,8 +556,25 @@ def instance_title():
     only thing that describes the whole of it, which is also the case before
     any sync has run.
     """
-    titles = [t for t in ((s or {}).get("title") for s in _subjects().values()) if t]
-    return titles[0] if len(titles) == 1 else (get_config("ctf_name") or "")
+    if "ws_instance_title" not in g:
+        titles = [t for t in ((s or {}).get("title") for s in _subjects().values()) if t]
+        g.ws_instance_title = (titles[0] if len(titles) == 1
+                               else (get_config("ctf_name") or ""))
+    return g.ws_instance_title
+
+
+# The endpoints that must NOT be handed a default `title`.
+#
+# All three render this plugin's templates/page.html, which gates its brand band
+# on `{% if title %}` (§36). An authored Page passes its own title and gets a
+# band; `/tos` and `/privacy` pass none and are meant to get none — they are a
+# wall of legal text, not a destination with a name.
+#
+# `views.tos` and `views.privacy` are separate endpoints from `views.static_html`
+# (CTFd/views.py:367, :379), which is easy to miss: the first version of this
+# listed only `static_html` and would have given both of them a band titled
+# after the subject.
+NO_DEFAULT_TITLE = ("views.static_html", "views.tos", "views.privacy")
 
 
 def _cover_for(subject, documents=None, doc_slug=None):
@@ -979,3 +996,21 @@ def load_page(app):
     # `page_title` still has to name something, and `Configs.ctf_name` was that
     # something until a subject was synced onto the instance.
     app.jinja_env.globals["workshop_title"] = instance_title
+
+    @app.context_processor
+    def _title_default():
+        """Give every page a `title`, so core's `base.html` stops falling back.
+
+        `base.html` renders `{{ title or Configs.ctf_name }}` and most views
+        pass no title, which is why the browser tab said "CTF 1000" on the login
+        page of an instance whose whole content is one subject (§45).
+
+        A context processor and not a hundred `render_template` arguments: a
+        view this plugin does not own cannot be given one. Flask restores the
+        explicit context last (`Flask.update_template_context`), so a view that
+        *does* pass `title` — a part page, an authored Page — keeps its own and
+        this is only ever the fallback.
+        """
+        if request.endpoint in NO_DEFAULT_TITLE:
+            return {}
+        return {"title": instance_title()}

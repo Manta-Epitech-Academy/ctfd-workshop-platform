@@ -106,10 +106,10 @@
        jump's logo is. An instance that uploaded its own logo keeps it: the
        Epitech wordmark is the default, not an override of the admin's choice. #}
     <a class="epi-brand" href="{{ url_for('views.static_html', route='/') }}"
-       aria-label="{{ Configs.ctf_name }} — {% trans %}Home{% endtrans %}">
+       aria-label="{{ workshop_title() }} — {% trans %}Home{% endtrans %}">
       {% if Configs.ctf_logo %}
         <img class="epi-brand-custom" src="{{ url_for('views.files', path=Configs.ctf_logo) }}"
-             alt="{{ Configs.ctf_name }}">
+             alt="{{ workshop_title() }}">
       {% else %}
         {# Two assets swapped by theme in CSS, never one recoloured: the charte
            forbids effects on the logo, and a background-image means only the

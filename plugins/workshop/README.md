@@ -221,6 +221,15 @@ image ships 45.
 The job runs in a thread, which is a greenlet under the gevent worker, so an import neither
 blocks the instance nor deadlocks when it calls the instance's own API.
 
+## Start-up options for a runtime (PLAN.md §48)
+
+A subject can set options its runtime reads when it starts, in `runtime.params`. For tic80,
+`repl: lua | py | js | off` chooses the REPL panel or removes it. `runtime_options.py` holds the
+allowlist and writes the option into the frame's address (`?repl=off`); `runtime.py` and
+`page.py` apply it, so the pane and the popped-out window open the same address. A value the
+runtime does not take is dropped and logged. `scripts/runtime_options_check.py` tests the module
+with no instance. See docs/RUNTIME_PROTOCOL.md §4b.
+
 ## The way in from Jump (PLAN.md §31)
 
 Jump is the only door into a workshop instance. `jump.py` verifies a short HMAC-signed ticket at

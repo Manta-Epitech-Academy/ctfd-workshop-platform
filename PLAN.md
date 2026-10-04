@@ -4014,3 +4014,51 @@ back, renders **no band** and falls back to `ctf_name` in the tab.
 The navbar's logo `alt` and `aria-label` move too — they name the thing the logo links to. The
 staff footer in `workshop_staff_base.html` stays on `ctf_name`: that one really is "which instance
 am I on", and it is only ever read by somebody with an admin session.
+
+## 48. What a runtime is when it starts (2026-10-05)
+
+tic80-web-editor grew a third panel, a Lua REPL. PyPong is written in Python, so a Lua prompt
+under the editor is a second language on the screen of somebody learning their first. A subject
+has to be able to choose the REPL, or to have none.
+
+### 48.1 Why not `init`
+
+`runtime.params` already travels from `subject.yaml` to the runtime (§19.2), in the `init`
+message. That message answers `ready`, so it arrives after the runtime has drawn itself: the REPL
+panel would appear, start downloading its interpreter, and be taken away. For Python that
+interpreter is several megabytes.
+
+So the option goes where a web app can read it from its first line: the address.
+`/runtime/tic80/<version>/?repl=off`. It is also how somebody opens the editor on its own with
+no platform around it, which keeps the rule that a runtime works standalone.
+
+### 48.2 An allowlist, not "forward the params"
+
+`params` carries the token secret (§21). So `runtime_options.py` names, per runtime, the options
+that may go in an address and the values each takes; everything else stays in `init`. A value
+nobody recognises is dropped and logged, and the runtime keeps its default: a typo in a subject
+must not produce an address the runtime has to guess at.
+
+YAML 1.1 reads a bare `off`, `no` or `false` as a boolean, and that is what an author writes to
+turn something off. The option is normalised from what YAML made of it.
+
+### 48.3 Where it is applied
+
+`declared_runtime()` builds `src` with the options in it, and keeps `base_src` beside it.
+`_runtime_for` (a workshop of several subjects, §19.2) rebuilds the address from that subject's
+params. The pane and the popped-out window (§27) both read `src`, so they open the same thing.
+
+### 48.4 The runtime's half
+
+tic80-web-editor_runtime reads `?repl=` once at start-up: `lua` (default), `py`, `js`, `off`. It
+vendors every repl_runtime route instead of the Lua-only archive, since the language is no longer
+known at build time. A layout saved in localStorage by a page with another setting is
+reconciled: the panel is removed when the REPL is off, retitled when the language changed.
+
+### 48.5 Checked
+
+`scripts/runtime_options_check.py`, no instance needed: every spelling of off, the three
+languages and their long names, a runtime that takes no option, the secret never reaching the
+address, an unknown value dropped, an address that already has a query. On 8080 with pypong at
+`repl: off` and runtime `5291129`: the frame opens with `?repl=off` and shows two panels.
+

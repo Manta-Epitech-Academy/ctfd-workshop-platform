@@ -27,6 +27,8 @@ from flask import Blueprint, abort, current_app, send_from_directory
 
 from CTFd.utils import get_config
 
+from .runtime_options import start_options, with_start_options
+
 RUNTIME_ROOT = Path(__file__).parent / "runtimes"
 CONFIG_KEY = "workshop_runtime"
 SAFE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
@@ -129,15 +131,31 @@ def declared_runtime():
         return None
 
     pane = cfg.get("pane") or {}
+    params = cfg.get("params") or {}
+    base_src = cfg.get("src") or f"/runtime/{runtime_id}/{version}/"
+    # A start-up option the runtime does not take is a typo in a subject. The
+    # runtime comes up with its default, which is the safe reading, and this
+    # is where somebody finds out why.
+    for name, value in start_options(runtime_id, params)[1]:
+        if (runtime_id, name, str(value)) not in _warned:
+            _warned.add((runtime_id, name, str(value)))
+            current_app.logger.warning(
+                "workshop: runtime %s does not take %s: %r (subject.yaml, "
+                "runtime.params) — ignored", runtime_id, name, value)
     return {
-        "params": cfg.get("params") or {},
+        "params": params,
         # Per-subject overrides, keyed by subject slug (PLAN.md §19.2): one dist
         # serves several subjects and what differs between them is data.
         "subjects": cfg.get("subjects") or {},
         "id": runtime_id,
         "version": version,
         "title": cfg.get("title") or runtime_id,
-        "src": cfg.get("src") or f"/runtime/{runtime_id}/{version}/",
+        # The address of the frame, with the options the runtime reads when it
+        # starts written into it (runtime_options.py). `base_src` is the same
+        # address without them, for a page that applies another subject's
+        # parameters (page.py `_runtime_for`).
+        "src": with_start_options(base_src, runtime_id, params),
+        "base_src": base_src,
         "adapter": f"/plugins/workshop/assets/runtime/adapters/{runtime_id}.js",
         "icon": ICONS.get(runtime_id, DEFAULT_ICON),
         "placement": pane.get("placement", "side"),

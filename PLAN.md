@@ -4014,3 +4014,30 @@ back, renders **no band** and falls back to `ctf_name` in the tab.
 The navbar's logo `alt` and `aria-label` move too — they name the thing the logo links to. The
 staff footer in `workshop_staff_base.html` stays on `ctf_name`: that one really is "which instance
 am I on", and it is only ever read by somebody with an admin session.
+
+## 47. An admin does the subject twice (2026-10-04)
+
+An admin tests a subject by doing it, on the instance, with their own account. Once done it
+cannot be tested again: every step is solved, every hint is open, the page opens on the closing
+step. The ways back were to delete submissions one by one in the admin panel or to keep a second
+account around.
+
+**Reset my progress**, in the account menu, for admins only. One POST,
+`/api/v1/workshop/progress/reset`, deletes the signed-in admin's solves, attempts, hint unlocks,
+awards and ratings: the tables CTFd's own instance reset empties, filtered to one account.
+
+- **Own account only.** The user id comes from the session and the endpoint takes none.
+  Resetting a participant is a different act, with a different person confirming it, and core's
+  user page already does it.
+- **The runtime's saved work is kept** (§16). It is the admin's code, not their progress, and the
+  browser holds a copy it would post back within seconds.
+- **In the account menu, not on the page.** The menu is on every page and is already where an
+  admin finds the Admin Panel. A button beside the progress bar would be a destructive control
+  in the one place a participant's eye rests, shown or not.
+- **It asks first**, in the reader's language, and says what is not touched.
+
+### 47.1 Checked
+
+`scripts/reset_check.py` against pypong on 8080: an admin and a participant each given a solve and
+a failed attempt; the participant refused by the endpoint and shown no entry; a POST without the
+CSRF nonce changing nothing; after the reset the admin at zero and the participant untouched.

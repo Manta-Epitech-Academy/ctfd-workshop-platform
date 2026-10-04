@@ -4024,13 +4024,19 @@ account around.
 
 **Reset my progress**, in the account menu, for admins only. One POST,
 `/api/v1/workshop/progress/reset`, deletes the signed-in admin's solves, attempts, hint unlocks,
-awards and ratings: the tables CTFd's own instance reset empties, filtered to one account.
+awards and ratings (the tables CTFd's own instance reset empties, filtered to one account) and
+the code saved for the runtime.
 
 - **Own account only.** The user id comes from the session and the endpoint takes none.
   Resetting a participant is a different act, with a different person confirming it, and core's
   user page already does it.
-- **The runtime's saved work is kept** (§16). It is the admin's code, not their progress, and the
-  browser holds a copy it would post back within seconds.
+- **The runtime's saved work goes too** (§16). The first version kept it, on the reasoning that
+  code is not progress. That was wrong for the purpose: the point is to see what somebody new
+  sees, and somebody new does not open the editor on a finished game. The code lives in two
+  places, so the reset has two halves: the endpoint deletes the row and answers with the names of
+  its keys, and `reset.js` removes those keys from localStorage, with the owner mark, before the
+  page reloads. Deleting only the row would be undone within seconds by the page's own save. A
+  second browser left open elsewhere still holds a copy and will restore it.
 - **In the account menu, not on the page.** The menu is on every page and is already where an
   admin finds the Admin Panel. A button beside the progress bar would be a destructive control
   in the one place a participant's eye rests, shown or not.
@@ -4040,4 +4046,8 @@ awards and ratings: the tables CTFd's own instance reset empties, filtered to on
 
 `scripts/reset_check.py` against pypong on 8080: an admin and a participant each given a solve and
 a failed attempt; the participant refused by the endpoint and shown no entry; a POST without the
-CSRF nonce changing nothing; after the reset the admin at zero and the participant untouched.
+CSRF nonce changing nothing; after the reset the admin at zero, their saved runtime keys gone and
+named in the answer, and the participant untouched, saved work included. In a browser, with TIC-80
+open: a marker written into the runtime's cart key and saved to the server, the reset pressed, and
+after the reload the key gone from localStorage, the server row empty, and neither brought back by
+reopening the runtime.

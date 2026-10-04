@@ -84,6 +84,19 @@ def rows(user):
     return len(solves), fails_["meta"]["count"]
 
 
+def workspace(session, keys=None):
+    """Read, or write, the session user's saved runtime work."""
+    if keys is None:
+        return session.get(BASE + "/api/v1/workshop/workspace").json()["data"]
+    runtime = workspace(session)["runtime"]
+    return session.post(BASE + "/api/v1/workshop/workspace", headers={
+        "CSRF-Token": nonce(session, "/workshop"), "Content-Type": "application/json"},
+        json={"runtime": runtime, "keys": keys}).status_code == 200
+
+
+participant = login(name, password)
+HAS_RUNTIME = bool(workspace(admin)["runtime"])
+
 print("-- before")
 api("POST", RESET)        # from a known state, whatever the admin had done
 check(all(give(u, k) for u in (me, other) for k in ("incorrect", "correct")),
@@ -91,8 +104,12 @@ check(all(give(u, k) for u in (me, other) for k in ("incorrect", "correct")),
 check(rows(me) == (1, 1), f"admin: 1 solve, 1 fail {rows(me)}")
 check(rows(other) == (1, 1), f"participant: 1 solve, 1 fail {rows(other)}")
 
+if HAS_RUNTIME:
+    check(workspace(admin, {"reset-check-cart": "admin code"})
+          and workspace(participant, {"reset-check-cart": "participant code"}),
+          "and each has code saved for the runtime")
+
 print("-- the doors")
-participant = login(name, password)
 r = participant.post(BASE + RESET, headers={
     "CSRF-Token": nonce(participant, "/workshop"), "Content-Type": "application/json"},
     data="{}", allow_redirects=False)
@@ -113,6 +130,12 @@ check(r.status_code == 200 and data.get("solves") == 1 and data.get("attempts") 
       f"it reports what it removed: {data}")
 check(rows(me) == (0, 0), f"admin: nothing left {rows(me)}")
 check(rows(other) == (1, 1), f"participant: untouched {rows(other)}")
+if HAS_RUNTIME:
+    check(data.get("runtime") == 1 and data.get("runtime_keys") == ["reset-check-cart"],
+          "the admin's saved code is removed, and the answer names its keys for the browser")
+    check(workspace(admin)["keys"] == {}, "admin: no saved code left")
+    check(workspace(participant)["keys"] == {"reset-check-cart": "participant code"},
+          "participant: saved code untouched")
 r = api("POST", RESET)
 check(r.status_code == 200 and not any(r.json()["data"].values()),
       "a second reset finds nothing to remove")

@@ -292,7 +292,7 @@ msgstr ""
 msgid "Reset my progress"
 msgstr ""
 
-msgid "Reset your own progress? Your solved steps, attempts, opened hints and ratings on this instance are deleted. Participants are not affected, and your code in the runtime is kept."
+msgid "Reset your own progress? Your solved steps, attempts, opened hints and ratings on this instance are deleted, and your code in the runtime is erased. Participants are not affected."
 msgstr ""
 
 msgid "Review"

@@ -301,8 +301,8 @@ msgstr ""
 msgid "Reset my progress"
 msgstr "Réinitialiser ma progression"
 
-msgid "Reset your own progress? Your solved steps, attempts, opened hints and ratings on this instance are deleted. Participants are not affected, and your code in the runtime is kept."
-msgstr "Réinitialiser ta propre progression ? Tes étapes validées, tes essais, tes indices ouverts et tes avis sur cette instance sont supprimés. Les participants ne sont pas concernés, et ton code dans le runtime est conservé."
+msgid "Reset your own progress? Your solved steps, attempts, opened hints and ratings on this instance are deleted, and your code in the runtime is erased. Participants are not affected."
+msgstr "Réinitialiser ta propre progression ? Tes étapes validées, tes essais, tes indices ouverts et tes avis sur cette instance sont supprimés, et ton code dans le runtime est effacé. Les participants ne sont pas concernés."
 
 msgid "Review"
 msgstr "Revoir"

@@ -75,7 +75,8 @@ def load_manifest(workshop_dir):
                 .get("project") or {}).get("slug")
         after = entry.get("after") or []
         resolved.append({**entry, "dir": directory, "slug": slug,
-                         "after": [after] if isinstance(after, str) else list(after)})
+                         "after": ([str(a) for a in after] if isinstance(after, (list, tuple))
+                                   else [str(after)])})
 
     slugs = {s["slug"] for s in resolved}
     for s in resolved:

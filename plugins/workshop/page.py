@@ -915,20 +915,25 @@ def _routes_after(user, docs, doc):
     to a page of padlocks.
     """
     solved = set(get_solve_ids_for_user_id(user.id)) | set(doc["challenge_ids"])
-    challenges = {c.id: c for c in _ordered_challenges()}
-    known = set(challenges)
+    ordered = _ordered_challenges()            # board order
+    known = {c.id for c in ordered}
     skipped = _optional_ids()
     open_parts, left = [], False
     for other in docs:
         if other is doc:
             continue
-        todo = [cid for cid in other["challenge_ids"]
-                if cid in known and cid not in solved and cid not in skipped
-                and getattr(challenges[cid], "quiz_type", None) not in NON_TASK_KINDS]
+        ids = set(other["challenge_ids"])
+        todo = [c for c in ordered
+                if c.id in ids and c.id not in solved and c.id not in skipped
+                and getattr(c, "quiz_type", None) not in NON_TASK_KINDS]
         if not todo:
             continue
         left = True
-        if any(set(_prerequisites(challenges[cid], known)) <= solved for cid in todo):
+        # Open means its *first* unfinished step can be done, not any of them.
+        # A quiz written at document level waits on the introduction alone, so
+        # it is unlocked from the first minute in a part whose exercises are
+        # still two parts away, and "any step" called that part a way forward.
+        if set(_prerequisites(todo[0], known)) <= solved:
             open_parts.append(other)
     return open_parts, left
 
@@ -952,6 +957,14 @@ def workshop_document(doc_slug):
     user = get_current_user()
     open_parts, left = _routes_after(user, docs, doc)
     next_doc = None
+    # Inside a subject the parts follow each other, and the one after this is
+    # the way forward whatever else happens to be open (a quiz skipped in an
+    # earlier part does not make this a crossroads). The choice only exists
+    # when leaving a subject.
+    following = docs[docs.index(doc) + 1] if docs.index(doc) + 1 < len(docs) else None
+    if (following is not None and following in open_parts
+            and following.get("subject") == doc.get("subject")):
+        open_parts = [following]
     if len(open_parts) == 1:
         next_doc = dict(open_parts[0])
         # A part of another subject says whose it is: twin subjects name their

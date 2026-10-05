@@ -1049,7 +1049,13 @@ def sync(subject_dir, url, admin_user, admin_pass, codes_path=None, *,
     # an introduction taken off that page would be on no page at all — and it
     # gates everything, which would lock the whole subject behind a step nobody
     # can reach. That instance keeps the old shape.
-    on_index = wants_index and len(documents_cfg) > 1
+    #
+    # A subject with no part at all is the other case: a workshop's one-step
+    # starter is nothing but this step, and there is no part of its own to fold
+    # it into. When the workshop caller asked for the index explicitly, the
+    # index is its only possible home; the caller checks that there is one.
+    on_index = wants_index and (len(documents_cfg) > 1
+                                or (bool(intro_on_index) and not documents_cfg))
     if documents_cfg:
         every = (set() if on_index else {intro_id})
         every |= (set(ex_ids.values()) | set(outro_ids.values())

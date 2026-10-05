@@ -521,3 +521,5 @@ msgstr "ton parcours"
 #~ msgid "Already have an account? Log in"
 #~ msgstr "Déjà un compte ? Se connecter"
 
+msgid "your pick"
+msgstr "au choix"

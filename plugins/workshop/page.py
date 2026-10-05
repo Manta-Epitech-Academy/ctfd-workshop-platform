@@ -747,7 +747,7 @@ def _index_cards(user, documents, visible_ids=frozenset()):
     return cards, steps
 
 
-def _subject_groups(cards):
+def _subject_groups(cards, subjects=None):
     """Cards grouped by subject, for a workshop that has more than one.
 
     A workshop is a starter subject and then advanced ones (PLAN.md §19), and a
@@ -768,6 +768,12 @@ def _subject_groups(cards):
         groups[-1]["cards"].append(card)
     for index, group in enumerate(groups, start=1):
         group["index"] = index
+        # What the manifest said this subject is (`role`, written by the
+        # workshop sync): the starter, the next one in a sequence, or one of
+        # several to choose from. An instance synced before roles were stored
+        # falls back to position, which is what this page used to assume.
+        group["role"] = ((subjects or {}).get(group["subject"], {}).get("role")
+                         or ("starter" if index == 1 else "next"))
         # Parts are numbered within their subject: "Part 2" for the first part
         # of the second subject would be counting the wrong thing.
         for number, card in enumerate(group["cards"], start=1):
@@ -821,11 +827,17 @@ def workshop():
     # starter's cover: it is the first thing anyone does, and it is what the
     # instance is titled after. With several subjects each still gets its own
     # section below (PLAN.md §19, D5).
-    first_subject = next((d.get("subject") for d in documents if d.get("subject")), None)
+    #
+    # A one-step starter has no part, so it is not among the documents; its
+    # role says it is the starter all the same.
+    first_subject = (next((slug for slug, cfg in subjects.items()
+                           if cfg.get("role") == "starter"), None)
+                     or next((d.get("subject") for d in documents
+                              if d.get("subject")), None))
     return render_template(
         "workshop_index.html",
         cards=cards,
-        groups=_subject_groups(cards),
+        groups=_subject_groups(cards, subjects),
         subjects=subjects,
         cover=subjects.get(first_subject) or {},
         page_title=instance_title(),

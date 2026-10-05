@@ -490,3 +490,5 @@ msgstr ""
 msgid "your path"
 msgstr ""
 
+msgid "your pick"
+msgstr ""

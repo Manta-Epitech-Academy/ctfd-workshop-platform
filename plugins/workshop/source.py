@@ -12,7 +12,9 @@ One shape covers both cases (§26.4): the fetched tree is a **subject** if its
 root holds `subject.yaml` and a **workshop** if it holds `workshop.yaml`, so a
 single-subject instance is a workshop of one and there is no second code path.
 
-A workshop names its subjects by repo. `ref: submodule` means "the commit this
+A workshop names its subjects by repo — or, for one it owns (a one-step
+starter, typically), by a bare `path:` to a directory of the workshop repo
+itself. `ref: submodule` means "the commit this
 wrapper pins", which the API reports without git being involved — a tarball
 carries submodule directories empty, but `contents/<path>` returns the pin.
 Each subject is then fetched at that exact sha and the manifest is rewritten
@@ -240,10 +242,24 @@ def materialize(repo, ref, dest, log=print):
     for entry in entries:
         sub_repo = (entry.get("repo") or "").strip()
         if not sub_repo:
-            raise SourceError(
-                f"{repo}: the subject at {entry.get('path') or '?'} has no `repo:` — a "
-                f"workshop fetched from GitHub must name each subject's repository "
-                f"(a bare `path:` only works for the command line)")
+            # A subject the wrapper owns: a plain directory of the workshop
+            # repo, which its tarball does carry (only submodules arrive
+            # empty). It was fetched with the wrapper, at the wrapper's sha.
+            path = (entry.get("path") or "").strip()
+            own_dir = os.path.realpath(os.path.join(root, path))
+            inside = own_dir.startswith(os.path.realpath(root) + os.sep)
+            if not (path and inside
+                    and os.path.isfile(os.path.join(own_dir, "subject.yaml"))):
+                raise SourceError(
+                    f"{repo}: the subject at {path or '?'} has no `repo:` and is not "
+                    f"a subject directory of this repository — name its repository, "
+                    f"or commit it here with its `subject.yaml`")
+            name = os.path.basename(own_dir)
+            log(f"  {name}: in this repository")
+            subjects.append({"repo": repo, "sha": sha, "dir": own_dir, "name": name})
+            sidecars += sidecars_in(own_dir)
+            rewritten.append(dict(entry))
+            continue
         sub_ref = (entry.get("ref") or "main").strip()
         if sub_ref == "submodule":
             path = entry.get("path") or sub_repo.split("/")[-1]

@@ -1071,7 +1071,11 @@ def sync(subject_dir, url, admin_user, admin_pass, codes_path=None, *,
 
     final = next((outro_ids[d.path] for d in reversed(subject.documents)
                   if d.path in outro_ids), None)
-    last_position = max([*position_of.values(), *outro_position.values(), 0])
+    # The introduction counts: for a subject that is only its entrypoint it is
+    # the last position there is, and leaving it out handed the next subject of
+    # a workshop the same position, which put two steps on one board slot.
+    last_position = max([*position_of.values(), *outro_position.values(),
+                         position_base + 1])
 
     # In a workshop these four are the caller's to accumulate: each is
     # instance-wide, so a second subject writing them would erase the first

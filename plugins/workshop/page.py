@@ -608,8 +608,18 @@ def _resolve_links(steps, docs, visible_ids):
     than as not-yet.
     """
     pages = step_pages(docs)
+    # Whose step it is, for a blocker that belongs to another subject. A subject
+    # placed `after` two twins waits on two closing steps with the same title,
+    # and « finish "Going further", "Going further" » names nothing.
+    owner = {cid: (d.get("subject"), d.get("subject_title") or d.get("subject"))
+             for d in docs for cid in d["challenge_ids"]}
     for step in steps:
+        mine = owner.get(step["id"], (None, None))[0]
         for blocker in step["blocked_by"]:
+            theirs, title = owner.get(blocker["id"], (None, None))
+            if theirs and theirs != mine and not blocker.get("subject"):
+                blocker["subject"] = title
+                blocker["name"] = f"{title} > {blocker['name']}"
             # A blocker already on this page is a local anchor; anything else
             # gets the page it can actually be done on (links.step_href), which
             # is the same URL the Parcours graph sends its nodes to.

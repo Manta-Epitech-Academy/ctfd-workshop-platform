@@ -16,6 +16,15 @@ already does.
         role: advanced
         order: 1               # optional; unordered advanced = free choice
 
+A subject can also wait on several others, named by their `project.slug`:
+
+      - path: bonus
+        role: advanced
+        after: [pypong, luapong]   # opens once both are finished
+
+`after` replaces `order`. The subject is imported after the ones it names and
+its introduction waits on the closing step of each.
+
 A starter may be nothing but its entrypoint document: one acknowledgement step
 on the front page, no exercise and so no closing step. The advanced subjects
 then wait on that acknowledgement.
@@ -62,7 +71,22 @@ def load_manifest(workshop_dir):
         directory = (Path(workshop_dir) / entry["path"]).resolve()
         if not (directory / "subject.yaml").is_file():
             sys.exit(f"{path}: {directory} is not a subject directory")
-        resolved.append({**entry, "dir": directory})
+        slug = ((yaml.safe_load((directory / "subject.yaml").read_text()) or {})
+                .get("project") or {}).get("slug")
+        after = entry.get("after") or []
+        resolved.append({**entry, "dir": directory, "slug": slug,
+                         "after": [after] if isinstance(after, str) else list(after)})
+
+    slugs = {s["slug"] for s in resolved}
+    for s in resolved:
+        unknown = [a for a in s["after"] if a not in slugs or a == s["slug"]]
+        if unknown:
+            sys.exit(f"{path}: {s['dir'].name} comes `after` {', '.join(unknown)}, "
+                     f"which is not the `project.slug` of another subject here "
+                     f"({', '.join(sorted(x for x in slugs if x))})")
+        if s["after"] and (s.get("role") == "starter" or s.get("order") is not None):
+            sys.exit(f"{path}: {s['dir'].name} has `after`, which replaces `order` "
+                     f"and makes no sense on the starter")
 
     starters = [s for s in resolved if s.get("role") == "starter"]
     if len(starters) != 1:
@@ -72,13 +96,29 @@ def load_manifest(workshop_dir):
 
 
 def order_subjects(subjects):
-    """Board order: the starter, then ordered advanced, then unordered ones."""
+    """Board order: the starter, ordered advanced, unordered ones, then `after`.
+
+    A subject that names others in `after` is imported once they are, since it
+    waits on steps that have to exist first. Several of them keep the order
+    they have in the manifest, which is enough unless one waits on another
+    listed below it; that is refused rather than sorted, a manifest being short
+    enough to write in the right order.
+    """
     starter = next(s for s in subjects if s.get("role") == "starter")
     advanced = [s for s in subjects if s is not starter]
     ordered = sorted([s for s in advanced if s.get("order") is not None],
                      key=lambda s: s["order"])
-    free = [s for s in advanced if s.get("order") is None]
-    return [starter] + ordered + free
+    free = [s for s in advanced if s.get("order") is None and not s.get("after")]
+    late = [s for s in advanced if s.get("after")]
+    result = [starter] + ordered + free + late
+    seen = set()
+    for s in result:
+        missing = [a for a in s.get("after") or [] if a not in seen]
+        if missing:
+            sys.exit(f"workshop.yaml: {s['dir'].name} comes `after` "
+                     f"{', '.join(missing)}, listed below it. Move it down.")
+        seen.add(s.get("slug"))
+    return result
 
 
 def gate_for(entry, starter_final, previous_final):
@@ -156,6 +196,7 @@ def sync_workshop(workshop_dir, url, admin_user, admin_pass, codes_dir=None, *,
     totals = {"created": 0, "updated": 0}
     runtime, runtime_params = {}, {}
     position, starter_final, previous_final, final_step = 0, None, None, None
+    closings = {}              # project.slug -> the step that ends that subject
     entry_page = None
     # Only the starter's introduction is the workshop's front door, so only it
     # moves onto the index; an advanced subject keeps its own at the top of its
@@ -169,7 +210,9 @@ def sync_workshop(workshop_dir, url, admin_user, admin_pass, codes_dir=None, *,
                  if codes_dir else None)
         result = sync(str(entry["dir"]), url, admin_user, admin_pass, codes,
                       ctfd=ctfd, position_base=position, standalone=False,
-                      gate_on=gate_for(entry, starter_final, previous_final),
+                      gate_on=([closings[a] for a in entry["after"]]
+                               if entry.get("after")
+                               else gate_for(entry, starter_final, previous_final)),
                       intro_on_index=(role == "starter"))
         for key, count in (result.get("stats") or {}).items():
             totals[key] = totals.get(key, 0) + count
@@ -180,7 +223,11 @@ def sync_workshop(workshop_dir, url, admin_user, admin_pass, codes_dir=None, *,
         free_ids |= result["free_ids"]
         position = result["last_position"]
         closing = closing_of(result, entry["dir"].name)
-        previous_final = closing or previous_final
+        closings[entry.get("slug")] = closing
+        # A subject placed by `after` is outside the ordered chain: the next
+        # ordered subject does not wait on it.
+        if not entry.get("after"):
+            previous_final = closing or previous_final
         final_step = result["final_step"] or final_step
         if role == "starter":
             starter_final = closing
@@ -205,7 +252,8 @@ def sync_workshop(workshop_dir, url, admin_user, admin_pass, codes_dir=None, *,
         subjects_cfg[subject.slug] = {
             **result["cover"],
             "role": ("starter" if role == "starter"
-                     else "next" if entry.get("order") is not None else "choice")}
+                     else "next" if (entry.get("order") is not None
+                                     or entry.get("after")) else "choice")}
 
     # The index only exists for two parts or more: `/workshop` forwards a
     # single part straight through (page.py). A starter with parts of its own

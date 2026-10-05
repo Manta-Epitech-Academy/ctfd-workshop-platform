@@ -676,6 +676,22 @@ Such a starter imports as a single `ack` step, shown on the workshop's index abo
 has no exercise, so it gets no closing step: no rating, no "going further". The advanced subjects
 wait on that acknowledgement, and the index labels unordered ones "your pick" rather than "next".
 
+**`after:` — a subject that waits on several others.** `order` chains subjects one behind the
+other, and an unordered subject waits on the starter alone. Neither says "once both of these are
+done", which is what a bonus needs:
+
+```yaml
+  - path: jspong
+    role: advanced
+    after: [pypong, luapong]   # `project.slug` of the subjects to finish first
+```
+
+The subject's introduction then requires the closing step of every subject named. `after`
+replaces `order`, cannot sit on the starter, and must name subjects listed above it. On the
+index such a subject is labelled "next", and a lock message names the subject a blocking step
+belongs to ("PyPong > Pour aller plus loin"), since twin subjects end on steps with the same
+title.
+
 **`ref: submodule`** means "the commit this workshop repo pins for that subject", which is what a
 clone of the wrapper checks out. The platform reads the pin from GitHub's contents API rather than
 from git, because a repository tarball carries submodule directories empty. The alternative is a

@@ -961,7 +961,9 @@ def sync(subject_dir, url, admin_user, admin_pass, codes_path=None, *,
         # practice the starter's closing step, which is the participant saying
         # they are done with it (PLAN.md §19, D2). Gating the intro is enough:
         # everything else already hangs off the intro.
-        prereqs[intro_id] = [gate_on]
+        # Several, for a subject a workshop places `after` more than one other.
+        prereqs[intro_id] = (list(gate_on) if isinstance(gate_on, (list, tuple))
+                             else [gate_on])
     for cid, gates in prereqs.items():
         ctfd.api("PATCH", f"/challenges/{cid}", json={
             "requirements": {"prerequisites": gates, "anonymize": True}})

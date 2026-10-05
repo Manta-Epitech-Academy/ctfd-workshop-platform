@@ -742,9 +742,13 @@ def _index_cards(user, documents, visible_ids=frozenset()):
         # choice several parts are open at once, and marking only the first as
         # the one to start tells the reader the others are not for now. Every
         # part with a step that can be done right away is a way forward.
-        if card["state"] == TODO and any(
-                s["counts"] and not s["solved"] and s["state"] != LOCKED
-                for s in members):
+        #
+        # "Can be done right away" is about the part's first unfinished step,
+        # not any of them: a quiz written at document level is open from the
+        # first minute in a part whose exercises are still locked, and that
+        # part is not one to start.
+        first = next((s for s in members if s["counts"] and not s["solved"]), None)
+        if card["state"] == TODO and first is not None and first["state"] != LOCKED:
             card["state"] = CURRENT
 
         card["label"], card["action"] = CARD_TEXT[card["state"]]

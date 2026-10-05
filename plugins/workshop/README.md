@@ -221,6 +221,15 @@ image ships 45.
 The job runs in a thread, which is a greenlet under the gevent worker, so an import neither
 blocks the instance nor deadlocks when it calls the instance's own API.
 
+## Starting the subject again, as an admin (PLAN.md §47)
+
+An admin tests a subject by doing it. The account menu carries **Reset my progress** for admins:
+`POST /api/v1/workshop/progress/reset` deletes the signed-in admin's own solves, attempts, hint
+unlocks, awards and ratings, then clears the caches the page reads solves through. The account is
+the session's and there is no user id to pass, so it cannot be aimed at a participant. The work in
+progress saved for the runtime is erased too, in both places it lives: the server row, and the
+browser's localStorage, which `reset.js` clears before the page reloads. `reset.py`, `assets/reset.js`, `scripts/reset_check.py`.
+
 ## Start-up options for a runtime (PLAN.md §48)
 
 A subject can set options its runtime reads when it starts, in `runtime.params`. For tic80,

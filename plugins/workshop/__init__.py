@@ -29,6 +29,7 @@ from .answers import load_answers
 from .mode import load_mode
 from .checkpoint import load_checkpoint
 from .syncpage import load_syncpage
+from .reset import load_reset
 from .shell import load_shell
 from .jump import load_jump
 from .jumpqueue import load_jump_queue
@@ -152,6 +153,12 @@ def load(app):
     register_admin_plugin_menu_bar("Workshop stats", "/admin/workshop/stats")
     load_submissions(app)
     register_admin_plugin_menu_bar("Workshop submissions", "/admin/workshop/submissions")
+    # An admin tests a subject by doing it, and then needs to do it again
+    # (PLAN.md §47): one POST that empties the signed-in admin's own solves,
+    # attempts, hints and ratings. The entry is in the account menu
+    # (templates/navbar.html), the confirmation in assets/reset.js.
+    load_reset(app)
+    register_plugin_script(url="/plugins/workshop/assets/reset.js")
     # Instructor-led or self-serve (PLAN.md §25). One instance, one mode: it
     # decides whether a checkpoint step asks for the instructor's code or
     # offers a button, and what the page says under the step. Read at render

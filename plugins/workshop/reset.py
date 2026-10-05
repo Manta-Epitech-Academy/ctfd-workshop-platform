@@ -22,7 +22,9 @@ new sees, and somebody new does not open the editor on a finished game. That
 code lives in two places: a row here, and the browser's localStorage, which
 the page would post straight back (assets/runtime.js). So this deletes the
 row and answers with the names of the keys it held, and assets/reset.js
-removes those keys from the browser before the page reloads. A second browser
+removes those keys from the browser before the page reloads. A runtime open in
+another window of the same browser, the popped-out tab for one, is told first
+and stops saving (the `ws-reset` channel, assets/runtime.js). A second browser
 the admin left open on another machine still holds its copy, and will restore
 it: that one has to be closed.
 """

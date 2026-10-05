@@ -70,5 +70,13 @@ check(got == SRC + "?lang=en&repl=off", f"other parameters kept, the option repl
 once = ro.with_start_options(SRC, "tic80", {"repl": "py"})
 check(ro.with_start_options(once, "tic80", {"repl": "py"}) == once, "applying it twice changes nothing")
 
+print("-- params that are not a mapping")
+for wrong in (["repl"], "repl", 3, [("repl", "off")]):
+    try:
+        got = (ro.start_options("tic80", wrong), ro.with_start_options(SRC, "tic80", wrong))
+    except Exception as error:  # the page would answer 500 on every load
+        got = repr(error)
+    check(got == (({}, []), SRC), f"`params: {wrong!r}` reads as no option, and does not raise: {got}")
+
 print("ALL GREEN" if not fails else "FAILURES: " + repr(fails))
 sys.exit(1 if fails else 0)

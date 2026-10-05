@@ -904,7 +904,9 @@ def sync(subject_dir, url, admin_user, admin_pass, codes_path=None, *,
                 else {"items": q.items} if q.items else None)
         slug = f"quiz-{q.id}"
         cid, created = upsert_challenge(ctfd, subject.slug, slug, {
-            "name": f"Quiz : {q.id}", "category": q.category,
+            # The id is the author's handle (`init-cmd`), not something to show a
+            # participant: a quiz that gives itself a title is named by it.
+            "name": f"Quiz : {q.title or q.id}", "category": q.category,
             "description": q.question, "value": q.points, "type": "quiz",
             "quiz_type": q.kind, "quiz_spec": spec,
             "quiz_answers": answers[q.id],

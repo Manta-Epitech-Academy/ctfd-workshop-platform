@@ -72,6 +72,7 @@ class Quiz:
     category: str = ""
     host_exercise: str = ""   # slug of the exercise it appeared under, if any
     order: int = 0            # source-reading position across the whole subject
+    title: str = ""           # what a participant reads in place of the id, if given
 
 
 @dataclass
@@ -439,6 +440,7 @@ def _extract_inline(body, category, host_slug, defaults, where):
                     points=int(data.get("points", defaults["points"])),
                     question=question, items=[], left=[], right=[],
                     category=category, host_exercise=host_slug,
+                    title=str(data.get("title") or "").strip(),
                 )
                 if q.kind == "match":
                     q.left = [it for it in items if it["letter"].isupper()]

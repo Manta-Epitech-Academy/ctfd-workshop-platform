@@ -328,6 +328,9 @@ msgstr "Se connecter"
 msgid "Sign in with your Jump account."
 msgstr "Connecte-toi avec ton compte Jump."
 
+msgid "Skip validation code"
+msgstr "Passer le code de validation"
+
 msgid "Staff area: sign in with your username or email."
 msgstr "Espace staff : connectez-vous avec votre identifiant ou votre e-mail."
 

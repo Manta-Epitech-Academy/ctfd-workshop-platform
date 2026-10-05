@@ -221,6 +221,15 @@ image ships 45.
 The job runs in a thread, which is a greenlet under the gevent worker, so an import neither
 blocks the instance nor deadlocks when it calls the instance's own API.
 
+## An admin validates a code step without the code (PLAN.md §49)
+
+On a step validated by the instructor's code, an admin sees one more button beside « Submit »:
+**Skip validation code**. The rest of the step is what a participant sees. The button submits the
+step with `skip_code: true`; `quiz.py` accepts that for an admin and ignores it for anybody else,
+so the template's `is_admin()` is a convenience and not the guard. The submission is recorded as
+`(admin: validation code skipped)`. Only `checkpoint` steps: a quiz, a flag or a token is an
+answer, not a permission, and is not skipped. `scripts/skip_code_check.py`.
+
 ## The way in from Jump (PLAN.md §31)
 
 Jump is the only door into a workshop instance. `jump.py` verifies a short HMAC-signed ticket at

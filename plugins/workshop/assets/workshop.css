@@ -857,7 +857,8 @@
    same 0.6rem, which is the only way to land on the same height without
    fighting an `!important` we do not own. Scoped to the row that actually pairs
    them — a rating step's button stands alone and has nothing to match. */
-.ws-form:has(> .ws-answer) .ws-submit-btn { padding-block: 0.6rem; }
+.ws-form:has(> .ws-answer) .ws-submit-btn,
+.ws-form:has(> .ws-answer) .ws-skip-code { padding-block: 0.6rem; }
 /* What to submit is a footnote to the row, not part of it. */
 .ws-form:has(> .ws-answer) > .ws-answer-note { flex: 1 0 100%; margin-top: 0; }
 .ws-answer { max-width: 22rem; }

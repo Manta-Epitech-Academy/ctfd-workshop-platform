@@ -60,7 +60,7 @@ from CTFd.exceptions.challenges import (
 )
 from CTFd.models import Challenges, Ratings, db
 from CTFd.plugins.challenges import BaseChallenge
-from CTFd.utils.user import get_current_user
+from CTFd.utils.user import get_current_user, is_admin
 
 from .jumpqueue import enqueue_solve
 from .mode import is_self_serve
@@ -167,15 +167,23 @@ def _checkpoint_code(answers):
     return str(answers).strip() if answers else ""
 
 
-def _grade_checkpoint(challenge, submission):
+def _grade_checkpoint(challenge, submission, skip=False):
     """Who says this exercise is done — the instructor, or the participant.
 
     Self-serve accepts the button and never looks at the code, which stays in
     the database so that switching the instance back to instructor-led works
     (PLAN.md §25.4). Instructor-led compares the code, case-insensitively, the
     way the static flag it replaces did.
+
+    An admin may skip the code (PLAN.md §49). They are the one who would read
+    it out, and testing a subject should not mean opening the answer sheet in
+    a second tab for every step. `skip` is a field of its own in the request,
+    not a magic submission, and it is honoured for an admin only: sent by
+    anybody else it is ignored and the code is compared as usual.
     """
     if is_self_serve():
+        return True, _("Noted")
+    if skip and is_admin():
         return True, _("Noted")
     code = _checkpoint_code(challenge.quiz_answers)
     if not code:
@@ -321,7 +329,8 @@ class QuizChallenge(BaseChallenge):
         data = request.form or request.get_json()
         submission = str(data.get("submission", ""))
         if challenge.quiz_type == "checkpoint":
-            return _grade_checkpoint(challenge, submission)
+            return _grade_checkpoint(challenge, submission,
+                                     skip=data.get("skip_code") is True)
         if challenge.quiz_type == "ack":
             # Pressing the button IS the completion — there is nothing to grade.
             return True, _("Noted")

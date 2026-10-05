@@ -358,10 +358,17 @@ def group_for_sheet(challenges, documents, intro_first=True):
         # Its own heading, from the step itself: on every subject so far this is
         # the introduction, and it is titled after the subject.
         groups.append((lead[0].category or lead[0].name, lead))
+    # Two subjects of one workshop can name a part the same way — PyPong and
+    # LuaPong both have « Créer votre mini jeu » — and the sheet then showed
+    # that heading twice with nothing to tell the two apart. With several
+    # subjects every part says whose it is; a single subject keeps its bare
+    # titles, where the prefix would only repeat the page's own name.
+    several = len({d.get("subject") for d in documents if d.get("subject")}) > 1
     for doc in documents:
         rows = [by_id[cid] for cid in doc["challenge_ids"] if cid in by_id]
         if rows:
-            groups.append((doc["title"], rows))
+            owner = (doc.get("subject_title") or doc.get("subject")) if several else None
+            groups.append((f"{owner} > {doc['title']}" if owner else doc["title"], rows))
     if orphans:
         groups.append((ORPHANS, orphans))
     return groups

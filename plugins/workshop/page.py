@@ -736,6 +736,17 @@ def _index_cards(user, documents, visible_ids=frozenset()):
         blocked = next((s for s in members if s["state"] == LOCKED), None)
         card["blocked_by"] = (blocked["blocked_by"][:1] if blocked else [])
 
+        # One step is CURRENT in the whole workshop, the first open one in board
+        # order, and `_aggregate` passes that on: one card says "you are here".
+        # That holds while parts follow each other. With subjects offered as a
+        # choice several parts are open at once, and marking only the first as
+        # the one to start tells the reader the others are not for now. Every
+        # part with a step that can be done right away is a way forward.
+        if card["state"] == TODO and any(
+                s["counts"] and not s["solved"] and s["state"] != LOCKED
+                for s in members):
+            card["state"] = CURRENT
+
         card["label"], card["action"] = CARD_TEXT[card["state"]]
         if card["state"] == CURRENT and not card["done"]:
             # Open, and nothing done in it yet: "In progress / Continue" would

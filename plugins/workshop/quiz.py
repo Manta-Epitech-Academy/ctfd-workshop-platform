@@ -183,11 +183,13 @@ def _grade_checkpoint(challenge, submission, skip=False):
     """
     if is_self_serve():
         return True, _("Noted")
-    if skip and is_admin():
-        return True, _("Noted")
     code = _checkpoint_code(challenge.quiz_answers)
     if not code:
+        # Before the skip, not after: an admin who tests with the button is
+        # the one person placed to notice a step nobody could validate.
         return False, _("Misconfigured checkpoint, please report it")
+    if skip and is_admin():
+        return True, _("Noted")
     if submission.strip().lower() == code.lower():
         return True, _("Correct")
     return False, _("Incorrect")

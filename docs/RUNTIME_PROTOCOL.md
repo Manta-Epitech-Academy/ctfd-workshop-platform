@@ -112,6 +112,32 @@ For PyPong the pane is simply *there*: the subject has the participant type the 
 so there is no per-step starter cart to push. When a subject does ship carts, `init`/`step` carry
 the step and the adapter loads the matching one.
 
+### 4b. Start-up options: what a subject can set before the runtime draws
+
+`runtime.params` reaches a runtime in `init`, which is after it has started. An option that
+decides what the runtime *is* when it comes up cannot wait for that, so a few named params are
+also written into the address of the frame (`plugins/workshop/runtime_options.py`, an allowlist
+per runtime). tic80 has one:
+
+```yaml
+runtime:
+  id: tic80
+  version: "5291129"
+  params:
+    repl: off        # lua (default) | py | js | off
+```
+
+`repl` chooses the language of the REPL panel under the code editor, or removes the panel. The
+frame is opened at `/runtime/tic80/<version>/?repl=off` and the editor reads it once, at start-up.
+`off`, `false` and `no` all mean off (YAML reads the bare words as a boolean); a value the runtime
+does not take is dropped, logged, and the runtime keeps its default. It needs a build of
+tic80-web-editor_runtime that knows the option: an older one ignores the address and shows what
+it always showed.
+
+Adding an option to a runtime is one entry in `START_OPTIONS` and the runtime reading
+`location.search`. Nothing else in `params` is ever put in an address: the token secret travels
+there too.
+
 ---
 
 ## 5. Testing without a runtime

@@ -4015,6 +4015,90 @@ The navbar's logo `alt` and `aria-label` move too — they name the thing the lo
 staff footer in `workshop_staff_base.html` stays on `ctf_name`: that one really is "which instance
 am I on", and it is only ever read by somebody with an admin session.
 
+## 47. An admin does the subject twice (2026-10-04)
+
+An admin tests a subject by doing it, on the instance, with their own account. Once done it
+cannot be tested again: every step is solved, every hint is open, the page opens on the closing
+step. The ways back were to delete submissions one by one in the admin panel or to keep a second
+account around.
+
+**Reset my progress**, in the account menu, for admins only. One POST,
+`/api/v1/workshop/progress/reset`, deletes the signed-in admin's solves, attempts, hint unlocks,
+awards and ratings (the tables CTFd's own instance reset empties, filtered to one account) and
+the code saved for the runtime.
+
+- **Own account only.** The user id comes from the session and the endpoint takes none.
+  Resetting a participant is a different act, with a different person confirming it, and core's
+  user page already does it.
+- **The runtime's saved work goes too** (§16). The first version kept it, on the reasoning that
+  code is not progress. That was wrong for the purpose: the point is to see what somebody new
+  sees, and somebody new does not open the editor on a finished game. The code lives in two
+  places, so the reset has two halves: the endpoint deletes the row and answers with the names of
+  its keys, and `reset.js` removes those keys from localStorage, with the owner mark, before the
+  page reloads. Deleting only the row would be undone within seconds by the page's own save. A
+  second browser left open elsewhere still holds a copy and will restore it.
+- **In the account menu, not on the page.** The menu is on every page and is already where an
+  admin finds the Admin Panel. A button beside the progress bar would be a destructive control
+  in the one place a participant's eye rests, shown or not.
+- **It asks first**, in the reader's language, and says what is not touched.
+
+### 47.1 Checked
+
+`scripts/reset_check.py` against pypong on 8080: an admin and a participant each given a solve and
+a failed attempt; the participant refused by the endpoint and shown no entry; a POST without the
+CSRF nonce changing nothing; after the reset the admin at zero, their saved runtime keys gone and
+named in the answer, and the participant untouched, saved work included. In a browser, with TIC-80
+open: a marker written into the runtime's cart key and saved to the server, the reset pressed, and
+after the reload the key gone from localStorage, the server row empty, and neither brought back by
+reopening the runtime.
+
+## 48. What a runtime is when it starts (2026-10-05)
+
+tic80-web-editor grew a third panel, a Lua REPL. PyPong is written in Python, so a Lua prompt
+under the editor is a second language on the screen of somebody learning their first. A subject
+has to be able to choose the REPL, or to have none.
+
+### 48.1 Why not `init`
+
+`runtime.params` already travels from `subject.yaml` to the runtime (§19.2), in the `init`
+message. That message answers `ready`, so it arrives after the runtime has drawn itself: the REPL
+panel would appear, start downloading its interpreter, and be taken away. For Python that
+interpreter is several megabytes.
+
+So the option goes where a web app can read it from its first line: the address.
+`/runtime/tic80/<version>/?repl=off`. It is also how somebody opens the editor on its own with
+no platform around it, which keeps the rule that a runtime works standalone.
+
+### 48.2 An allowlist, not "forward the params"
+
+`params` carries the token secret (§21). So `runtime_options.py` names, per runtime, the options
+that may go in an address and the values each takes; everything else stays in `init`. A value
+nobody recognises is dropped and logged, and the runtime keeps its default: a typo in a subject
+must not produce an address the runtime has to guess at.
+
+YAML 1.1 reads a bare `off`, `no` or `false` as a boolean, and that is what an author writes to
+turn something off. The option is normalised from what YAML made of it.
+
+### 48.3 Where it is applied
+
+`declared_runtime()` builds `src` with the options in it, and keeps `base_src` beside it.
+`_runtime_for` (a workshop of several subjects, §19.2) rebuilds the address from that subject's
+params. The pane and the popped-out window (§27) both read `src`, so they open the same thing.
+
+### 48.4 The runtime's half
+
+tic80-web-editor_runtime reads `?repl=` once at start-up: `lua` (default), `py`, `js`, `off`. It
+vendors every repl_runtime route instead of the Lua-only archive, since the language is no longer
+known at build time. A layout saved in localStorage by a page with another setting is
+reconciled: the panel is removed when the REPL is off, retitled when the language changed.
+
+### 48.5 Checked
+
+`scripts/runtime_options_check.py`, no instance needed: every spelling of off, the three
+languages and their long names, a runtime that takes no option, the secret never reaching the
+address, an unknown value dropped, an address that already has a query. On 8080 with pypong at
+`repl: off` and runtime `5291129`: the frame opens with `?repl=off` and shows two panels.
+
 ## 49. The admin has the codes, so the admin may skip them (2026-10-05)
 
 An admin tests a subject by doing it (§47). On an instructor-led instance every exercise asks for

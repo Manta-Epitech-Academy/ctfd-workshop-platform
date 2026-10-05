@@ -11,6 +11,16 @@
   // is what makes the next load treat this browser as holding nobody's work.
   var LS_KEYS = "ws-workspace-keys";
   var BOOKKEEPING = ["ws-workspace-owner", "ws-workspace-local"];
+  // Heard by assets/runtime.js in every window of this browser, this one
+  // included. See the listener there.
+  var RESET_CHANNEL = "ws-reset";
+
+  function tellRuntimes() {
+    if (typeof BroadcastChannel !== "function") return;
+    var channel = new BroadcastChannel(RESET_CHANNEL);
+    channel.postMessage({ k: "reset" });
+    channel.close();
+  }
 
   function wipeRuntime(serverKeys) {
     // The frame first: a runtime may write its state when it is torn down, and
@@ -35,6 +45,9 @@
     event.preventDefault();
     if (!window.confirm(link.getAttribute("data-confirm"))) return;
     var nonce = (window.init && window.init.csrfNonce) || "";
+    // Before the request: a runtime open in its own tab must have stopped
+    // saving by the time the server erases what it saved.
+    tellRuntimes();
     fetch("/api/v1/workshop/progress/reset", {
       method: "POST",
       credentials: "same-origin",

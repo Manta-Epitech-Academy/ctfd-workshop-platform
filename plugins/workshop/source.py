@@ -245,7 +245,7 @@ def materialize(repo, ref, dest, log=print):
             # A subject the wrapper owns: a plain directory of the workshop
             # repo, which its tarball does carry (only submodules arrive
             # empty). It was fetched with the wrapper, at the wrapper's sha.
-            path = (entry.get("path") or "").strip()
+            path = str(entry.get("path") or "").strip()
             own_dir = os.path.realpath(os.path.join(root, path))
             inside = own_dir.startswith(os.path.realpath(root) + os.sep)
             if not (path and inside

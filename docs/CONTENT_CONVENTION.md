@@ -538,7 +538,8 @@ which is the author's handle and reads as one. Give the marker a **`title`** and
 reads that instead (« Quiz : Les touches du joueur »). The id stays the key in `quiz_answers.yaml`
 and what the platform recognises the quiz by from one sync to the next, so a title can be changed
 freely and an id cannot. A title is read with the question, before it is answered: it names the
-subject of the question, never its answer.
+subject of the question, never its answer. It is short: 73 characters at most, which the linter
+checks, because the name it becomes holds 80.
 
 ```markdown
 <!-- ws: {type: quiz, id: btn-doc, title: "Les touches du joueur", kind: multiple} -->

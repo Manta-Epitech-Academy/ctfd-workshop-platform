@@ -56,8 +56,12 @@ def start_options(runtime_id, params):
     """
     known = START_OPTIONS.get(runtime_id) or {}
     options, rejected = {}, []
+    # `params: [repl]` is a mistake in a subject.yaml, and this runs on every
+    # page of the instance: it reads as no option, it does not raise.
+    if not isinstance(params, dict):
+        params = {}
     for name, accepted in known.items():
-        if name not in (params or {}):
+        if name not in params:
             continue
         value = _normalise(params[name])
         if value in accepted:

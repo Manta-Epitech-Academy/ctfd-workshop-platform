@@ -136,12 +136,16 @@ def declared_runtime():
     # A start-up option the runtime does not take is a typo in a subject. The
     # runtime comes up with its default, which is the safe reading, and this
     # is where somebody finds out why.
-    for name, value in start_options(runtime_id, params)[1]:
-        if (runtime_id, name, str(value)) not in _warned:
-            _warned.add((runtime_id, name, str(value)))
-            current_app.logger.warning(
-                "workshop: runtime %s does not take %s: %r (subject.yaml, "
-                "runtime.params) — ignored", runtime_id, name, value)
+    # Every subject's parameters, not only the first one's: a workshop of
+    # several subjects keeps one set each (`subjects`, PLAN.md §19.2).
+    declared = [params] + list((cfg.get("subjects") or {}).values())
+    for one in declared:
+        for name, value in start_options(runtime_id, one)[1]:
+            if (runtime_id, name, str(value)) not in _warned:
+                _warned.add((runtime_id, name, str(value)))
+                current_app.logger.warning(
+                    "workshop: runtime %s does not take %s: %r (subject.yaml, "
+                    "runtime.params) — ignored", runtime_id, name, value)
     return {
         "params": params,
         # Per-subject overrides, keyed by subject slug (PLAN.md §19.2): one dist

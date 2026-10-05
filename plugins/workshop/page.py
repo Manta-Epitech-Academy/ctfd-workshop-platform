@@ -651,7 +651,7 @@ def _runtime_for(subject):
     return runtime
 
 
-def _render(user, keep_ids=None, title=None, subject=None, next_doc=None,
+def _render(user, keep_ids=None, title=None, subject=None, next_doc=None, parts_left=False,
             doc_slug=None):
     steps = _steps(user)
     if keep_ids is not None:
@@ -694,6 +694,7 @@ def _render(user, keep_ids=None, title=None, subject=None, next_doc=None,
         document_complete=(keep_ids is not None and total_count > 0
                            and solved_count == total_count),
         next_doc=next_doc,
+        parts_left=parts_left,
     )
 
 
@@ -899,6 +900,39 @@ def toolbox():
     )
 
 
+def _routes_after(user, docs, doc):
+    """(open, left) — where a participant can go once `doc` is finished.
+
+    `open` is every other part with work left that they could start at that
+    moment, `left` whether any part has work left at all. Both are computed as
+    if `doc` were complete, whatever its state now: the completion block is
+    rendered with the page and only revealed when the last step turns green,
+    without a reload, so it has to be right about a future it cannot wait for.
+
+    The part that follows in the list is not the answer. In a workshop of
+    free-choice subjects it may be locked (a bonus that waits on a subject not
+    started yet) while another one is open, and offering it sends the reader
+    to a page of padlocks.
+    """
+    solved = set(get_solve_ids_for_user_id(user.id)) | set(doc["challenge_ids"])
+    challenges = {c.id: c for c in _ordered_challenges()}
+    known = set(challenges)
+    skipped = _optional_ids()
+    open_parts, left = [], False
+    for other in docs:
+        if other is doc:
+            continue
+        todo = [cid for cid in other["challenge_ids"]
+                if cid in known and cid not in solved and cid not in skipped
+                and getattr(challenges[cid], "quiz_type", None) not in NON_TASK_KINDS]
+        if not todo:
+            continue
+        left = True
+        if any(set(_prerequisites(challenges[cid], known)) <= solved for cid in todo):
+            open_parts.append(other)
+    return open_parts, left
+
+
 @workshop_page.route("/workshop/<doc_slug>")
 @during_ctf_time_only
 @check_challenge_visibility
@@ -913,8 +947,19 @@ def workshop_document(doc_slug):
     doc = next((d for d in docs if d["slug"] == doc_slug), None)
     if doc is None:
         abort(404)
-    doc_index = docs.index(doc)
-    next_doc = docs[doc_index + 1] if doc_index + 1 < len(docs) else None
+    # One way forward: name it. Several, or none that is open yet: the index is
+    # where a choice is made, so send the reader back to it.
+    user = get_current_user()
+    open_parts, left = _routes_after(user, docs, doc)
+    next_doc = None
+    if len(open_parts) == 1:
+        next_doc = dict(open_parts[0])
+        # A part of another subject says whose it is: twin subjects name their
+        # parts alike, and « next part: Créer votre mini jeu » at the end of a
+        # part called « Créer votre mini jeu » reads as a loop.
+        owner = next_doc.get("subject_title") or next_doc.get("subject")
+        if owner and next_doc.get("subject") != doc.get("subject"):
+            next_doc["title"] = f"{owner} > {next_doc['title']}"
     keep_ids = set(doc["challenge_ids"])
     # The index renders the introduction itself, so it does not belong here as
     # well. A sync from this version already leaves it out of every document;
@@ -929,9 +974,9 @@ def workshop_document(doc_slug):
     intro_id = _intro_step_id()
     if intro_id is not None and len(docs) > 1:
         keep_ids.discard(intro_id)
-    return _render(get_current_user(), keep_ids=keep_ids,
+    return _render(user, keep_ids=keep_ids,
                    title=doc["title"], subject=doc.get("subject"),
-                   next_doc=next_doc, doc_slug=doc_slug)
+                   next_doc=next_doc, parts_left=left, doc_slug=doc_slug)
 
 
 @workshop_page.route("/workshop/<doc_slug>/runtime")

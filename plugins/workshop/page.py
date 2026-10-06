@@ -690,6 +690,9 @@ def _render(user, keep_ids=None, title=None, subject=None, next_doc=None, parts_
         # opens is per document (see `workshop_runtime` below).
         doc_slug=doc_slug,
         runtime=_runtime_for(subject),
+        # The step's « open the toolbox » link carries it, so the toolbox page
+        # shows this subject's boxes and not its twin's.
+        subject=subject,
         solved_count=solved_count,
         total_count=total_count,
         # Finishing the last step of a document used to be a dead end — the
@@ -879,8 +882,15 @@ def workshop():
     )
 
 
-def _reference(user):
+def _reference(user, subject=None):
     """(glossary, tools) — the two sections of the toolbox page.
+
+    `subject` narrows the page to one subject of a workshop, which is what a
+    step's own « open the toolbox » link asks for: twin subjects (PyPong and
+    LuaPong) have the same step titles, and a reader sent from one of them
+    does not want to tell « Prise en main de TIC-80 » from « Prise en main de
+    TIC-80 ». The navbar entry asks for nothing and gets everything. With
+    several subjects every entry is titled by its subject either way.
 
     States come from the same `_steps` pass every other view uses, so a tool is
     open here exactly when its step is open on the workshop page. The content
@@ -890,14 +900,24 @@ def _reference(user):
     go gives no sense of what the subject holds.
     """
     steps = {s["id"]: s for s in _steps(user)}
-    pages = step_pages()
+    docs = _documents()
+    pages = step_pages(docs)
+    owner = {cid: (d.get("subject"), d.get("subject_title") or d.get("subject"))
+             for d in docs for cid in d["challenge_ids"]}
+    several = len({slug for slug, _ in owner.values() if slug}) > 1
     glossary, tools = [], []
     for challenge in _ordered_challenges():
         step = steps.get(challenge.id)
         if step is None:
             continue
+        slug, subject_title = owner.get(challenge.id, (None, None))
+        if subject and slug != subject:
+            continue
         open_to_them = step["unlocked"] or step["solved"]
-        entry = {"id": challenge.id, "name": step["name"], "state": step["state"],
+        name = step["name"]
+        if several and subject_title:
+            name = f"{subject_title}: {name}"
+        entry = {"id": challenge.id, "name": name, "state": step["state"],
                  "href": step_href(challenge.id, pages), "locked": not open_to_them}
         if open_to_them:
             region, rest = split_glossary(challenge.html)
@@ -932,11 +952,19 @@ def toolbox():
     shadow the part, depending on which rule Werkzeug picked.
     """
     user = get_current_user()
-    glossary, tools = _reference(user)
+    # `?subject=<slug>`: one subject of a workshop, the way a step's own link
+    # asks for it. An unknown slug, or one on a single-subject instance, means
+    # the whole page, never an empty one.
+    subjects = _subjects()
+    wanted = (request.args.get("subject") or "").strip()
+    subject = wanted if wanted in subjects and len(subjects) > 1 else None
+    glossary, tools = _reference(user, subject)
     return render_template(
         "workshop_toolbox.html",
         glossary=glossary,
         tools=tools,
+        subject=subject,
+        subject_title=(subjects.get(subject) or {}).get("title") or subject,
         page_title=instance_title(),
         title=instance_title(),
     )

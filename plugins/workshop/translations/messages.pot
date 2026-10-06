@@ -503,3 +503,10 @@ msgid "your pick"
 
 msgid "Your progress could not be reset."
 msgstr ""
+
+#, python-format
+msgid "What %(subject)s has given you so far, in one place."
+msgstr ""
+
+msgid "Show every subject"
+msgstr ""

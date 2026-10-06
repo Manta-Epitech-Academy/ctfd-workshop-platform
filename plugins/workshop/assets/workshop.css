@@ -292,6 +292,12 @@
   color: rgb(255 255 255 / 0.85);
   max-width: 44rem;
 }
+/* The way out of a toolbox narrowed to one subject: a plain link in the
+   tagline, the same white as the sentence it ends. */
+.ws-hero-tagline .ws-toolbox-all {
+  margin-left: .5rem; color: inherit; text-decoration: underline;
+  text-underline-offset: .15em;
+}
 .ws-hero-media {
   flex: 0 1 20rem; margin: 0; min-width: 0;
   border-radius: var(--bs-border-radius-lg, 1rem);

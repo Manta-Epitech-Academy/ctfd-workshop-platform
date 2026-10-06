@@ -46,7 +46,12 @@
       <div class="ws-hero-copy">
         <h1 class="ws-title epi-title-cursor">{% trans %}Toolbox{% endtrans %}</h1>
         <p class="ws-hero-tagline">
-          {% trans %}Everything the workshop has given you so far, in one place.{% endtrans %}
+          {% if subject %}
+            {{ _("What %(subject)s has given you so far, in one place.", subject=subject_title) }}
+            <a class="ws-toolbox-all" href="{{ url_for('workshop_page.toolbox') }}">{% trans %}Show every subject{% endtrans %}</a>
+          {% else %}
+            {% trans %}Everything the workshop has given you so far, in one place.{% endtrans %}
+          {% endif %}
         </p>
       </div>
     </div>

@@ -325,6 +325,9 @@ msgstr ""
 msgid "Sign in with your Jump account."
 msgstr ""
 
+msgid "Skip validation code"
+msgstr ""
+
 msgid "Staff area: sign in with your username or email."
 msgstr ""
 

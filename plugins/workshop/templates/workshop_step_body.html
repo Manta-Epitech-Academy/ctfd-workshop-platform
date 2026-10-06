@@ -294,6 +294,15 @@
           {%- elif step.body.answer_kind == 'done' %}{% trans %}Mark as done{% endtrans %}
           {%- else %}{% trans %}Submit{% endtrans %}{% endif -%}
         </button>
+        {# An admin testing the subject validates a code step without the code
+           (PLAN.md §49). Everything else about the step is what a participant
+           sees: the same field, the same button, the same note. The server
+           checks who is asking (quiz.py), so hiding this is not the guard. #}
+        {% if step.body.answer_kind == 'code' and is_admin() %}
+          <button type="button" class="btn btn-outline-secondary ws-skip-code">
+            {%- trans %}Skip validation code{% endtrans -%}
+          </button>
+        {% endif %}
         <span class="ws-feedback" role="status" aria-live="polite"></span>
       </div>
       {% if step.body.note %}

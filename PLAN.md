@@ -4099,3 +4099,35 @@ languages and their long names, a runtime that takes no option, the secret never
 address, an unknown value dropped, an address that already has a query. On 8080 with pypong at
 `repl: off` and runtime `5291129`: the frame opens with `?repl=off` and shows two panels.
 
+## 49. The admin has the codes, so the admin may skip them (2026-10-05)
+
+An admin tests a subject by doing it (§47). On an instructor-led instance every exercise asks for
+the code the instructor reads out, and the instructor is the admin: to get past a step they open
+the answer sheet (§23) in a second tab, copy six characters, come back, and do it again for the
+next step.
+
+A code step now shows an admin one more button beside « Submit »: **Skip validation code**.
+
+- **Same render.** The field, the button and the note are what a participant sees. The first idea,
+  switching the admin to the self-serve « Mark as done » button, would have had them test a page
+  the room never sees.
+- **The server decides.** The button sends `skip_code: true` with the attempt. `quiz.py` honours
+  it when `is_admin()` and ignores it otherwise: a participant who sends the flag by hand has
+  their code compared as usual. A field of its own, not a magic submission string, so nothing a
+  participant types in the box can mean "skip".
+- **It is a real solve.** Points, unlocking and the Jump outbox behave as for any solve, because
+  the point is to see what comes next. The submission is recorded as
+  `(admin: validation code skipped)`, so the submissions list says how the step was validated.
+  « Reset my progress » (§47) removes it with the rest.
+- **Only the instructor's code.** A quiz, a flag or a token is an answer to find, not a permission
+  to give. Skipping those is a different feature and nobody asked for it.
+- **Not for supervisors** (§32). They can read the codes; validating steps on their own account
+  is not what the tier is for.
+
+### 49.1 Checked
+
+`scripts/skip_code_check.py` against pypong on 8080, instructor-led: the admin's page carries the
+button on a code step and a participant's does not; a participant sending `skip_code` is told
+« Incorrect » and has no solve; the admin sending it is solved, with the marker as the recorded
+submission; a wrong code from the admin without the flag is still refused.
+

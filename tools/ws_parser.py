@@ -72,6 +72,7 @@ class Quiz:
     category: str = ""
     host_exercise: str = ""   # slug of the exercise it appeared under, if any
     order: int = 0            # source-reading position across the whole subject
+    title: str = ""           # what a participant reads in place of the id, if given
 
 
 @dataclass
@@ -434,11 +435,17 @@ def _extract_inline(body, category, host_slug, defaults, where):
                 continue
             if kind == "quiz":
                 question, items, next_i = _parse_quiz_body(lines, i + 1, where)
+                title = str(data.get("title") or "").strip()
+                if len(title) > QUIZ_TITLE_MAX:
+                    raise ParseError(
+                        f"{where}: quiz {data['id']!r} has a title of {len(title)} "
+                        f"characters, the platform takes {QUIZ_TITLE_MAX} at most")
                 q = Quiz(
                     id=data["id"], kind=data.get("kind", "single"),
                     points=int(data.get("points", defaults["points"])),
                     question=question, items=[], left=[], right=[],
                     category=category, host_exercise=host_slug,
+                    title=title,
                 )
                 if q.kind == "match":
                     q.left = [it for it in items if it["letter"].isupper()]
@@ -452,6 +459,11 @@ def _extract_inline(body, category, host_slug, defaults, where):
         i += 1
     return "\n".join(out).strip(), hints, quizzes
 
+
+# A quiz is imported as a challenge named « Quiz : <title> », and a challenge
+# name holds 80 characters. A longer title would pass here and stop the import
+# half-way, after the exercises have been written.
+QUIZ_TITLE_MAX = 80 - len("Quiz : ")
 
 TOPOLOGIES = ("linear", "free")
 VALIDATIONS = ("checkpoint", "quiz", "flag", "token", "tests", "review")

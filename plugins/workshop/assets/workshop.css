@@ -978,6 +978,38 @@ body.ws-has-pane .ws-hero {
 }
 body.ws-has-pane { overflow-x: hidden; }
 
+/* The header gets out of the way too, or its right half (the account menu, the
+   end of the nav) sits under the pane where nobody can reach it. And being
+   narrower is not enough: the header picks between its burger and its single
+   row on the width of the VIEWPORT (epitech-theme.css, 768px), which the pane
+   does not change. So beside the pane it is asked the same question about its
+   own width, and the rules below put back the narrow state the media queries
+   took away. They mirror `.epi-header-inner`, `.epi-nav-toggle`, `.epi-nav`,
+   `.epi-nav-list` and `.epi-header-actions` there; a change to one of those
+   belongs here as well. */
+@media (min-width: 901px) {
+  body.ws-has-pane .epi-header {
+    margin-right: var(--ws-pane-width);
+    container: ws-header / inline-size;
+  }
+}
+@container ws-header (max-width: 767.98px) {
+  body.ws-has-pane .epi-header-inner {
+    flex-wrap: wrap; gap: 0.75rem; padding-inline: 1rem;
+  }
+  body.ws-has-pane .epi-nav-toggle { display: inline-flex; }
+  /* `block`, and hidden only while Bootstrap's collapse says so: the wide rule
+     this replaces forces `display: flex` whatever the collapse state is. */
+  body.ws-has-pane .epi-header .epi-nav { display: block; order: 4; width: 100%; }
+  body.ws-has-pane .epi-header .epi-nav.collapse:not(.show) { display: none; }
+  body.ws-has-pane .epi-nav-list { padding-top: 0.5rem; }
+  /* The burger carries the push to the right again (see `.epi-header-actions`). */
+  body.ws-has-pane .epi-header-actions { margin-left: 0; }
+}
+@container ws-header (max-width: 639.98px) {
+  body.ws-has-pane .epi-header-divider { display: none; }
+}
+
 /* The bar is the only chrome the platform puts around a runtime, in either
    presentation, so it is the same element in both (templates/
    workshop_page.html and workshop_runtime.html). Its controls are the header's

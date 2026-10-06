@@ -352,8 +352,21 @@ shows the name of a locked step and nothing else, the same contract the workshop
 locked step titles. The page therefore has the same shape from the first minute, which is what
 lets it answer "is there anything more coming".
 
-The tool names on the step line are **derived** from the `🧰`/`🗺️` titles the author already
-wrote (`Outil #N :` and the gloss after « are dropped), so there is no second list to maintain.
+**What is a tool, and what is its name.** Each quoted block (`>` lines, separated by a blank
+line) inside the region is one tool. Its name is what its **first line** says in backticks —
+`` `not` `` above, `` `and` `` in « Opérateur logique `and` » — or, when that line has no code,
+its bold title without the number and the gloss: « empiler une deuxième règle » is its own name.
+The `🧰`/`🗺️` emoji and « Outil #N : » are decoration: welcome, never required. A quote whose
+first line has neither backticks nor a bold title is a note inside the box and names nothing.
+Two titles in one quote count as one tool; a blank line between them makes two. The lint says so
+in both cases. There is no second list to maintain.
+
+> Changed 2026-10-06. A tool used to be *« a bold title preceded by 🧰 or 🗺️ »*, with the
+> emoji itself as the marker. A marker nobody can see is a bad marker: it does not survive a
+> copy-paste that drops the character, it cannot be found by an author who does not already
+> know to look for it, and it puts a rendering decision inside a reader-facing title. The
+> block is now the unit, exactly what `ws:toolbox` already fences, and the emoji stays as
+> decoration for anyone who likes it.
 
 A subject that marks nothing keeps the old behaviour: every section renders inside its step, and
 the toolbox page says it is empty. A platform that does not know these markers renders them as

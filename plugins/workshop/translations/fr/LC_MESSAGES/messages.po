@@ -535,3 +535,10 @@ msgstr "au choix"
 
 msgid "Your progress could not be reset."
 msgstr "Ta progression n'a pas pu être réinitialisée."
+
+#, python-format
+msgid "What %(subject)s has given you so far, in one place."
+msgstr "Ce que %(subject)s t'a donné jusqu'ici, au même endroit."
+
+msgid "Show every subject"
+msgstr "Voir tous les sujets"

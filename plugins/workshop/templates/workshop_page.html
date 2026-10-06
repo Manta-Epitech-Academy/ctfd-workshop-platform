@@ -200,7 +200,7 @@
     {# The badge is a class, not a character: the state glyphs on this page are
        drawn from Font Awesome so a two-colour system never has a four-colour
        emoji dropped into it, and this is the largest one on the page. #}
-    <section class="ws-next-doc{% if not next_doc %} ws-next-doc-final{% endif %}"
+    <section class="ws-next-doc{% if not next_doc and not parts_left %} ws-next-doc-final{% endif %}"
              aria-live="polite"
              {% if not document_complete %}hidden{% endif %}>
       <div class="ws-next-doc-badge" aria-hidden="true"></div>
@@ -208,6 +208,14 @@
         <p class="ws-next-doc-lead">{% trans %}Part complete.{% endtrans %}</p>
         <a class="btn ws-next-doc-link" href="/workshop/{{ next_doc.slug }}">
           <span>{{ _("Next part: %(title)s", title=next_doc.title) }}</span>
+          <i class="ws-next-doc-arrow" aria-hidden="true"></i>
+        </a>
+      {% elif parts_left %}
+        {# Several parts are open, or the ones left are still locked: the index
+           is where that is visible, so the way forward is back to it. #}
+        <p class="ws-next-doc-lead">{% trans %}Part complete.{% endtrans %}</p>
+        <a class="btn ws-next-doc-link" href="/workshop">
+          <span>{{ _("Back to the workshop") }}</span>
           <i class="ws-next-doc-arrow" aria-hidden="true"></i>
         </a>
       {% else %}

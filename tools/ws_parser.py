@@ -766,6 +766,7 @@ def _cover_warnings(subject):
 
 TOOLBOX_REGION = re.compile(r"<!--\s*ws:toolbox\s*-->(.*?)<!--\s*/ws:toolbox\s*-->", re.S)
 TOOL_TITLE = re.compile(r"`[^`]+`|\*\*.+?\*\*")
+TITLE_LIKE = re.compile(r"^(?:🧰|🗺️|🗺)|^\*\*\s*(?:Outil|Tool)\s*#?\d*\s*:", re.I)
 
 
 def _toolbox_warnings(subject_dir, subject):
@@ -796,7 +797,9 @@ def _toolbox_warnings(subject_dir, subject):
                         f"{doc.path}: a toolbox quote starting « {block[0][:50]} » has "
                         f"neither backticks nor a bold title on its first line, so it "
                         f"names no tool (§3.4b)")
-                titles = [l for l in block if l.startswith(("**", "🧰", "🗺"))]
+                # A hint only, never the grammar: a line fronted by the emoji
+                # or by « Outil #N » is how authors have written titles so far.
+                titles = [l for l in block if TITLE_LIKE.match(l)]
                 if len(titles) > 1:
                     warnings.append(
                         f"{doc.path}: one toolbox quote holds {len(titles)} titles "

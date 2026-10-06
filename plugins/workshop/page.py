@@ -749,11 +749,14 @@ def _index_cards(user, documents, visible_ids=frozenset()):
         members = [s for s in steps if s["id"] in ids]   # board order
         card = {"index": index, "title": doc["title"], "slug": doc["slug"],
                 "href": f"/workshop/{doc['slug']}", **_aggregate(members)}
-        # A locked part names one thing, not every unmet prerequisite: the first
-        # step it cannot start, and what that step waits on. "Finish part 1"
-        # is actionable; a list of six ids is not.
+        # A locked part names what its first locked step waits on — all of it.
+        # That step is the part's door, and a door can wait on several things:
+        # a bonus placed `after` two subjects names both closing steps, and
+        # naming the first alone sent the reader to finish PyPong when LuaPong
+        # was the other half of the answer. Within a part the chain is linear,
+        # so this is a short list, not the six ids of a whole chapter.
         blocked = next((s for s in members if s["state"] == LOCKED), None)
-        card["blocked_by"] = (blocked["blocked_by"][:1] if blocked else [])
+        card["blocked_by"] = list(blocked["blocked_by"]) if blocked else []
 
         # One step is CURRENT in the whole workshop, the first open one in board
         # order, and `_aggregate` passes that on: one card says "you are here".

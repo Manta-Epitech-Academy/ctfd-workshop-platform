@@ -44,9 +44,14 @@
             {% if card.state == 'locked' %}
               <p class="card-text ws-card-note">
                 {% if card.blocked_by %}
+                  {# One sentence listing every blocker, like the step page:
+                     « Termine “A”, “B” pour ouvrir cette partie. » #}
+                  {% trans %}Finish{% endtrans %}
                   {%- for b in card.blocked_by %}
-                    {% trans %}Finish{% endtrans %} “<a href="{{ b.href or '#' }}">{{ b.name }}</a>” {% trans %}to open this part.{% endtrans %}
+                    “<a href="{{ b.href or '#' }}">{{ b.name }}</a>”
+                    {%- if not loop.last %},{% endif %}
                   {%- endfor %}
+                  {% trans %}to open this part.{% endtrans %}
                 {% else %}
                   {% trans %}Not available yet.{% endtrans %}
                 {% endif %}

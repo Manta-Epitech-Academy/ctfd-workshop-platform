@@ -764,6 +764,50 @@ def _cover_warnings(subject):
     return out
 
 
+TOOLBOX_REGION = re.compile(r"<!--\s*ws:toolbox\s*-->(.*?)<!--\s*/ws:toolbox\s*-->", re.S)
+TOOL_TITLE = re.compile(r"`[^`]+`|\*\*.+?\*\*")
+TITLE_LIKE = re.compile(r"^(?:🧰|🗺️|🗺)|^\*\*\s*(?:Outil|Tool)\s*#?\d*\s*:", re.I)
+
+
+def _toolbox_warnings(subject_dir, subject):
+    """Quoted blocks in a toolbox that will not name a tool the way the author
+    probably meant (convention §3.4b).
+
+    A tool is a quoted block, named by the backticks on its first line, or by
+    its bold title. Two things go wrong silently: a block whose first line has
+    neither names nothing and vanishes from the step's tool line; and two
+    titles in one block, with no blank line between them, count as one tool.
+    """
+    warnings = []
+    for doc in subject.documents:
+        text = (Path(subject_dir) / doc.path).read_text(encoding="utf-8")
+        for region in TOOLBOX_REGION.findall(text):
+            blocks, current = [], []
+            for line in region.split("\n"):
+                if line.startswith(">"):
+                    current.append(line.lstrip("> ").rstrip())
+                elif current:
+                    blocks.append(current)
+                    current = []
+            if current:
+                blocks.append(current)
+            for block in blocks:
+                if not TOOL_TITLE.search(block[0]):
+                    warnings.append(
+                        f"{doc.path}: a toolbox quote starting « {block[0][:50]} » has "
+                        f"neither backticks nor a bold title on its first line, so it "
+                        f"names no tool (§3.4b)")
+                # A hint only, never the grammar: a line fronted by the emoji
+                # or by « Outil #N » is how authors have written titles so far.
+                titles = [l for l in block if TITLE_LIKE.match(l)]
+                if len(titles) > 1:
+                    warnings.append(
+                        f"{doc.path}: one toolbox quote holds {len(titles)} titles "
+                        f"(« {titles[0][:40]} »…); only the first names a tool. Put "
+                        f"a blank line between them (§3.4b)")
+    return warnings
+
+
 def lint_all(subject_dir):
     """Returns (problems, warnings).
 
@@ -782,7 +826,7 @@ def lint_all(subject_dir):
         # Nothing parsed, or parsed and failed: advice about a cover would be
         # noise next to a real error, and may not even be computable.
         return problems, []
-    return problems, _cover_warnings(subject)
+    return problems, _cover_warnings(subject) + _toolbox_warnings(subject_dir, subject)
 
 
 def lint(subject_dir):

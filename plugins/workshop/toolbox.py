@@ -7,7 +7,11 @@ needs it — and fences them in HTML comments (convention §3.4b), the same way
     <!-- ws:toolbox -->
     ### Boîte à outils
     > 🧰 **Outil #1 : `return` « ma réponse est... »**
+    > ...
     <!-- /ws:toolbox -->
+
+Each quoted block in the region is one tool, named by the backticks on its
+first line (`return` here); the emoji and « Outil #1 : » are decoration.
 
 The step page then shows a line naming the tools and linking to `/toolbox`,
 which collects every one of them in reading order. Two reasons for that split:
@@ -31,19 +35,25 @@ TOOLBOX_CLOSE = "<!-- /ws:toolbox -->"
 GLOSSARY_OPEN = "<!-- ws:glossary -->"
 GLOSSARY_CLOSE = "<!-- /ws:glossary -->"
 
-# A tool announces itself with an emoji and a bold title: 🧰 for a tool, 🗺️ for
-# a fact about the game world. Both are collected; a block with no bold title is
-# a note inside the section and is not one of the names.
-_TITLE = re.compile(r"(?:🧰|🗺️|🗺)[^<]*<strong>(.*?)</strong>", re.S)
+# A toolbox entry is a quoted block (`>` lines) inside the region, and its
+# first line names it (convention §3.4b, changed 2026-10-06). The names are
+# what the author wrote in backticks on that line — « Opérateur logique `and` »
+# is the tool `and`, « une boucle `for` ou `while` » is two tools — or, with
+# no code, the bold title minus its number and its gloss:
+# « empiler une deuxième règle » is its own name. Neither the 🧰/🗺️ emoji nor
+# « Outil #N : » is required; both are decoration. A quote whose first line has
+# neither code nor a bold title is a note inside the box and names nothing.
+# CTFd renders markdown with CommonMark, which closes a quote at the first
+# blank line without `>`: one quoted block is one <blockquote>, and its first
+# line is its first paragraph up to the first newline.
+_QUOTE = re.compile(r"<blockquote>(.*?)</blockquote>", re.S)
+_FIRST_PARAGRAPH = re.compile(r"<p>(.*?)</p>", re.S)
+_LINE_BREAK = re.compile(r"<br\s*/?>|\n")
+_CODE = re.compile(r"<code>.*?</code>", re.S)
+_STRONG = re.compile(r"<strong>(.*?)</strong>", re.S)
 # "Outil #1 : ..." numbers the tool within its step, which means nothing once
 # every step's tools are on one page.
 _NUMBER = re.compile(r"^\s*(?:Outil|Tool)\s*#?\d*\s*:\s*", re.I)
-# A title that opens with code names the tool with it; whatever follows is prose
-# about it, so « <code>and</code> exige que deux conditions... » is the tool
-# `and`. Several code spans in a row stay together: that is one tool written two
-# ways, not two names. A title with no code is kept whole — « empiler une
-# deuxième règle » is its own name and cutting it would leave nothing.
-_LEADING_CODE = re.compile(r"^(?:<code>.*?</code>[\s,/]*)+")
 
 
 # Left behind where a toolbox was lifted out, so the line that replaces it can
@@ -119,27 +129,32 @@ def strip_leading_heading(region_html):
     return lift_leading_heading(region_html)[1]
 
 
+def _names_of(quote_html):
+    """The names a quoted block gives itself on its first line, maybe none."""
+    m = _FIRST_PARAGRAPH.search(quote_html)
+    first = _LINE_BREAK.split(m.group(1) if m else quote_html, 1)[0]
+    codes = _CODE.findall(first)
+    if codes:
+        return codes
+    m = _STRONG.search(first)
+    if not m:
+        return []
+    name = _NUMBER.sub("", m.group(1)).strip()
+    name = re.split(r"\s*«", name, 1)[0].strip()
+    name = name.rstrip(":–-—,. ").strip()
+    return [name] if name else []
+
+
 def tool_names(region_html):
     """The tools named in a toolbox region, as small HTML fragments.
 
-    Derived from the titles the author already wrote, so the line on the step
-    page cannot drift from the section on the toolbox page — there is nothing
-    to keep in sync by hand.
-
-    A title reads `Outil #2 : `not` « L'inverse de »`: the number is
-    dropped (it counts within a step, and the toolbox page is not a step) and so
-    is the gloss after the French quote, which is a sentence rather than a name,
-    and so is the prose after a title that opens with code.
-    What is left is the name as the author spelled it, `<code>` included.
+    Read from the quoted blocks the author already wrote, so the line on the
+    step page cannot drift from the section on the toolbox page — there is
+    nothing to keep in sync by hand.
     """
     names = []
-    for raw in _TITLE.findall(region_html or ""):
-        name = _NUMBER.sub("", raw).strip()
-        name = re.split(r"\s*«", name, 1)[0].strip()
-        lead = _LEADING_CODE.match(name)
-        if lead:
-            name = lead.group(0).strip()
-        name = name.rstrip(":–-—,. ").strip()
-        if name and name not in names:
-            names.append(name)
+    for quote in _QUOTE.findall(region_html or ""):
+        for name in _names_of(quote):
+            if name not in names:
+                names.append(name)
     return names

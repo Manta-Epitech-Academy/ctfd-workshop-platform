@@ -668,6 +668,26 @@ tree. A manifest may carry both, and `kevin-cazal/discover-linux_subjects` does 
 git submodules, so `path` is the submodule directory a `--recursive` clone gives you and `repo`
 is where the instance fetches the same thing from.
 
+**A subject the workshop repo owns.** An entry with a `path` and no `repo` is a directory of the
+workshop repo itself, fetched with it. It is meant for a **one-step starter**: a subject that is
+nothing but its entrypoint document, a few lines saying what the workshop offers.
+
+```yaml
+subjects:
+  - path: accueil            # accueil/subject.yaml + accueil/intro.md, in this repo
+    role: starter
+  - repo: kevin-cazal/pypong_subject
+    ref: submodule
+    role: advanced           # no `order`: free choice
+  - repo: kevin-cazal/luapong_subject
+    ref: submodule
+    role: advanced
+```
+
+Such a starter imports as a single `ack` step, shown on the workshop's index above the cards. It
+has no exercise, so it gets no closing step: no rating, no "going further". The advanced subjects
+wait on that acknowledgement, and the index labels unordered ones "your pick" rather than "next".
+
 **`ref: submodule`** means "the commit this workshop repo pins for that subject", which is what a
 clone of the wrapper checks out. The platform reads the pin from GitHub's contents API rather than
 from git, because a repository tarball carries submodule directories empty. The alternative is a

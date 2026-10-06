@@ -16,6 +16,10 @@ already does.
         role: advanced
         order: 1               # optional; unordered advanced = free choice
 
+A starter may be nothing but its entrypoint document: one acknowledgement step
+on the front page, no exercise and so no closing step. The advanced subjects
+then wait on that acknowledgement.
+
 Ordering, in board order and in prerequisites:
 
   starter -> advanced order:1 -> advanced order:2 -> …   (chained)
@@ -104,7 +108,12 @@ def closing_of(result, name):
         return result["final_step"]
     exercises = [e for e in result["subject"].exercises if not e.optional]
     if not exercises:
-        return None
+        # A subject that is only its entrypoint — a workshop's one-step starter,
+        # a few lines and an acknowledgement — has nothing else to wait on, and
+        # returning None here is the same fail-open as above: every advanced
+        # subject would import ungated. Reading the introduction is the whole
+        # subject, so the introduction is what the next one waits for.
+        return result["intro_id"]
     last = result["ex_ids"][exercises[-1].slug]
     print(f"  note: {name} has no closing step, so the next subject waits on "
           f"{exercises[-1].title!r} instead. Ending its last document with a few "
@@ -188,7 +197,23 @@ def sync_workshop(workshop_dir, url, admin_user, admin_pass, codes_dir=None, *,
             runtime["pane"] = rt.get("pane") or {}
         if rt.get("params"):
             runtime_params[subject.slug] = rt["params"]
-        subjects_cfg[subject.slug] = result["cover"]
+        # The role travels with the cover so the index can say what the
+        # manifest said: which subject is the way in, and whether the ones
+        # after it are a sequence or a choice. Without it the page can only
+        # guess from position, and "first" is not "starter" when the starter
+        # has no part of its own.
+        subjects_cfg[subject.slug] = {
+            **result["cover"],
+            "role": ("starter" if role == "starter"
+                     else "next" if entry.get("order") is not None else "choice")}
+
+    # The index only exists for two parts or more: `/workshop` forwards a
+    # single part straight through (page.py). A starter with parts of its own
+    # already accounted for that; a one-step starter could not, having no part,
+    # so with a single part in the whole workshop its step moves in there.
+    if intro_step is not None and len(documents) == 1:
+        documents[0]["challenge_ids"].insert(0, intro_step)
+        intro_step = None
 
     # The public front door is the workshop's, not the last subject's.
     entry_doc = entry_document(entry_page)

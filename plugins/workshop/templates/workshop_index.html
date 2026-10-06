@@ -163,7 +163,11 @@
         <h2 class="ws-subject-title">
           <span class="ws-card-icon" aria-hidden="true"></span>
           {{ group.title }}
-          <span class="ws-subject-role">{{ _("starter") if loop.first else _("next") }}</span>
+          <span class="ws-subject-role">
+            {%- if group.role == "starter" %}{{ _("starter") }}
+            {%- elif group.role == "choice" %}{{ _("your pick") }}
+            {%- else %}{{ _("next") }}{% endif -%}
+          </span>
           {% if group.total %}
             <span class="ws-card-count">{{ group.done }} / {{ group.total }}</span>
           {% endif %}

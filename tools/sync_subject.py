@@ -904,7 +904,9 @@ def sync(subject_dir, url, admin_user, admin_pass, codes_path=None, *,
                 else {"items": q.items} if q.items else None)
         slug = f"quiz-{q.id}"
         cid, created = upsert_challenge(ctfd, subject.slug, slug, {
-            "name": f"Quiz : {q.id}", "category": q.category,
+            # The id is the author's handle (`init-cmd`), not something to show a
+            # participant: a quiz that gives itself a title is named by it.
+            "name": f"Quiz : {q.title or q.id}", "category": q.category,
             "description": q.question, "value": q.points, "type": "quiz",
             "quiz_type": q.kind, "quiz_spec": spec,
             "quiz_answers": answers[q.id],
@@ -990,10 +992,16 @@ def sync(subject_dir, url, admin_user, admin_pass, codes_path=None, *,
         # subject keeps the one name.
         route_slug = (slug if standalone or slug == subject.slug
                       else f"{subject.slug}-{slug}")
-        ids = [ex_ids[e.slug] for e in doc.exercises]
-        ids += [quiz_ids[q.id][0] for q in doc.quizzes if q.id in quiz_ids]
-        ids += [quiz_ids[q.id][0] for e in doc.exercises for q in e.quizzes
-                if q.id in quiz_ids]
+        # In reading order, exercises and quizzes together. The answer sheet
+        # lists a part in the order of this list (answers.py), and exercises
+        # first then quizzes showed a quiz below the three steps that follow
+        # it on the page.
+        ordered = [(e.order, ex_ids[e.slug]) for e in doc.exercises]
+        ordered += [(q.order, quiz_ids[q.id][0]) for q in doc.quizzes
+                    if q.id in quiz_ids]
+        ordered += [(q.order, quiz_ids[q.id][0]) for e in doc.exercises
+                    for q in e.quizzes if q.id in quiz_ids]
+        ids = [cid for _, cid in sorted(ordered)]
         if doc.path in outro_ids:
             ids.append(outro_ids[doc.path])
         route = f"workshop/{route_slug}"

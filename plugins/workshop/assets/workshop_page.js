@@ -113,9 +113,13 @@
     el.textContent = message;
   }
 
-  async function submit(form) {
+  // `skip` is the admin's « Skip validation code » (PLAN.md §49): the step is
+  // submitted with no code and a flag saying so. The flag is honoured for an
+  // admin only, server-side; what is recorded as the submission says how the
+  // step was validated, so the submissions list does not show an empty answer.
+  async function submit(form, skip) {
     var id = parseInt(form.dataset.challengeId, 10);
-    var answer = collectAnswer(form);
+    var answer = skip ? "(admin: validation code skipped)" : collectAnswer(form);
     if (!answer.trim()) {
       feedback(form, "empty", form.dataset.answerKind === "rating"
         ? t("pickFirst", "Pick 👍 or 👎 first")
@@ -128,7 +132,9 @@
     try {
       var r = await api("/api/v1/challenges/attempt", {
         method: "POST",
-        body: JSON.stringify({ challenge_id: id, submission: answer }),
+        body: JSON.stringify(skip
+          ? { challenge_id: id, submission: answer, skip_code: true }
+          : { challenge_id: id, submission: answer }),
       });
       var body = await r.json();
       var data = (body && body.data) || {};
@@ -752,6 +758,12 @@
       if (!form) return;
       ev.preventDefault();
       submit(form);
+    });
+
+    ROOT.addEventListener("click", function (ev) {
+      var skip = ev.target.closest(".ws-skip-code");
+      var form = skip && skip.closest(".ws-form");
+      if (form) submit(form, true);
     });
 
     // A chip points at a step: open it as well as scroll to it.

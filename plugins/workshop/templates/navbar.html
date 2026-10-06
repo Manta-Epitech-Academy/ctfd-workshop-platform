@@ -279,6 +279,19 @@
                   <i class="fas fa-wrench"></i>{% trans %}Admin Panel{% endtrans %}
                 </a>
               </li>
+              {# An admin tests a subject by doing it, and needs to be able to do
+                 it again (reset.py). Their own account only; a participant never
+                 sees this, and the endpoint refuses them. #}
+              {% if workshop_enabled() %}
+                <li>
+                  <a class="dropdown-item" href="/workshop"
+                     data-ws-reset
+                     data-confirm="{% trans %}Reset your own progress? Your solved steps, attempts, opened hints and ratings on this instance are deleted, and your code in the runtime is erased. Participants are not affected.{% endtrans %}"
+                     data-failed="{% trans %}Your progress could not be reset.{% endtrans %}">
+                    <i class="fas fa-undo"></i>{% trans %}Reset my progress{% endtrans %}
+                  </a>
+                </li>
+              {% endif %}
             {% endif %}
             <li><hr class="dropdown-divider"></li>
             <li>

@@ -179,6 +179,18 @@
     if (typeof BroadcastChannel !== "function") return;
     channel = new BroadcastChannel(channelName());
     channel.addEventListener("message", onChannel);
+    // « Reset my progress » (assets/reset.js) says so here before it erases
+    // anything, to every window of this browser. A window holding a runtime
+    // still has the code in memory and would save it straight back, so it
+    // stops saving and lets its frame go; the popped-out tab has nothing left
+    // to show and closes. Not on `channelName()`: a reset is the whole
+    // subject's, whatever part each window is on.
+    var resetChannel = new BroadcastChannel(RESET_CHANNEL);
+    resetChannel.addEventListener("message", function () {
+      giveUp = true;
+      dropFrame();
+      if (cfg.role === "window") window.close();
+    });
   }
 
   /* ---------- work in progress, kept server-side (PLAN.md §16) ----------
@@ -190,6 +202,7 @@
    * classroom PC share a cart.
    */
   var WS_API = "/api/v1/workshop/workspace";
+  var RESET_CHANNEL = "ws-reset";        // the same name in assets/reset.js
   var LS_OWNER = "ws-workspace-owner";   // "<user id>:<runtime>" — whose bucket this is
   var LS_LOCAL = "ws-workspace-local";   // epoch ms of the last local change seen
   var LS_KEYS = "ws-workspace-keys";     // last known key list, for the shared-machine wipe

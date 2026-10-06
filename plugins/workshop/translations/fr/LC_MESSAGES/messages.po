@@ -298,6 +298,12 @@ msgstr "Lire"
 msgid "Register"
 msgstr ""
 
+msgid "Reset my progress"
+msgstr "Réinitialiser ma progression"
+
+msgid "Reset your own progress? Your solved steps, attempts, opened hints and ratings on this instance are deleted, and your code in the runtime is erased. Participants are not affected."
+msgstr "Réinitialiser ta propre progression ? Tes étapes validées, tes essais, tes indices ouverts et tes avis sur cette instance sont supprimés, et ton code dans le runtime est effacé. Les participants ne sont pas concernés."
+
 msgid "Review"
 msgstr "Revoir"
 
@@ -327,6 +333,9 @@ msgstr "Se connecter"
 
 msgid "Sign in with your Jump account."
 msgstr "Connecte-toi avec ton compte Jump."
+
+msgid "Skip validation code"
+msgstr "Passer le code de validation"
 
 msgid "Staff area: sign in with your username or email."
 msgstr "Espace staff : connectez-vous avec votre identifiant ou votre e-mail."
@@ -523,3 +532,6 @@ msgstr "ton parcours"
 
 msgid "your pick"
 msgstr "au choix"
+
+msgid "Your progress could not be reset."
+msgstr "Ta progression n'a pas pu être réinitialisée."

@@ -533,6 +533,18 @@ at the subject repo root, keyed by quiz id, imported server-side at sync — opt
 encrypted (age/sops) with a deploy-time key when lookup-ability matters (same trust model as
 `flag_env`).
 
+A quiz is a step of the page, and a step has a name. By default it is the id (« Quiz : A2.3 »),
+which is the author's handle and reads as one. Give the marker a **`title`** and the participant
+reads that instead (« Quiz : Les touches du joueur »). The id stays the key in `quiz_answers.yaml`
+and what the platform recognises the quiz by from one sync to the next, so a title can be changed
+freely and an id cannot. A title is read with the question, before it is answered: it names the
+subject of the question, never its answer. It is short: 73 characters at most, which the linter
+checks, because the name it becomes holds 80.
+
+```markdown
+<!-- ws: {type: quiz, id: btn-doc, title: "Les touches du joueur", kind: multiple} -->
+```
+
 Each quiz imports as a **CTFd challenge of type `quiz`** (PLAN.md §12): single/multiple/match
 auto-grade in `attempt()`; `freeform` auto-grades against a **regular expression** (or list —
 any match wins) stored as its `quiz_answers.yaml` entry, case-insensitive by default. CI

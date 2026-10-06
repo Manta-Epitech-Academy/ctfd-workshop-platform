@@ -221,6 +221,33 @@ image ships 45.
 The job runs in a thread, which is a greenlet under the gevent worker, so an import neither
 blocks the instance nor deadlocks when it calls the instance's own API.
 
+## Starting the subject again, as an admin (PLAN.md §47)
+
+An admin tests a subject by doing it. The account menu carries **Reset my progress** for admins:
+`POST /api/v1/workshop/progress/reset` deletes the signed-in admin's own solves, attempts, hint
+unlocks, awards and ratings, then clears the caches the page reads solves through. The account is
+the session's and there is no user id to pass, so it cannot be aimed at a participant. The work in
+progress saved for the runtime is erased too, in both places it lives: the server row, and the
+browser's localStorage, which `reset.js` clears before the page reloads. `reset.py`, `assets/reset.js`, `scripts/reset_check.py`.
+
+## Start-up options for a runtime (PLAN.md §48)
+
+A subject can set options its runtime reads when it starts, in `runtime.params`. For tic80,
+`repl: lua | py | js | off` chooses the REPL panel or removes it. `runtime_options.py` holds the
+allowlist and writes the option into the frame's address (`?repl=off`); `runtime.py` and
+`page.py` apply it, so the pane and the popped-out window open the same address. A value the
+runtime does not take is dropped and logged. `scripts/runtime_options_check.py` tests the module
+with no instance. See docs/RUNTIME_PROTOCOL.md §4b.
+
+## An admin validates a code step without the code (PLAN.md §49)
+
+On a step validated by the instructor's code, an admin sees one more button beside « Submit »:
+**Skip validation code**. The rest of the step is what a participant sees. The button submits the
+step with `skip_code: true`; `quiz.py` accepts that for an admin and ignores it for anybody else,
+so the template's `is_admin()` is a convenience and not the guard. The submission is recorded as
+`(admin: validation code skipped)`. Only `checkpoint` steps: a quiz, a flag or a token is an
+answer, not a permission, and is not skipped. `scripts/skip_code_check.py`.
+
 ## The way in from Jump (PLAN.md §31)
 
 Jump is the only door into a workshop instance. `jump.py` verifies a short HMAC-signed ticket at

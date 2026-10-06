@@ -57,6 +57,7 @@ from .progress import id_set as _id_set
 from .progress import optional_ids as _optional_ids
 from .progress import ordered_challenges as _ordered_challenges
 from .runtime import declared_runtime
+from .runtime_options import with_start_options
 # The reference material an author writes beside the step that needs it, and
 # this page shows on one gathered page instead — see toolbox.py.
 from .cue import place_cues
@@ -647,7 +648,11 @@ def _runtime_for(subject):
         return None
     params = (runtime.get("subjects") or {}).get(subject)
     if params:
-        runtime = {**runtime, "params": params}
+        # The address carries the start-up options, so it follows the
+        # parameters: this subject's, not the first subject's.
+        runtime = {**runtime, "params": params,
+                   "src": with_start_options(runtime["base_src"], runtime["id"],
+                                             params)}
     return runtime
 
 

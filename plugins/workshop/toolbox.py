@@ -36,10 +36,10 @@ GLOSSARY_OPEN = "<!-- ws:glossary -->"
 GLOSSARY_CLOSE = "<!-- /ws:glossary -->"
 
 # A toolbox entry is a quoted block (`>` lines) inside the region, and its
-# first line names it (convention §3.4b, changed 2026-10-06). The name is what
-# the author wrote in backticks on that line — « Opérateur logique `and` » is
-# the tool `and`, and several code spans stay together as one tool written in
-# pieces — or, with no code, the bold title minus its number and its gloss:
+# first line names it (convention §3.4b, changed 2026-10-06). The names are
+# what the author wrote in backticks on that line — « Opérateur logique `and` »
+# is the tool `and`, « une boucle `for` ou `while` » is two tools — or, with
+# no code, the bold title minus its number and its gloss:
 # « empiler une deuxième règle » is its own name. Neither the 🧰/🗺️ emoji nor
 # « Outil #N : » is required; both are decoration. A quote whose first line has
 # neither code nor a bold title is a note inside the box and names nothing.
@@ -129,19 +129,20 @@ def strip_leading_heading(region_html):
     return lift_leading_heading(region_html)[1]
 
 
-def _name_of(quote_html):
-    """The name a quoted block gives itself on its first line, or ""."""
+def _names_of(quote_html):
+    """The names a quoted block gives itself on its first line, maybe none."""
     m = _FIRST_PARAGRAPH.search(quote_html)
     first = _LINE_BREAK.split(m.group(1) if m else quote_html, 1)[0]
     codes = _CODE.findall(first)
     if codes:
-        return " ".join(codes)
+        return codes
     m = _STRONG.search(first)
     if not m:
-        return ""
+        return []
     name = _NUMBER.sub("", m.group(1)).strip()
     name = re.split(r"\s*«", name, 1)[0].strip()
-    return name.rstrip(":–-—,. ").strip()
+    name = name.rstrip(":–-—,. ").strip()
+    return [name] if name else []
 
 
 def tool_names(region_html):
@@ -153,7 +154,7 @@ def tool_names(region_html):
     """
     names = []
     for quote in _QUOTE.findall(region_html or ""):
-        name = _name_of(quote)
-        if name and name not in names:
-            names.append(name)
+        for name in _names_of(quote):
+            if name not in names:
+                names.append(name)
     return names

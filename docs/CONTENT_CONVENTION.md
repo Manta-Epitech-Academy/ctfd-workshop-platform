@@ -353,9 +353,10 @@ locked step titles. The page therefore has the same shape from the first minute,
 lets it answer "is there anything more coming".
 
 **What is a tool, and what is its name.** Each quoted block (`>` lines, separated by a blank
-line) inside the region is one tool. Its name is what its **first line** says in backticks —
-`` `not` `` above, `` `and` `` in « Opérateur logique `and` » — or, when that line has no code,
-its bold title without the number and the gloss: « empiler une deuxième règle » is its own name.
+line) inside the region is one tool. Its names are what its **first line** says in backticks —
+`` `not` `` above, `` `and` `` in « Opérateur logique `and` », both `` `for` `` and `` `while` ``
+in « une boucle `for` ou `while` » — or, when that line has no code, its bold title without the
+number and the gloss: « empiler une deuxième règle » is its own name.
 The `🧰`/`🗺️` emoji and « Outil #N : » are decoration: welcome, never required. A quote whose
 first line has neither backticks nor a bold title is a note inside the box and names nothing.
 Two titles in one quote count as one tool; a blank line between them makes two. The lint says so

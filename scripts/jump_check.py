@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Does the Jump handoff behave (issue #6, AC1 to AC9)?
+"""Does the Jump handoff behave (issue #6, AC1 to AC9, and PLAN.md §50)?
 
     python3 scripts/jump_check.py <base-url> <admin-pass>
 
@@ -7,6 +7,13 @@ The plugin has no test suite, so this script **is** this feature's test suite.
 It mints its own tickets and runs its own callback sink, so it needs no Jump:
 what it cannot prove is that the real Jump accepts what this sends, only that
 what this sends is what the contract says.
+
+§50 adds the session a ticket names: a ticket with half a session is
+refused, an account is filed under the first session it enters with and never
+moved, two sessions do not see each other's accounts, the supervision pages
+narrow to a campus and a session, and an erasure Jump reports deletes the
+account and nothing else. The sink plays Jump's half of that last one too: it
+answers the erasure question from a list this script writes.
 
 One case is not an acceptance criterion but a regression: a label that already
 has accounts behind it cannot move to another key id. Both halves are checked,
@@ -67,6 +74,13 @@ KID_B, SECRET_B, LABEL_B = "jumpcheck-b", "secret-b-" + RUN, "jumpcheckb"
 KID_C = "jumpcheck-c"
 SLUG = "jumpcheck-" + RUN
 TALENT = "talent" + RUN
+# Two talents in two sessions of one campus, for §50.
+TALENT_S1, TALENT_S2 = "tals1" + RUN, "tals2" + RUN
+CAMPUS = {"campus": "campus-" + RUN, "campus_label": "Campus " + RUN}
+SESSION_1 = {"session": "evt1-" + RUN, "session_label": "Coding Club un " + RUN,
+             **CAMPUS}
+SESSION_2 = {"session": "evt2-" + RUN, "session_label": "Coding Club deux " + RUN,
+             **CAMPUS}
 
 # The drainer polls every 2 s and backs off 5, 10, 20 … seconds, so anything
 # waiting on it needs room. Generous rather than tight: a flaky check is worse
@@ -164,14 +178,14 @@ def derived_key(secret, purpose):
 
 
 def mint(kid, secret, *, slug=SLUG, sub=TALENT, name="Check T.", iss="jump",
-         aud=None, iat=None, exp=None, jti=None, tamper=False):
+         aud=None, iat=None, exp=None, jti=None, tamper=False, session=None):
     now = int(time.time())
     iat = now if iat is None else iat
     exp = iat + 120 if exp is None else exp
     claims = {"kid": kid, "sub": sub, "name": name,
               "aud": aud if aud is not None else f"workshop:{slug}",
               "iss": iss, "iat": iat, "exp": exp,
-              "jti": jti or uuid.uuid4().hex}
+              "jti": jti or uuid.uuid4().hex, **(session or {})}
     head = b64url(json.dumps(claims, separators=(",", ":"), sort_keys=True).encode())
     digest = hmac.new(derived_key(secret, "jump/ticket"), head.encode(),
                       hashlib.sha256).digest()
@@ -201,10 +215,19 @@ class Handler(BaseHTTPRequestHandler):
         name = "%.6f-%s.json" % (time.time(), uuid.uuid4().hex[:8])
         with open(os.path.join(OUT, name), "w") as handle:
             json.dump(record, handle)
+        answer = {"ok": True}
+        if self.path == "/api/workshops/erasures":
+            # What Jump would say it has erased: whatever the script listed,
+            # asked about or not, so the plugin's own subset check is tested.
+            try:
+                with open("/out/erased.json") as handle:
+                    answer = {"erased": json.load(handle)}
+            except OSError:
+                answer = {"erased": []}
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
         self.end_headers()
-        self.wfile.write(b'{"ok":true}')
+        self.wfile.write(json.dumps(answer).encode())
 
     def log_message(self, *args):
         pass
@@ -312,6 +335,11 @@ class Sink:
     def clear(self):
         for name in os.listdir(self.calls):
             os.remove(os.path.join(self.calls, name))
+
+    def report_erased(self, talent_ids):
+        """What the sink answers when asked which talents Jump erased."""
+        with open(os.path.join(self.dir, "erased.json"), "w") as handle:
+            json.dump(list(talent_ids), handle)
 
 
 # --------------------------------------------------------------------------
@@ -534,6 +562,8 @@ def main():
     # Whatever that POST decided, the next checks need the two real keys back.
     admin.set_configs({"workshop_jump_keys": json.dumps(keys)})
 
+    check_sessions(admin, base, sink, created)
+
     # -- AC6, AC8 ----------------------------------------------------------
     print("== solving queues one row, and it reaches the sink ==")
     steps = solvable_steps(admin, participant, base)
@@ -634,6 +664,101 @@ def main():
         print("  (no step available to the second account, skipped)")
 
     return finish()
+
+
+def check_sessions(admin, base, sink, created):
+    """§50: the session a ticket names, what it hides, and the erasure pull."""
+    print("== a ticket naming half a session is refused ==")
+    half = {"session": SESSION_1["session"]}
+    r, _ = enter(base, mint(KID_A, SECRET_A, sub=TALENT_S1, session=half))
+    check(r.status_code == 403, f"a session without its campus ({r.status_code})")
+    check(not [l for l in admin.links() if l["talent_id"] == TALENT_S1],
+          "and no account was created for it")
+
+    print("== each account is filed under the session it first entered with ==")
+    r1, s1 = enter(base, mint(KID_A, SECRET_A, sub=TALENT_S1, name="Check Un.",
+                              session=SESSION_1))
+    r2, s2 = enter(base, mint(KID_A, SECRET_A, sub=TALENT_S2, name="Check Deux.",
+                              session=SESSION_2))
+    check(r1.status_code == 302 and r2.status_code == 302,
+          f"both tickets are accepted ({r1.status_code}, {r2.status_code})")
+    by_talent = {l["talent_id"]: l for l in admin.links()}
+    one, two = by_talent.get(TALENT_S1), by_talent.get(TALENT_S2)
+    if not one or not two:
+        check(False, "both accounts exist")
+        return
+    created.extend([one["user_id"], two["user_id"]])
+    check(one["session_id"] and two["session_id"]
+          and one["session_id"] != two["session_id"],
+          "two sessions, two different session rows")
+
+    enter(base, mint(KID_A, SECRET_A, sub=TALENT_S1, session=SESSION_2))
+    again = {l["talent_id"]: l for l in admin.links()}[TALENT_S1]
+    check(again["session_id"] == one["session_id"],
+          "coming back under another session does not move the account")
+
+    print("== two sessions do not see each other ==")
+    listed = {u["id"] for u in s1.get(base + "/api/v1/users", timeout=30)
+              .json().get("data", [])}
+    check(one["user_id"] in listed, "a talent sees their own session in the list")
+    check(two["user_id"] not in listed, "and not the other session")
+    r = s1.get(base + f"/api/v1/users/{two['user_id']}", timeout=30)
+    check(r.status_code == 404,
+          f"the other session's account answers 404, as a deleted one would "
+          f"({r.status_code})")
+    r = s1.get(base + f"/api/v1/users/{one['user_id']}", timeout=30)
+    check(r.status_code == 200, f"their own still answers ({r.status_code})")
+
+    print("== the supervision pages narrow to a campus and a session ==")
+    page = admin.session.get(base + "/admin/workshop/answers", timeout=30, params={
+        "campus": CAMPUS["campus"], "session": one["session_id"]}).text
+    check(CAMPUS["campus_label"] in page and SESSION_1["session_label"] in page,
+          "the picker names the campus and the session as Jump labelled them")
+    check("Check Un." in page and "Check Deux." not in page,
+          "one session: its talent is listed, the other session's is not")
+    page = admin.session.get(base + "/admin/workshop/stats", timeout=30).text
+    check(SESSION_1["session_label"] in page,
+          "the choice follows the supervisor to the next page")
+    page = admin.session.get(base + "/admin/workshop/answers", timeout=30,
+                             params={"campus": CAMPUS["campus"]}).text
+    check("Check Un." in page and "Check Deux." in page,
+          "the whole campus: both sessions are listed")
+    page = admin.session.get(base + "/admin/workshop/answers", timeout=30,
+                             params={"campus": ""}).text
+    check("Check Un." in page and "Check Deux." in page and "Check T." in page,
+          "the whole instance: an account with no session is listed too")
+
+    print("== an erasure Jump reports deletes that account, and only that one ==")
+    sink.clear()
+    sink.report_erased([TALENT_S2, "never-asked-" + RUN])
+    report = admin.api("POST", "/workshop/jump/erasures").json().get("data") or {}
+    check(report.get("deleted") == 1,
+          f"one account deleted ({report})")
+    after = {l["talent_id"] for l in admin.links()}
+    check(TALENT_S2 not in after, "the erased talent's account and link are gone")
+    check(TALENT_S1 in after and TALENT in after,
+          "every other account is untouched, including one Jump never named")
+    asked = [c for c in sink.received if c["path"] == "/api/workshops/erasures"]
+    check(bool(asked), "the question reached the contract's path")
+    if asked:
+        call = next((c for c in asked
+                     if TALENT_S1 in json.loads(c["body"]).get("talentIds", [])),
+                    asked[0])
+        raw = call["body"].encode()
+        ts = call["headers"].get("X-Timestamp", "")
+        expected = "sha256=" + hmac.new(derived_key(SECRET_A, "jump/callback"),
+                                        f"{ts}.".encode() + raw,
+                                        hashlib.sha256).hexdigest()
+        check(call["headers"].get("X-Signature") == expected,
+              "signed like a callback, over the exact bytes on the wire")
+        check(set(json.loads(raw)) == {"talentIds"},
+              "and the body is the agreed shape")
+
+    sink.report_erased([])
+    report = admin.api("POST", "/workshop/jump/erasures").json().get("data") or {}
+    check(report.get("deleted") == 0 and TALENT_S1 in {
+        l["talent_id"] for l in admin.links()},
+        "an answer naming nobody deletes nobody")
 
 
 def finish():

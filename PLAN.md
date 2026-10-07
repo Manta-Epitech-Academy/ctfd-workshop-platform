@@ -4131,3 +4131,155 @@ button on a code step and a participant's does not; a participant sending `skip_
 « Incorrect » and has no solve; the admin sending it is solved, with the marker as the recorded
 submission; a wrong code from the admin without the flag is still refused.
 
+
+## 50. Sessions inside a shared instance (2026-10-08)
+
+§10 put one instance behind one session. The instances Jump feeds do not work that way. There are
+three uses, and each serves several events over the instance's life:
+
+1. **A campus's one-off events.** A campus asks for a Coding Club on a theme for a date; the
+   subject is deployed on a free instance a week before, and a week after the instance is free
+   again for that campus's next request.
+2. **Epitech Academy's own events**, the camps and the stage. Their periods are known, so one
+   instance carries every camp of the season and the stage, announced to every campus.
+3. **Flagship subjects** (pypong, the CTF). Always up, one instance each; a campus with a Coding
+   Club and no particular theme picks one of them.
+
+So one scoreboard ended up holding every room that ever passed through, and the supervision pages
+counted all of them. Two things follow, and this section
+is both. A talent should be ranked among the people in the room with them. And a minor erased in
+Jump kept their first name and initial on a public scoreboard for as long as the instance lived,
+since nothing told the instance.
+
+### 50.1 The cohort is the Jump session, not the city
+
+The first idea was a `city` field, then a CTFd bracket per city. On a flagship instance, or a
+campus instance passed from one request to the next, a city bracket holds every Coding Club that
+campus ever ran, which is the mixing being fixed. The key is the **Jump session**: the event the
+talent entered from, which is the Salesforce campaign. The campus stays, as a second level that
+only the staff read.
+
+Scoping by event is a product choice, not a law. Seeing other campuses and earlier rooms has its
+own appeal: a target to beat, and a beginner who sees they are not the only one struggling.
+Epitech Academy's default is the other one, the room's own moment, and that is what this
+implements. The count of people who solved a step stays the instance's (50.2), which keeps the
+"not the only one" half. Switching the scoreboard off altogether, leaving the XP on Jump as the only
+score a talent sees, needs no code: it is `scoreboard: false` in `deploy/instances.yaml`, for
+every instance or for one, which `tools/provision.py` applies as `score_visibility = hidden`.
+
+The ticket carries it, as four optional claims: `session` and `campus` (Jump's event and campus
+ids) and a label for each (an event name with its date, a campus name). All four or none: a
+session without its campus would file an account no staff filter can reach, so a partial set is
+refused, and a ticket carrying none (an older Jump) is still accepted. `verify_ticket` already read
+claims with `.get` and let an unknown one through, so the two repositories could ship in either
+order.
+
+`file_session` records one `workshop_jump_session` row per `(kid, session)` (keyed on the `kid`
+for the same reason links are: a dev and a production Jump share an instance, and their event ids
+are unrelated) and points the account's link at it, **once**. Jump sends the event the talent's
+participation was pinned to on first entry, which is also the event their XP is attributed to, so
+a talent who comes back through a later Coding Club stays in the room they started in on both
+sides. Moving them would put somebody with every step already solved at the top of a room they
+were never in. The labels are refreshed on every entry, because an event can be renamed; the key
+never moves.
+
+### 50.2 No brackets, for the reason §43 already gave
+
+A bracket per session was the obvious mechanism and is not used. §43.2 measured it: the response
+still carries every row and the theme renders the brackets as pills the reader can click "All" on.
+A tab, not a wall. On top of that a bracket's name is public (`/api/v1/brackets`, every profile),
+and a session label beside a first name and an initial identifies a minor more than either does
+alone.
+
+`audience.py` is the wall, and a session is one more kind of audience. An account's audience is
+its external code, else its session, else the default; each sees its own and nothing else. The
+keys became tagged tuples (`("code", …)`, `("session", id)`, `DEFAULT`), because a code is any text
+an admin typed and nothing could guarantee it never spells a session id. An anonymous visitor gets
+the default audience, which now holds no Jump talent who has entered since this shipped.
+
+One surface joins the filtered lists: a step's solver list (`/api/v1/challenges/<id>/solves`),
+which names accounts. The solve **count** on a step stays the instance's: "47 people have already
+done this one" is encouragement and names nobody. That split is what reconciles the two halves of
+the original request, being ranked among one's own room while seeing that others have passed
+before.
+
+### 50.3 The supervision pages take a scope
+
+`scope.py` owns the one population the four pages count: participants only (no admin, no hidden
+account, the §32 rule), and, when a supervisor has picked a campus and optionally one of its
+sessions, only the accounts filed under it. `per_challenge` is the per-step count the three
+reports share. Moving `feedback.py` and the answer sheet's solver counts onto it fixed two
+inconsistencies on the way: both counted every account, a supervisor's or an admin's test ratings
+and solves included, which the other pages had never done.
+
+The choice is made once, with a picker at the top of each page, and kept in the Flask session, so
+every page, link and CSV export follows it without carrying a query string. A stored scope that no
+longer names a session row falls back to the campus, and an unknown campus to the whole instance,
+rather than filtering on nothing and reading as an empty room.
+
+### 50.4 Erasure: the instance asks, Jump answers
+
+Jump erases a talent from two places (an inactivity sweep and a fulfilled deletion request) and
+holds no outbox. A call from either to every instance would be lost whenever an instance is down,
+and an instance is up from a few weeks to for good. So the direction is reversed: once an hour, and at start-up, the
+drainer thread asks each configured Jump which of its linked talents it has erased
+(`POST /api/workshops/erasures`, `{"talentIds": [...]}` in batches of 500, signed exactly like a
+progress callback), and deletes those accounts. Jump answers from `Talent.anonymizedAt`, a column
+added for this purpose, so the answer is as true on the hundredth question as on the first, and an
+instance that was off for a month catches up on its next pass.
+
+**Only on proof.** Jump returns an id only when the talent carries the erasure; an id it does not
+know is absent, never "erased". A development Jump re-seeded under an instance that still holds its
+old accounts would otherwise empty it. The plugin also ignores any id in the answer it did not ask
+about.
+
+`accounts.py` is the one deletion, shared with the supervisor delete (§32.3): core's six tables,
+then the user, with ratings and this plugin's rows cascading. `POST /api/v1/workshop/jump/erasures`
+(admins) runs a pass immediately, for an admin who has just fulfilled a request and for the check
+script.
+
+### 50.5 A new subject is a new slug
+
+Uses 1 and 2 put a new subject on an instance that already served another. Jump keys an
+activity's participation and its XP grant on the instance's slug, "once per talent, for life"
+(Jump's `Workshop_Instance.slug`, and `workshopGrantSourceId`). A talent who did subject X on an
+instance and later does subject Y on the same instance under the same slug would see Y's progress
+replace X's XP, and stay pinned to X's event. So **a rotation takes a new slug**, and a new
+activity declared in Jump (`write_workshop_instance`). The slug is `jump_slug:` in
+`deploy/instances.yaml`, which `tools/provision.py` writes to `workshop_jump_instance`; left unset
+it is the instance's name, which is exactly what does not change on a rotation, so a rotated
+instance sets it explicitly. Whether the retired subject's accounts are cleared is the instance's
+own decision; left in place, the sessions still keep each room to itself and the erasure pass still
+covers them.
+
+Stated, not enforced. The instance cannot tell a rotation from a re-sync of the same subject with
+new content, and a refusal on the wrong one would block an ordinary sync.
+
+### 50.6 Rejected
+
+- **A city field, or a bracket per city.** Mixes every promotion of a campus (50.1).
+- **CTFd brackets per session.** A tab, not a wall, and a public label (50.2).
+- **Moving an account to the session of its latest entry.** Disagrees with where Jump attributes
+  the XP, and drops a finished talent into another room's ranking.
+- **Jump pushing erasures.** No outbox on the Jump side, two erasure paths to wire, and every miss
+  silent. The pull needs neither.
+- **Deleting accounts Jump does not know.** Turns a re-seed or a misconfigured key into a wipe.
+
+### 50.7 Checked
+
+`scripts/jump_check.py` on a fresh local instance, ALL GREEN: a half session is refused and
+creates nothing; two sessions give two session rows; coming back under another session does not
+move the account; each session sees its own account in `/api/v1/users` and gets a 404 on the
+other's; the answer sheet narrows to a session, then the campus, then the whole instance, and the
+choice follows to the stats page; the erasure question reaches the contract's path, signed over the
+exact bytes, deletes the one account the sink names and nothing else, and an answer naming nobody
+deletes nobody. `scripts/audience_check.py` and `scripts/supervisor_check.py` are still green on
+the same instance. Revision `8b3e6f1d9a24` was replayed on an instance rolled back to
+`3a6016a2732e` and recreated the column, its index and its named foreign key.
+
+### 50.8 Not verified
+
+- The solver-list filter: the local instance had no content to solve, so it rests on the same
+  `after_request` path as the user list, which is checked.
+- Against a real Jump: the Jump side is covered by its own integration tests
+  (`workshopErasures`, `workshopSession`), and the two have not yet run against each other.

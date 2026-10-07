@@ -340,6 +340,7 @@ def links():
             "name": user.name if user else None,
             "email": user.email if user else None,
             "has_password": bool(user.password) if user else None,
+            "session_id": row.session_id,
         })
     return {"success": True, "data": out}
 

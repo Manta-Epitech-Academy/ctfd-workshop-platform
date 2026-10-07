@@ -44,15 +44,16 @@ from flask import (Blueprint, abort, g, redirect, render_template, request,
 from flask_babel import lazy_gettext as _l
 from sqlalchemy.exc import IntegrityError
 
-from CTFd.cache import clear_challenges, clear_standings, clear_user_session
-from CTFd.models import (Awards, Notifications, Solves, Submissions, Tracking,
-                         Unlocks, Users, db)
+from CTFd.cache import clear_user_session
+from CTFd.models import Users, db
 from CTFd.utils import email as email_util
 from CTFd.utils import get_config, set_config, validators
 from CTFd.utils.decorators import admins_only, ratelimit
 from CTFd.utils.logging import log
 from CTFd.utils.security.auth import login_user
 from CTFd.utils.user import authed, is_admin
+
+from .accounts import delete_accounts
 
 CODE_KEY = "workshop_supervisor_code"
 SUPERVISOR = "supervisor"
@@ -229,19 +230,12 @@ def create_supervisor(name, email_address, password, granted_by):
 
 
 def delete_supervisor(user_id):
-    """Remove the account outright, the way core's DELETE /api/v1/users does
-    (api/v1/users.py `UserPublic.delete`): every table that names the user,
-    then the user. The role row cascades. False if the id holds no role, so
-    this page can only ever delete a supervisor, never a participant."""
+    """Remove the account outright (accounts.py). False if the id holds no
+    role, so this page can only ever delete a supervisor, never a
+    participant."""
     if WorkshopStaff.query.filter_by(user_id=user_id).first() is None:
         return False
-    for model in (Notifications, Awards, Unlocks, Submissions, Solves, Tracking):
-        model.query.filter_by(user_id=user_id).delete()
-    Users.query.filter_by(id=user_id).delete()
-    db.session.commit()
-    clear_user_session(user_id=user_id)
-    clear_standings()
-    clear_challenges()
+    delete_accounts([user_id])
     return True
 
 

@@ -106,7 +106,8 @@ def load(app):
     # (PLAN.md §42). After `load_staff`, whose `account_errors` it reuses.
     load_external(app)
     register_admin_plugin_menu_bar("External access", "/admin/workshop/external")
-    # Two populations, each seeing only its own (PLAN.md §43). After
+    # Several populations, each seeing only its own: the external cohorts
+    # (PLAN.md §43) and the Jump sessions (§50). After
     # `load_external`, whose field it reads, and after `load_shell`, whose
     # `users/users.html` override asks it.
     load_audience(app)

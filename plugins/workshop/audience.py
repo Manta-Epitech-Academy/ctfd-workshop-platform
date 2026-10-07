@@ -1,25 +1,38 @@
-"""Two populations on one instance, each seeing only its own.
+"""Several populations on one instance, each seeing only its own.
 
 A participant who came through Jump and a participant who came through
 `/external/join` (external.py, §42) are in the same room and on the same
 instance, but they are not in the same cohort: a visiting group's names and
 scores have no business on the scoreboard the Jump talents read, and the
-reverse is just as true.
+reverse is just as true. Nor are two Jump sessions the same cohort (§50): an
+instance serves several events over its life, and the Coding Club that ran it
+last spring is not the room a talent is sitting in today.
 
-**The audience of an account is the external code it carries**, or `""` for
-everybody else — Jump, an admin creating an account by hand, a supervisor who
-joined with the staff code. `RUN-EVENT-0929` sees `RUN-EVENT-0929`; `""` sees
-`""`. Two external cohorts do not see each other either, which is the same rule
-rather than a second one.
+**The audience of an account is, in this order:**
 
-Three audiences that are not a code:
+  * the external code it carries, `("code", "RUN-EVENT-0929")`;
+  * else the Jump session its link was filed under, `("session", 12)`
+    (jump.py `file_session`);
+  * else `DEFAULT`, for everybody else: an admin creating an account by hand,
+    a supervisor who joined with the staff code, and a Jump account created
+    before tickets named a session, until its next entry files it.
+
+An account sees its own audience and nothing else. Two external cohorts do not
+see each other, two sessions do not see each other, and neither sees the
+other door's people: one rule, applied to three kinds of key. The keys are
+tagged tuples rather than bare strings because a code is any text an admin
+typed, so nothing could guarantee a code and a session id never spell the
+same value.
+
+Three audiences that are not a key:
 
   * **staff** — an admin or a supervisor sees everything. They are the people
     who have to answer "where is everyone", and `/admin` and the supervision
     pages are unfiltered by design (§32).
-  * **anonymous** — a visitor on a public scoreboard is given `""`. An external
-    cohort is the group we were asked to keep out of sight; putting it in front
-    of someone who has not even signed in would be the loudest way to fail that.
+  * **anonymous** — a visitor on a public scoreboard is given `DEFAULT`. An
+    external cohort is the group we were asked to keep out of sight, and a
+    session is a room of minors; putting either in front of someone who has not
+    even signed in would be the loudest way to fail that.
   * **teams mode** — nothing is filtered, and that is deliberate rather than an
     oversight: a scoreboard row is then a *team*, an audience is a property of a
     *user*, and a team with members from both cohorts has no correct answer.
@@ -42,7 +55,11 @@ from CTFd.utils import get_config
 from CTFd.utils.user import authed, is_admin
 
 from .external import FIELD_NAME
+from .jump import JumpLink
 from .staff import is_staff
+
+# Whoever carries no code and no session.
+DEFAULT = ("default",)
 
 # One account: opening it, or anything hanging off it. Answered with 404 rather
 # than 403 for a foreign cohort, so the reply is the same one a deleted account
@@ -58,10 +75,16 @@ DETAIL_ENDPOINTS = (
 # Lists, filtered on the way out. `/scoreboard` and the score graph are Alpine
 # components that read the first two (themes/core/templates/scoreboard.html), so
 # filtering the API filters the page and no markup is touched.
+#
+# A step's solver list names every account that solved it, so it is a list of
+# people like the others. The solve COUNT on the step stays the whole
+# instance's: "47 people have already done this one" is encouragement and
+# names nobody (§50).
 LIST_ENDPOINTS = (
     "api.scoreboard_scoreboard_list",
     "api.scoreboard_scoreboard_detail",
     "api.users_user_list",
+    "api.challenges_challenge_solves",
 )
 
 
@@ -83,18 +106,37 @@ def _coded():
     return g.ws_coded
 
 
+def _sessions():
+    """`{user_id: session_id}` for every Jump account filed under a session.
+
+    One query per request, like `_coded`.
+    """
+    if "ws_sessions" not in g:
+        g.ws_sessions = dict(
+            db.session.query(JumpLink.user_id, JumpLink.session_id)
+            .filter(JumpLink.session_id.isnot(None)).all())
+    return g.ws_sessions
+
+
 def audience_of(user_id):
-    """The cohort an account belongs to. `""` is the default population."""
-    return _coded().get(user_id, "")
+    """The cohort an account belongs to, as a tagged key (see the docstring)."""
+    code = _coded().get(user_id)
+    if code:
+        return ("code", code)
+    session_id = _sessions().get(user_id)
+    if session_id is not None:
+        return ("session", session_id)
+    return DEFAULT
 
 
 def split_applies():
     """Is there anything to separate at all?
 
-    No external accounts means one population, and then every hook below is a
-    dictionary lookup that always agrees — cheaper to answer once here.
+    No external account and no filed session means one population, and then
+    every hook below is a dictionary lookup that always agrees — cheaper to
+    answer once here.
     """
-    return get_config("user_mode") != "teams" and bool(_coded())
+    return get_config("user_mode") != "teams" and bool(_coded() or _sessions())
 
 
 def viewer_audience():
@@ -104,7 +146,7 @@ def viewer_audience():
     if authed() and (is_admin() or is_staff()):
         return None
     if not authed():
-        return ""
+        return DEFAULT
     return audience_of(session.get("id"))
 
 

@@ -17,6 +17,7 @@
 </div>
 
 <div class="container">
+  {% include "workshop_scope.html" %}
   <form method="get" class="form-inline ws-sb-filters" role="search">
     <select class="form-control mr-2 mb-2" name="type" aria-label="Kind">
       <option value="" {{ "selected" if not kind }}>All</option>

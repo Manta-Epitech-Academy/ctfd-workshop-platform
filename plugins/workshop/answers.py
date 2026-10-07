@@ -40,6 +40,7 @@ from .progress import counts as _counts
 from .progress import optional_ids as _optional_ids
 from .progress import ordered_challenges as _ordered_challenges
 from .staff import staff_base, staff_only
+from .scope import current_scope, participant_criteria, per_challenge
 
 workshop_answers = Blueprint("workshop_answers", __name__,
                              template_folder="templates")
@@ -306,12 +307,6 @@ def _row(challenge, flags, modes, token_ids, solvers):
     }
 
 
-def _solver_counts():
-    rows = (db.session.query(Solves.challenge_id, db.func.count(Solves.user_id))
-            .group_by(Solves.challenge_id).all())
-    return dict(rows)
-
-
 # Steps that no longer belong to any part of the subject: an older version's
 # steps, left behind by a re-sync that no longer names them. They keep their
 # solves and their codes, so they are shown — at the end, under their own
@@ -374,8 +369,8 @@ def group_for_sheet(challenges, documents, intro_first=True):
     return groups
 
 
-def _attendees(challenges, optional):
-    """Everyone doing the workshop, and how far each of them got.
+def _attendees(challenges, optional, scope):
+    """Everyone doing the workshop in `scope`, and how far each of them got.
 
     Built from one pass over the solves table rather than a per-user query:
     a full session is a few thousand rows, and an instructor refreshing this
@@ -383,7 +378,8 @@ def _attendees(challenges, optional):
 
     Admins and hidden accounts are left out — an instructor account is a
     normal CTFd user (there is no third type), so it would otherwise sit in
-    this table as if it were a participant.
+    this table as if it were a participant. That rule, and the scope, are
+    scope.py's `participant_criteria`, which every supervision page reads.
     """
     # progress.counts, not a second copy of the rule: this column and the
     # ratio the participant reads on /workshop have to be the same number.
@@ -397,7 +393,7 @@ def _attendees(challenges, optional):
     prereqs = {c.id: set((c.requirements or {}).get("prerequisites", [])) & names.keys()
                for c in challenges}
 
-    users = (Users.query.filter(Users.type != "admin", Users.hidden == False)  # noqa: E712
+    users = (Users.query.filter(*participant_criteria(scope))
              .order_by(Users.name).all())
 
     solved_by, last = {}, {}
@@ -441,11 +437,12 @@ def _attendees(challenges, optional):
 
 
 def collect():
+    scope = current_scope()
     challenges = _ordered_challenges()
     flags = _flags_by_challenge()
     modes = _validation_modes()
     token_ids = _token_ids()
-    solvers = _solver_counts()
+    solvers = per_challenge(Solves, scope)
     optional = _optional_ids()
 
     parts = []
@@ -457,7 +454,7 @@ def collect():
             rows.append(row)
         parts.append({"title": title, "rows": rows})
 
-    attendees, required = _attendees(challenges, optional)
+    attendees, required = _attendees(challenges, optional, scope)
     answered = [r for p in parts for r in p["rows"] if r["answer"]]
     return {
         "parts": parts,

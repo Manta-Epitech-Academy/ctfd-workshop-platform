@@ -79,6 +79,9 @@ cd workshop_platform
 # A subject to import. They are separate repos; instances.yaml expects them here.
 git clone https://github.com/kevin-cazal/pypong_subject content/pypong
 
+# The image is private to the organisation: log in once, with a GitHub token
+# that has `read:packages`.
+docker login ghcr.io -u <github-user>
 docker compose up -d                       # ctfd-custom image on :8080, plugin bind-mounted
 # run the setup wizard in the browser, then:
 python3 tools/sync_subject.py content/pypong \

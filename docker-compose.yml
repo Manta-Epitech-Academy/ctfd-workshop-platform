@@ -60,7 +60,8 @@ services:
     # Built from Manta-Epitech-Academy/ctfd-custom (master) by that repo's own
     # CI, which feeds off its own workshop_platform submodule to bake this
     # plugin, its vendored deps, and tools/ into the image. The same image the
-    # cluster runs, so an instance here runs production's CTFd core.
+    # cluster runs, so an instance here runs production's CTFd core. Private to
+    # the organisation: `docker login ghcr.io` once before the first pull.
     image: ghcr.io/manta-epitech-academy/ctfd-custom:latest
     restart: unless-stopped
     ports:

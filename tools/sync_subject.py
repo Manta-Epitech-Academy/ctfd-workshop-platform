@@ -291,12 +291,14 @@ def existing_by_slug(ctfd, subject_slug):
 
 
 def upsert_challenge(ctfd, subject_slug, slug, payload, existing):
+    # Visible on update as well as on create: a row `hide_strangers` put out
+    # of sight when its subject left the source comes back with it.
+    payload = {**payload, "state": payload.get("state", "visible")}
     if slug in existing:
         cid = existing[slug]
         ctfd.api("PATCH", f"/challenges/{cid}", json=payload)
         created = False
     else:
-        payload = {**payload, "state": payload.get("state", "visible")}
         cid = ctfd.api("POST", "/challenges", json=payload)["id"]
         ctfd.api("POST", "/topics", json={
             "value": slug_topic(subject_slug, slug),
@@ -651,6 +653,38 @@ def write_instance_config(ctfd, documents_cfg, optional_ids, free_ids, final_ste
                  json={"value": json.dumps(subjects_cfg)})
 
 
+def hide_strangers(ctfd, keep_slugs):
+    """Hide every workshop challenge of a subject not in `keep_slugs`.
+
+    A sync never deletes: solves live on the rows. But rows the current source
+    does not know are not hidden either, and an instance that went from one
+    subject to a workshop and back shows the other subjects' steps in its
+    counters and on the answer sheet, under « no longer part of the subject ».
+    Hidden rows are read by nothing the participant sees (progress.py
+    `ordered_challenges`), and a later sync that brings the subject back sets
+    its rows visible again (`upsert_challenge`), so this loses nothing.
+
+    Returns the number of rows hidden.
+    """
+    hidden = 0
+    for ch in ctfd.api("GET", "/challenges?view=admin") or []:
+        topics = [t["value"] for t in ctfd.api("GET", f"/challenges/{ch['id']}/topics") or []]
+        ours = next((t for t in topics if t.startswith("ws:")), None)
+        if not ours:
+            continue                       # not a workshop row: not ours to touch
+        slug = ours.split(":", 2)[1]
+        if slug in keep_slugs:
+            continue
+        # The list carries no `state`; the row does.
+        if (ctfd.api("GET", f"/challenges/{ch['id']}") or {}).get("state") == "hidden":
+            continue
+        ctfd.api("PATCH", f"/challenges/{ch['id']}", json={"state": "hidden"})
+        hidden += 1
+    if hidden:
+        print(f"hidden: {hidden} step(s) of subjects this source no longer holds")
+    return hidden
+
+
 def sync(subject_dir, url, admin_user, admin_pass, codes_path=None, *,
          ctfd=None, position_base=0, gate_on=None, standalone=True,
          intro_on_index=None):
@@ -958,14 +992,19 @@ def sync(subject_dir, url, admin_user, admin_pass, codes_path=None, *,
     # part N+1 — the "starter before advanced" rule (CLAUDE.md), for free.
     prereqs, optional_ids, free_ids = resolve_prerequisites(
         subject, intro_id, ex_ids, outro_ids)
-    if gate_on:
-        # The whole subject sits behind something in another subject — in
-        # practice the starter's closing step, which is the participant saying
-        # they are done with it (PLAN.md §19, D2). Gating the intro is enough:
-        # everything else already hangs off the intro.
-        # Several, for a subject a workshop places `after` more than one other.
-        prereqs[intro_id] = (list(gate_on) if isinstance(gate_on, (list, tuple))
-                             else [gate_on])
+    # The whole subject may sit behind something in another subject — in
+    # practice the starter's closing step, which is the participant saying
+    # they are done with it (PLAN.md §19, D2). Gating the intro is enough:
+    # everything else already hangs off the intro. Several, for a subject a
+    # workshop places `after` more than one other.
+    #
+    # Written even when there is nothing to wait on. An instance that was a
+    # workshop and is synced as one subject again keeps every challenge row,
+    # and the intro's requirement with it: the subject then waits on a
+    # starter that is no longer part of anything, and nobody can begin.
+    prereqs[intro_id] = ([] if not gate_on
+                         else list(gate_on) if isinstance(gate_on, (list, tuple))
+                         else [gate_on])
     for cid, gates in prereqs.items():
         ctfd.api("PATCH", f"/challenges/{cid}", json={
             "requirements": {"prerequisites": gates, "anonymize": True}})
@@ -1100,6 +1139,9 @@ def sync(subject_dir, url, admin_user, admin_pass, codes_path=None, *,
         write_instance_config(ctfd, documents_cfg, optional_ids, free_ids, final,
                               subjects_cfg={subject.slug: subject_cfg},
                               intro_step=intro_id if on_index else None)
+        # This subject is the whole instance now: whatever another source
+        # left behind goes out of sight.
+        hide_strangers(ctfd, {subject.slug})
     if optional_ids:
         print(f"optional: {len(optional_ids)} step(s) excluded from the counters")
     if free_ids:

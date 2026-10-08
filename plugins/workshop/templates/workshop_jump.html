@@ -49,6 +49,23 @@
       </small>
     </div>
 
+    <div class="form-group">
+      <label for="ws-jump-content"><strong>Content synced here</strong></label>
+      <input type="text" class="form-control" id="ws-jump-content"
+             value="{{ content }}" readonly>
+      {% if content %}
+      <small class="form-text text-muted">
+        Written by Workshop &gt; Sync. Jump declares this content as an activity
+        whose slug is exactly this, and every progress report names it.
+      </small>
+      {% else %}
+      <div class="alert alert-warning mt-2 mb-0">
+        No content recorded: run Workshop &gt; Sync once. Until then Jump
+        cannot tell what a progress report belongs to, and refuses it.
+      </div>
+      {% endif %}
+    </div>
+
     <h4 class="mt-4">Keys</h4>
     <p class="text-muted">
       One row per Jump environment. The key id in a ticket selects the row, and

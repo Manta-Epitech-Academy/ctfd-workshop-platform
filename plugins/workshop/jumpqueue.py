@@ -83,7 +83,7 @@ from CTFd.models import db
 from CTFd.utils.decorators import admins_only
 
 from .accounts import delete_accounts
-from .jump import (JumpEvent, JumpLink, derived_key, instance_slug, jump_keys,
+from .jump import (JumpEvent, JumpLink, content_slug, derived_key, instance_slug, jump_keys,
                    requeue, unverifiable_links)
 from .progress import progress_for_user
 
@@ -158,14 +158,29 @@ def enqueue_solve(user_id, challenge_id):
 # --------------------------------------------------------------------------
 
 def build_payload(event, slug):
+    """The whole state, recounted now, of the content the instance serves now.
+
+    `contentSlug` is what Jump files the progress under (§51), read at send
+    time like the counters it goes with: after a rotation the previous
+    content's steps are hidden, so the counters describe the current content
+    and so must the name. It is left out, not sent empty, on an instance no
+    sync has recorded a content on: a Jump that predates it ignores the key
+    either way, and one that requires it refuses the row, which then waits in
+    this outbox for a re-sync and a resend rather than being filed under a
+    guess.
+    """
     solved, total = progress_for_user(event.user_id)
-    return {
+    payload = {
         "instanceSlug": slug,
         "talentId": event.jump_talent_id,
         "solvedSteps": solved,
         "totalSteps": total,
         "isComplete": bool(total) and solved == total,
     }
+    content = content_slug()
+    if content:
+        payload["contentSlug"] = content
+    return payload
 
 
 def sign(body, secret, ts):

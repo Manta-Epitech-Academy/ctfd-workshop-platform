@@ -73,6 +73,8 @@ KID_B, SECRET_B, LABEL_B = "jumpcheck-b", "secret-b-" + RUN, "jumpcheckb"
 # renamed a key id in deploy/instances.yaml and kept its label".
 KID_C = "jumpcheck-c"
 SLUG = "jumpcheck-" + RUN
+# What a sync would have recorded as this instance's content (§51).
+CONTENT = "jumpcheck-content-" + RUN
 TALENT = "talent" + RUN
 # Two talents in two sessions of one campus, for §50.
 TALENT_S1, TALENT_S2 = "tals1" + RUN, "tals2" + RUN
@@ -429,7 +431,8 @@ def main():
     print(f"instance {base}, sink {origin} on {sink.network}\n")
 
     saved = {"workshop_jump_keys": admin.config("workshop_jump_keys") or "",
-             "workshop_jump_instance": admin.config("workshop_jump_instance") or ""}
+             "workshop_jump_instance": admin.config("workshop_jump_instance") or "",
+             "workshop_content": admin.config("workshop_content") or ""}
     created = []
 
     def restore():
@@ -445,7 +448,8 @@ def main():
     keys = {KID_A: {"origin": origin, "secret": SECRET_A, "label": LABEL_A},
             KID_B: {"origin": origin, "secret": SECRET_B, "label": LABEL_B}}
     admin.set_configs({"workshop_jump_keys": json.dumps(keys),
-                       "workshop_jump_instance": SLUG})
+                       "workshop_jump_instance": SLUG,
+                       "workshop_content": CONTENT})
 
     sink.start()
     atexit.register(sink.destroy)
@@ -612,11 +616,13 @@ def main():
         body = json.loads(raw)
         check(call["path"] == "/api/workshops/callback",
               f"posted to the contract's path ({call['path']})")
-        check(set(body) == {"instanceSlug", "talentId", "solvedSteps",
-                            "totalSteps", "isComplete"},
+        check(set(body) == {"instanceSlug", "contentSlug", "talentId",
+                            "solvedSteps", "totalSteps", "isComplete"},
               f"the payload is the agreed shape ({sorted(body)})")
         check(body["instanceSlug"] == SLUG and body["talentId"] == TALENT,
               "and names this instance and this talent")
+        check(body["contentSlug"] == CONTENT,
+              f"and the content synced here ({body['contentSlug']!r})")
         ts = call["headers"].get("X-Timestamp", "")
         expected = "sha256=" + hmac.new(derived_key(SECRET_A, "jump/callback"),
                                         f"{ts}.".encode() + raw,

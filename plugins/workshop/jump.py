@@ -127,6 +127,8 @@ from .toggle import workshop_enabled
 
 CONFIG_KEYS = "workshop_jump_keys"
 CONFIG_INSTANCE = "workshop_jump_instance"
+# Written by the sync, never by hand: what this instance serves (PLAN.md §51).
+CONFIG_CONTENT = "workshop_content"
 
 ISSUER = "jump"
 AUDIENCE_PREFIX = "workshop:"
@@ -308,6 +310,18 @@ def instance_slug():
     every ticket.
     """
     raw = get_config(CONFIG_INSTANCE)
+    return str(raw).strip() if raw not in (None, "") else ""
+
+
+def content_slug():
+    """The content this instance serves, as the last sync recorded it.
+
+    The `workshop.slug` of a composed workshop or the `project.slug` of a lone
+    subject: the name Jump files a talent's activity and XP under (§51). Empty
+    on an instance not re-synced since the field existed. Same `str()` guard
+    as `instance_slug()`, for the same reason.
+    """
+    raw = get_config(CONFIG_CONTENT)
     return str(raw).strip() if raw not in (None, "") else ""
 
 
@@ -884,7 +898,8 @@ def settings():
         # accounts cannot retype its label, and the rule behind that is
         # _link_namespaces(), enforced in _parse_rows for the submit that
         # ignores the attribute.
-        keys=stored, instance=instance_slug(), linked=set(_link_namespaces()[1]),
+        keys=stored, instance=instance_slug(), content=content_slug(),
+        linked=set(_link_namespaces()[1]),
         errors=errors, saved=saved, events=events, names=names,
         unverifiable=sorted(unverifiable_links(stored).items()),
         pending=JumpEvent.query.filter_by(status="pending").count(),

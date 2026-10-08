@@ -4187,6 +4187,10 @@ move, since a session moved to another campus would carry its accounts into anot
 scope. A filed talent's ticket for some other session records nothing, so the staff picker never
 lists a room with nobody in it.
 
+*Superseded by §51.4.* Once Jump pinned per content rather than per instance, filing once kept a
+regular of the season's instance in the first camp's room for every camp after it. The link now
+follows the session the ticket names, and the picker leaves out a room nobody is filed in.
+
 ### 50.2 No brackets, for the reason §43 already gave
 
 A bracket per session was the obvious mechanism and is not used. §43.2 measured it: the response
@@ -4279,6 +4283,9 @@ still attached: the admin asked for erasures to be applied, and some may not hav
 
 ### 50.5 A new subject is a new slug
 
+*Retired by §51: the slug names the host and the content names the activity, so a rotation keeps
+its slug. Kept below as the stopgap it was.*
+
 Uses 1 and 2 put a new subject on an instance that already served another. Jump keys an
 activity's participation and its XP grant on the instance's slug, "once per talent, for life"
 (Jump's `Workshop_Instance.slug`, and `workshopGrantSourceId`). A talent who did subject X on an
@@ -4310,7 +4317,8 @@ retires this section on both sides once it ships.
 - **A city field, or a bracket per city.** Mixes every promotion of a campus (50.1).
 - **CTFd brackets per session.** A tab, not a wall, and a public label (50.2).
 - **Moving an account to the session of its latest entry.** Disagrees with where Jump attributes
-  the XP, and drops a finished talent into another room's ranking.
+  the XP, and drops a finished talent into another room's ranking. *Reversed by §51.4*, once
+  Jump attributes the XP per content: the session then changes only with the content.
 - **Jump pushing erasures.** No outbox on the Jump side, two erasure paths to wire, and every miss
   silent. The pull needs neither.
 - **Deleting accounts Jump does not know.** Turns a re-seed or a misconfigured key into a wipe.
@@ -4346,3 +4354,114 @@ recreated the column, its index and its named foreign key.
   (`workshopErasures`, `workshopSession`), and the two have not yet run against each other. The
   claim types do agree on paper: Jump's `WorkshopTicketClaims` types all four session claims as
   strings (`frontend/src/lib/server/workshops/ticket.ts`), which is what `verify_ticket` requires.
+
+## 51. The content is the activity (2026-10-08)
+
+§50.5 left a rule nobody would keep. Jump keyed a talent's participation and XP grant on the
+instance's slug, "once per talent, for life", but uses 1 and 2 of §50 move an instance from one
+content to the next. Keyed on the host, a regular's second camp on the season's instance replaced
+the first camp's XP, stayed pinned to the first camp's event and budget, and renaming the card for
+the new content renamed every past line of their history. "A rotation takes a new slug" is a
+manual step, and production sets the slug by hand in the admin page, so it would be forgotten.
+
+The fix is on Jump's side (Manta-Epitech-Academy/jump#395): `Workshop_Instance` is the host,
+`Workshop_Activity` the content it serves, and everything a talent keeps is filed under the
+activity. What this plugin owes Jump is the name of that content, and three consequences.
+
+### 51.1 The content's name
+
+The content convention already declares it: a lone subject's `project.slug`, a composed workshop's
+`workshop.slug`. Both syncs now write it to `workshop_content`, through `write_instance_config`,
+the one call they share. A plain string, read back with `str()` like the slug, since `get_config`
+turns an all-digit value into an `int`.
+
+`workshop.slug` was declared and never read. It is now required: a manifest without it is refused
+rather than defaulted to the starter's `project.slug`, which would make the composition and that
+subject alone one activity on Jump, and pay the one for the other.
+
+The key is the deployed content, not each subject. A camp composing three subjects has one budget
+on Jump and is one card, and Jump shows one line per activity in the talent's history.
+Keyed per subject, a camp would be three lines, and the budget would have to be split or paid three
+times. The accepted cost: a subject shared by two successive workshops pays again under the second.
+
+### 51.2 The callback names it
+
+`build_payload` adds `contentSlug`, read at send time like the counters. After a rotation the
+previous content's steps are hidden (`hide_strangers`, #51), so the counters describe the current
+content, and the name has to as well. Capturing the content on the `JumpEvent` row at enqueue time
+was considered and buys nothing: the old content's steps are hidden, so its progress could not be
+recounted anyway.
+
+It is left out, not sent empty, on an instance no sync has recorded a content on. Jump requires
+it, and refuses a report without one with a 400: the row backs off, ends `failed` with its Send
+again button, and is rebuilt at send time, so a re-sync and a resend deliver it. Jump credits a
+report only when the content it names is an activity this very host serves.
+
+### 51.3 The ticket names it
+
+An optional `content` claim names the content the talent meant to enter. `verify_ticket` refuses
+one naming another content, or naming any on an instance with none recorded, before any account
+exists. The `aud` names the host, which a rotation keeps, so on its own it cannot tell a Jump
+activity still pointing at a host that has moved on. Without this check the talent would work
+through a content whose progress Jump files nowhere. A ticket without the claim, from an older
+Jump, is accepted.
+
+### 51.4 The session follows the ticket
+
+`file_session` used to file a link once (§50.1). With Jump pinning per content, the session it
+names changes only when the instance has moved on to another content and the talent came back for
+it, which is exactly when the room should change. So the link follows the session the ticket
+names. Against a Jump still pinning per instance nothing changes, since that Jump never names a
+second session. The room left behind keeps its row, and `scope.picker` lists only rooms somebody
+is filed in.
+
+### 51.5 Deploy order
+
+1. This plugin on every instance. It is safe against an older Jump: the extra callback key is
+   ignored, and the content check only runs when the ticket carries the claim.
+2. Workshop > Sync once on each instance, so it records its content. The admin page warns until
+   it does.
+3. Jump.
+
+A Jump deployed first fails visibly, never in silence: reports answer 400 and wait in the outbox,
+and entries are not refused, since an older plugin ignores the claim.
+
+### 51.6 Rejected
+
+- **A new slug per rotation.** §50.5, retired: a manual step on the side that is configured by hand.
+- **A key per subject.** Several lines for one card, and one budget paid several times (51.1).
+- **Capturing the content at enqueue.** Nothing to recount for a hidden content (51.2).
+- **A fallback in Jump for a report without a content.** It would have to guess, and a guess is
+  the bug.
+
+### 51.7 Checked
+
+`scripts/jump_check.py` on a fresh local instance with one `ack` step, ALL GREEN, adding:
+
+- **Tickets.** A content this instance does not serve, or an empty one, is refused, and a ticket
+  for another content creates no account. The content synced here is accepted. With none recorded,
+  a ticket naming one is refused, and one naming none is accepted.
+- **Callback.** The payload carries `contentSlug`, equal to the content synced here.
+- **Sessions.** Coming back under another session moves the account there, and a ticket naming
+  the first one moves it back to the same row. A new session records its room with the talent in
+  it, and the room left behind, now empty, leaves the picker.
+
+`scripts/audience_check.py` and `scripts/supervisor_check.py` are still green on the same instance.
+
+### 51.8 Not verified
+
+- The two syncs writing `workshop_content`: no subject repository was at hand locally, so the
+  three lines in `write_instance_config` and its two call sites are read, not run.
+- That every `workshop.yaml` in use carries `workshop.slug`. One that does not is now refused by
+  the sync, loudly.
+- That the callback's absence of `contentSlug` on a never-synced instance reaches Jump as a 400
+  end to end: covered on each side (`jump_check.py` here, Jump's callback integration test), not
+  against each other.
+
+### 51.9 Open
+
+- Is one content ever served by two instances at the same time? Jump puts the host on the
+  activity, one host at a time. If it happens, the host moves to the event's link on Jump's side.
+- CTFd's scoreboard sums every solve, hidden challenges included (`get_standings`), so a regular
+  who comes back after a rotation leads the new room on the old content's points. Separate from
+  this section.

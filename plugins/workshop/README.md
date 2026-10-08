@@ -278,13 +278,13 @@ Two config keys, both provisioned by `tools/provision.py`: `workshop_jump_keys`
 (`{kid: {origin, secret, label}}`) and `workshop_jump_instance` (this instance's slug). Empty
 means every ticket is refused. `/admin/workshop/jump` edits both and shows the outbox.
 
-**A slug names one subject for good** (PLAN.md §50.5). Jump files a talent's participation and XP
-for an activity under its slug, once per talent, so an instance redeployed with another subject
-(a campus instance passed on to the next request, the season's camp instance) takes a new slug,
-set as `jump_slug:` in `deploy/instances.yaml` since the default, the instance's name, does not
-change on a rotation, or in the slug field of `/admin/workshop/jump` where an instance is
-configured by hand, and Jump declares it as a new activity. Provisional, until Jump keys an
-activity on its content (Manta-Epitech-Academy/jump#395).
+**The slug names the host; the content names the activity** (PLAN.md §51). The slug stays the
+same when an instance moves on to another content. What Jump files a talent's participation and
+XP under is the content the instance serves, `workshop_content`, which the sync writes: the
+`workshop.slug` of a composed workshop, the `project.slug` of a lone subject. Every progress
+callback names it, the ticket names the content the talent meant to enter, and a ticket naming
+another is refused. `/admin/workshop/jump` shows it, since Jump's activity carries exactly that
+slug. Re-sync an instance once after upgrading, so it has a content recorded.
 
 **A label is owned by the accounts it namespaces, not by the key row that declares it.** Each
 link row records it (`jump_label`, revision 2), and both the settings page and `resolve_account`
@@ -294,8 +294,8 @@ somebody renames a key id.
 
 **The ticket names the session** (PLAN.md §50): the Jump event the talent's participation was
 pinned to, its campus, and a label for each. `file_session` records it in `workshop_jump_session`
-(revision `8b3e6f1d9a24`) and points the account's link at it on its first entry with one, never
-moving it afterwards. The four claims are optional as a set, so a ticket from an older Jump still
+(revision `8b3e6f1d9a24`) and points the account's link at it, following it when a later ticket
+names another (§51.4). The four claims are optional as a set, so a ticket from an older Jump still
 opens.
 
 **An erased talent's account is deleted.** Once an hour, and at start-up, the drainer asks each

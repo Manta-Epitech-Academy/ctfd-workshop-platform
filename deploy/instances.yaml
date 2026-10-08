@@ -69,16 +69,10 @@ defaults:
 # self-serve one is open. Set `registration: code|open` on an instance to
 # override that for a case neither shape fits.
 
-# `jump_slug` is the name Jump knows this instance's activity by (the ticket's
-# audience), and defaults to the instance's `name`. Jump files a talent's
-# participation and XP under it once per talent, so it names ONE subject for
-# good: an instance redeployed with another subject (a campus instance passed
-# on to the next request, the season's camp instance) sets a new `jump_slug`
-# here, and that new slug is declared as a new activity in Jump. Reusing the
-# old one would let the new subject's progress replace the old one's XP
-# (PLAN.md §50.5). In production the same rule sits beside the slug field of
-# /admin/workshop/jump, which is where the slug is actually set there. Both are
-# provisional, until Jump keys an activity on its content (jump#395).
+# `jump_slug` is the name Jump knows this instance by (the ticket's audience),
+# and defaults to the instance's `name`. It names the host only, so it stays
+# the same when the instance moves on to another content: Jump files a talent's
+# XP under the content, which the sync records (PLAN.md §51).
 
 # Ports are loopback-only and deliberately in the 908x range, clear of the
 # 808x dev instances in compose/*.env: a production stack and a development

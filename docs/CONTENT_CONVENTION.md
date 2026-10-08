@@ -92,7 +92,7 @@ schema_version: "2.0"
 
 project:
   name: "PyPong"
-  slug: "pypong"
+  slug: "pypong"            # stable: deployed alone, it is the name Jump files the XP under
   summary: "Créez votre propre jeu Pong simplifié en Python avec TIC-80 !"
   entrypoint: "intro.md"
 
@@ -647,7 +647,7 @@ schema_version: "2.0"
 
 workshop:
   name: "Winter Camp — Game dev"
-  slug: "winter-gamedev"
+  slug: "winter-gamedev"     # required: the name Jump files this workshop's XP under
   summary: "Une journée game dev : PyPong pour démarrer, puis Santa Shooter."
 
 subjects:

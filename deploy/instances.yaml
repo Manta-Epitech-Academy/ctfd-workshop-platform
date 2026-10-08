@@ -68,6 +68,15 @@ defaults:
 # self-serve one is open. Set `registration: code|open` on an instance to
 # override that for a case neither shape fits.
 
+# `jump_slug` is the name Jump knows this instance's activity by (the ticket's
+# audience), and defaults to the instance's `name`. Jump files a talent's
+# participation and XP under it once per talent, so it names ONE subject for
+# good: an instance redeployed with another subject (a campus instance passed
+# on to the next request, the season's camp instance) sets a new `jump_slug`
+# here, and that new slug is declared as a new activity in Jump. Reusing the
+# old one would let the new subject's progress replace the old one's XP
+# (PLAN.md §50.5).
+
 # Ports are loopback-only and deliberately in the 908x range, clear of the
 # 808x dev instances in compose/*.env: a production stack and a development
 # one on the same machine would otherwise silently answer for each other.

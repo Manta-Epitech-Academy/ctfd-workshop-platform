@@ -434,8 +434,15 @@ def erasures_now():
     For an admin who has just fulfilled a deletion in Jump and wants it gone
     here before the session, and for scripts/jump_check.py, which cannot wait
     an hour to see a deletion happen.
+
+    A pass in which some Jump did not answer is a 502 with `success: false`,
+    the report still in `data`: the admin asked for erasures to be applied, and
+    some of them may not have been.
     """
-    return {"success": True, "data": reconcile_erasures()}
+    report = reconcile_erasures()
+    if report["errors"]:
+        return {"success": False, "data": report}, 502
+    return {"success": True, "data": report}
 
 
 @workshop_jump_api.route("/api/v1/workshop/jump/links", methods=["GET"])

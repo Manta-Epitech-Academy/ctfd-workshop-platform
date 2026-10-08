@@ -299,7 +299,8 @@ opens.
 **An erased talent's account is deleted.** Once an hour, and at start-up, the drainer asks each
 configured Jump which of its linked talents it has erased (`POST /api/workshops/erasures`, signed
 like a callback) and deletes those accounts through `accounts.py`. Only on proof: a talent Jump does
-not know is kept. `POST /api/v1/workshop/jump/erasures` (admins) runs a pass now.
+not know is kept. `POST /api/v1/workshop/jump/erasures` (admins) runs a pass now, and answers 502
+when a Jump did not answer.
 
 The ticket is not a JWT because there is no JWT library in the image and none can be added — the
 Dockerfile's plugin-requirements loop runs at build time over the `./CTFd` context while this

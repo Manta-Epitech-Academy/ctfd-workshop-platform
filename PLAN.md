@@ -4274,7 +4274,8 @@ development origin is a supported operation (its queued events are dropped on pu
 `accounts.py` is the one deletion, shared with the supervisor delete (§32.3): core's six tables,
 then the user, with ratings and this plugin's rows cascading. `POST /api/v1/workshop/jump/erasures`
 (admins) runs a pass immediately, for an admin who has just fulfilled a request and for the check
-script.
+script. A pass in which some Jump did not answer is a 502 with `success: false` and the report
+still attached: the admin asked for erasures to be applied, and some may not have been.
 
 ### 50.5 A new subject is a new slug
 

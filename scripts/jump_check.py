@@ -224,7 +224,7 @@ class Handler(BaseHTTPRequestHandler):
         name = "%.6f-%s.json" % (time.time(), uuid.uuid4().hex[:8])
         with open(os.path.join(OUT, name), "w") as handle:
             json.dump(record, handle)
-        answer = {"ok": True}
+        answer, status = {"ok": True}, 200
         if self.path == "/api/workshops/erasures":
             # What Jump would say it has erased: whatever the script listed,
             # asked about or not, so the plugin's own subset check is tested.
@@ -233,7 +233,11 @@ class Handler(BaseHTTPRequestHandler):
                     answer = {"erased": json.load(handle)}
             except OSError:
                 answer = {"erased": []}
-        self.send_response(200)
+            # A Jump that is down: the answer is a 503, and what it would
+            # have said had it been up is still on disk, unread.
+            if os.path.exists("/out/erasures_down"):
+                answer, status = {"error": "down"}, 503
+        self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.end_headers()
         self.wfile.write(json.dumps(answer).encode())
@@ -349,6 +353,14 @@ class Sink:
         """What the sink answers when asked which talents Jump erased."""
         with open(os.path.join(self.dir, "erased.json"), "w") as handle:
             json.dump(list(talent_ids), handle)
+
+    def erasures_down(self, down):
+        """Make the erasure question fail with a 503, or answer again."""
+        flag = os.path.join(self.dir, "erasures_down")
+        if down:
+            open(flag, "w").close()
+        elif os.path.exists(flag):
+            os.remove(flag)
 
 
 # --------------------------------------------------------------------------
@@ -843,6 +855,20 @@ def check_sessions(admin, base, sink, created):
     check(report.get("deleted") == 0 and TALENT_S1 in {
         l["talent_id"] for l in admin.links()},
         "an answer naming nobody deletes nobody")
+
+    print("== a Jump that does not answer: nothing deleted, and the call says so ==")
+    sink.report_erased([TALENT_S1])
+    sink.erasures_down(True)
+    r = admin.api("POST", "/workshop/jump/erasures")
+    body = r.json() if r.headers.get("Content-Type", "").startswith("application/json") else {}
+    check(r.status_code == 502 and body.get("success") is False,
+          f"the manual pass answers 502, not success ({r.status_code}, {body.get('success')})")
+    check((body.get("data") or {}).get("errors") and not body["data"].get("deleted"),
+          f"and reports the failure with nothing deleted ({body.get('data')})")
+    check(TALENT_S1 in {l["talent_id"] for l in admin.links()},
+          "the talent the down Jump would have named is still here")
+    sink.erasures_down(False)
+    sink.report_erased([])
 
     print("== a key no longer configured: its accounts are counted, not deleted ==")
     configured = admin.config("workshop_jump_keys")

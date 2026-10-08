@@ -663,6 +663,31 @@ def write_instance_config(ctfd, documents_cfg, optional_ids, free_ids, final_ste
                  json={"value": content})
 
 
+def hide_dropped(ctfd, existing, kept_ids):
+    """Hide this subject's rows that this sync did not write.
+
+    A section the author removed — or turned into something else: four quizzes
+    that now validate a step instead of standing beside it — keeps its row,
+    because solves live on it. Left visible, the row is on no part, so it
+    counts in the progress bar and sits on the answer sheet under « no longer
+    part of the subject ». Hidden, it is read by nothing a participant sees,
+    and a sync that brings the section back sets it visible again.
+
+    `existing` is what `existing_by_slug` found before the sync, `kept_ids` the
+    rows written by it. Returns the number of rows hidden.
+    """
+    hidden = 0
+    for slug, cid in existing.items():
+        if cid in kept_ids:
+            continue
+        if (ctfd.api("GET", f"/challenges/{cid}") or {}).get("state") == "hidden":
+            continue
+        ctfd.api("PATCH", f"/challenges/{cid}", json={"state": "hidden"})
+        print(f"step: {slug!r} -> hidden (no longer in the subject, solves kept)")
+        hidden += 1
+    return hidden
+
+
 def hide_strangers(ctfd, keep_slugs):
     """Hide every workshop challenge of a subject not in `keep_slugs`.
 
@@ -974,6 +999,12 @@ def sync(subject_dir, url, admin_user, admin_pass, codes_path=None, *,
         outro_ids[doc.path] = cid
         stats["created" if created else "updated"] += 1
         print(f"step: {(doc.trailing_title or doc.title)!r} -> outro ({doc_slug(doc)} rating)")
+
+    # 3b'. Rows of this subject that nothing above wrote: a dropped section,
+    # or a quiz that moved inside a step. Out of sight, solves kept.
+    stats["hidden"] = hide_dropped(ctfd, existing, {intro_id, *ex_ids.values(),
+                                                    *(cid for cid, _ in quiz_ids.values()),
+                                                    *outro_ids.values()})
 
     # 3c. Which challenge is which exercise *inside the runtime*. Written after
     # the challenges exist, because it is keyed by their ids: the pane uses it

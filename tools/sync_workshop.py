@@ -50,8 +50,8 @@ from pathlib import Path
 import yaml
 
 sys.path.insert(0, str(Path(__file__).parent))
-from sync_subject import (CTFdAdmin, entry_document, sync, upsert_page,  # noqa: E402
-                          write_instance_config)
+from sync_subject import (CTFdAdmin, entry_document, hide_strangers, sync,  # noqa: E402
+                          upsert_page, write_instance_config)
 from ws_parser import lint_all  # noqa: E402
 
 
@@ -286,6 +286,8 @@ def sync_workshop(workshop_dir, url, admin_user, admin_pass, codes_dir=None, *,
 
     write_instance_config(ctfd, documents, optional_ids, free_ids, final_step,
                           subjects_cfg=subjects_cfg, intro_step=intro_step)
+    # Subjects a previous source held and this manifest does not.
+    hide_strangers(ctfd, set(subjects_cfg))
     print(f"workshop done: {len(subjects)} subjects, {len(documents)} parts, "
           f"{len(optional_ids)} optional and {len(free_ids)} free steps, "
           f"closing on challenge {final_step}")

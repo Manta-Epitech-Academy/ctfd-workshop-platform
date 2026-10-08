@@ -4242,8 +4242,9 @@ and solves included, which the other pages had never done.
 
 The choice is made once, with a picker at the top of each page, and kept in the Flask session, so
 every page, link and CSV export follows it without carrying a query string. A stored scope that no
-longer names a session row falls back to the campus, and an unknown campus to the whole instance,
-rather than filtering on nothing and reading as an empty room.
+longer names a room somebody is filed in falls back to the campus, and a campus with none to the
+whole instance, rather than filtering on nothing and reading as an empty room. A room emptied
+since it was picked (§51.4) falls back the same way, so the picker can always name the scope.
 
 A campus is a Jump's campus, named `<kid>/<campus>`: sessions are keyed on the `kid` (50.1)
 because a development and a production Jump on one instance have unrelated ids, and their campus
@@ -4444,7 +4445,8 @@ and entries are not refused, since an older plugin ignores the claim.
 - **Callback.** The payload carries `contentSlug`, equal to the content synced here.
 - **Sessions.** Coming back under another session moves the account there, and a ticket naming
   the first one moves it back to the same row. A new session records its room with the talent in
-  it, and the room left behind, now empty, leaves the picker.
+  it, and the room left behind, now empty, leaves the picker. A scope still saved on that room
+  falls back to its campus.
 
 `scripts/audience_check.py` and `scripts/supervisor_check.py` are still green on the same instance.
 

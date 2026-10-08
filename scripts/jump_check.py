@@ -859,9 +859,18 @@ def check_sessions(admin, base, sink, created):
     enter(base, mint(KID_A, SECRET_A, sub=TALENT_S1, session=unseen))
     check(unseen["session_label"] in answers(campus=CAMPUS_A),
           "a ticket for a new session records its room, with the talent in it")
+    unseen_id = next((l["session_id"] for l in admin.links()
+                      if l["talent_id"] == TALENT_S1), None)
+    page = answers(campus=CAMPUS_A, session=unseen_id)
+    check("Check Un." in page and "Check Deux." not in page,
+          "a supervisor picks that room, and the choice is saved")
     moved = {**SESSION_1, "session_label": "Coding Club un, renamed " + RUN,
              "campus": "moved-" + RUN, "campus_label": "Moved " + RUN}
     enter(base, mint(KID_A, SECRET_A, sub=TALENT_S1, session=moved))
+    # No query string: the scope saved above, on a room this ticket emptied.
+    page = admin.session.get(base + "/admin/workshop/answers", timeout=30).text
+    check("Check Un." in page and "Check Deux." in page,
+          "a scope still saved on a room since emptied falls back to its campus")
     page = answers(campus=CAMPUS_A, session=one["session_id"])
     check(moved["session_label"] in page and "Check Un." in page,
           "a renamed session takes its new name and gets its talent back")

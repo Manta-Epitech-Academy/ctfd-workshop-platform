@@ -24,9 +24,17 @@ separator whatever the campus id holds.
 **Remembered, not repeated.** A choice made with `?campus=&session=` is kept
 in the Flask session, so the supervisor picks their campus once and every
 page, link and CSV export follows it; `?campus=` with no value goes back to
-the whole instance. A scope that no longer names a session row (a session of
-another campus, an id that never existed) falls back rather than filtering on
-nothing, which would read as an empty room.
+the whole instance.
+
+**A scope names a room somebody is in, or it falls back.** The rooms that
+exist, for the pages as for the picker, are the rooms somebody is filed in
+(`_filed`): a link follows the session its latest ticket names
+(`jump.file_session`), so a room its talents have left for the next content
+keeps its row and empties out. A stored scope that names no such room (one
+emptied since it was picked, a session of another campus, an id that never
+existed) falls back to the campus, and a campus with none to the whole
+instance. Filtering on it instead would show an empty room under a picker that
+cannot name it.
 
 An account with no session (anyone who did not come in through Jump, or a Jump
 account that has not entered since tickets started naming one) is in no
@@ -59,12 +67,20 @@ class Scope:
 WHOLE_INSTANCE = Scope()
 
 
+def _filed():
+    """The ids of the rooms somebody is filed in, as a subquery."""
+    return db.session.query(JumpLink.session_id).filter(
+        JumpLink.session_id.isnot(None))
+
+
 def _rooms(kid, campus):
-    return JumpSession.query.filter_by(jump_kid=kid, campus_key=campus)
+    return JumpSession.query.filter(JumpSession.jump_kid == kid,
+                                    JumpSession.campus_key == campus,
+                                    JumpSession.id.in_(_filed()))
 
 
 def _checked(kid, campus, session_id):
-    """The scope these values name, or the nearest one that exists."""
+    """The scope these values name, or the nearest one somebody is in."""
     if not kid or not campus or not _rooms(kid, campus).first():
         return WHOLE_INSTANCE
     if session_id is not None and not _rooms(kid, campus).filter_by(
@@ -132,14 +148,11 @@ def picker():
     from more than one Jump, where two campuses can share a name. One Jump is
     the normal case, and its picker reads as it always did.
 
-    Only rooms somebody is filed in: a link follows the session its latest
-    ticket names (`jump.file_session`), so the room of a content the instance
-    has moved on from can empty out, and an empty room is noise in a picker.
+    Only rooms somebody is filed in, the same rooms `_checked` accepts, so
+    the current scope is always one of the choices drawn.
     """
     scope = current_scope()
-    filed = db.session.query(JumpLink.session_id).filter(
-        JumpLink.session_id.isnot(None))
-    rows = (JumpSession.query.filter(JumpSession.id.in_(filed))
+    rows = (JumpSession.query.filter(JumpSession.id.in_(_filed()))
             .order_by(JumpSession.created.desc()).all())
     several = len({row.jump_kid for row in rows}) > 1
     campuses = {}

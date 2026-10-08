@@ -20,11 +20,20 @@ stack trace.
 
     claims = {kid, sub: talentId, name: displayName, aud: "workshop:<slug>",
               iss: "jump", iat, exp, jti,
-              session, session_label, campus, campus_label}      exp = iat + 120
+              session, session_label, campus, campus_label,
+              content}                                           exp = iat + 120
 
 The four session claims are optional as a set: all of them or none. They name
 the Jump session the talent entered under (see *The session* below), and a
 ticket minted before they existed carries none and is still accepted.
+
+`content` is optional too, and names the content the talent meant to enter:
+the activity on Jump, whose slug is the `workshop.slug` or `project.slug` the
+last sync recorded here (`workshop_content`). A ticket naming another content
+is refused before any account exists, because a Jump activity pointing at a
+host that has moved on would otherwise let a talent work through a content
+whose progress Jump files nowhere (PLAN.md §51). The `aud` names the host,
+which a rotation keeps, so it cannot tell the two apart on its own.
 
 There is no JWT library in the image and one cannot be added: the Dockerfile's
 plugin-requirements loop runs at build time over the `./CTFd` context, while
@@ -459,6 +468,16 @@ def verify_ticket(token, now=None):
         value = claims[name]
         if not isinstance(value, str) or not value or len(value) > cap:
             raise TicketError(f"no usable {name}")
+
+    if "content" in claims:
+        claimed = claims["content"]
+        if not isinstance(claimed, str) or not claimed or len(claimed) > 128:
+            raise TicketError("no usable content")
+        served = content_slug()
+        if not served:
+            raise TicketError("this instance has no content recorded; re-sync it")
+        if claimed != served:
+            raise TicketError(f"content {claimed!r} is not this instance's {served!r}")
 
     return claims, key
 

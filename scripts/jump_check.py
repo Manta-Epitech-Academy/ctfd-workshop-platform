@@ -189,14 +189,16 @@ def derived_key(secret, purpose):
 
 
 def mint(kid, secret, *, slug=SLUG, sub=TALENT, name="Check T.", iss="jump",
-         aud=None, iat=None, exp=None, jti=None, tamper=False, session=None):
+         aud=None, iat=None, exp=None, jti=None, tamper=False, session=None,
+         content=None):
     now = int(time.time())
     iat = now if iat is None else iat
     exp = iat + 120 if exp is None else exp
     claims = {"kid": kid, "sub": sub, "name": name,
               "aud": aud if aud is not None else f"workshop:{slug}",
               "iss": iss, "iat": iat, "exp": exp,
-              "jti": jti or uuid.uuid4().hex, **(session or {})}
+              "jti": jti or uuid.uuid4().hex, **(session or {}),
+              **({"content": content} if content is not None else {})}
     head = b64url(json.dumps(claims, separators=(",", ":"), sort_keys=True).encode())
     digest = hmac.new(derived_key(secret, "jump/ticket"), head.encode(),
                       hashlib.sha256).digest()
@@ -541,10 +543,35 @@ def main():
         "a lifetime of a day": mint(KID_A, SECRET_A, iat=now, exp=now + 86400),
         "an iat well in the future": mint(KID_A, SECRET_A, iat=now + 600, exp=now + 700),
         "an issuer that is not jump": mint(KID_A, SECRET_A, iss="not-jump"),
+        "a content this instance does not serve":
+            mint(KID_A, SECRET_A, content="another-content-" + RUN),
+        "an empty content": mint(KID_A, SECRET_A, content=""),
     }
     for label, token in bad.items():
         r, _ = enter(base, token)
         check(r.status_code == 403, f"{label} is refused ({r.status_code})")
+
+    # -- §51 ---------------------------------------------------------------
+    print("== a ticket names the content it is for, and only that one gets in ==")
+    stranger = "talentc" + RUN
+    r, _ = enter(base, mint(KID_A, SECRET_A, sub=stranger,
+                            content="another-content-" + RUN))
+    check(r.status_code == 403 and not [l for l in admin.links()
+                                        if l["talent_id"] == stranger],
+          "a ticket for another content creates no account")
+    r, _ = enter(base, mint(KID_A, SECRET_A, content=CONTENT))
+    check(r.status_code == 302,
+          f"a ticket for the content synced here is accepted ({r.status_code})")
+    admin.set_configs({"workshop_content": ""})
+    r, _ = enter(base, mint(KID_A, SECRET_A, content=CONTENT))
+    check(r.status_code == 403,
+          f"on an instance no sync has recorded a content on, a ticket naming "
+          f"one is refused ({r.status_code})")
+    r, _ = enter(base, mint(KID_A, SECRET_A))
+    check(r.status_code == 302,
+          f"and one naming none, from a Jump older than the claim, is not "
+          f"({r.status_code})")
+    admin.set_configs({"workshop_content": CONTENT})
 
     # -- AC1 warm, AC5 -----------------------------------------------------
     print("== the same talent comes back, and a talent from the other Jump does not collide ==")

@@ -4284,15 +4284,26 @@ activity's participation and its XP grant on the instance's slug, "once per tale
 (Jump's `Workshop_Instance.slug`, and `workshopGrantSourceId`). A talent who did subject X on an
 instance and later does subject Y on the same instance under the same slug would see Y's progress
 replace X's XP, and stay pinned to X's event. So **a rotation takes a new slug**, and a new
-activity declared in Jump (`write_workshop_instance`). The slug is `jump_slug:` in
-`deploy/instances.yaml`, which `tools/provision.py` writes to `workshop_jump_instance`; left unset
-it is the instance's name, which is exactly what does not change on a rotation, so a rotated
-instance sets it explicitly. Whether the retired subject's accounts are cleared is the instance's
-own decision; left in place, the sessions still keep each room to itself and the erasure pass still
-covers them.
+activity declared in Jump (`write_workshop_instance`). Whether the retired subject's accounts are
+cleared is the instance's own decision; left in place, the sessions still keep each room to itself
+and the erasure pass still covers them.
+
+The slug is written to `workshop_jump_instance` by two paths, and the rule has to sit on both. In
+production it is the slug field of `/admin/workshop/jump`, which is where an operator rotating an
+instance actually is, so the rule is one line beside that field: name the slug after the content
+synced here, which makes a new content a new slug without anyone having to remember a rotation. In
+development and validation it is `jump_slug:` in `deploy/instances.yaml`, which
+`tools/provision.py` writes; left unset it is the instance's name, which is exactly what does not
+change on a rotation, so a rotated instance sets it explicitly.
 
 Stated, not enforced. The instance cannot tell a rotation from a re-sync of the same subject with
 new content, and a refusal on the wrong one would block an ordinary sync.
+
+**Provisional.** A manual rule will be forgotten, and the defect it works around is Jump's: the
+activity should be keyed on the content an instance serves, not on the instance. That fix is
+Manta-Epitech-Academy/jump#395, which takes the content's identity from this plugin (the
+`workshop.slug`, else the `project.slug`, both already declared by the content convention) and
+retires this section on both sides once it ships.
 
 ### 50.6 Rejected
 

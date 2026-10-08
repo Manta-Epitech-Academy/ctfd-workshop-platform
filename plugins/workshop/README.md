@@ -282,7 +282,9 @@ means every ticket is refused. `/admin/workshop/jump` edits both and shows the o
 for an activity under its slug, once per talent, so an instance redeployed with another subject
 (a campus instance passed on to the next request, the season's camp instance) takes a new slug,
 set as `jump_slug:` in `deploy/instances.yaml` since the default, the instance's name, does not
-change on a rotation, and Jump declares it as a new activity.
+change on a rotation, or in the slug field of `/admin/workshop/jump` where an instance is
+configured by hand, and Jump declares it as a new activity. Provisional, until Jump keys an
+activity on its content (Manta-Epitech-Academy/jump#395).
 
 **A label is owned by the accounts it namespaces, not by the key row that declares it.** Each
 link row records it (`jump_label`, revision 2), and both the settings page and `resolve_account`

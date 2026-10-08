@@ -4238,6 +4238,11 @@ every page, link and CSV export follows it without carrying a query string. A st
 longer names a session row falls back to the campus, and an unknown campus to the whole instance,
 rather than filtering on nothing and reading as an empty room.
 
+A campus is a Jump's campus, named `<kid>/<campus>`: sessions are keyed on the `kid` (50.1)
+because a development and a production Jump on one instance have unrelated ids, and their campus
+ids are just as unrelated. Two Jumps that both call a campus `1` are two campuses in the picker,
+which names the key id beside the campus only when the instance has heard from more than one Jump.
+
 ### 50.4 Erasure: the instance asks, Jump answers
 
 Jump erases a talent from two places (an inactivity sweep and a fulfilled deletion request) and

@@ -14,8 +14,8 @@
     <label class="mr-2 mb-2" for="ws-scope-campus">Campus</label>
     <select class="form-control mr-2 mb-2" id="ws-scope-campus" name="campus">
       <option value="" {{ "selected" if not picked.scope.campus }}>Whole instance</option>
-      {% for key, label in picked.campuses %}
-        <option value="{{ key }}" {{ "selected" if picked.scope.campus == key }}>{{ label }}</option>
+      {% for ref, label in picked.campuses %}
+        <option value="{{ ref }}" {{ "selected" if picked.scope.campus_ref == ref }}>{{ label }}</option>
       {% endfor %}
     </select>
     {% if picked.scope.campus %}

@@ -14,6 +14,13 @@ hidden account, the §32 rule) and, when a scope is set, only accounts filed
 under it. `per_challenge` is the per-step count the three reports share. The
 pages cannot disagree about who is in the room because none of them decides.
 
+**A campus is a Jump's campus.** One instance can serve a development and a
+production Jump, whose ids are unrelated (jump.py `JumpSession`), so a campus
+is named by its key id and its campus id together, `<kid>/<campus>` in the
+query string: two Jumps that both call a campus `1` are two campuses here. A
+key id is `[A-Za-z0-9_-]` (jump.py `KID_RE`), so the first `/` is the
+separator whatever the campus id holds.
+
 **Remembered, not repeated.** A choice made with `?campus=&session=` is kept
 in the Flask session, so the supervisor picks their campus once and every
 page, link and CSV export follows it; `?campus=` with no value goes back to
@@ -39,32 +46,48 @@ SESSION_KEY = "ws_staff_scope"
 
 @dataclass(frozen=True)
 class Scope:
+    kid: Optional[str] = None
     campus: Optional[str] = None
     session_id: Optional[int] = None
+
+    @property
+    def campus_ref(self):
+        """`<kid>/<campus>`, what the picker submits, or None for no campus."""
+        return f"{self.kid}/{self.campus}" if self.campus is not None else None
 
 
 WHOLE_INSTANCE = Scope()
 
 
-def _checked(campus, session_id):
+def _rooms(kid, campus):
+    return JumpSession.query.filter_by(jump_kid=kid, campus_key=campus)
+
+
+def _checked(kid, campus, session_id):
     """The scope these values name, or the nearest one that exists."""
-    if not campus or not JumpSession.query.filter_by(campus_key=campus).first():
+    if not kid or not campus or not _rooms(kid, campus).first():
         return WHOLE_INSTANCE
-    if session_id is not None and not JumpSession.query.filter_by(
-            id=session_id, campus_key=campus).first():
+    if session_id is not None and not _rooms(kid, campus).filter_by(
+            id=session_id).first():
         session_id = None
-    return Scope(campus, session_id)
+    return Scope(kid, campus, session_id)
+
+
+def _parse_ref(ref):
+    """`(kid, campus)` from `<kid>/<campus>`, or `(None, None)`."""
+    kid, sep, campus = (ref or "").strip().partition("/")
+    return (kid, campus) if sep and kid and campus else (None, None)
 
 
 def current_scope():
     """The scope this request is about, recording a new choice if it makes one."""
     args = request.args
     if "campus" in args:
-        scope = _checked((args.get("campus") or "").strip() or None,
+        scope = _checked(*_parse_ref(args.get("campus")),
                          args.get("session", type=int))
-        session[SESSION_KEY] = [scope.campus, scope.session_id]
+        session[SESSION_KEY] = [scope.kid, scope.campus, scope.session_id]
         return scope
-    stored = session.get(SESSION_KEY) or [None, None]
+    stored = session.get(SESSION_KEY) or [None, None, None]
     return _checked(*stored)
 
 
@@ -73,6 +96,7 @@ def participant_criteria(scope):
     criteria = [Users.type != "admin", Users.hidden == False]  # noqa: E712
     if scope.campus is not None:
         rooms = db.session.query(JumpSession.id).filter(
+            JumpSession.jump_kid == scope.kid,
             JumpSession.campus_key == scope.campus)
         if scope.session_id is not None:
             rooms = rooms.filter(JumpSession.id == scope.session_id)
@@ -103,17 +127,23 @@ def picker():
     a supervisor looks for today's room in. Nothing to draw (an instance no
     ticket has named a session on) is an empty list, and the template then
     draws nothing at all.
+
+    A campus is labelled with its key id only on an instance that has heard
+    from more than one Jump, where two campuses can share a name. One Jump is
+    the normal case, and its picker reads as it always did.
     """
     scope = current_scope()
     rows = JumpSession.query.order_by(JumpSession.created.desc()).all()
+    several = len({row.jump_kid for row in rows}) > 1
     campuses = {}
     for row in rows:
-        campuses.setdefault(row.campus_key, row.campus_label)
+        label = f"{row.campus_label} ({row.jump_kid})" if several else row.campus_label
+        campuses.setdefault(f"{row.jump_kid}/{row.campus_key}", label)
     return {
         "scope": scope,
         "campuses": sorted(campuses.items(), key=lambda kv: kv[1].lower()),
         "sessions": [(row.id, row.label) for row in rows
-                     if row.campus_key == scope.campus],
+                     if row.jump_kid == scope.kid and row.campus_key == scope.campus],
     }
 
 

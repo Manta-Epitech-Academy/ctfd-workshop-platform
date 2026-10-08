@@ -83,6 +83,13 @@ SESSION_1 = {"session": "evt1-" + RUN, "session_label": "Coding Club un " + RUN,
              **CAMPUS}
 SESSION_2 = {"session": "evt2-" + RUN, "session_label": "Coding Club deux " + RUN,
              **CAMPUS}
+# The other Jump's session, on a campus with the SAME id: two environments'
+# ids are unrelated, so this is another campus that happens to share one.
+TALENT_S3 = "tals3" + RUN
+SESSION_3 = {"session": "evt3-" + RUN, "session_label": "Coding Club trois " + RUN,
+             **CAMPUS}
+# How the picker names a campus: its key id, then its id (scope.py).
+CAMPUS_A, CAMPUS_B = f"{KID_A}/{CAMPUS['campus']}", f"{KID_B}/{CAMPUS['campus']}"
 
 # The drainer polls every 2 s and backs off 5, 10, 20 … seconds, so anything
 # waiting on it needs room. Generous rather than tight: a flaky check is worse
@@ -750,9 +757,21 @@ def check_sessions(admin, base, sink, created):
     check(all(row.get("solves") for row in top.values()),
           "with the points that put them there")
 
+    r3, _ = enter(base, mint(KID_B, SECRET_B, sub=TALENT_S3, name="Check Trois.",
+                             session=SESSION_3))
+    three = {l["talent_id"]: l for l in admin.links()}.get(TALENT_S3)
+    if r3.status_code != 302 or not three:
+        check(False, f"the other Jump's talent exists ({r3.status_code})")
+        return
+    created.append(three["user_id"])
+
     print("== the supervision pages narrow to a campus and a session ==")
-    page = admin.session.get(base + "/admin/workshop/answers", timeout=30, params={
-        "campus": CAMPUS["campus"], "session": one["session_id"]}).text
+
+    def answers(**params):
+        return admin.session.get(base + "/admin/workshop/answers", timeout=30,
+                                 params=params).text
+
+    page = answers(campus=CAMPUS_A, session=one["session_id"])
     check(CAMPUS["campus_label"] in page and SESSION_1["session_label"] in page,
           "the picker names the campus and the session as Jump labelled them")
     check("Check Un." in page and "Check Deux." not in page,
@@ -760,12 +779,21 @@ def check_sessions(admin, base, sink, created):
     page = admin.session.get(base + "/admin/workshop/stats", timeout=30).text
     check(SESSION_1["session_label"] in page,
           "the choice follows the supervisor to the next page")
-    page = admin.session.get(base + "/admin/workshop/answers", timeout=30,
-                             params={"campus": CAMPUS["campus"]}).text
+    page = answers(campus=CAMPUS_A)
     check("Check Un." in page and "Check Deux." in page,
           "the whole campus: both sessions are listed")
-    page = admin.session.get(base + "/admin/workshop/answers", timeout=30,
-                             params={"campus": ""}).text
+    check("Check Trois." not in page,
+          "and not the other Jump's campus that shares its id")
+    check(f"{CAMPUS['campus_label']} ({KID_A})" in page
+          and f"{CAMPUS['campus_label']} ({KID_B})" in page,
+          "two Jumps on one instance: the picker names each campus's key id")
+    page = answers(campus=CAMPUS_B, session=one["session_id"])
+    check("Check Trois." in page and "Check Un." not in page,
+          "a session of another campus falls back to the campus picked")
+    page = answers(campus=f"{KID_A}/no-such-campus-{RUN}")
+    check(all(n in page for n in ("Check Un.", "Check Deux.", "Check Trois.", "Check T.")),
+          "a campus no session names falls back to the whole instance")
+    page = answers(campus="")
     check("Check Un." in page and "Check Deux." in page and "Check T." in page,
           "the whole instance: an account with no session is listed too")
 

@@ -797,6 +797,21 @@ def check_sessions(admin, base, sink, created):
     check("Check Un." in page and "Check Deux." in page and "Check T." in page,
           "the whole instance: an account with no session is listed too")
 
+    print("== a session row is written by the entries that name it, and kept put ==")
+    unseen = {"session": "evt4-" + RUN, "session_label": "Coding Club quatre " + RUN,
+              **CAMPUS}
+    enter(base, mint(KID_A, SECRET_A, sub=TALENT_S1, session=unseen))
+    check(unseen["session_label"] not in answers(campus=CAMPUS_A),
+          "a filed talent's ticket for another session records no empty room")
+    moved = {**SESSION_1, "session_label": "Coding Club un, renamed " + RUN,
+             "campus": "moved-" + RUN, "campus_label": "Moved " + RUN}
+    enter(base, mint(KID_A, SECRET_A, sub=TALENT_S1, session=moved))
+    page = answers(campus=CAMPUS_A, session=one["session_id"])
+    check(moved["session_label"] in page and "Check Un." in page,
+          "a renamed session takes its new name and keeps its talent")
+    check(moved["campus_label"] not in page,
+          "and stays in its campus, whatever a later ticket says")
+
     print("== an erasure Jump reports deletes that account, and only that one ==")
     sink.clear()
     sink.report_erased([TALENT_S2, "never-asked-" + RUN])

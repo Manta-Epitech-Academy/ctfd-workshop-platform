@@ -78,8 +78,10 @@ each session to itself (PLAN.md §50).
 A link is filed **once**. Jump sends the event the talent's participation was
 pinned to on first entry, which is also the event their XP is attributed to,
 so a talent coming back to the subject through a later event stays in the
-room they started in, on both sides. The labels on the session row are
-refreshed on every entry, since an event can be renamed; the key never moves.
+room they started in, on both sides. A session row is written by the entries
+that name it and nothing else: its labels are refreshed by each of them, since
+an event can be renamed, and its keys, the session and its campus, are set once
+and never move.
 
 ## The accounts hold no personal data of a minor
 
@@ -571,13 +573,22 @@ def resolve_account(claims, key):
     return user
 
 
+def _relabel(row, claims):
+    """Take Jump's current names for a session and its campus. Caller commits.
+
+    Labels only. `campus_key` is set when the row is created and never moved:
+    a session moved to another campus would carry every account filed under
+    it into another campus's scope, with nobody on either side having asked.
+    """
+    row.label = claims["session_label"]
+    row.campus_label = claims["campus_label"]
+
+
 def _session_row(claims, kid):
     """The `JumpSession` the ticket names, created on its first arrival.
 
-    The labels are rewritten every time, since Jump may have renamed the event
-    or the campus since; the key and the row id never change. Two first
-    arrivals racing each other meet the unique constraint, and the loser
-    re-reads the row, the same shape as the link insert above.
+    Two first arrivals racing each other meet the unique constraint, and the
+    loser re-reads the row, the same shape as the link insert above.
     """
     row = JumpSession.query.filter_by(jump_kid=kid,
                                       session_key=claims["session"]).first()
@@ -596,9 +607,7 @@ def _session_row(claims, kid):
                 jump_kid=kid, session_key=claims["session"]).first()
             if row is None:
                 raise TicketError("could not record the session")
-    row.label = claims["session_label"]
-    row.campus_key = claims["campus"]
-    row.campus_label = claims["campus_label"]
+    _relabel(row, claims)
     db.session.commit()
     return row
 
@@ -610,13 +619,26 @@ def file_session(user, claims):
     keeps its session: Jump names the pinned one anyway, and if the two ever
     disagreed, moving a talent into another room with every step they had
     already solved is the worse of the two answers.
+
+    So a ticket for a filed link only ever refreshes that link's own session,
+    and only when it names it. A session it names that nobody is filed under
+    is not recorded at all: it would be a room in the staff picker with
+    nobody in it.
     """
     if "session" not in claims:
         return None
-    row = _session_row(claims, claims["kid"])
     link = JumpLink.query.filter_by(user_id=user.id).first()
-    if link is not None and link.session_id is None:
+    if link is None:
+        return None
+    if link.session_id is None:
+        row = _session_row(claims, claims["kid"])
         link.session_id = row.id
+        db.session.commit()
+        return row
+    row = JumpSession.query.filter_by(id=link.session_id).first()
+    if (row is not None and row.jump_kid == claims["kid"]
+            and row.session_key == claims["session"]):
+        _relabel(row, claims)
         db.session.commit()
     return row
 

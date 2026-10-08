@@ -4181,8 +4181,11 @@ are unrelated) and points the account's link at it, **once**. Jump sends the eve
 participation was pinned to on first entry, which is also the event their XP is attributed to, so
 a talent who comes back through a later Coding Club stays in the room they started in on both
 sides. Moving them would put somebody with every step already solved at the top of a room they
-were never in. The labels are refreshed on every entry, because an event can be renamed; the key
-never moves.
+were never in. A session row is written only by the entries that name it: they refresh its labels,
+because an event can be renamed, and its keys (the session and its campus) are set once and never
+move, since a session moved to another campus would carry its accounts into another campus's staff
+scope. A filed talent's ticket for some other session records nothing, so the staff picker never
+lists a room with nobody in it.
 
 ### 50.2 No brackets, for the reason §43 already gave
 

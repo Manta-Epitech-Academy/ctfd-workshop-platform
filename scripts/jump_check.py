@@ -824,6 +824,49 @@ def check_sessions(admin, base, sink, created):
     check(moved["campus_label"] not in page,
           "and stays in its campus, whatever a later ticket says")
 
+    print("== a step's solvers, the submissions and the feedback follow the room ==")
+    # A step of the check's own, since a fresh instance has none: one flag,
+    # solved by both rooms, one wrong try and one review each.
+    r = admin.api("POST", "/challenges", json={
+        "name": "jumpcheck step " + RUN, "category": "jumpcheck", "description": "-",
+        "value": 1, "type": "standard", "state": "visible"})
+    step = (r.json().get("data") or {}).get("id") if r.status_code == 200 else None
+    if step is None:
+        check(False, f"a step of the check's own ({r.status_code})")
+        return
+    atexit.register(lambda: admin.api("DELETE", f"/challenges/{step}"))
+    admin.api("POST", "/flags", json={"challenge": step, "content": "flag-" + RUN,
+                                      "type": "static", "data": "case_insensitive"})
+    for talent, said in ((s1, "review un " + RUN), (s2, "review deux " + RUN)):
+        headers = {"CSRF-Token": nonce(talent, base), "Content-Type": "application/json"}
+        for answer in ("wrong-" + RUN, "flag-" + RUN):
+            talent.post(base + "/api/v1/challenges/attempt", headers=headers, timeout=30,
+                        json={"challenge_id": step, "submission": answer})
+        talent.put(base + f"/api/v1/challenges/{step}/ratings", headers=headers,
+                   timeout=30, json={"value": 1, "review": said})
+
+    solvers = {row["account_id"] for row in s1.get(
+        base + f"/api/v1/challenges/{step}/solves", timeout=30).json().get("data", [])}
+    check(solvers == {one["user_id"]},
+          f"the step's solver list names the reader's room only ({sorted(solvers)})")
+    count = (s1.get(base + f"/api/v1/challenges/{step}", timeout=30).json()
+             .get("data") or {}).get("solves")
+    check(count == 2, f"and its solve count is still the instance's ({count})")
+
+    room = {"campus": CAMPUS_A, "session": one["session_id"]}
+    page = admin.session.get(base + "/admin/workshop/submissions", timeout=30,
+                             params=room).text
+    check("Check Un." in page and "Check Deux." not in page,
+          "the submissions page lists the session's attempts only")
+    page = admin.session.get(base + "/admin/workshop/feedback", timeout=30,
+                             params=room).text
+    check("review un " + RUN in page and "review deux " + RUN not in page,
+          "the feedback page reads the session's reviews only")
+    page = admin.session.get(base + "/admin/workshop/feedback", timeout=30,
+                             params={"campus": ""}).text
+    check("review un " + RUN in page and "review deux " + RUN in page,
+          "and the whole instance's when no campus is picked")
+
     print("== an erasure Jump reports deletes that account, and only that one ==")
     sink.clear()
     sink.report_erased([TALENT_S2, "never-asked-" + RUN])

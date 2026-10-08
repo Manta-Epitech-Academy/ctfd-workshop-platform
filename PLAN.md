@@ -4306,19 +4306,32 @@ new content, and a refusal on the wrong one would block an ordinary sync.
 
 ### 50.7 Checked
 
-`scripts/jump_check.py` on a fresh local instance, ALL GREEN: a half session is refused and
-creates nothing; two sessions give two session rows; coming back under another session does not
-move the account; each session sees its own account in `/api/v1/users` and gets a 404 on the
-other's; the answer sheet narrows to a session, then the campus, then the whole instance, and the
-choice follows to the stats page; the erasure question reaches the contract's path, signed over the
-exact bytes, deletes the one account the sink names and nothing else, and an answer naming nobody
-deletes nobody. `scripts/audience_check.py` and `scripts/supervisor_check.py` are still green on
-the same instance. Revision `8b3e6f1d9a24` was replayed on an instance rolled back to
-`3a6016a2732e` and recreated the column, its index and its named foreign key.
+`scripts/jump_check.py` on a fresh local instance, ALL GREEN:
+
+- **Tickets and filing.** A half session is refused and creates nothing. Two sessions give two
+  session rows. Coming back under another session does not move the account and records no row for
+  that session. A renamed session takes its new label and keeps its campus.
+- **What a room sees.** Each session sees its own account in `/api/v1/users` and gets a 404 on the
+  other's. Behind fifty older accounts, page 1 of `/users` and of `/api/v1/users` is the room, with
+  the room's page count. The score graph's top one is the room's own best while another room
+  outscores it. A step's solver list names the room only, and its solve count stays the instance's.
+- **The staff scope.** The answer sheet narrows to a session, then the campus, then the whole
+  instance, and the choice follows to the stats page. The submissions and feedback pages follow it
+  too. A second Jump's campus with the same id is a campus of its own, named with its key id. A
+  session of another campus falls back to the campus, and an unknown campus to the whole instance.
+- **Erasure.** The question reaches the contract's path, signed over the exact bytes, and deletes
+  the one account the sink names and nothing else. An answer naming nobody deletes nobody. A Jump
+  that answers 503 deletes nobody, and the manual pass answers 502. A retired key's accounts are
+  counted as unverifiable, kept, and named on the settings page.
+
+Each check added after the first review was run against the code before its fix, and fails there.
+`scripts/audience_check.py` and `scripts/supervisor_check.py` are still green on the same
+instance. Revision `8b3e6f1d9a24` was replayed on an instance rolled back to `3a6016a2732e` and
+recreated the column, its index and its named foreign key.
 
 ### 50.8 Not verified
 
-- The solver-list filter: the local instance had no content to solve, so it rests on the same
-  `after_request` path as the user list, which is checked.
 - Against a real Jump: the Jump side is covered by its own integration tests
-  (`workshopErasures`, `workshopSession`), and the two have not yet run against each other.
+  (`workshopErasures`, `workshopSession`), and the two have not yet run against each other. The
+  claim types do agree on paper: Jump's `WorkshopTicketClaims` types all four session claims as
+  strings (`frontend/src/lib/server/workshops/ticket.ts`), which is what `verify_ticket` requires.

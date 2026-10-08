@@ -74,7 +74,7 @@ which is node's `createHmac('sha256', secret).update(label).digest('hex')` —
 that string is then the key of the next HMAC. This is half of a contract frozen
 with the Jump side; changing it means changing both repositories.
 
-## The session is the room, and it is pinned on first entry
+## The session is the room, and the ticket names it
 
 An instance serves several events over its life: a campus instance is reused
 from one request to the next, one instance carries a season's camps for every
@@ -84,13 +84,16 @@ and not the city: it is the Jump session, the event the talent entered from. The
 `JumpSession` row and points the account's link at it, and audience.py keeps
 each session to itself (PLAN.md §50).
 
-A link is filed **once**. Jump sends the event the talent's participation was
-pinned to on first entry, which is also the event their XP is attributed to,
-so a talent coming back to the subject through a later event stays in the
-room they started in, on both sides. A session row is written by the entries
-that name it and nothing else: its labels are refreshed by each of them, since
-an event can be renamed, and its keys, the session and its campus, are set once
-and never move.
+A link **follows the session the ticket names**. Jump pins that session per
+activity, on the talent's first entry into it, and it is the event their XP for
+it is attributed to: a talent coming back to the same content through a later
+event is named the first one again, and stays in the room they started in. A
+talent coming back to the same host for the NEXT content is named the event
+that brought them this time, and moves with it, since the room is about who is
+doing this content now. A session row is written by the entries that name it
+and nothing else: its labels are refreshed by each of them, since an event can
+be renamed, and its keys, the session and its campus, are set once and never
+move.
 
 ## The accounts hold no personal data of a minor
 
@@ -646,33 +649,28 @@ def _session_row(claims, kid):
 
 
 def file_session(user, claims):
-    """Point the account's link at the session the ticket names, once.
+    """Point the account's link at the session the ticket names.
 
-    A ticket without session claims changes nothing. A link already filed
-    keeps its session: Jump names the pinned one anyway, and if the two ever
-    disagreed, moving a talent into another room with every step they had
-    already solved is the worse of the two answers.
+    A ticket without session claims changes nothing. One that names a session
+    moves the link there, because the pin is Jump's and not this instance's:
+    Jump names the event a talent's participation in the CURRENT content was
+    pinned to, which is the same event on every entry into that content, and
+    another one only when the instance has moved on to another content and the
+    talent came back for it (§51). Pinning here as well, once per account,
+    kept a regular of the season's instance in the first camp's room for every
+    camp after it.
 
-    So a ticket for a filed link only ever refreshes that link's own session,
-    and only when it names it. A session it names that nobody is filed under
-    is not recorded at all: it would be a room in the staff picker with
-    nobody in it.
+    The room left behind keeps its row, and a room nobody is filed in any more
+    is left out of the staff picker (`scope.picker`).
     """
     if "session" not in claims:
         return None
     link = JumpLink.query.filter_by(user_id=user.id).first()
     if link is None:
         return None
-    if link.session_id is None:
-        row = _session_row(claims, claims["kid"])
-        link.session_id = row.id
-        db.session.commit()
-        return row
-    row = JumpSession.query.filter_by(id=link.session_id).first()
-    if (row is not None and row.jump_kid == claims["kid"]
-            and row.session_key == claims["session"]):
-        _relabel(row, claims)
-        db.session.commit()
+    row = _session_row(claims, claims["kid"])
+    link.session_id = row.id
+    db.session.commit()
     return row
 
 

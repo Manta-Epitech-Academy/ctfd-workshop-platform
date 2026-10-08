@@ -131,9 +131,16 @@ def picker():
     A campus is labelled with its key id only on an instance that has heard
     from more than one Jump, where two campuses can share a name. One Jump is
     the normal case, and its picker reads as it always did.
+
+    Only rooms somebody is filed in: a link follows the session its latest
+    ticket names (`jump.file_session`), so the room of a content the instance
+    has moved on from can empty out, and an empty room is noise in a picker.
     """
     scope = current_scope()
-    rows = JumpSession.query.order_by(JumpSession.created.desc()).all()
+    filed = db.session.query(JumpLink.session_id).filter(
+        JumpLink.session_id.isnot(None))
+    rows = (JumpSession.query.filter(JumpSession.id.in_(filed))
+            .order_by(JumpSession.created.desc()).all())
     several = len({row.jump_kid for row in rows}) > 1
     campuses = {}
     for row in rows:

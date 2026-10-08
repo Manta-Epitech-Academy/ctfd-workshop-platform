@@ -9,11 +9,15 @@ what it cannot prove is that the real Jump accepts what this sends, only that
 what this sends is what the contract says.
 
 §50 adds the session a ticket names: a ticket with half a session is
-refused, an account is filed under the first session it enters with and never
-moved, two sessions do not see each other's accounts, the supervision pages
+refused, an account follows the session its latest ticket names, two sessions
+do not see each other's accounts, the supervision pages
 narrow to a campus and a session, and an erasure Jump reports deletes the
 account and nothing else. The sink plays Jump's half of that last one too: it
 answers the erasure question from a list this script writes.
+
+§51 adds the content: a ticket naming a content this instance does not serve,
+or naming one on an instance no sync has recorded a content on, is refused
+before any account exists, and every progress report names the content.
 
 One case is not an acceptance criterion but a regression: a label that already
 has accounts behind it cannot move to another key id. Both halves are checked,
@@ -742,7 +746,7 @@ def check_sessions(admin, base, sink, created):
     created.extend(filler)
     check(len(filler) == USERS_PAGE, f"{USERS_PAGE} older accounts to page past")
 
-    print("== each account is filed under the session it first entered with ==")
+    print("== each account is filed under the session its ticket names ==")
     r1, s1 = enter(base, mint(KID_A, SECRET_A, sub=TALENT_S1, name="Check Un.",
                               session=SESSION_1))
     r2, s2 = enter(base, mint(KID_A, SECRET_A, sub=TALENT_S2, name="Check Deux.",
@@ -759,10 +763,17 @@ def check_sessions(admin, base, sink, created):
           and one["session_id"] != two["session_id"],
           "two sessions, two different session rows")
 
+    # Jump names another session only when this instance has moved on to
+    # another content and the talent came back for it (§51): the account
+    # follows, and a ticket naming the first session again brings it back.
     enter(base, mint(KID_A, SECRET_A, sub=TALENT_S1, session=SESSION_2))
     again = {l["talent_id"]: l for l in admin.links()}[TALENT_S1]
+    check(again["session_id"] == two["session_id"],
+          "coming back under another session moves the account there")
+    enter(base, mint(KID_A, SECRET_A, sub=TALENT_S1, session=SESSION_1))
+    again = {l["talent_id"]: l for l in admin.links()}[TALENT_S1]
     check(again["session_id"] == one["session_id"],
-          "coming back under another session does not move the account")
+          "and a ticket naming the first one moves it back, to the same row")
 
     print("== two sessions do not see each other ==")
     listed = {u["id"] for u in s1.get(base + "/api/v1/users", timeout=30)
@@ -846,16 +857,18 @@ def check_sessions(admin, base, sink, created):
     unseen = {"session": "evt4-" + RUN, "session_label": "Coding Club quatre " + RUN,
               **CAMPUS}
     enter(base, mint(KID_A, SECRET_A, sub=TALENT_S1, session=unseen))
-    check(unseen["session_label"] not in answers(campus=CAMPUS_A),
-          "a filed talent's ticket for another session records no empty room")
+    check(unseen["session_label"] in answers(campus=CAMPUS_A),
+          "a ticket for a new session records its room, with the talent in it")
     moved = {**SESSION_1, "session_label": "Coding Club un, renamed " + RUN,
              "campus": "moved-" + RUN, "campus_label": "Moved " + RUN}
     enter(base, mint(KID_A, SECRET_A, sub=TALENT_S1, session=moved))
     page = answers(campus=CAMPUS_A, session=one["session_id"])
     check(moved["session_label"] in page and "Check Un." in page,
-          "a renamed session takes its new name and keeps its talent")
+          "a renamed session takes its new name and gets its talent back")
     check(moved["campus_label"] not in page,
           "and stays in its campus, whatever a later ticket says")
+    check(unseen["session_label"] not in page,
+          "the room left behind, now empty, leaves the picker")
 
     print("== a step's solvers, the submissions and the feedback follow the room ==")
     # A step of the check's own, since a fresh instance has none: one flag,

@@ -60,6 +60,13 @@ def load_manifest(workshop_dir):
     if not path.is_file():
         sys.exit(f"no workshop.yaml in {workshop_dir}")
     manifest = yaml.safe_load(path.read_text()) or {}
+    # The workshop's own name for itself, which Jump files a talent's activity
+    # and XP under (PLAN.md §51). Required rather than defaulted: falling back to
+    # the starter's `project.slug` would make this composition and that subject
+    # alone one activity on Jump, and pay the one for the other.
+    if not str((manifest.get("workshop") or {}).get("slug") or "").strip():
+        sys.exit(f"{path}: `workshop.slug` is required, it is the name Jump "
+                 f"knows this workshop by")
     subjects = manifest.get("subjects") or []
     if not subjects:
         sys.exit(f"{path}: no subjects")
@@ -285,7 +292,8 @@ def sync_workshop(workshop_dir, url, admin_user, admin_pass, codes_dir=None, *,
               f"({len(runtime_params)} subject-specific parameter sets)")
 
     write_instance_config(ctfd, documents, optional_ids, free_ids, final_step,
-                          subjects_cfg=subjects_cfg, intro_step=intro_step)
+                          subjects_cfg=subjects_cfg, intro_step=intro_step,
+                          content=str(workshop["slug"]).strip())
     # Subjects a previous source held and this manifest does not.
     hide_strangers(ctfd, set(subjects_cfg))
     print(f"workshop done: {len(subjects)} subjects, {len(documents)} parts, "

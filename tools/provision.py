@@ -83,6 +83,11 @@ def load_manifest():
         # so it has none. Overridable per instance for the odd case.
         inst["registration"] = inst.get("registration") or (
             "open" if inst["mode"] == "self_serve" else "code")
+        # Whether talents see a scoreboard at all (PLAN.md §50.1): off, Jump's
+        # XP is the only score they read. Per instance like `mode`, since a
+        # flagship instance and a campus one can want different answers.
+        inst["scoreboard"] = bool(inst.get("scoreboard",
+                                           defaults.get("scoreboard", True)))
         # Where the admin sync page fetches from (PLAN.md §26). `content:` is
         # what the command line imports from this checkout; this is the same
         # content as its own repository, which is what an instance follows once
@@ -411,8 +416,9 @@ def cmd_setup(manifest, sec, args):
             configs["workshop_jump_keys"] = json.dumps(
                 {kid: {**key, "secret": sec["jump_secrets"][kid]}
                  for kid, key in inst["jump"].items()}, sort_keys=True)
-        if not defaults.get("scoreboard", True):
-            configs["score_visibility"] = "hidden"
+        # Written either way, so an instance set back to `scoreboard: true`
+        # shows it again rather than keeping the last `hidden`.
+        configs["score_visibility"] = "public" if inst["scoreboard"] else "hidden"
 
         r = requests.patch(
             url + "/api/v1/configs", json=configs,

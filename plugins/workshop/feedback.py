@@ -23,21 +23,15 @@ import io
 
 from flask import Blueprint, Response, render_template
 
-from CTFd.models import Challenges, Ratings, Solves, db
+from CTFd.models import Challenges, Ratings, Solves, Users
 from CTFd.utils import get_config
 
 from .page import _documents, _final_step_id
+from .scope import current_scope, participant_criteria, per_challenge
 from .staff import staff_base, staff_only
 
 workshop_feedback = Blueprint("workshop_feedback", __name__,
                               template_folder="templates")
-
-
-def _solver_counts():
-    """How many people solved each step — the population that could rate it."""
-    rows = (db.session.query(Solves.challenge_id, db.func.count(Solves.user_id))
-            .group_by(Solves.challenge_id).all())
-    return dict(rows)
 
 
 def _aggregate(rows):
@@ -80,12 +74,22 @@ def _part_titles():
 
 
 def collect():
-    """Everything the report shows, in one pass over the ratings."""
+    """Everything the report shows, in one pass over the ratings.
+
+    The ratings of the scoped participants only, and the solvers they are read
+    against counted over the same people (scope.py). Until scope.py both
+    counted every account, a supervisor's or an admin's test ratings
+    included, which no other supervision page did.
+    """
+    scope = current_scope()
     challenges = {c.id: c for c in Challenges.query.all()}
     part_of = _part_titles()
-    solvers = _solver_counts()
+    # How many people solved each step: the population that could rate it.
+    solvers = per_challenge(Solves, scope)
+    ratings = (Ratings.query.join(Users, Users.id == Ratings.user_id)
+               .filter(*participant_criteria(scope)).all())
     by_challenge = {}
-    for r in Ratings.query.all():
+    for r in ratings:
         by_challenge.setdefault(r.challenge_id, []).append(r)
 
     final_id = _final_step_id()
@@ -123,7 +127,7 @@ def collect():
         "totals": {
             "ratings": sum(len(v) for v in by_challenge.values()),
             "comments": sum(len(r["comments"]) for r in verdicts + steps),
-            "participants": db.session.query(Ratings.user_id).distinct().count(),
+            "participants": len({r.user_id for r in ratings}),
         },
     }
 

@@ -41,6 +41,27 @@ nothing else — so overriding `solve()` covers all of it. The listener and the
 pull reconciler close the gap together, before Halloween. **Re-run that query
 before assuming this still holds on an instance whose content differs.**
 
+## Erasures are asked for, on the same thread
+
+When Jump erases a talent, their account here still carries a first name and
+an initial on a scoreboard, for as long as the instance is up, which for a
+flagship subject is for good. Jump
+erases from two places and holds no outbox, so it does not tell instances;
+instead this thread asks it, once an hour and once at start-up, which of the
+talents linked here it has erased, and deletes those accounts (PLAN.md §50).
+The answer is read off Jump's own records every time, so an instance that was
+down, or a Jump that was, simply catches up on the next pass.
+
+**Only on proof.** An id comes back only when Jump holds the erasure; a talent
+Jump does not know is held, never deleted, so a re-seeded development Jump
+cannot empty an instance it is still configured on. And an id the answer names
+that was not asked about is ignored rather than trusted.
+
+The same rule covers a key id that has left the configuration: its secret is
+gone, so its Jump cannot be asked and its accounts are never deleted. Every
+pass counts them (`unverifiable`) and the settings page shows the count, so a
+retired key is a decision somebody sees rather than a gap nobody does.
+
 ## One worker
 
 `WORKERS=1` today, so a module-level drainer is safe, the same assumption
@@ -61,10 +82,18 @@ from flask import Blueprint, request
 from CTFd.models import db
 from CTFd.utils.decorators import admins_only
 
-from .jump import JumpEvent, JumpLink, derived_key, instance_slug, jump_keys, requeue
+from .accounts import delete_accounts
+from .jump import (JumpEvent, JumpLink, content_slug, derived_key, instance_slug, jump_keys,
+                   requeue, unverifiable_links)
 from .progress import progress_for_user
 
 CALLBACK_PATH = "/api/workshops/callback"
+ERASURES_PATH = "/api/workshops/erasures"
+# Jump's own ceiling on one question (`WORKSHOP_ERASURE_BATCH_MAX`).
+ERASURE_BATCH = 500
+# An hour: an erasure is a legal deadline counted in weeks, not a solve the
+# student is watching for, and every pass asks about every linked account.
+ERASURE_EVERY = 3600
 # Connect, then read. Short on the connect because an unreachable Jump should
 # be known about in seconds; longer on the read because a busy one is still
 # going to answer.
@@ -85,6 +114,9 @@ BATCH = 50
 
 _drainer = None
 _drainer_lock = threading.Lock()
+# When the drainer next asks Jump about erasures. Zero, so the first pass runs
+# at start-up: a restart is often what follows a long outage.
+_next_erasure_pass = 0.0
 
 
 # --------------------------------------------------------------------------
@@ -126,14 +158,29 @@ def enqueue_solve(user_id, challenge_id):
 # --------------------------------------------------------------------------
 
 def build_payload(event, slug):
+    """The whole state, recounted now, of the content the instance serves now.
+
+    `contentSlug` is what Jump files the progress under (§51), read at send
+    time like the counters it goes with: after a rotation the previous
+    content's steps are hidden, so the counters describe the current content
+    and so must the name. It is left out, not sent empty, on an instance no
+    sync has recorded a content on: a Jump that predates it ignores the key
+    either way, and one that requires it refuses the row, which then waits in
+    this outbox for a re-sync and a resend rather than being filed under a
+    guess.
+    """
     solved, total = progress_for_user(event.user_id)
-    return {
+    payload = {
         "instanceSlug": slug,
         "talentId": event.jump_talent_id,
         "solvedSteps": solved,
         "totalSteps": total,
         "isComplete": bool(total) and solved == total,
     }
+    content = content_slug()
+    if content:
+        payload["contentSlug"] = content
+    return payload
 
 
 def sign(body, secret, ts):
@@ -149,9 +196,15 @@ def sign(body, secret, ts):
                                 hashlib.sha256).hexdigest()
 
 
-def post_event(event, key, slug):
-    """Send one row. Returns `(ok, detail)`; never raises."""
-    payload = build_payload(event, slug)
+def _signed_post(key, path, payload, extra_headers=None):
+    """POST `payload` to the key's origin, signed with the callback key.
+    Never raises: `(response, None)` on any answer, `(None, detail)` when
+    there was none.
+
+    Every request this instance makes to Jump goes through here: the progress
+    callback and the erasure question share one key, one signature and one
+    freshness window on the Jump side.
+    """
     # Serialized once, and passed as `data=`. With `json=`, requests would
     # re-serialize the dict and the signature would stop covering the bytes
     # that actually go on the wire.
@@ -161,16 +214,26 @@ def post_event(event, key, slug):
         "Content-Type": "application/json",
         "X-Timestamp": ts,
         "X-Signature": sign(body, key["secret"], ts),
-        # The row's natural key, so a resend whose response was lost is
-        # recognised rather than counted twice.
-        "X-Idempotency-Key": f"{event.user_id}:{event.challenge_id}",
+        **(extra_headers or {}),
     }
-    event.payload = payload
     try:
-        response = requests.post(key["origin"] + CALLBACK_PATH, data=body,
-                                 headers=headers, timeout=TIMEOUT)
+        return requests.post(key["origin"] + path, data=body, headers=headers,
+                             timeout=TIMEOUT), None
     except requests.RequestException as exc:
-        return False, f"{type(exc).__name__}: {exc}"[:500]
+        return None, f"{type(exc).__name__}: {exc}"[:500]
+
+
+def post_event(event, key, slug):
+    """Send one row. Returns `(ok, detail)`; never raises."""
+    payload = build_payload(event, slug)
+    event.payload = payload
+    # The row's natural key, so a resend whose response was lost is
+    # recognised rather than counted twice.
+    response, detail = _signed_post(
+        key, CALLBACK_PATH, payload,
+        {"X-Idempotency-Key": f"{event.user_id}:{event.challenge_id}"})
+    if response is None:
+        return False, detail
     if 200 <= response.status_code < 300:
         return True, None
     return False, f"HTTP {response.status_code}: {response.text[:200]}"
@@ -210,6 +273,58 @@ def send_one(event, keys=None, slug=None):
     return ok
 
 
+def erased_among(key, talent_ids):
+    """The ids among `talent_ids` Jump says it has erased, or `(None, why)`."""
+    response, detail = _signed_post(key, ERASURES_PATH,
+                                    {"talentIds": list(talent_ids)})
+    if response is None:
+        return None, detail
+    if not 200 <= response.status_code < 300:
+        return None, f"HTTP {response.status_code}: {response.text[:200]}"
+    try:
+        erased = response.json().get("erased")
+    except (ValueError, AttributeError):
+        return None, "the answer is not JSON"
+    if not isinstance(erased, list):
+        return None, "the answer has no `erased` list"
+    asked = set(talent_ids)
+    return {t for t in erased if isinstance(t, str) and t in asked}, None
+
+
+def reconcile_erasures(keys=None, log=None):
+    """Ask every configured Jump about its talents, delete the erased ones.
+
+    Returns `{"asked": n, "deleted": n, "errors": [...], "unverifiable":
+    {kid: n}}`. A Jump that does not answer is skipped for this pass and asked
+    again on the next; nothing is deleted on the strength of a failure. The
+    accounts of a key id no longer configured cannot be asked about at all
+    (jump.py `unverifiable_links`), and are counted instead.
+    """
+    keys = jump_keys() if keys is None else keys
+    report = {"asked": 0, "deleted": 0, "errors": [],
+              "unverifiable": unverifiable_links(keys)}
+    for kid, key in keys.items():
+        links = (JumpLink.query.filter_by(jump_kid=kid)
+                 .order_by(JumpLink.id).all())
+        for start in range(0, len(links), ERASURE_BATCH):
+            chunk = links[start:start + ERASURE_BATCH]
+            erased, detail = erased_among(
+                key, [link.jump_talent_id for link in chunk])
+            if erased is None:
+                report["errors"].append(f"{kid}: {detail}")
+                break
+            report["asked"] += len(chunk)
+            doomed = [link.user_id for link in chunk
+                      if link.jump_talent_id in erased]
+            report["deleted"] += delete_accounts(doomed)
+    if log is not None and (report["deleted"] or report["errors"]
+                            or report["unverifiable"]):
+        log(f"workshop: erasure pass asked {report['asked']}, deleted "
+            f"{report['deleted']}, errors {report['errors']}, unverifiable "
+            f"{report['unverifiable']}")
+    return report
+
+
 def drain_once():
     """One pass over everything that is due. Returns how many were sent."""
     keys, slug = jump_keys(), instance_slug()
@@ -231,6 +346,7 @@ def _drain_forever(app):
         try:
             with app.app_context():
                 drain_once()
+                _maybe_reconcile_erasures(app)
                 # Hand the connection back and start the next pass on a fresh
                 # transaction. Without this the drainer keeps one REPEATABLE
                 # READ snapshot for its whole life and never sees a row written
@@ -242,6 +358,16 @@ def _drain_forever(app):
             except Exception:
                 pass
         time.sleep(POLL_SECONDS)
+
+
+def _maybe_reconcile_erasures(app):
+    """One erasure pass if one is due. The next one is booked before this one
+    runs, so a pass that raises is retried in an hour, not every two seconds."""
+    global _next_erasure_pass
+    if time.time() < _next_erasure_pass:
+        return
+    _next_erasure_pass = time.time() + ERASURE_EVERY
+    reconcile_erasures(log=app.logger.warning)
 
 
 def start_drainer(app):
@@ -315,6 +441,25 @@ def resend(event_id):
     return {"success": True, "data": _event_json(event)}
 
 
+@workshop_jump_api.route("/api/v1/workshop/jump/erasures", methods=["POST"])
+@admins_only
+def erasures_now():
+    """Run one erasure pass now, rather than at the top of the next hour.
+
+    For an admin who has just fulfilled a deletion in Jump and wants it gone
+    here before the session, and for scripts/jump_check.py, which cannot wait
+    an hour to see a deletion happen.
+
+    A pass in which some Jump did not answer is a 502 with `success: false`,
+    the report still in `data`: the admin asked for erasures to be applied, and
+    some of them may not have been.
+    """
+    report = reconcile_erasures()
+    if report["errors"]:
+        return {"success": False, "data": report}, 502
+    return {"success": True, "data": report}
+
+
 @workshop_jump_api.route("/api/v1/workshop/jump/links", methods=["GET"])
 @admins_only
 def links():
@@ -340,6 +485,7 @@ def links():
             "name": user.name if user else None,
             "email": user.email if user else None,
             "has_password": bool(user.password) if user else None,
+            "session_id": row.session_id,
         })
     return {"success": True, "data": out}
 

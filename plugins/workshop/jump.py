@@ -19,7 +19,21 @@ stack trace.
     b64url(json(claims)) + "." + b64url(hmac_sha256(ticketKey, part1))
 
     claims = {kid, sub: talentId, name: displayName, aud: "workshop:<slug>",
-              iss: "jump", iat, exp, jti}      exp = iat + 120
+              iss: "jump", iat, exp, jti,
+              session, session_label, campus, campus_label,
+              content}                                           exp = iat + 120
+
+The four session claims are optional as a set: all of them or none. They name
+the Jump session the talent entered under (see *The session* below), and a
+ticket minted before they existed carries none and is still accepted.
+
+`content` is optional too, and names the content the talent meant to enter:
+the activity on Jump, whose slug is the `workshop.slug` or `project.slug` the
+last sync recorded here (`workshop_content`). A ticket naming another content
+is refused before any account exists, because a Jump activity pointing at a
+host that has moved on would otherwise let a talent work through a content
+whose progress Jump files nowhere (PLAN.md §51). The `aud` names the host,
+which a rotation keeps, so it cannot tell the two apart on its own.
 
 There is no JWT library in the image and one cannot be added: the Dockerfile's
 plugin-requirements loop runs at build time over the `./CTFd` context, while
@@ -59,6 +73,27 @@ other. The derived key is the lowercase **hex digest as an ASCII string**,
 which is node's `createHmac('sha256', secret).update(label).digest('hex')` —
 that string is then the key of the next HMAC. This is half of a contract frozen
 with the Jump side; changing it means changing both repositories.
+
+## The session is the room, and the ticket names it
+
+An instance serves several events over its life: a campus instance is reused
+from one request to the next, one instance carries a season's camps for every
+campus, and a flagship subject stays up for good while campuses pick it for
+their Coding Clubs. So "who is in the same cohort as me" is not the instance
+and not the city: it is the Jump session, the event the talent entered from. The ticket names it, `file_session` records it as a
+`JumpSession` row and points the account's link at it, and audience.py keeps
+each session to itself (PLAN.md §50).
+
+A link **follows the session the ticket names**. Jump pins that session per
+activity, on the talent's first entry into it, and it is the event their XP for
+it is attributed to: a talent coming back to the same content through a later
+event is named the first one again, and stays in the room they started in. A
+talent coming back to the same host for the NEXT content is named the event
+that brought them this time, and moves with it, since the room is about who is
+doing this content now. A session row is written by the entries that name it
+and nothing else: its labels are refreshed by each of them, since an event can
+be renamed, and its keys, the session and its campus, are set once and never
+move.
 
 ## The accounts hold no personal data of a minor
 
@@ -104,6 +139,8 @@ from .toggle import workshop_enabled
 
 CONFIG_KEYS = "workshop_jump_keys"
 CONFIG_INSTANCE = "workshop_jump_instance"
+# Written by the sync, never by hand: what this instance serves (PLAN.md §51).
+CONFIG_CONTENT = "workshop_content"
 
 ISSUER = "jump"
 AUDIENCE_PREFIX = "workshop:"
@@ -131,9 +168,39 @@ _LIMIT_IP = (240, 60)
 # whole class a single shared bucket.
 _LIMIT_SUB = (30, 60)
 
+# The session claims, each with the widest value the session row stores. All
+# four or none: a ticket naming a session without its campus would file an
+# account no staff filter can reach.
+SESSION_CLAIMS = (("session", 64), ("session_label", 128),
+                  ("campus", 64), ("campus_label", 128))
+
 KID_RE = re.compile(r"\A[A-Za-z0-9][A-Za-z0-9_-]{0,63}\Z")
 LABEL_RE = re.compile(r"\A[a-z0-9][a-z0-9-]{0,31}\Z")
 ORIGIN_RE = re.compile(r"\Ahttps?://[A-Za-z0-9.-]+(:\d+)?\Z")
+
+
+class JumpSession(db.Model):
+    """One row per (Jump environment, session): a room the accounts came from.
+
+    `session_key` is the Jump event id and `campus_key` its campus id, both as
+    Jump sent them; the two labels are what the staff read in the scope picker
+    (an event name with its date, a campus name), refreshed on every entry.
+    Nothing here is about a talent.
+
+    Keyed on the `kid` as well, for the same reason the links are: one
+    instance can serve a development and a production Jump, whose event ids
+    are unrelated.
+    """
+    __tablename__ = "workshop_jump_session"
+    __table_args__ = (db.UniqueConstraint("jump_kid", "session_key"),)
+
+    id = db.Column(db.Integer, primary_key=True)
+    jump_kid = db.Column(db.String(64), nullable=False)
+    session_key = db.Column(db.String(64), nullable=False)
+    label = db.Column(db.String(128), nullable=False)
+    campus_key = db.Column(db.String(64), nullable=False, index=True)
+    campus_label = db.Column(db.String(128), nullable=False)
+    created = db.Column(db.DateTime, default=datetime.utcnow)
 
 
 class JumpLink(db.Model):
@@ -161,6 +228,13 @@ class JumpLink(db.Model):
     # the whole map on every setup. Nullable only for rows written before
     # revision 2, which backfills them from the address they already carry.
     jump_label = db.Column(db.String(32))
+    # The room this account is in: the session its latest ticket named,
+    # moved whenever a later one names another (see `file_session`). NULL for
+    # an account created before tickets named one, until its next entry.
+    session_id = db.Column(
+        db.Integer, db.ForeignKey("workshop_jump_session.id", ondelete="SET NULL",
+                      name="fk_workshop_jump_link_session"),
+        index=True)
     created = db.Column(db.DateTime, default=datetime.utcnow)
 
 
@@ -248,6 +322,18 @@ def instance_slug():
     every ticket.
     """
     raw = get_config(CONFIG_INSTANCE)
+    return str(raw).strip() if raw not in (None, "") else ""
+
+
+def content_slug():
+    """The content this instance serves, as the last sync recorded it.
+
+    The `workshop.slug` of a composed workshop or the `project.slug` of a lone
+    subject: the name Jump files a talent's activity and XP under (§51). Empty
+    on an instance not re-synced since the field existed. Same `str()` guard
+    as `instance_slug()`, for the same reason.
+    """
+    raw = get_config(CONFIG_CONTENT)
     return str(raw).strip() if raw not in (None, "") else ""
 
 
@@ -378,6 +464,24 @@ def verify_ticket(token, now=None):
     if not isinstance(jti, str) or not jti or len(jti) > 128:
         raise TicketError("no usable jti")
 
+    present = [(name, cap) for name, cap in SESSION_CLAIMS if name in claims]
+    if present and len(present) != len(SESSION_CLAIMS):
+        raise TicketError("a partial session")
+    for name, cap in present:
+        value = claims[name]
+        if not isinstance(value, str) or not value or len(value) > cap:
+            raise TicketError(f"no usable {name}")
+
+    if "content" in claims:
+        claimed = claims["content"]
+        if not isinstance(claimed, str) or not claimed or len(claimed) > 128:
+            raise TicketError("no usable content")
+        served = content_slug()
+        if not served:
+            raise TicketError("this instance has no content recorded; re-sync it")
+        if claimed != served:
+            raise TicketError(f"content {claimed!r} is not this instance's {served!r}")
+
     return claims, key
 
 
@@ -505,6 +609,71 @@ def resolve_account(claims, key):
     return user
 
 
+def _relabel(row, claims):
+    """Take Jump's current names for a session and its campus. Caller commits.
+
+    Labels only. `campus_key` is set when the row is created and never moved:
+    a session moved to another campus would carry every account filed under
+    it into another campus's scope, with nobody on either side having asked.
+    """
+    row.label = claims["session_label"]
+    row.campus_label = claims["campus_label"]
+
+
+def _session_row(claims, kid):
+    """The `JumpSession` the ticket names, created on its first arrival.
+
+    Two first arrivals racing each other meet the unique constraint, and the
+    loser re-reads the row, the same shape as the link insert above.
+    """
+    row = JumpSession.query.filter_by(jump_kid=kid,
+                                      session_key=claims["session"]).first()
+    if row is None:
+        row = JumpSession(jump_kid=kid, session_key=claims["session"],
+                          label=claims["session_label"],
+                          campus_key=claims["campus"],
+                          campus_label=claims["campus_label"])
+        db.session.add(row)
+        try:
+            db.session.commit()
+            return row
+        except IntegrityError:
+            db.session.rollback()
+            row = JumpSession.query.filter_by(
+                jump_kid=kid, session_key=claims["session"]).first()
+            if row is None:
+                raise TicketError("could not record the session")
+    _relabel(row, claims)
+    db.session.commit()
+    return row
+
+
+def file_session(user, claims):
+    """Point the account's link at the session the ticket names.
+
+    A ticket without session claims changes nothing. One that names a session
+    moves the link there, because the pin is Jump's and not this instance's:
+    Jump names the event a talent's participation in the CURRENT content was
+    pinned to, which is the same event on every entry into that content, and
+    another one only when the instance has moved on to another content and the
+    talent came back for it (§51). Pinning here as well, once per account,
+    kept a regular of the season's instance in the first camp's room for every
+    camp after it.
+
+    The room left behind keeps its row, and a room nobody is filed in any more
+    is left out of the staff picker (`scope.picker`).
+    """
+    if "session" not in claims:
+        return None
+    link = JumpLink.query.filter_by(user_id=user.id).first()
+    if link is None:
+        return None
+    row = _session_row(claims, claims["kid"])
+    link.session_id = row.id
+    db.session.commit()
+    return row
+
+
 # --------------------------------------------------------------------------
 # The route
 # --------------------------------------------------------------------------
@@ -566,6 +735,7 @@ def enter():
 
     try:
         user = resolve_account(claims, key)
+        file_session(user, claims)
     except TicketError as exc:
         return _refused(str(exc))
 
@@ -636,6 +806,21 @@ def _link_namespaces():
             owners.setdefault(label, set()).add(kid)
             by_kid[kid].add(label)
     return owners, by_kid
+
+
+def unverifiable_links(keys=None):
+    """`{kid: n}` for the links whose key id is no longer configured.
+
+    The erasure pass asks a Jump about its talents with that Jump's secret
+    (jumpqueue.py `reconcile_erasures`), so a key id that has left the map has
+    accounts nothing can ask about: no Jump can prove one of them erased, and
+    nothing is deleted without proof. They stay, and this is what says so, on
+    the settings page and in every pass's report.
+    """
+    keys = jump_keys() if keys is None else keys
+    rows = (db.session.query(JumpLink.jump_kid, db.func.count(JumpLink.id))
+            .group_by(JumpLink.jump_kid).all())
+    return {kid: n for kid, n in rows if kid not in keys}
 
 
 def _parse_rows(form, stored):
@@ -730,8 +915,10 @@ def settings():
         # accounts cannot retype its label, and the rule behind that is
         # _link_namespaces(), enforced in _parse_rows for the submit that
         # ignores the attribute.
-        keys=stored, instance=instance_slug(), linked=set(_link_namespaces()[1]),
+        keys=stored, instance=instance_slug(), content=content_slug(),
+        linked=set(_link_namespaces()[1]),
         errors=errors, saved=saved, events=events, names=names,
+        unverifiable=sorted(unverifiable_links(stored).items()),
         pending=JumpEvent.query.filter_by(status="pending").count(),
         failed=JumpEvent.query.filter_by(status="failed").count(),
     )

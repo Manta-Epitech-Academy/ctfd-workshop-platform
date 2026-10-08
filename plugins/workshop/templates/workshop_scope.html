@@ -1,0 +1,32 @@
+{#
+  Which room the page is about (scope.py). Included at the top of the four
+  supervision pages. Staff-facing, so English like them.
+
+  A GET form on the page itself: scope.py reads `?campus=&session=`, keeps the
+  choice in the Flask session, and every other page and CSV export follows it.
+  No script: a session left selected after the campus changed belongs to the
+  other campus, and scope.py drops it. Draws nothing on an instance where no
+  ticket has named a session yet.
+#}
+{% set picked = ws_scope_picker() %}
+{% if picked.campuses %}
+  <form method="get" class="form-inline ws-scope mb-3" aria-label="Which room">
+    <label class="mr-2 mb-2" for="ws-scope-campus">Campus</label>
+    <select class="form-control mr-2 mb-2" id="ws-scope-campus" name="campus">
+      <option value="" {{ "selected" if not picked.scope.campus }}>Whole instance</option>
+      {% for ref, label in picked.campuses %}
+        <option value="{{ ref }}" {{ "selected" if picked.scope.campus_ref == ref }}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    {% if picked.scope.campus %}
+      <label class="mr-2 mb-2" for="ws-scope-session">Session</label>
+      <select class="form-control mr-2 mb-2" id="ws-scope-session" name="session">
+        <option value="" {{ "selected" if not picked.scope.session_id }}>Every session</option>
+        {% for id, label in picked.sessions %}
+          <option value="{{ id }}" {{ "selected" if picked.scope.session_id == id }}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    {% endif %}
+    <button type="submit" class="btn btn-primary mb-2">Show</button>
+  </form>
+{% endif %}

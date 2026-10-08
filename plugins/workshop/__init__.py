@@ -37,6 +37,7 @@ from .external_links import load_external_links
 from .staff import load_staff
 from .external import load_external
 from .audience import load_audience
+from .scope import load_scope
 from .stats import load_stats
 from .submissions import load_submissions
 from .quiz import QuizChallenge
@@ -106,9 +107,9 @@ def load(app):
     # (PLAN.md §42). After `load_staff`, whose `account_errors` it reuses.
     load_external(app)
     register_admin_plugin_menu_bar("External access", "/admin/workshop/external")
-    # Two populations, each seeing only its own (PLAN.md §43). After
-    # `load_external`, whose field it reads, and after `load_shell`, whose
-    # `users/users.html` override asks it.
+    # Several populations, each seeing only its own: the external cohorts
+    # (PLAN.md §43) and the Jump sessions (§50). After `load_external`, whose
+    # field it reads.
     load_audience(app)
     load_graph(app)  # GET /api/v1/workshop/graph — challenge DAG for the user
     # The participant-facing view: the whole workshop as one page, steps as
@@ -149,6 +150,9 @@ def load(app):
     # Submissions (§32): the same questions asked of a workshop rather than a
     # CTF, and read-only by construction. Admins get them in the menu bar too;
     # a supervisor reaches them from their own reduced nav.
+    # Which room those pages are about, on an instance that has served many
+    # (PLAN.md §50): a campus and a session picker every one of them shares.
+    load_scope(app)
     load_stats(app)
     register_admin_plugin_menu_bar("Workshop stats", "/admin/workshop/stats")
     load_submissions(app)

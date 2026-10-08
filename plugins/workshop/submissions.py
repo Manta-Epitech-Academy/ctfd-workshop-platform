@@ -6,9 +6,10 @@ wired to admin-only APIs. This is the list without them — the same order,
 the same page size, the same two filters plus one on the step — and it is
 read-only by construction: there is no route to delete from.
 
-Participants only. A supervisor who walks the subject to see what a step
-looks like, or an admin testing it, is not in this list, for the same
-reason neither is in the answer sheet's "who is where".
+Participants only, and only the room the supervisor picked (scope.py). A
+supervisor who walks the subject to see what a step looks like, or an admin
+testing it, is not in this list, for the same reason neither is in the answer
+sheet's "who is where".
 """
 from flask import Blueprint, render_template, request, url_for
 
@@ -16,6 +17,7 @@ from CTFd.models import Challenges, Submissions, Users
 
 from .links import documents as _documents
 from .progress import ordered_challenges as _ordered_challenges
+from .scope import current_scope, participant_criteria
 from .staff import staff_base, staff_only
 
 workshop_submissions = Blueprint("workshop_submissions", __name__,
@@ -61,7 +63,7 @@ def listing():
     query = (Submissions.query
              .join(Users, Users.id == Submissions.user_id)
              .join(Challenges, Challenges.id == Submissions.challenge_id)
-             .filter(Users.type != "admin", Users.hidden == False))  # noqa: E712
+             .filter(*participant_criteria(current_scope())))
     if kind:
         query = query.filter(Submissions.type == kind)
     if step:

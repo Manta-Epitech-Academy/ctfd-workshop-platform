@@ -607,7 +607,7 @@ def replace_hints(ctfd, cid, hints):
 
 
 def write_instance_config(ctfd, documents_cfg, optional_ids, free_ids, final_step,
-                          *, subjects_cfg=None, intro_step=None):
+                          *, subjects_cfg=None, intro_step=None, content=None):
     """The instance-wide settings the workshop page reads back.
 
     Written in one place because they describe the *instance*, not a subject:
@@ -619,6 +619,11 @@ def write_instance_config(ctfd, documents_cfg, optional_ids, free_ids, final_ste
 
     `intro_step` is the entrypoint step when the index shows it itself; None
     leaves the old shape, where that step is folded into the first part.
+
+    `content` names what the instance serves as a whole: the `workshop.slug` of
+    a composed workshop, the `project.slug` of a lone subject. It is the name
+    Jump files a talent's activity and XP under (PLAN.md §51), so it is written
+    here, by the one call both paths make, rather than by either of them.
     """
     # Parts, in board order, each naming the subject it belongs to.
     ctfd.api("PATCH", "/configs/workshop_documents",
@@ -651,6 +656,11 @@ def write_instance_config(ctfd, documents_cfg, optional_ids, free_ids, final_ste
     if subjects_cfg is not None:
         ctfd.api("PATCH", "/configs/workshop_subjects",
                  json={"value": json.dumps(subjects_cfg)})
+    # The content as a whole, for Jump (PLAN.md §51). A plain string, read
+    # back with str() like the instance's own slug.
+    if content is not None:
+        ctfd.api("PATCH", "/configs/workshop_content",
+                 json={"value": content})
 
 
 def hide_strangers(ctfd, keep_slugs):
@@ -1138,7 +1148,8 @@ def sync(subject_dir, url, admin_user, admin_pass, codes_path=None, *,
     if standalone:
         write_instance_config(ctfd, documents_cfg, optional_ids, free_ids, final,
                               subjects_cfg={subject.slug: subject_cfg},
-                              intro_step=intro_id if on_index else None)
+                              intro_step=intro_id if on_index else None,
+                              content=subject.slug)
         # This subject is the whole instance now: whatever another source
         # left behind goes out of sight.
         hide_strangers(ctfd, {subject.slug})

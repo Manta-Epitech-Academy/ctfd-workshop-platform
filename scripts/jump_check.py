@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Does the Jump handoff behave (issue #6, AC1 to AC9)?
+"""Does the Jump handoff behave (issue #6, AC1 to AC9, and PLAN.md §50)?
 
     python3 scripts/jump_check.py <base-url> <admin-pass>
 
@@ -7,6 +7,17 @@ The plugin has no test suite, so this script **is** this feature's test suite.
 It mints its own tickets and runs its own callback sink, so it needs no Jump:
 what it cannot prove is that the real Jump accepts what this sends, only that
 what this sends is what the contract says.
+
+§50 adds the session a ticket names: a ticket with half a session is
+refused, an account follows the session its latest ticket names, two sessions
+do not see each other's accounts, the supervision pages
+narrow to a campus and a session, and an erasure Jump reports deletes the
+account and nothing else. The sink plays Jump's half of that last one too: it
+answers the erasure question from a list this script writes.
+
+§51 adds the content: a ticket naming a content this instance does not serve,
+or naming one on an instance no sync has recorded a content on, is refused
+before any account exists, and every progress report names the content.
 
 One case is not an acceptance criterion but a regression: a label that already
 has accounts behind it cannot move to another key id. Both halves are checked,
@@ -66,7 +77,25 @@ KID_B, SECRET_B, LABEL_B = "jumpcheck-b", "secret-b-" + RUN, "jumpcheckb"
 # renamed a key id in deploy/instances.yaml and kept its label".
 KID_C = "jumpcheck-c"
 SLUG = "jumpcheck-" + RUN
+# What a sync would have recorded as this instance's content (§51).
+CONTENT = "jumpcheck-content-" + RUN
 TALENT = "talent" + RUN
+# Two talents in two sessions of one campus, for §50.
+TALENT_S1, TALENT_S2 = "tals1" + RUN, "tals2" + RUN
+# CTFd's page size on /users and /api/v1/users (users.py, api/v1/users.py).
+USERS_PAGE = 50
+CAMPUS = {"campus": "campus-" + RUN, "campus_label": "Campus " + RUN}
+SESSION_1 = {"session": "evt1-" + RUN, "session_label": "Coding Club un " + RUN,
+             **CAMPUS}
+SESSION_2 = {"session": "evt2-" + RUN, "session_label": "Coding Club deux " + RUN,
+             **CAMPUS}
+# The other Jump's session, on a campus with the SAME id: two environments'
+# ids are unrelated, so this is another campus that happens to share one.
+TALENT_S3 = "tals3" + RUN
+SESSION_3 = {"session": "evt3-" + RUN, "session_label": "Coding Club trois " + RUN,
+             **CAMPUS}
+# How the picker names a campus: its key id, then its id (scope.py).
+CAMPUS_A, CAMPUS_B = f"{KID_A}/{CAMPUS['campus']}", f"{KID_B}/{CAMPUS['campus']}"
 
 # The drainer polls every 2 s and backs off 5, 10, 20 … seconds, so anything
 # waiting on it needs room. Generous rather than tight: a flaky check is worse
@@ -164,14 +193,16 @@ def derived_key(secret, purpose):
 
 
 def mint(kid, secret, *, slug=SLUG, sub=TALENT, name="Check T.", iss="jump",
-         aud=None, iat=None, exp=None, jti=None, tamper=False):
+         aud=None, iat=None, exp=None, jti=None, tamper=False, session=None,
+         content=None):
     now = int(time.time())
     iat = now if iat is None else iat
     exp = iat + 120 if exp is None else exp
     claims = {"kid": kid, "sub": sub, "name": name,
               "aud": aud if aud is not None else f"workshop:{slug}",
               "iss": iss, "iat": iat, "exp": exp,
-              "jti": jti or uuid.uuid4().hex}
+              "jti": jti or uuid.uuid4().hex, **(session or {}),
+              **({"content": content} if content is not None else {})}
     head = b64url(json.dumps(claims, separators=(",", ":"), sort_keys=True).encode())
     digest = hmac.new(derived_key(secret, "jump/ticket"), head.encode(),
                       hashlib.sha256).digest()
@@ -201,10 +232,23 @@ class Handler(BaseHTTPRequestHandler):
         name = "%.6f-%s.json" % (time.time(), uuid.uuid4().hex[:8])
         with open(os.path.join(OUT, name), "w") as handle:
             json.dump(record, handle)
-        self.send_response(200)
+        answer, status = {"ok": True}, 200
+        if self.path == "/api/workshops/erasures":
+            # What Jump would say it has erased: whatever the script listed,
+            # asked about or not, so the plugin's own subset check is tested.
+            try:
+                with open("/out/erased.json") as handle:
+                    answer = {"erased": json.load(handle)}
+            except OSError:
+                answer = {"erased": []}
+            # A Jump that is down: the answer is a 503, and what it would
+            # have said had it been up is still on disk, unread.
+            if os.path.exists("/out/erasures_down"):
+                answer, status = {"error": "down"}, 503
+        self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.end_headers()
-        self.wfile.write(b'{"ok":true}')
+        self.wfile.write(json.dumps(answer).encode())
 
     def log_message(self, *args):
         pass
@@ -313,6 +357,19 @@ class Sink:
         for name in os.listdir(self.calls):
             os.remove(os.path.join(self.calls, name))
 
+    def report_erased(self, talent_ids):
+        """What the sink answers when asked which talents Jump erased."""
+        with open(os.path.join(self.dir, "erased.json"), "w") as handle:
+            json.dump(list(talent_ids), handle)
+
+    def erasures_down(self, down):
+        """Make the erasure question fail with a 503, or answer again."""
+        flag = os.path.join(self.dir, "erasures_down")
+        if down:
+            open(flag, "w").close()
+        elif os.path.exists(flag):
+            os.remove(flag)
+
 
 # --------------------------------------------------------------------------
 # Participant helpers
@@ -380,7 +437,8 @@ def main():
     print(f"instance {base}, sink {origin} on {sink.network}\n")
 
     saved = {"workshop_jump_keys": admin.config("workshop_jump_keys") or "",
-             "workshop_jump_instance": admin.config("workshop_jump_instance") or ""}
+             "workshop_jump_instance": admin.config("workshop_jump_instance") or "",
+             "workshop_content": admin.config("workshop_content") or ""}
     created = []
 
     def restore():
@@ -396,7 +454,8 @@ def main():
     keys = {KID_A: {"origin": origin, "secret": SECRET_A, "label": LABEL_A},
             KID_B: {"origin": origin, "secret": SECRET_B, "label": LABEL_B}}
     admin.set_configs({"workshop_jump_keys": json.dumps(keys),
-                       "workshop_jump_instance": SLUG})
+                       "workshop_jump_instance": SLUG,
+                       "workshop_content": CONTENT})
 
     sink.start()
     atexit.register(sink.destroy)
@@ -488,10 +547,35 @@ def main():
         "a lifetime of a day": mint(KID_A, SECRET_A, iat=now, exp=now + 86400),
         "an iat well in the future": mint(KID_A, SECRET_A, iat=now + 600, exp=now + 700),
         "an issuer that is not jump": mint(KID_A, SECRET_A, iss="not-jump"),
+        "a content this instance does not serve":
+            mint(KID_A, SECRET_A, content="another-content-" + RUN),
+        "an empty content": mint(KID_A, SECRET_A, content=""),
     }
     for label, token in bad.items():
         r, _ = enter(base, token)
         check(r.status_code == 403, f"{label} is refused ({r.status_code})")
+
+    # -- §51 ---------------------------------------------------------------
+    print("== a ticket names the content it is for, and only that one gets in ==")
+    stranger = "talentc" + RUN
+    r, _ = enter(base, mint(KID_A, SECRET_A, sub=stranger,
+                            content="another-content-" + RUN))
+    check(r.status_code == 403 and not [l for l in admin.links()
+                                        if l["talent_id"] == stranger],
+          "a ticket for another content creates no account")
+    r, _ = enter(base, mint(KID_A, SECRET_A, content=CONTENT))
+    check(r.status_code == 302,
+          f"a ticket for the content synced here is accepted ({r.status_code})")
+    admin.set_configs({"workshop_content": ""})
+    r, _ = enter(base, mint(KID_A, SECRET_A, content=CONTENT))
+    check(r.status_code == 403,
+          f"on an instance no sync has recorded a content on, a ticket naming "
+          f"one is refused ({r.status_code})")
+    r, _ = enter(base, mint(KID_A, SECRET_A))
+    check(r.status_code == 302,
+          f"and one naming none, from a Jump older than the claim, is not "
+          f"({r.status_code})")
+    admin.set_configs({"workshop_content": CONTENT})
 
     # -- AC1 warm, AC5 -----------------------------------------------------
     print("== the same talent comes back, and a talent from the other Jump does not collide ==")
@@ -534,6 +618,8 @@ def main():
     # Whatever that POST decided, the next checks need the two real keys back.
     admin.set_configs({"workshop_jump_keys": json.dumps(keys)})
 
+    check_sessions(admin, base, sink, created)
+
     # -- AC6, AC8 ----------------------------------------------------------
     print("== solving queues one row, and it reaches the sink ==")
     steps = solvable_steps(admin, participant, base)
@@ -561,11 +647,13 @@ def main():
         body = json.loads(raw)
         check(call["path"] == "/api/workshops/callback",
               f"posted to the contract's path ({call['path']})")
-        check(set(body) == {"instanceSlug", "talentId", "solvedSteps",
-                            "totalSteps", "isComplete"},
+        check(set(body) == {"instanceSlug", "contentSlug", "talentId",
+                            "solvedSteps", "totalSteps", "isComplete"},
               f"the payload is the agreed shape ({sorted(body)})")
         check(body["instanceSlug"] == SLUG and body["talentId"] == TALENT,
               "and names this instance and this talent")
+        check(body["contentSlug"] == CONTENT,
+              f"and the content synced here ({body['contentSlug']!r})")
         ts = call["headers"].get("X-Timestamp", "")
         expected = "sha256=" + hmac.new(derived_key(SECRET_A, "jump/callback"),
                                         f"{ts}.".encode() + raw,
@@ -634,6 +722,268 @@ def main():
         print("  (no step available to the second account, skipped)")
 
     return finish()
+
+
+def check_sessions(admin, base, sink, created):
+    """§50: the session a ticket names, what it hides, and the erasure pull."""
+    print("== a ticket naming half a session is refused ==")
+    half = {"session": SESSION_1["session"]}
+    r, _ = enter(base, mint(KID_A, SECRET_A, sub=TALENT_S1, session=half))
+    check(r.status_code == 403, f"a session without its campus ({r.status_code})")
+    check(not [l for l in admin.links() if l["talent_id"] == TALENT_S1],
+          "and no account was created for it")
+
+    # Fifty older accounts in no session, ahead of both talents in id order:
+    # without them every list fits on one page and a page cut before the
+    # filter looks exactly like one cut after it.
+    filler = []
+    for i in range(USERS_PAGE):
+        r = admin.api("POST", "/users", json={
+            "name": f"Filler {i} {RUN}", "email": f"filler{i}-{RUN}@example.invalid",
+            "password": uuid.uuid4().hex})
+        if r.status_code == 200:
+            filler.append(r.json()["data"]["id"])
+    created.extend(filler)
+    check(len(filler) == USERS_PAGE, f"{USERS_PAGE} older accounts to page past")
+
+    print("== each account is filed under the session its ticket names ==")
+    r1, s1 = enter(base, mint(KID_A, SECRET_A, sub=TALENT_S1, name="Check Un.",
+                              session=SESSION_1))
+    r2, s2 = enter(base, mint(KID_A, SECRET_A, sub=TALENT_S2, name="Check Deux.",
+                              session=SESSION_2))
+    check(r1.status_code == 302 and r2.status_code == 302,
+          f"both tickets are accepted ({r1.status_code}, {r2.status_code})")
+    by_talent = {l["talent_id"]: l for l in admin.links()}
+    one, two = by_talent.get(TALENT_S1), by_talent.get(TALENT_S2)
+    if not one or not two:
+        check(False, "both accounts exist")
+        return
+    created.extend([one["user_id"], two["user_id"]])
+    check(one["session_id"] and two["session_id"]
+          and one["session_id"] != two["session_id"],
+          "two sessions, two different session rows")
+
+    # Jump names another session only when this instance has moved on to
+    # another content and the talent came back for it (§51): the account
+    # follows, and a ticket naming the first session again brings it back.
+    enter(base, mint(KID_A, SECRET_A, sub=TALENT_S1, session=SESSION_2))
+    again = {l["talent_id"]: l for l in admin.links()}[TALENT_S1]
+    check(again["session_id"] == two["session_id"],
+          "coming back under another session moves the account there")
+    enter(base, mint(KID_A, SECRET_A, sub=TALENT_S1, session=SESSION_1))
+    again = {l["talent_id"]: l for l in admin.links()}[TALENT_S1]
+    check(again["session_id"] == one["session_id"],
+          "and a ticket naming the first one moves it back, to the same row")
+
+    print("== two sessions do not see each other ==")
+    listed = {u["id"] for u in s1.get(base + "/api/v1/users", timeout=30)
+              .json().get("data", [])}
+    check(one["user_id"] in listed, "a talent sees their own session in the list")
+    check(two["user_id"] not in listed, "and not the other session")
+    r = s1.get(base + f"/api/v1/users/{two['user_id']}", timeout=30)
+    check(r.status_code == 404,
+          f"the other session's account answers 404, as a deleted one would "
+          f"({r.status_code})")
+    r = s1.get(base + f"/api/v1/users/{one['user_id']}", timeout=30)
+    check(r.status_code == 200, f"their own still answers ({r.status_code})")
+
+    print("== a room's lists are cut after the filter, not before ==")
+    # Fifty older accounts come first in id order, so a page cut before the
+    # filter would hold none of the room.
+    body = s1.get(base + "/api/v1/users", timeout=30).json()
+    check([u["id"] for u in body.get("data", [])] == [one["user_id"]],
+          "page 1 of /api/v1/users is the room, behind fifty older accounts")
+    check((body.get("meta") or {}).get("pagination", {}).get("total") == 1
+          and body["meta"]["pagination"].get("pages") == 1,
+          f"and its page count is the room's ({(body.get('meta') or {}).get('pagination')})")
+    # By the row's link, not the name: the navbar names the reader on every
+    # page, listed or not.
+    page = s1.get(base + "/users", timeout=30).text
+    rows = set(int(i) for i in re.findall(r'href="/users/(\d+)"', page))
+    check(rows == {one["user_id"]}, f"page 1 of /users is the room too ({sorted(rows)[:5]})")
+    # The other session's talent outscores this one, so the instance's top
+    # one is somebody this reader may not see.
+    for user_id, value in ((two["user_id"], 100), (one["user_id"], 1)):
+        admin.api("POST", "/awards", json={
+            "user_id": user_id, "name": "jumpcheck " + RUN, "value": value,
+            "category": "jumpcheck"})
+    top = s1.get(base + "/api/v1/scoreboard/top/1", timeout=30).json().get("data") or {}
+    check([row["id"] for row in top.values()] == [one["user_id"]],
+          f"the score graph's top one is the room's own best ({top and list(top)})")
+    check(all(row.get("solves") for row in top.values()),
+          "with the points that put them there")
+
+    r3, _ = enter(base, mint(KID_B, SECRET_B, sub=TALENT_S3, name="Check Trois.",
+                             session=SESSION_3))
+    three = {l["talent_id"]: l for l in admin.links()}.get(TALENT_S3)
+    if r3.status_code != 302 or not three:
+        check(False, f"the other Jump's talent exists ({r3.status_code})")
+        return
+    created.append(three["user_id"])
+
+    print("== the supervision pages narrow to a campus and a session ==")
+
+    def answers(**params):
+        return admin.session.get(base + "/admin/workshop/answers", timeout=30,
+                                 params=params).text
+
+    page = answers(campus=CAMPUS_A, session=one["session_id"])
+    check(CAMPUS["campus_label"] in page and SESSION_1["session_label"] in page,
+          "the picker names the campus and the session as Jump labelled them")
+    check("Check Un." in page and "Check Deux." not in page,
+          "one session: its talent is listed, the other session's is not")
+    page = admin.session.get(base + "/admin/workshop/stats", timeout=30).text
+    check(SESSION_1["session_label"] in page,
+          "the choice follows the supervisor to the next page")
+    page = answers(campus=CAMPUS_A)
+    check("Check Un." in page and "Check Deux." in page,
+          "the whole campus: both sessions are listed")
+    check("Check Trois." not in page,
+          "and not the other Jump's campus that shares its id")
+    check(f"{CAMPUS['campus_label']} ({KID_A})" in page
+          and f"{CAMPUS['campus_label']} ({KID_B})" in page,
+          "two Jumps on one instance: the picker names each campus's key id")
+    page = answers(campus=CAMPUS_B, session=one["session_id"])
+    check("Check Trois." in page and "Check Un." not in page,
+          "a session of another campus falls back to the campus picked")
+    page = answers(campus=f"{KID_A}/no-such-campus-{RUN}")
+    check(all(n in page for n in ("Check Un.", "Check Deux.", "Check Trois.", "Check T.")),
+          "a campus no session names falls back to the whole instance")
+    page = answers(campus="")
+    check("Check Un." in page and "Check Deux." in page and "Check T." in page,
+          "the whole instance: an account with no session is listed too")
+
+    print("== a session row is written by the entries that name it, and kept put ==")
+    unseen = {"session": "evt4-" + RUN, "session_label": "Coding Club quatre " + RUN,
+              **CAMPUS}
+    enter(base, mint(KID_A, SECRET_A, sub=TALENT_S1, session=unseen))
+    check(unseen["session_label"] in answers(campus=CAMPUS_A),
+          "a ticket for a new session records its room, with the talent in it")
+    unseen_id = next((l["session_id"] for l in admin.links()
+                      if l["talent_id"] == TALENT_S1), None)
+    page = answers(campus=CAMPUS_A, session=unseen_id)
+    check("Check Un." in page and "Check Deux." not in page,
+          "a supervisor picks that room, and the choice is saved")
+    moved = {**SESSION_1, "session_label": "Coding Club un, renamed " + RUN,
+             "campus": "moved-" + RUN, "campus_label": "Moved " + RUN}
+    enter(base, mint(KID_A, SECRET_A, sub=TALENT_S1, session=moved))
+    # No query string: the scope saved above, on a room this ticket emptied.
+    page = admin.session.get(base + "/admin/workshop/answers", timeout=30).text
+    check("Check Un." in page and "Check Deux." in page,
+          "a scope still saved on a room since emptied falls back to its campus")
+    page = answers(campus=CAMPUS_A, session=one["session_id"])
+    check(moved["session_label"] in page and "Check Un." in page,
+          "a renamed session takes its new name and gets its talent back")
+    check(moved["campus_label"] not in page,
+          "and stays in its campus, whatever a later ticket says")
+    check(unseen["session_label"] not in page,
+          "the room left behind, now empty, leaves the picker")
+
+    print("== a step's solvers, the submissions and the feedback follow the room ==")
+    # A step of the check's own, since a fresh instance has none: one flag,
+    # solved by both rooms, one wrong try and one review each.
+    r = admin.api("POST", "/challenges", json={
+        "name": "jumpcheck step " + RUN, "category": "jumpcheck", "description": "-",
+        "value": 1, "type": "standard", "state": "visible"})
+    step = (r.json().get("data") or {}).get("id") if r.status_code == 200 else None
+    if step is None:
+        check(False, f"a step of the check's own ({r.status_code})")
+        return
+    atexit.register(lambda: admin.api("DELETE", f"/challenges/{step}"))
+    admin.api("POST", "/flags", json={"challenge": step, "content": "flag-" + RUN,
+                                      "type": "static", "data": "case_insensitive"})
+    for talent, said in ((s1, "review un " + RUN), (s2, "review deux " + RUN)):
+        headers = {"CSRF-Token": nonce(talent, base), "Content-Type": "application/json"}
+        for answer in ("wrong-" + RUN, "flag-" + RUN):
+            talent.post(base + "/api/v1/challenges/attempt", headers=headers, timeout=30,
+                        json={"challenge_id": step, "submission": answer})
+        talent.put(base + f"/api/v1/challenges/{step}/ratings", headers=headers,
+                   timeout=30, json={"value": 1, "review": said})
+
+    solvers = {row["account_id"] for row in s1.get(
+        base + f"/api/v1/challenges/{step}/solves", timeout=30).json().get("data", [])}
+    check(solvers == {one["user_id"]},
+          f"the step's solver list names the reader's room only ({sorted(solvers)})")
+    count = (s1.get(base + f"/api/v1/challenges/{step}", timeout=30).json()
+             .get("data") or {}).get("solves")
+    check(count == 2, f"and its solve count is still the instance's ({count})")
+
+    room = {"campus": CAMPUS_A, "session": one["session_id"]}
+    page = admin.session.get(base + "/admin/workshop/submissions", timeout=30,
+                             params=room).text
+    check("Check Un." in page and "Check Deux." not in page,
+          "the submissions page lists the session's attempts only")
+    page = admin.session.get(base + "/admin/workshop/feedback", timeout=30,
+                             params=room).text
+    check("review un " + RUN in page and "review deux " + RUN not in page,
+          "the feedback page reads the session's reviews only")
+    page = admin.session.get(base + "/admin/workshop/feedback", timeout=30,
+                             params={"campus": ""}).text
+    check("review un " + RUN in page and "review deux " + RUN in page,
+          "and the whole instance's when no campus is picked")
+
+    print("== an erasure Jump reports deletes that account, and only that one ==")
+    sink.clear()
+    sink.report_erased([TALENT_S2, "never-asked-" + RUN])
+    report = admin.api("POST", "/workshop/jump/erasures").json().get("data") or {}
+    check(report.get("deleted") == 1,
+          f"one account deleted ({report})")
+    after = {l["talent_id"] for l in admin.links()}
+    check(TALENT_S2 not in after, "the erased talent's account and link are gone")
+    check(TALENT_S1 in after and TALENT in after,
+          "every other account is untouched, including one Jump never named")
+    asked = [c for c in sink.received if c["path"] == "/api/workshops/erasures"]
+    check(bool(asked), "the question reached the contract's path")
+    if asked:
+        call = next((c for c in asked
+                     if TALENT_S1 in json.loads(c["body"]).get("talentIds", [])),
+                    asked[0])
+        raw = call["body"].encode()
+        ts = call["headers"].get("X-Timestamp", "")
+        expected = "sha256=" + hmac.new(derived_key(SECRET_A, "jump/callback"),
+                                        f"{ts}.".encode() + raw,
+                                        hashlib.sha256).hexdigest()
+        check(call["headers"].get("X-Signature") == expected,
+              "signed like a callback, over the exact bytes on the wire")
+        check(set(json.loads(raw)) == {"talentIds"},
+              "and the body is the agreed shape")
+
+    sink.report_erased([])
+    report = admin.api("POST", "/workshop/jump/erasures").json().get("data") or {}
+    check(report.get("deleted") == 0 and TALENT_S1 in {
+        l["talent_id"] for l in admin.links()},
+        "an answer naming nobody deletes nobody")
+
+    print("== a Jump that does not answer: nothing deleted, and the call says so ==")
+    sink.report_erased([TALENT_S1])
+    sink.erasures_down(True)
+    r = admin.api("POST", "/workshop/jump/erasures")
+    body = r.json() if r.headers.get("Content-Type", "").startswith("application/json") else {}
+    check(r.status_code == 502 and body.get("success") is False,
+          f"the manual pass answers 502, not success ({r.status_code}, {body.get('success')})")
+    check((body.get("data") or {}).get("errors") and not body["data"].get("deleted"),
+          f"and reports the failure with nothing deleted ({body.get('data')})")
+    check(TALENT_S1 in {l["talent_id"] for l in admin.links()},
+          "the talent the down Jump would have named is still here")
+    sink.erasures_down(False)
+    sink.report_erased([])
+
+    print("== a key no longer configured: its accounts are counted, not deleted ==")
+    configured = admin.config("workshop_jump_keys")
+    under_b = len([l for l in admin.links() if l["kid"] == KID_B])
+    admin.set_configs({"workshop_jump_keys": json.dumps(
+        {k: v for k, v in json.loads(configured).items() if k != KID_B})})
+    sink.report_erased([TALENT_S3])
+    report = admin.api("POST", "/workshop/jump/erasures").json().get("data") or {}
+    check((report.get("unverifiable") or {}).get(KID_B) == under_b and under_b,
+          f"the pass counts {under_b} account(s) under the retired key ({report})")
+    check(TALENT_S3 in {l["talent_id"] for l in admin.links()},
+          "and deletes none of them, even one its old Jump would name")
+    page = admin.session.get(base + "/admin/workshop/jump", timeout=30).text
+    check(f"under <code>{KID_B}</code>" in page,
+          "the settings page names the key and its accounts")
+    admin.set_configs({"workshop_jump_keys": configured})
+    sink.report_erased([])
 
 
 def finish():

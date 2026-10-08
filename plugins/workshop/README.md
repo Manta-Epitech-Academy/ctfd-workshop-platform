@@ -162,26 +162,39 @@ Everything is decided at `/admin/workshop/external`, `admins_only`, which is als
 the route is named. `scripts/external_check.py <base-url> <admin-pass>` walks all of it and puts
 the instance back.
 
-## Two audiences on one instance (PLAN.md §43)
+## Several audiences on one instance (PLAN.md §43, §50)
 
 A participant who came through Jump and one who came through `/external/join` are in the same
-room and not in the same cohort. **The audience of an account is the external code it carries**,
-or `""` for everybody else — Jump, an admin-made account, a supervisor. Each sees only its own,
-and two external cohorts do not see each other either, which is the same rule rather than a
-second one.
+room and not in the same cohort, and neither are two Jump sessions: an instance serves several
+events over its life, and last spring's Coding Club is not today's room. **The audience of an account is the
+external code it carries, else the Jump session its link was filed under, else the default** (an
+admin-made account, a supervisor, a Jump account that has not entered since tickets named a
+session). Each sees only its own: two external cohorts do not see each other, two sessions do not
+either, which is the same rule rather than a second one. The keys are tagged tuples, since a code
+is free text and could otherwise spell a session id.
 
-Staff see everything. An anonymous visitor is given `""`, because an external cohort is exactly
-the group we were asked to keep out of sight. **Teams mode is not filtered at all**: a scoreboard
+Staff see everything. An anonymous visitor is given the default audience, because an external
+cohort is exactly the group we were asked to keep out of sight, and a session is a room of
+minors. **Teams mode is not filtered at all**: a scoreboard
 row is then a team, an audience is a property of a user, and a team drawn from both cohorts has
 no correct answer.
 
 CTFd has no hook in `get_standings()` and its only notion of a divided scoreboard is *brackets*,
 which annotate every row and let the **client** filter — a tab, not a wall. So `audience.py`
-builds the wall: 404 on another cohort's account and everything hanging off it, and the list
-responses filtered on the way out. `/scoreboard` and the score graph are Alpine components
-reading those APIs, so no markup moves. `/users` is the exception — CTFd renders it server-side
-and queries before the template runs, so `templates/users/users.html` is overridden and the loop
-drops the rows there.
+builds the wall, in three ways chosen by where CTFd cuts each list into a page:
+
+- **one account**: 404 on another cohort's account and everything hanging off it;
+- **a list CTFd pages itself** (`/users`, `/api/v1/users`): its own query is narrowed to the
+  reader's audience before it runs (`with_loader_criteria`, from a `do_orm_execute` listener
+  active on those two endpoints only), so the page of fifty and its page count are the reader's;
+- **a list CTFd caches** (the scoreboard, a step's solver list): `get_standings()` is memoized
+  on its arguments, so narrowing its query would store one room's ranking under the instance's
+  key. The full list is filtered on the way out, and the score graph's top ten is rebuilt from
+  the full standings, since the instance's top ten is not a room's. The solve *count* on a step
+  stays the whole instance's: it names nobody.
+
+`/scoreboard` and the score graph are Alpine components reading those APIs, and `/users` is
+CTFd's own view on its own query, so no markup moves and no template is overridden.
 
 `scripts/audience_check.py <base-url> <admin-pass>` builds three accounts in three cohorts, gives
 each a score, and asks every surface as each of them.
@@ -195,6 +208,11 @@ the `staff_only` decorator (`admins_only` widened to supervisors), the way in an
 POST. `is_admin()` stays false for them, so everything under `/admin` keeps refusing them by
 default; what opens is exactly the plugin's read-only pages — `stats.py` and `submissions.py`
 (new, in place of core's Statistics and Submissions), `answers.py` and `feedback.py`.
+
+**All four read one population** (`scope.py`, PLAN.md §50): participants only, and, once a
+supervisor picks a campus and optionally one of its sessions from the picker at the top of each
+page, only the accounts filed under it. The choice is kept in the Flask session, so every page and
+CSV export follows it.
 
 The way in is `/supervisor/join` with the `workshop_supervisor_code` config, empty by default
 and empty means closed. It deliberately ignores `registration_visibility`, like the Jump route
@@ -260,11 +278,31 @@ Two config keys, both provisioned by `tools/provision.py`: `workshop_jump_keys`
 (`{kid: {origin, secret, label}}`) and `workshop_jump_instance` (this instance's slug). Empty
 means every ticket is refused. `/admin/workshop/jump` edits both and shows the outbox.
 
+**The slug names the host; the content names the activity** (PLAN.md §51). The slug stays the
+same when an instance moves on to another content. What Jump files a talent's participation and
+XP under is the content the instance serves, `workshop_content`, which the sync writes: the
+`workshop.slug` of a composed workshop, the `project.slug` of a lone subject. Every progress
+callback names it, the ticket names the content the talent meant to enter, and a ticket naming
+another is refused. `/admin/workshop/jump` shows it, since Jump's activity carries exactly that
+slug. Re-sync an instance once after upgrading, so it has a content recorded.
+
 **A label is owned by the accounts it namespaces, not by the key row that declares it.** Each
 link row records it (`jump_label`, revision 2), and both the settings page and `resolve_account`
 refuse a second key id taking a label that already has accounts behind it — the configuration is
 rewritten wholesale by provisioning, so a rule enforced against it stops holding the first time
 somebody renames a key id.
+
+**The ticket names the session** (PLAN.md §50): the Jump event the talent's participation was
+pinned to, its campus, and a label for each. `file_session` records it in `workshop_jump_session`
+(revision `8b3e6f1d9a24`) and points the account's link at it, following it when a later ticket
+names another (§51.4). The four claims are optional as a set, so a ticket from an older Jump still
+opens.
+
+**An erased talent's account is deleted.** Once an hour, and at start-up, the drainer asks each
+configured Jump which of its linked talents it has erased (`POST /api/workshops/erasures`, signed
+like a callback) and deletes those accounts through `accounts.py`. Only on proof: a talent Jump does
+not know is kept. `POST /api/v1/workshop/jump/erasures` (admins) runs a pass now, and answers 502
+when a Jump did not answer.
 
 The ticket is not a JWT because there is no JWT library in the image and none can be added — the
 Dockerfile's plugin-requirements loop runs at build time over the `./CTFd` context while this
@@ -338,9 +376,20 @@ contract shared with the Jump repository; changing either half means changing bo
   `init` object, `main.js` and the registered admin scripts and stylesheets. After a CTFd upgrade
   diff it against `admin/base.html` and carry over whatever moved.
 - **`staff.py` is the plugin's second piece of authentication code**, after the Jump handoff. It
-  creates accounts the way core's register does (`Users(...)`, `login_user`) and deletes them the
-  way core's `DELETE /api/v1/users/<id>` does — the list of tables it clears first is copied from
+  creates accounts the way core's register does (`Users(...)`, `login_user`). Deleting one, for a
+  supervisor and for an erased Jump talent alike, is `accounts.py`, which does it the way core's
+  `DELETE /api/v1/users/<id>` does: the list of tables it clears first is copied from
   `api/v1/users.py` and has to follow it.
+- **`audience.py` names core endpoints by their Flask endpoint name** (`api.users_user_list`,
+  `api.challenges_challenge_solves`, …). flask-restx derives those from the namespace and the
+  resource class, so a renamed class upstream silently stops being filtered: after a CTFd upgrade,
+  run `scripts/audience_check.py` and `scripts/jump_check.py`. Two more things in it follow core:
+  - `_top` is a copy of the body of `get_scoreboard_detail` (`utils/scoreboard/__init__.py`), fed
+    a list of accounts instead of a count. If upstream changes the shape of a row there, the
+    score graph a room reads changes shape with it only once this copy does.
+  - `/users` and `/api/v1/users` are narrowed in their query, which relies on both views reading
+    `Users` through the ORM (`Users.query...paginate`). A view rewritten on raw SQL would no
+    longer be narrowed, and nothing would fail.
   `answers.py` additionally reads the `workshop_validation` config key written by the sync; if
   it is missing the page infers the mode and says so, so an un-synced instance still renders.
 - Tables are created by `app.db.create_all()` in `load()` (new tables only), **and then**

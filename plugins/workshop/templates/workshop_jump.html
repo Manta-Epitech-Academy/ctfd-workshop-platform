@@ -39,10 +39,28 @@
       <small class="form-text text-muted">
         Must match the <code>slug</code> of this instance's
         <code>Workshop_Instance</code> row on Jump: a ticket's audience is
-        <code>workshop:&lt;slug&gt;</code> and anything else is refused.
+        <code>workshop:&lt;slug&gt;</code> and anything else is refused. It names
+        this instance, and stays the same when it moves on to another content.
         <strong>Empty means every ticket is refused</strong>, which is the safe
         way for a half-configured instance to fail.
       </small>
+    </div>
+
+    <div class="form-group">
+      <label for="ws-jump-content"><strong>Content synced here</strong></label>
+      <input type="text" class="form-control" id="ws-jump-content"
+             value="{{ content }}" readonly>
+      {% if content %}
+      <small class="form-text text-muted">
+        Written by Workshop &gt; Sync. Jump declares this content as an activity
+        whose slug is exactly this, and every progress report names it.
+      </small>
+      {% else %}
+      <div class="alert alert-warning mt-2 mb-0">
+        No content recorded: run Workshop &gt; Sync once. Until then Jump
+        cannot tell what a progress report belongs to, and refuses it.
+      </div>
+      {% endif %}
     </div>
 
     <h4 class="mt-4">Keys</h4>
@@ -168,6 +186,24 @@
     </table>
   {% else %}
     <p class="text-muted">Nothing waiting. Every solve has reached Jump.</p>
+  {% endif %}
+
+  <h4>Erasure</h4>
+  <p class="text-muted">
+    Once an hour, and at start-up, this instance asks each key's Jump which of
+    its talents it has erased, and deletes those accounts. An account is only
+    ever deleted on Jump's word.
+  </p>
+  {% if unverifiable %}
+    <div class="alert alert-warning">
+      <strong>Some accounts cannot be checked.</strong>
+      {% for kid, count in unverifiable %}
+        {{ count }} account{{ "" if count == 1 else "s" }} under <code>{{ kid }}</code>{{ "," if not loop.last else "." }}
+      {% endfor %}
+      Their key is no longer configured, so no Jump can say whether they were
+      erased, and they are kept. Put the key back for one pass, or delete them
+      once Jump confirms.
+    </div>
   {% endif %}
 
   <p class="text-muted">

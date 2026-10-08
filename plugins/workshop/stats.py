@@ -14,37 +14,28 @@ from collections import Counter
 
 from flask import Blueprint, render_template
 
-from CTFd.models import Fails, Solves, Users, db
+from CTFd.models import Fails, Solves
 
 from .answers import _attendees, group_for_sheet
 from .links import documents as _documents
 from .progress import counts as _counts
 from .progress import optional_ids as _optional_ids
 from .progress import ordered_challenges as _ordered_challenges
+from .scope import current_scope, per_challenge
 from .staff import staff_base, staff_only
 
 workshop_stats = Blueprint("workshop_stats", __name__, template_folder="templates")
 
 
-def _per_challenge(model):
-    """challenge id -> how many rows of `model` participants produced.
-
-    Joined on the account so a supervisor's own attempts, or an admin's, are
-    not in the room's numbers — the same exclusion `_attendees` applies.
-    """
-    rows = (db.session.query(model.challenge_id, db.func.count(model.id))
-            .join(Users, Users.id == model.user_id)
-            .filter(Users.type != "admin", Users.hidden == False)  # noqa: E712
-            .group_by(model.challenge_id).all())
-    return dict(rows)
-
-
 def collect():
+    # A supervisor's own attempts, or an admin's, are not in the room's
+    # numbers, and neither is another room's: scope.py, for every page alike.
+    scope = current_scope()
     challenges = _ordered_challenges()
     optional = _optional_ids()
-    attendees, required = _attendees(challenges, optional)
-    solves = _per_challenge(Solves)
-    fails = _per_challenge(Fails)
+    attendees, required = _attendees(challenges, optional, scope)
+    solves = per_challenge(Solves, scope)
+    fails = per_challenge(Fails, scope)
     # Where people are right now: the step each unfinished participant is
     # parked on, counted. This is the column to read when deciding where to
     # stand.

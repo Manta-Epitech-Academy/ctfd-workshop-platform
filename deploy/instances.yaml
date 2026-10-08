@@ -28,7 +28,8 @@ domain: ealab.duckdns.org
 # Applied to every instance at setup, overridable per instance below.
 defaults:
   user_mode: users          # individuals, not teams
-  scoreboard: true          # kept: it helps this audience more than it hurts
+  scoreboard: true          # kept: it helps this audience more than it hurts;
+                            # `scoreboard: false` on an instance hides it there
   mode: instructor_led      # instructor_led | self_serve — PLAN.md §25
   verify_emails: false      # no mail server, and no addresses to verify
   # No `locale:`. The plugin makes every instance French by default, whatever
@@ -67,6 +68,11 @@ defaults:
 # instance gets the shared code (it is a session, not a public site), a
 # self-serve one is open. Set `registration: code|open` on an instance to
 # override that for a case neither shape fits.
+
+# `jump_slug` is the name Jump knows this instance by (the ticket's audience),
+# and defaults to the instance's `name`. It names the host only, so it stays
+# the same when the instance moves on to another content: Jump files a talent's
+# XP under the content, which the sync records (PLAN.md §51).
 
 # Ports are loopback-only and deliberately in the 908x range, clear of the
 # 808x dev instances in compose/*.env: a production stack and a development

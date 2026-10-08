@@ -28,6 +28,7 @@
 </div>
 
 <div class="container">
+  {% include "workshop_scope.html" %}
   <div class="row text-center ws-st-totals">
     <div class="col-6 col-md-3"><h5><b>{{ totals.participants }}</b> <small class="text-muted">participant{{ "" if totals.participants == 1 else "s" }}</small></h5></div>
     <div class="col-6 col-md-3"><h5><b>{{ totals.started }}</b> <small class="text-muted">started</small></h5></div>

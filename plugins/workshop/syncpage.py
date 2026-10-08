@@ -170,10 +170,14 @@ class SyncJob:
                 self._run()
             except SourceError as exc:
                 self._fail(str(exc))
-            except SystemExit:
-                # The importer exits on a lint failure; its message is already
-                # in the log, and turning it into a state is this page's job.
-                self._fail("the content did not pass the linter — see the log above")
+            except SystemExit as exc:
+                # The importer exits two ways. On a lint failure with a bare
+                # code, its findings already printed into the log; on content
+                # it refuses (a workshop.yaml with no `workshop.slug`, a subject
+                # with no path) with the reason as the exit's message, which
+                # nothing prints for it here, so it becomes the failure itself.
+                self._fail(exc.code if isinstance(exc.code, str)
+                           else "the content did not pass the linter — see the log above")
             except Exception as exc:                        # noqa: BLE001
                 self._fail(f"{type(exc).__name__}: {exc}")
             finally:

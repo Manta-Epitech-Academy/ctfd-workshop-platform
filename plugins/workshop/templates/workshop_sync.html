@@ -111,7 +111,11 @@
      instead of pretending nothing is happening. #}
   <div id="ws-sync" data-openpgp="/plugins/workshop/assets/vendor/openpgp.min.mjs"
        data-nonce="{{ Session.nonce }}"
-       data-job="{{ job | tojson if job else '' }}">
+       {# `forceescape` after `tojson`, as the runtime params do: tojson leaves
+          double quotes alone, and a job's JSON in a double-quoted attribute
+          turned every token of the sync log into an attribute of this div —
+          among them `hidden`, which took the Sync button with it. #}
+       data-job="{{ (job | tojson | forceescape) if job else '' }}">
     <button type="button" class="btn btn-primary" id="ws-sync-go"
             {{ "disabled" if not source.repo }}>Sync now</button>
     <span class="ws-sync-status text-muted ml-2" role="status" aria-live="polite"></span>

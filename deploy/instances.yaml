@@ -28,7 +28,8 @@ domain: ealab.duckdns.org
 # Applied to every instance at setup, overridable per instance below.
 defaults:
   user_mode: users          # individuals, not teams
-  scoreboard: true          # kept: it helps this audience more than it hurts
+  scoreboard: true          # kept: it helps this audience more than it hurts;
+                            # `scoreboard: false` on an instance hides it there
   mode: instructor_led      # instructor_led | self_serve — PLAN.md §25
   verify_emails: false      # no mail server, and no addresses to verify
   # No `locale:`. The plugin makes every instance French by default, whatever

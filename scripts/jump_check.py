@@ -844,6 +844,23 @@ def check_sessions(admin, base, sink, created):
         l["talent_id"] for l in admin.links()},
         "an answer naming nobody deletes nobody")
 
+    print("== a key no longer configured: its accounts are counted, not deleted ==")
+    configured = admin.config("workshop_jump_keys")
+    under_b = len([l for l in admin.links() if l["kid"] == KID_B])
+    admin.set_configs({"workshop_jump_keys": json.dumps(
+        {k: v for k, v in json.loads(configured).items() if k != KID_B})})
+    sink.report_erased([TALENT_S3])
+    report = admin.api("POST", "/workshop/jump/erasures").json().get("data") or {}
+    check((report.get("unverifiable") or {}).get(KID_B) == under_b and under_b,
+          f"the pass counts {under_b} account(s) under the retired key ({report})")
+    check(TALENT_S3 in {l["talent_id"] for l in admin.links()},
+          "and deletes none of them, even one its old Jump would name")
+    page = admin.session.get(base + "/admin/workshop/jump", timeout=30).text
+    check(f"under <code>{KID_B}</code>" in page,
+          "the settings page names the key and its accounts")
+    admin.set_configs({"workshop_jump_keys": configured})
+    sink.report_erased([])
+
 
 def finish():
     print("\n" + ("ALL GREEN" if not fails else f"FAILURES: {fails}"))

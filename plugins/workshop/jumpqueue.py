@@ -57,6 +57,11 @@ Jump does not know is held, never deleted, so a re-seeded development Jump
 cannot empty an instance it is still configured on. And an id the answer names
 that was not asked about is ignored rather than trusted.
 
+The same rule covers a key id that has left the configuration: its secret is
+gone, so its Jump cannot be asked and its accounts are never deleted. Every
+pass counts them (`unverifiable`) and the settings page shows the count, so a
+retired key is a decision somebody sees rather than a gap nobody does.
+
 ## One worker
 
 `WORKERS=1` today, so a module-level drainer is safe, the same assumption
@@ -78,7 +83,8 @@ from CTFd.models import db
 from CTFd.utils.decorators import admins_only
 
 from .accounts import delete_accounts
-from .jump import JumpEvent, JumpLink, derived_key, instance_slug, jump_keys, requeue
+from .jump import (JumpEvent, JumpLink, derived_key, instance_slug, jump_keys,
+                   requeue, unverifiable_links)
 from .progress import progress_for_user
 
 CALLBACK_PATH = "/api/workshops/callback"
@@ -273,12 +279,15 @@ def erased_among(key, talent_ids):
 def reconcile_erasures(keys=None, log=None):
     """Ask every configured Jump about its talents, delete the erased ones.
 
-    Returns `{"asked": n, "deleted": n, "errors": [...]}`. A Jump that does not
-    answer is skipped for this pass and asked again on the next; nothing is
-    deleted on the strength of a failure.
+    Returns `{"asked": n, "deleted": n, "errors": [...], "unverifiable":
+    {kid: n}}`. A Jump that does not answer is skipped for this pass and asked
+    again on the next; nothing is deleted on the strength of a failure. The
+    accounts of a key id no longer configured cannot be asked about at all
+    (jump.py `unverifiable_links`), and are counted instead.
     """
     keys = jump_keys() if keys is None else keys
-    report = {"asked": 0, "deleted": 0, "errors": []}
+    report = {"asked": 0, "deleted": 0, "errors": [],
+              "unverifiable": unverifiable_links(keys)}
     for kid, key in keys.items():
         links = (JumpLink.query.filter_by(jump_kid=kid)
                  .order_by(JumpLink.id).all())
@@ -293,9 +302,11 @@ def reconcile_erasures(keys=None, log=None):
             doomed = [link.user_id for link in chunk
                       if link.jump_talent_id in erased]
             report["deleted"] += delete_accounts(doomed)
-    if log is not None and (report["deleted"] or report["errors"]):
+    if log is not None and (report["deleted"] or report["errors"]
+                            or report["unverifiable"]):
         log(f"workshop: erasure pass asked {report['asked']}, deleted "
-            f"{report['deleted']}, errors {report['errors']}")
+            f"{report['deleted']}, errors {report['errors']}, unverifiable "
+            f"{report['unverifiable']}")
     return report
 
 

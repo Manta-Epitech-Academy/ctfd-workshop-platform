@@ -4262,6 +4262,15 @@ know is absent, never "erased". A development Jump re-seeded under an instance t
 old accounts would otherwise empty it. The plugin also ignores any id in the answer it did not ask
 about.
 
+A key id that has left the configuration falls under the same rule. The question is signed with
+that Jump's secret, which went with it, so its accounts cannot be asked about and are never
+deleted. That is right, and it is also how a minor's first name stays on an instance for good
+without anybody having decided it: so every pass counts those accounts under `unverifiable` in its
+report and its log line, and `/admin/workshop/jump` names the key ids and how many accounts each
+still holds. Refusing to remove such a key was the alternative, and is rejected: retiring a
+development origin is a supported operation (its queued events are dropped on purpose,
+`jumpqueue.py` `send_one`).
+
 `accounts.py` is the one deletion, shared with the supervisor delete (§32.3): core's six tables,
 then the user, with ratings and this plugin's rows cascading. `POST /api/v1/workshop/jump/erasures`
 (admins) runs a pass immediately, for an admin who has just fulfilled a request and for the check

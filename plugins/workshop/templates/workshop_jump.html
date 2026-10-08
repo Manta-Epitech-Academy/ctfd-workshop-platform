@@ -170,6 +170,24 @@
     <p class="text-muted">Nothing waiting. Every solve has reached Jump.</p>
   {% endif %}
 
+  <h4>Erasure</h4>
+  <p class="text-muted">
+    Once an hour, and at start-up, this instance asks each key's Jump which of
+    its talents it has erased, and deletes those accounts. An account is only
+    ever deleted on Jump's word.
+  </p>
+  {% if unverifiable %}
+    <div class="alert alert-warning">
+      <strong>Some accounts cannot be checked.</strong>
+      {% for kid, count in unverifiable %}
+        {{ count }} account{{ "" if count == 1 else "s" }} under <code>{{ kid }}</code>{{ "," if not loop.last else "." }}
+      {% endfor %}
+      Their key is no longer configured, so no Jump can say whether they were
+      erased, and they are kept. Put the key back for one pass, or delete them
+      once Jump confirms.
+    </div>
+  {% endif %}
+
   <p class="text-muted">
     <strong>Removing a key does not delete the accounts it created.</strong> It
     stops new talents arriving through it, and any event still queued for it is

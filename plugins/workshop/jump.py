@@ -777,6 +777,21 @@ def _link_namespaces():
     return owners, by_kid
 
 
+def unverifiable_links(keys=None):
+    """`{kid: n}` for the links whose key id is no longer configured.
+
+    The erasure pass asks a Jump about its talents with that Jump's secret
+    (jumpqueue.py `reconcile_erasures`), so a key id that has left the map has
+    accounts nothing can ask about: no Jump can prove one of them erased, and
+    nothing is deleted without proof. They stay, and this is what says so, on
+    the settings page and in every pass's report.
+    """
+    keys = jump_keys() if keys is None else keys
+    rows = (db.session.query(JumpLink.jump_kid, db.func.count(JumpLink.id))
+            .group_by(JumpLink.jump_kid).all())
+    return {kid: n for kid, n in rows if kid not in keys}
+
+
 def _parse_rows(form, stored):
     """The submitted key rows, or `(None, errors)`.
 
@@ -871,6 +886,7 @@ def settings():
         # ignores the attribute.
         keys=stored, instance=instance_slug(), linked=set(_link_namespaces()[1]),
         errors=errors, saved=saved, events=events, names=names,
+        unverifiable=sorted(unverifiable_links(stored).items()),
         pending=JumpEvent.query.filter_by(status="pending").count(),
         failed=JumpEvent.query.filter_by(status="failed").count(),
     )

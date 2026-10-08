@@ -3908,7 +3908,8 @@ moves.
 nothing to intercept. `templates/users/users.html` is therefore overridden — one word, a filter
 on the loop — and `shell.py` gains its fourth entry. A page may show fewer than fifty rows as a
 result; that is the intended cost of filtering after the query, and staff are unaffected because
-`ws_visible` answers true for them on every row.
+`ws_visible` answers true for them on every row. *(Superseded by §50.2: with one audience per
+session the cost stopped being small, and the query itself is now narrowed instead.)*
 
 ### 43.4 Checked
 
@@ -4202,6 +4203,26 @@ which names accounts. The solve **count** on a step stays the instance's: "47 pe
 done this one" is encouragement and names nobody. That split is what reconciles the two halves of
 the original request, being ranked among one's own room while seeing that others have passed
 before.
+
+**Filtering after the cut stops being a small cost.** §43 filtered every list on its way out and
+accepted that a page could come back short: with two cohorts, a page of fifty lost a few rows.
+With one audience per session, on an instance that has served a season of rooms, a room is a small
+share of every list, and two lists are cut before they are filtered. The score graph reads
+`/scoreboard/top/10`, which core cuts to the instance's top ten, so a room saw whichever of its own
+made that ten, often nobody. `/users` and `/api/v1/users` are pages of fifty, so a talent paged
+through screens that were mostly other rooms' blanks. Both are now cut after the filter, each the
+way its cache allows:
+
+- **The user lists** have their own query narrowed before it runs: a `do_orm_execute` listener adds
+  `with_loader_criteria(Users, <the reader's audience>)` on those two endpoints only, so core's
+  view, its search and its pagination run unchanged on the reader's own accounts. The
+  `users/users.html` override §43.3 added is gone with the problem it worked around.
+- **The score graph** is rebuilt from the full standings. Narrowing its query is not an option:
+  `get_standings()` is memoized on its arguments, so a narrowed ranking would be stored under the
+  instance's key and served to every room. The full list is memoized already, the room's top ten
+  is taken from it, and the rows are built the way core's `get_scoreboard_detail` builds them, a
+  copy noted in the README's porting notes. The full scoreboard and a step's solver list stay
+  filtered on the way out: neither is cut, so filtering them loses nothing.
 
 ### 50.3 The supervision pages take a scope
 

@@ -76,6 +76,8 @@ SLUG = "jumpcheck-" + RUN
 TALENT = "talent" + RUN
 # Two talents in two sessions of one campus, for §50.
 TALENT_S1, TALENT_S2 = "tals1" + RUN, "tals2" + RUN
+# CTFd's page size on /users and /api/v1/users (users.py, api/v1/users.py).
+USERS_PAGE = 50
 CAMPUS = {"campus": "campus-" + RUN, "campus_label": "Campus " + RUN}
 SESSION_1 = {"session": "evt1-" + RUN, "session_label": "Coding Club un " + RUN,
              **CAMPUS}
@@ -675,6 +677,19 @@ def check_sessions(admin, base, sink, created):
     check(not [l for l in admin.links() if l["talent_id"] == TALENT_S1],
           "and no account was created for it")
 
+    # Fifty older accounts in no session, ahead of both talents in id order:
+    # without them every list fits on one page and a page cut before the
+    # filter looks exactly like one cut after it.
+    filler = []
+    for i in range(USERS_PAGE):
+        r = admin.api("POST", "/users", json={
+            "name": f"Filler {i} {RUN}", "email": f"filler{i}-{RUN}@example.invalid",
+            "password": uuid.uuid4().hex})
+        if r.status_code == 200:
+            filler.append(r.json()["data"]["id"])
+    created.extend(filler)
+    check(len(filler) == USERS_PAGE, f"{USERS_PAGE} older accounts to page past")
+
     print("== each account is filed under the session it first entered with ==")
     r1, s1 = enter(base, mint(KID_A, SECRET_A, sub=TALENT_S1, name="Check Un.",
                               session=SESSION_1))
@@ -708,6 +723,32 @@ def check_sessions(admin, base, sink, created):
           f"({r.status_code})")
     r = s1.get(base + f"/api/v1/users/{one['user_id']}", timeout=30)
     check(r.status_code == 200, f"their own still answers ({r.status_code})")
+
+    print("== a room's lists are cut after the filter, not before ==")
+    # Fifty older accounts come first in id order, so a page cut before the
+    # filter would hold none of the room.
+    body = s1.get(base + "/api/v1/users", timeout=30).json()
+    check([u["id"] for u in body.get("data", [])] == [one["user_id"]],
+          "page 1 of /api/v1/users is the room, behind fifty older accounts")
+    check((body.get("meta") or {}).get("pagination", {}).get("total") == 1
+          and body["meta"]["pagination"].get("pages") == 1,
+          f"and its page count is the room's ({(body.get('meta') or {}).get('pagination')})")
+    # By the row's link, not the name: the navbar names the reader on every
+    # page, listed or not.
+    page = s1.get(base + "/users", timeout=30).text
+    rows = set(int(i) for i in re.findall(r'href="/users/(\d+)"', page))
+    check(rows == {one["user_id"]}, f"page 1 of /users is the room too ({sorted(rows)[:5]})")
+    # The other session's talent outscores this one, so the instance's top
+    # one is somebody this reader may not see.
+    for user_id, value in ((two["user_id"], 100), (one["user_id"], 1)):
+        admin.api("POST", "/awards", json={
+            "user_id": user_id, "name": "jumpcheck " + RUN, "value": value,
+            "category": "jumpcheck"})
+    top = s1.get(base + "/api/v1/scoreboard/top/1", timeout=30).json().get("data") or {}
+    check([row["id"] for row in top.values()] == [one["user_id"]],
+          f"the score graph's top one is the room's own best ({top and list(top)})")
+    check(all(row.get("solves") for row in top.values()),
+          "with the points that put them there")
 
     print("== the supervision pages narrow to a campus and a session ==")
     page = admin.session.get(base + "/admin/workshop/answers", timeout=30, params={

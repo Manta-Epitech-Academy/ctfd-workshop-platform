@@ -108,9 +108,8 @@ def load(app):
     load_external(app)
     register_admin_plugin_menu_bar("External access", "/admin/workshop/external")
     # Several populations, each seeing only its own: the external cohorts
-    # (PLAN.md §43) and the Jump sessions (§50). After
-    # `load_external`, whose field it reads, and after `load_shell`, whose
-    # `users/users.html` override asks it.
+    # (PLAN.md §43) and the Jump sessions (§50). After `load_external`, whose
+    # field it reads.
     load_audience(app)
     load_graph(app)  # GET /api/v1/workshop/graph — challenge DAG for the user
     # The participant-facing view: the whole workshop as one page, steps as

@@ -181,12 +181,20 @@ no correct answer.
 
 CTFd has no hook in `get_standings()` and its only notion of a divided scoreboard is *brackets*,
 which annotate every row and let the **client** filter — a tab, not a wall. So `audience.py`
-builds the wall: 404 on another cohort's account and everything hanging off it, and the list
-responses filtered on the way out, a step's solver list included (the solve *count* on a step
-stays the whole instance's: it names nobody). `/scoreboard` and the score graph are Alpine
-components reading those APIs, so no markup moves. `/users` is the exception — CTFd renders it server-side
-and queries before the template runs, so `templates/users/users.html` is overridden and the loop
-drops the rows there.
+builds the wall, in three ways chosen by where CTFd cuts each list into a page:
+
+- **one account**: 404 on another cohort's account and everything hanging off it;
+- **a list CTFd pages itself** (`/users`, `/api/v1/users`): its own query is narrowed to the
+  reader's audience before it runs (`with_loader_criteria`, from a `do_orm_execute` listener
+  active on those two endpoints only), so the page of fifty and its page count are the reader's;
+- **a list CTFd caches** (the scoreboard, a step's solver list): `get_standings()` is memoized
+  on its arguments, so narrowing its query would store one room's ranking under the instance's
+  key. The full list is filtered on the way out, and the score graph's top ten is rebuilt from
+  the full standings, since the instance's top ten is not a room's. The solve *count* on a step
+  stays the whole instance's: it names nobody.
+
+`/scoreboard` and the score graph are Alpine components reading those APIs, and `/users` is
+CTFd's own view on its own query, so no markup moves and no template is overridden.
 
 `scripts/audience_check.py <base-url> <admin-pass>` builds three accounts in three cohorts, gives
 each a score, and asks every surface as each of them.
@@ -372,7 +380,13 @@ contract shared with the Jump repository; changing either half means changing bo
 - **`audience.py` names core endpoints by their Flask endpoint name** (`api.users_user_list`,
   `api.challenges_challenge_solves`, …). flask-restx derives those from the namespace and the
   resource class, so a renamed class upstream silently stops being filtered: after a CTFd upgrade,
-  run `scripts/audience_check.py` and `scripts/jump_check.py`.
+  run `scripts/audience_check.py` and `scripts/jump_check.py`. Two more things in it follow core:
+  - `_top` is a copy of the body of `get_scoreboard_detail` (`utils/scoreboard/__init__.py`), fed
+    a list of accounts instead of a count. If upstream changes the shape of a row there, the
+    score graph a room reads changes shape with it only once this copy does.
+  - `/users` and `/api/v1/users` are narrowed in their query, which relies on both views reading
+    `Users` through the ORM (`Users.query...paginate`). A view rewritten on raw SQL would no
+    longer be narrowed, and nothing would fail.
   `answers.py` additionally reads the `workshop_validation` config key written by the sync; if
   it is missing the page infers the mode and says so, so an un-synced instance still renders.
 - Tables are created by `app.db.create_all()` in `load()` (new tables only), **and then**

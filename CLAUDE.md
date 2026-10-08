@@ -32,16 +32,24 @@ content/            GONE from this checkout, and not tracked on any branch — t
                     instance half cannot run here until that is reconciled.
 scripts/            phase*_validate.py — the regression suite, needs a FRESH instance
 docs/               CONTENT_CONVENTION.md — the authoring convention
-docker-compose.yml  ghcr.io/kevin-cazal/ctfd-custom on :8080 (8000/8001 are taken by ctfd_replication)
+docker-compose.yml  ghcr.io/manta-epitech-academy/ctfd-custom on :8080 (8000/8001 are taken by ctfd_replication)
 frontend/           the early React mockup — superseded, kept for reference only
 PLAN.md             architecture + phased plan + decisions
 CLAUDE.md           this file
 ```
 
-No local CTFd checkout: the instance runs `ghcr.io/kevin-cazal/ctfd-custom`, built from
-[kevin-cazal/CTFd](https://github.com/kevin-cazal/CTFd) (a fork of Manta-Epitech-Academy/CTFd,
-master) — that repo's Dockerfile bakes this plugin, its vendored deps, and `tools/` into the
-image via its own `workshop_platform` submodule.
+No local CTFd checkout: the instance runs `ghcr.io/manta-epitech-academy/ctfd-custom`, built from
+[Manta-Epitech-Academy/ctfd-custom](https://github.com/Manta-Epitech-Academy/ctfd-custom) (a fork of
+CTFd/CTFd, master) — that repo's Dockerfile bakes this plugin, its vendored deps, and `tools/` into
+the image via its own `workshop_platform` submodule.
+
+**Deploying is bumping that submodule.** A merge to ctfd-custom's `master` publishes `:latest`, and
+its `restart-k3s` job then restarts every CTFd deployment on the cluster, which pulls on every start:
+the merge is the deploy, to every instance at once. A bump is a PR from a
+`chore/workshop-platform-<topic>` branch whose body lists the platform PRs it carries and what the
+rollout needs (a migration, a re-sync on each instance); its earlier ones show the shape.
+`kevin-cazal/CTFd` and its image `ghcr.io/kevin-cazal/ctfd-custom` are the fork this started from.
+Nothing on the cluster runs them, so a bump there deploys nothing.
 
 ### Never edit CTFd core
 

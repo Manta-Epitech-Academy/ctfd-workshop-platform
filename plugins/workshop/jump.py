@@ -228,9 +228,9 @@ class JumpLink(db.Model):
     # the whole map on every setup. Nullable only for rows written before
     # revision 2, which backfills them from the address they already carry.
     jump_label = db.Column(db.String(32))
-    # The room this account entered from, set on its first entry with a
-    # session and never moved afterwards (see `file_session`). NULL for an
-    # account created before tickets named one, until its next entry.
+    # The room this account is in: the session its latest ticket named,
+    # moved whenever a later one names another (see `file_session`). NULL for
+    # an account created before tickets named one, until its next entry.
     session_id = db.Column(
         db.Integer, db.ForeignKey("workshop_jump_session.id", ondelete="SET NULL",
                       name="fk_workshop_jump_link_session"),

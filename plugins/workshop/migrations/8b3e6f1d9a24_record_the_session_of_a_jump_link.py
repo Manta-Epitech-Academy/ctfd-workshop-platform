@@ -8,7 +8,7 @@ An instance lives for about two years and one campus can run the same subject
 at several Coding Clubs, so one scoreboard ended up holding every room that
 ever passed through. The ticket now names the Jump session (PLAN.md §50):
 `workshop_jump_session` holds one row per session, and each link points at the
-session its account first entered from.
+session its account's latest ticket named.
 
 Idempotent like the others. On a fresh instance `create_all()` has built the
 table and the column from the models by the time this runs. On an existing one

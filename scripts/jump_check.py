@@ -618,6 +618,41 @@ def main():
     # Whatever that POST decided, the next checks need the two real keys back.
     admin.set_configs({"workshop_jump_keys": json.dumps(keys)})
 
+    # -- the calls that declare this instance on each Jump ----------------
+    print("== the settings page hands over the calls that declare it on Jump ==")
+    page = admin.session.get(base + "/admin/workshop/jump", timeout=30).text
+    for kid in (KID_A, KID_B):
+        check(f"<code>{kid}</code>, {origin}" in page,
+              f"one pair of calls for {kid}")
+    # Rendered through Jinja, so the JSON quotes come back escaped.
+    check(page.count(f"{origin}/api/admin/write/workshop-instance") == 2
+          and f"&#34;instance&#34;: &#34;{SLUG}&#34;" in page,
+          "the instance call names this instance's slug, once per key")
+    check(page.count(f"{origin}/api/admin/write/workshop ") == 2
+          and f"&#34;slug&#34;: &#34;{CONTENT}&#34;" in page,
+          "the activity call names the synced content, once per key")
+    # The address is the value a retyped call got wrong in production.
+    check(f"&#34;baseUrl&#34;: &#34;{base}&#34;" in page,
+          "and the instance call names the address the page was opened at")
+    # A quote ends a single-quoted body unless it is escaped for the shell,
+    # and only Jump holds a slug to `[a-z0-9-]`, after the shell has run.
+    admin.set_configs({"workshop_content": f"it's-{RUN}"})
+    page = admin.session.get(base + "/admin/workshop/jump", timeout=30).text
+    check(f"it&#39;&#34;&#39;&#34;&#39;s-{RUN}" in page,
+          "a quote in a slug is escaped for the shell, not left to end the body")
+    admin.set_configs({"workshop_content": ""})
+    page = admin.session.get(base + "/admin/workshop/jump", timeout=30).text
+    check("Nothing to declare yet" in page
+          and "/api/admin/write/workshop" not in page,
+          "and none is offered before a sync has recorded a content")
+    admin.set_configs({"workshop_content": CONTENT,
+                       "workshop_jump_instance": ""})
+    page = admin.session.get(base + "/admin/workshop/jump", timeout=30).text
+    check("Nothing to declare yet" in page
+          and "/api/admin/write/workshop" not in page,
+          "nor before this instance has a slug")
+    admin.set_configs({"workshop_jump_instance": SLUG})
+
     check_sessions(admin, base, sink, created)
 
     # -- AC6, AC8 ----------------------------------------------------------

@@ -361,6 +361,23 @@ including the case that looks innocent, renaming a key id in
 outbox: what is still owed to Jump, what failed, and a button to send it again.
 That page is the answer to "the XP did not arrive".
 
+**Jump has to know the instance too.** It only sends a talent to an instance
+it has declared, serving a content it has declared on it, and neither
+declaration happens on this side. Under its keys, `/admin/workshop/jump` prints
+the two calls that make them, built from this instance's own slug, synced
+content and address, one pair per key since each key is one Jump: run them with
+a write-enabled token from that Jump's `/staff/admin/api-tokens` page in
+`JUMP_TOKEN`, after putting the name talents read in place of the placeholder.
+They are safe to repeat with the same name; another one renames the activity
+talents see. Copy them rather than retyping the values: a retyped address is
+how one Jump came to send an instance's talents to another instance's host.
+When the instance moves on to another content, the page declares the new one
+only: retire the previous activity with the same call, its slug and
+`"enabled": false`, or Jump keeps offering it and every talent who clicks it is
+refused at the door. Every other call Jump's admin API takes is described at
+`<jump origin>/api/admin/openapi.json`, with the same token. Which events then
+offer the activity, and for how long, stays a Jump decision.
+
 Accounts created this way have **no password at all**, which is what makes the
 rule enforceable rather than advisory: CTFd refuses local sign-in to a
 passwordless account, so there is no second door. It also means these instances

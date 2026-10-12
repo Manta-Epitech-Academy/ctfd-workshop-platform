@@ -368,9 +368,13 @@ the two calls that make them, built from this instance's own slug, synced
 content and address, one pair per key since each key is one Jump: run them with
 a write-enabled token from that Jump's `/staff/admin/api-tokens` page in
 `JUMP_TOKEN`, after putting the name talents read in place of the placeholder.
-They are safe to repeat. Copy them rather than retyping the values: a retyped
-address is how one Jump came to send an instance's talents to another
-instance's host. Every other call Jump's admin API takes is described at
+They are safe to repeat with the same name; another one renames the activity
+talents see. Copy them rather than retyping the values: a retyped address is
+how one Jump came to send an instance's talents to another instance's host.
+When the instance moves on to another content, the page declares the new one
+only: retire the previous activity with the same call, its slug and
+`"enabled": false`, or Jump keeps offering it and every talent who clicks it is
+refused at the door. Every other call Jump's admin API takes is described at
 `<jump origin>/api/admin/openapi.json`, with the same token. Which events then
 offer the activity, and for how long, stays a Jump decision.
 

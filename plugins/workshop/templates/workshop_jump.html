@@ -141,8 +141,15 @@
     a content it has declared. Run these two calls once per Jump, with a token
     that can write from its <code>/staff/admin/api-tokens</code> page in
     <code>JUMP_TOKEN</code>, and the name talents read in place of
-    <code>&lt;name talents read&gt;</code>. Both are safe to repeat. The address
-    is the one this page was opened at: change it if talents use another.
+    <code>&lt;name talents read&gt;</code>. Both are safe to repeat with the same
+    name; another one renames the activity talents see. The address is the one
+    this page was opened at: change it if talents use another.
+  </p>
+  <p class="text-muted">
+    When this instance moves on to another content, the second call declares
+    the new one only. Retire the previous activity on each Jump with the same
+    call, its slug and <code>"enabled": false</code>, or Jump keeps offering it
+    and every talent who clicks it is refused here.
   </p>
   {% if declarations %}
     {% for declaration in declarations %}

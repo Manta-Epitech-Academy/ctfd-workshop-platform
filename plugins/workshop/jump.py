@@ -337,6 +337,62 @@ def content_slug():
     return str(raw).strip() if raw not in (None, "") else ""
 
 
+# Where Jump's admin API lives, relative to a key's origin. Jump writes these
+# paths in its route files (`src/routes/api/admin/`), and its adminApi doc names
+# this page as quoting the two writes, so a move there is announced.
+JUMP_API_REFERENCE = "/api/admin/openapi.json"
+JUMP_DECLARE_INSTANCE = "/api/admin/write/workshop-instance"
+JUMP_DECLARE_ACTIVITY = "/api/admin/write/workshop"
+# Left for the operator: the name talents read is Jump's to choose, in French.
+JUMP_LABEL_PLACEHOLDER = "<name talents read>"
+
+
+def _curl_post(url, body):
+    """One write to Jump's admin API, the token read from `$JUMP_TOKEN`.
+
+    The body is single-quoted JSON: slugs are `[a-z0-9-]`, an origin carries no
+    quote, and the label placeholder is ASCII, so there is nothing to escape in
+    any shell.
+    """
+    return ("curl -X POST " + url
+            + ' -H "Authorization: Bearer $JUMP_TOKEN"'
+            + ' -H "Content-Type: application/json"'
+            + " -d '" + json.dumps(body) + "'")
+
+
+def jump_declarations(keys, instance, content, base_url):
+    """The calls that make each configured Jump know this instance.
+
+    Jump only sends a talent to an instance it has declared, and to a content
+    it has declared on it, and both declarations name values this page already
+    holds: the slug, the synced content, and the address it is served at.
+    Typing them again on the other side is how one Jump came to hold an
+    instance pointing at another instance's host. So the calls are built here,
+    from the values themselves, one pair per key: each key is one Jump.
+
+    Nothing to declare until the slug and the content are both set, since a
+    call carrying an empty one would only be refused on the other side.
+    """
+    if not (instance and content):
+        return []
+    out = []
+    for kid, key in keys.items():
+        origin = key["origin"].rstrip("/")
+        out.append({
+            "kid": kid,
+            "origin": origin,
+            "reference": origin + JUMP_API_REFERENCE,
+            "commands": [
+                _curl_post(origin + JUMP_DECLARE_INSTANCE,
+                           {"instance": instance, "baseUrl": base_url}),
+                _curl_post(origin + JUMP_DECLARE_ACTIVITY,
+                           {"slug": content, "instance": instance,
+                            "label": JUMP_LABEL_PLACEHOLDER}),
+            ],
+        })
+    return out
+
+
 def jump_enabled():
     """Is there a configured way in? Read by login.html."""
     return (workshop_enabled() and bool(jump_keys())
@@ -916,6 +972,10 @@ def settings():
         # _link_namespaces(), enforced in _parse_rows for the submit that
         # ignores the attribute.
         keys=stored, instance=instance_slug(), content=content_slug(),
+        # The address this page was opened at: the one an operator can see,
+        # and correct on the other side if talents use an alias.
+        declarations=jump_declarations(stored, instance_slug(), content_slug(),
+                                       request.host_url.rstrip("/")),
         linked=set(_link_namespaces()[1]),
         errors=errors, saved=saved, events=events, names=names,
         unverifiable=sorted(unverifiable_links(stored).items()),

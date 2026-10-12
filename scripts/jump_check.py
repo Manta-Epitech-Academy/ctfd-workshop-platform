@@ -618,6 +618,26 @@ def main():
     # Whatever that POST decided, the next checks need the two real keys back.
     admin.set_configs({"workshop_jump_keys": json.dumps(keys)})
 
+    # -- the calls that declare this instance on each Jump ----------------
+    print("== the settings page hands over the calls that declare it on Jump ==")
+    page = admin.session.get(base + "/admin/workshop/jump", timeout=30).text
+    for kid in (KID_A, KID_B):
+        check(f"<code>{kid}</code>, {origin}" in page,
+              f"one pair of calls for {kid}")
+    # Rendered through Jinja, so the JSON quotes come back escaped.
+    check(page.count(f"{origin}/api/admin/write/workshop-instance") == 2
+          and f"&#34;instance&#34;: &#34;{SLUG}&#34;" in page,
+          "the instance call names this instance's slug, once per key")
+    check(page.count(f"{origin}/api/admin/write/workshop ") == 2
+          and f"&#34;slug&#34;: &#34;{CONTENT}&#34;" in page,
+          "the activity call names the synced content, once per key")
+    admin.set_configs({"workshop_content": ""})
+    page = admin.session.get(base + "/admin/workshop/jump", timeout=30).text
+    check("Nothing to declare yet" in page
+          and "/api/admin/write/workshop" not in page,
+          "and none is offered before a sync has recorded a content")
+    admin.set_configs({"workshop_content": CONTENT})
+
     check_sessions(admin, base, sink, created)
 
     # -- AC6, AC8 ----------------------------------------------------------

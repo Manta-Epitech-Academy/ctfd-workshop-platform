@@ -631,6 +631,9 @@ def main():
     check(page.count(f"{origin}/api/admin/write/workshop ") == 2
           and f"&#34;slug&#34;: &#34;{CONTENT}&#34;" in page,
           "the activity call names the synced content, once per key")
+    # The address is the value a retyped call got wrong in production.
+    check(f"&#34;baseUrl&#34;: &#34;{base}&#34;" in page,
+          "and the instance call names the address the page was opened at")
     # A quote ends a single-quoted body unless it is escaped for the shell,
     # and only Jump holds a slug to `[a-z0-9-]`, after the shell has run.
     admin.set_configs({"workshop_content": f"it's-{RUN}"})
@@ -642,7 +645,13 @@ def main():
     check("Nothing to declare yet" in page
           and "/api/admin/write/workshop" not in page,
           "and none is offered before a sync has recorded a content")
-    admin.set_configs({"workshop_content": CONTENT})
+    admin.set_configs({"workshop_content": CONTENT,
+                       "workshop_jump_instance": ""})
+    page = admin.session.get(base + "/admin/workshop/jump", timeout=30).text
+    check("Nothing to declare yet" in page
+          and "/api/admin/write/workshop" not in page,
+          "nor before this instance has a slug")
+    admin.set_configs({"workshop_jump_instance": SLUG})
 
     check_sessions(admin, base, sink, created)
 

@@ -346,6 +346,10 @@ JUMP_DECLARE_INSTANCE = "/api/admin/write/workshop-instance"
 JUMP_DECLARE_ACTIVITY = "/api/admin/write/workshop"
 # Left for the operator: the name talents read is Jump's to choose, in French.
 JUMP_LABEL_PLACEHOLDER = "<name talents read>"
+# Filled in by the admin's browser, the one party that knows it (see
+# `jump_declarations`). No quote in it, so the shell-quoted body stays one
+# plain single-quoted string the page can substitute into.
+JUMP_ADDRESS_PLACEHOLDER = "<address of this page>"
 
 
 def _curl_post(url, body):
@@ -362,15 +366,23 @@ def _curl_post(url, body):
             + " -d " + shlex.quote(json.dumps(body)))
 
 
-def jump_declarations(keys, instance, content, base_url):
+def jump_declarations(keys, instance, content):
     """The calls that make each configured Jump know this instance.
 
     Jump only sends a talent to an instance it has declared, and to a content
-    it has declared on it, and both declarations name values this page already
-    holds: the slug, the synced content, and the address it is served at.
+    it has declared on it, and both declarations name values this instance
+    holds: the slug, the synced content, and the address talents reach it at.
     Typing them again on the other side is how one Jump came to hold an
     instance pointing at another instance's host. So the calls are built here,
     from the values themselves, one pair per key: each key is one Jump.
+
+    Except the address, which this server cannot know. On the cluster a
+    Cloudflare tunnel rewrites the `Host` to the Ingress's `ctf-NNNN` name and
+    reaches Traefik over plain http, so `request.host_url` reads
+    `http://ctf-1000.epiboost.fr` on a page opened at
+    `https://halloween2026.epiboost.fr`. The call carries a placeholder
+    instead, and the page puts the browser's own `location.origin` in its
+    place: the address the page was opened at, whatever stands in between.
 
     Nothing to declare until the slug and the content are both set, since a
     call carrying an empty one would only be refused on the other side.
@@ -386,7 +398,8 @@ def jump_declarations(keys, instance, content, base_url):
             "reference": origin + JUMP_API_REFERENCE,
             "commands": [
                 _curl_post(origin + JUMP_DECLARE_INSTANCE,
-                           {"instance": instance, "baseUrl": base_url}),
+                           {"instance": instance,
+                            "baseUrl": JUMP_ADDRESS_PLACEHOLDER}),
                 _curl_post(origin + JUMP_DECLARE_ACTIVITY,
                            {"slug": content, "instance": instance,
                             "label": JUMP_LABEL_PLACEHOLDER}),
@@ -974,10 +987,10 @@ def settings():
         # _link_namespaces(), enforced in _parse_rows for the submit that
         # ignores the attribute.
         keys=stored, instance=instance_slug(), content=content_slug(),
-        # The address this page was opened at: the one an operator can see,
-        # and correct on the other side if talents use an alias.
-        declarations=jump_declarations(stored, instance_slug(), content_slug(),
-                                       request.host_url.rstrip("/")),
+        declarations=jump_declarations(stored, instance_slug(), content_slug()),
+        # What the page swaps for the address it was opened at, which only
+        # the browser knows (see jump_declarations).
+        address=JUMP_ADDRESS_PLACEHOLDER,
         linked=set(_link_namespaces()[1]),
         errors=errors, saved=saved, events=events, names=names,
         unverifiable=sorted(unverifiable_links(stored).items()),

@@ -289,6 +289,8 @@ slug. Re-sync an instance once after upgrading, so it has a content recorded.
 **Jump has to declare both the host and the content** before it sends anyone. The same page
 prints the two calls to Jump's admin API that do it, one pair per key, built from the slug, the
 synced content and the address the page was opened at, so nobody retypes them (DEPLOY.md §6d).
+The address is filled in by the browser: behind the cluster's tunnel the server sees another host,
+over http.
 
 **A label is owned by the accounts it namespaces, not by the key row that declares it.** Each
 link row records it (`jump_label`, revision 2), and both the settings page and `resolve_account`

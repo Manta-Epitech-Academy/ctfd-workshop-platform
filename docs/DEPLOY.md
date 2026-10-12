@@ -371,6 +371,8 @@ a write-enabled token from that Jump's `/staff/admin/api-tokens` page in
 They are safe to repeat with the same name; another one renames the activity
 talents see. Copy them rather than retyping the values: a retyped address is
 how one Jump came to send an instance's talents to another instance's host.
+The address is filled in by your browser from the page's own, so open the page
+at the https address talents use; opened over plain http, it says so.
 When the instance moves on to another content, the page declares the new one
 only: retire the previous activity with the same call, its slug and
 `"enabled": false`, or Jump keeps offering it and every talent who clicks it is
@@ -694,6 +696,13 @@ sync page — the example overlay carries it.
 
 ## Things that will bite
 
+- **An instance does not know its public address.** On the cluster, the
+  Cloudflare tunnel rewrites the Host to the Ingress's `ctf-NNNN.epiboost.fr`
+  and reaches Traefik over plain http, so `request.host_url` on a page opened
+  at `https://halloween2026.epiboost.fr` reads `http://ctf-1000.epiboost.fr`,
+  with `REVERSE_PROXY` set or not. Anything that has to name the address
+  talents use takes it from the browser (`location.origin`), as the Jump
+  declaration does, never from the request.
 - **A plugin change needs a container restart.** `plugins/workshop/` is bind
   mounted, but Python imports it once at boot. `docker restart ctfd-<name>-ctfd-1`.
 - **Any change made to the database behind CTFd's back needs a cache flush.**

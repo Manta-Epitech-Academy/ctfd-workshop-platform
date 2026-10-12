@@ -631,6 +631,12 @@ def main():
     check(page.count(f"{origin}/api/admin/write/workshop ") == 2
           and f"&#34;slug&#34;: &#34;{CONTENT}&#34;" in page,
           "the activity call names the synced content, once per key")
+    # A quote ends a single-quoted body unless it is escaped for the shell,
+    # and only Jump holds a slug to `[a-z0-9-]`, after the shell has run.
+    admin.set_configs({"workshop_content": f"it's-{RUN}"})
+    page = admin.session.get(base + "/admin/workshop/jump", timeout=30).text
+    check(f"it&#39;&#34;&#39;&#34;&#39;s-{RUN}" in page,
+          "a quote in a slug is escaped for the shell, not left to end the body")
     admin.set_configs({"workshop_content": ""})
     page = admin.session.get(base + "/admin/workshop/jump", timeout=30).text
     check("Nothing to declare yet" in page

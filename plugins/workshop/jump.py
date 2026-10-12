@@ -120,6 +120,7 @@ import hashlib
 import hmac
 import json
 import re
+import shlex
 import time
 from datetime import datetime
 
@@ -350,14 +351,15 @@ JUMP_LABEL_PLACEHOLDER = "<name talents read>"
 def _curl_post(url, body):
     """One write to Jump's admin API, the token read from `$JUMP_TOKEN`.
 
-    The body is single-quoted JSON: slugs are `[a-z0-9-]`, an origin carries no
-    quote, and the label placeholder is ASCII, so there is nothing to escape in
-    any shell.
+    The URL and the body are shell-quoted rather than assumed to need none:
+    Jump holds a slug to `[a-z0-9-]` only once the call reaches it, and a quote
+    in one would end the string it sits in on the admin's own shell. The token
+    alone stays in double quotes, so that the shell expands it.
     """
-    return ("curl -X POST " + url
+    return ("curl -X POST " + shlex.quote(url)
             + ' -H "Authorization: Bearer $JUMP_TOKEN"'
             + ' -H "Content-Type: application/json"'
-            + " -d '" + json.dumps(body) + "'")
+            + " -d " + shlex.quote(json.dumps(body)))
 
 
 def jump_declarations(keys, instance, content, base_url):

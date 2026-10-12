@@ -143,7 +143,8 @@
     <code>JUMP_TOKEN</code>, and the name talents read in place of
     <code>&lt;name talents read&gt;</code>. Both are safe to repeat with the same
     name; another one renames the activity talents see. The address is the one
-    this page was opened at: change it if talents use another.
+    this page was opened at, filled in by your browser: open this page at the
+    address talents use, or change it in the call.
   </p>
   <p class="text-muted">
     When this instance moves on to another content, the second call declares
@@ -152,6 +153,12 @@
     and every talent who clicks it is refused here.
   </p>
   {% if declarations %}
+    <div class="alert alert-warning" id="ws-jump-insecure" hidden>
+      <strong>This page was opened over plain http</strong>, so that is the
+      address the calls below give Jump. Talents sent there would carry their
+      ticket and their session in clear, and the runtimes that need a secure
+      page would not work. Open this page at its https address first.
+    </div>
     {% for declaration in declarations %}
       <h6 class="mt-3">
         <code>{{ declaration.kid }}</code>, {{ declaration.origin }}
@@ -160,7 +167,7 @@
         </small>
       </h6>
       {% for command in declaration.commands %}
-        <pre class="bg-light border rounded p-2 mb-2"><code>{{ command }}</code></pre>
+        <pre class="bg-light border rounded p-2 mb-2"><code data-ws-address="{{ address }}">{{ command }}</code></pre>
       {% endfor %}
     {% endfor %}
   {% else %}
@@ -248,4 +255,22 @@
     send it.
   </p>
 </div>
+
+<script>
+  (function () {
+    // The address talents reach this instance at is the one this page was
+    // opened at, and only the browser knows it: behind the cluster's tunnel the
+    // server sees another host over http (jump.py `jump_declarations`). Swapped
+    // in as text, never as HTML.
+    var origin = window.location.origin;
+    document.querySelectorAll("[data-ws-address]").forEach(function (code) {
+      code.textContent = code.textContent.split(code.dataset.wsAddress).join(origin);
+    });
+    // localhost counts as secure, so this stays quiet on a development box.
+    var insecure = document.getElementById("ws-jump-insecure");
+    if (insecure && !window.isSecureContext) {
+      insecure.hidden = false;
+    }
+  })();
+</script>
 {% endblock %}

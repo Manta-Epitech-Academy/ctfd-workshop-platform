@@ -631,9 +631,23 @@ def main():
     check(page.count(f"{origin}/api/admin/write/workshop ") == 2
           and f"&#34;slug&#34;: &#34;{CONTENT}&#34;" in page,
           "the activity call names the synced content, once per key")
-    # The address is the value a retyped call got wrong in production.
-    check(f"&#34;baseUrl&#34;: &#34;{base}&#34;" in page,
-          "and the instance call names the address the page was opened at")
+    # The address is the value a retyped call got wrong in production, and the
+    # one the server cannot know: the page's script puts the browser's own
+    # origin in place of the placeholder, which needs a browser to watch.
+    check('data-ws-address="&lt;address of this page&gt;"' in page
+          and "&#34;baseUrl&#34;: &#34;&lt;address of this page&gt;&#34;" in page,
+          "the instance call leaves the address to the browser")
+    # Behind the cluster's tunnel the Host is another name than the one talents
+    # use, so nothing in the calls may be built from it. The cookie is passed by
+    # hand: requests picks cookies by the Host header when one is set, and would
+    # send none, which lands on the login page and passes for nothing.
+    cookie = "; ".join(f"{c.name}={c.value}" for c in admin.session.cookies)
+    spoofed = requests.get(base + "/admin/workshop/jump", timeout=30, headers={
+        "Host": "tunnel.invalid", "Cookie": cookie}).text
+    calls = spoofed.partition("Declare this instance on Jump")[2].partition("Outbox")[0]
+    check("/api/admin/write/workshop-instance" in calls
+          and "tunnel.invalid" not in calls,
+          "and nothing in them comes from the Host the request arrived with")
     # A quote ends a single-quoted body unless it is escaped for the shell,
     # and only Jump holds a slug to `[a-z0-9-]`, after the shell has run.
     admin.set_configs({"workshop_content": f"it's-{RUN}"})

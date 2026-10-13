@@ -4504,6 +4504,14 @@ the only one they have.
 Optional rather than required, so a stored configuration means what it meant before, with no
 migration, and an instance outside the cluster has nothing to fill in.
 
+**The Service speaks plain http, and one answer leans on that.** A progress report is signed, so
+nothing between the pod and the Service can forge or alter one. Jump's answer to the erasure
+question is not signed, and it decides which accounts this instance deletes (`erased_among`): on
+the public origin TLS vouched for it, on the server address only the cluster's own network does.
+The damage is bounded to the ids this instance asked about, and whatever could answer in Jump's
+place already holds a pod in the cluster, from where it can do worse. Signing the answer would
+close the gap at the price of a contract change on both sides (§31.1), and is not done.
+
 ### 52.2 A redirect is an answer
 
 `requests.post` follows redirects, and a 301 or a 302 turns the POST into a GET on wherever it

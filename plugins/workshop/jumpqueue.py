@@ -84,7 +84,7 @@ from CTFd.utils.decorators import admins_only
 
 from .accounts import delete_accounts
 from .jump import (JumpEvent, JumpLink, content_slug, derived_key, instance_slug, jump_keys,
-                   requeue, unverifiable_links)
+                   requeue, server_origin, unverifiable_links)
 from .progress import progress_for_user
 
 CALLBACK_PATH = "/api/workshops/callback"
@@ -197,8 +197,8 @@ def sign(body, secret, ts):
 
 
 def _signed_post(key, path, payload, extra_headers=None):
-    """POST `payload` to the key's origin, signed with the callback key.
-    Never raises: `(response, None)` on any answer, `(None, detail)` when
+    """POST `payload` to the key's server address, signed with the callback
+    key. Never raises: `(response, None)` on any answer, `(None, detail)` when
     there was none.
 
     Every request this instance makes to Jump goes through here: the progress
@@ -217,8 +217,8 @@ def _signed_post(key, path, payload, extra_headers=None):
         **(extra_headers or {}),
     }
     try:
-        return requests.post(key["origin"] + path, data=body, headers=headers,
-                             timeout=TIMEOUT), None
+        return requests.post(server_origin(key) + path, data=body,
+                             headers=headers, timeout=TIMEOUT), None
     except requests.RequestException as exc:
         return None, f"{type(exc).__name__}: {exc}"[:500]
 

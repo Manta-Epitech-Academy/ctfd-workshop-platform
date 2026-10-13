@@ -49,6 +49,9 @@
       One button per configured key, labelled only when there are several:
       with two, this instance really does serve two Jump environments and
       picking one silently would send half the talents to the wrong door.
+
+      `key.origin`, never the key's server address: this link is followed by
+      the talent's browser, and only the public address resolves there.
     #}
     {% set keys = jump_keys() %}
     {% for kid, key in keys.items() %}

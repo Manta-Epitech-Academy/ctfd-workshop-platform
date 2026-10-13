@@ -71,12 +71,22 @@
       namespaces the accounts that environment creates, which is what keeps a
       dev talent out of a production scoreboard when one instance serves both.
     </p>
+    <p class="text-muted">
+      <strong>Origin</strong> is Jump's public address: where a talent's browser
+      goes from the login page, and what the calls below are printed with.
+      <strong>Server address</strong> is where this server posts progress and
+      asks about erasures, when it reaches Jump more directly than through the
+      public edge. On the cluster that is Jump's Service, for example
+      <code>http://jump-sk-service.jump-prod.svc.cluster.local:3030</code>: the
+      public edge answers this server with a bot challenge. Empty means Origin.
+    </p>
 
     <table class="table table-sm">
       <thead>
         <tr>
           <th>Key id</th>
           <th>Origin</th>
+          <th>Server address</th>
           <th>Label</th>
           <th>Shared secret</th>
           <th class="text-center">Remove</th>
@@ -92,6 +102,10 @@
             <td>
               <input type="text" class="form-control" name="origin-{{ loop.index0 }}"
                      value="{{ key.origin }}">
+            </td>
+            <td>
+              <input type="text" class="form-control" name="server_origin-{{ loop.index0 }}"
+                     value="{{ key.server_origin or '' }}" placeholder="same as Origin">
             </td>
             <td>
               <input type="text" class="form-control" name="label-{{ loop.index0 }}"
@@ -117,7 +131,11 @@
           </td>
           <td>
             <input type="text" class="form-control" name="origin-{{ keys|length }}"
-                   placeholder="https://epiboost.fr">
+                   placeholder="https://jump.epiboost.fr">
+          </td>
+          <td>
+            <input type="text" class="form-control" name="server_origin-{{ keys|length }}"
+                   placeholder="same as Origin">
           </td>
           <td>
             <input type="text" class="form-control" name="label-{{ keys|length }}"

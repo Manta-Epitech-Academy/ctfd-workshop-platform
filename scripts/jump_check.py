@@ -76,6 +76,12 @@ KID_B, SECRET_B, LABEL_B = "jumpcheck-b", "secret-b-" + RUN, "jumpcheckb"
 # owned by the accounts it namespaces, so this is the shape of "somebody
 # renamed a key id in deploy/instances.yaml and kept its label".
 KID_C = "jumpcheck-c"
+# Key A's public address: what a browser and an admin are given. It resolves
+# nowhere, which is the point: A's progress and erasure questions reach the
+# sink only through its server address, so a call built from `origin` would
+# fail rather than pass (PLAN.md §52). Key B has no server address, so it
+# stands for the fallback.
+PUBLIC_A = "https://jump-a.jumpcheck.invalid"
 SLUG = "jumpcheck-" + RUN
 # What a sync would have recorded as this instance's content (§51).
 CONTENT = "jumpcheck-content-" + RUN
@@ -451,7 +457,8 @@ def main():
 
     atexit.register(restore)
 
-    keys = {KID_A: {"origin": origin, "secret": SECRET_A, "label": LABEL_A},
+    keys = {KID_A: {"origin": PUBLIC_A, "server_origin": origin,
+                    "secret": SECRET_A, "label": LABEL_A},
             KID_B: {"origin": origin, "secret": SECRET_B, "label": LABEL_B}}
     admin.set_configs({"workshop_jump_keys": json.dumps(keys),
                        "workshop_jump_instance": SLUG,
@@ -464,8 +471,10 @@ def main():
     print("== the login page opens on the talent door, the staff form behind it ==")
     anon = requests.Session()
     talent = anon.get(base + "/login", timeout=20).text
-    check(talent.count(f'href="{origin}"') == 2,
-          "one Jump button per configured key")
+    check(talent.count(f'href="{PUBLIC_A}"') == 1
+          and talent.count(f'href="{origin}"') == 1,
+          "one Jump button per configured key, each to its public origin and "
+          "never to a server address")
     # The label in its parentheses, as the button renders it: LABEL_A alone
     # is a substring of LABEL_B and of the sink's host name in both hrefs,
     # so a bare `in` would pass with key A unlabelled.
@@ -478,7 +487,8 @@ def main():
           "and carries `next` there, the only door that can honour it")
     staff = anon.get(base + "/login?staff=1", timeout=20).text
     check('name="password"' in staff, "the staff door is the form")
-    check('href="/login"' in staff and f'href="{origin}"' not in staff,
+    check('href="/login"' in staff and f'href="{origin}"' not in staff
+          and f'href="{PUBLIC_A}"' not in staff,
           "which links back to the talent door rather than to Jump itself")
     r = anon.post(base + "/login", timeout=20, data={
         "name": "nobody" + RUN, "password": "wrong",
@@ -597,7 +607,7 @@ def main():
     # -- a label belongs to the accounts it namespaces ---------------------
     print("== a label that already has accounts cannot move to another key id ==")
     stolen = dict(keys)
-    stolen[KID_C] = {"origin": origin, "secret": SECRET_A, "label": LABEL_A}
+    stolen[KID_C] = {"origin": PUBLIC_A, "secret": SECRET_A, "label": LABEL_A}
     admin.set_configs({"workshop_jump_keys": json.dumps(stolen)})
     r, _ = enter(base, mint(KID_C, SECRET_A))
     check(r.status_code == 403,
@@ -611,24 +621,54 @@ def main():
     # separate: provisioning writes the config straight and never sees the form.
     page = admin.session.post(base + "/admin/workshop/jump", timeout=30, data={
         "nonce": admin.nonce, "instance": SLUG, "row_count": "1",
-        "kid-0": KID_C, "origin-0": origin,
+        "kid-0": KID_C, "origin-0": PUBLIC_A,
         "label-0": LABEL_A, "secret-0": SECRET_A})
     check("already namespaces the accounts" in page.text,
           "and the settings page refuses the same pairing rather than saving it")
     # Whatever that POST decided, the next checks need the two real keys back.
     admin.set_configs({"workshop_jump_keys": json.dumps(keys)})
 
+    # -- the server address, through the form (§52) -----------------------
+    print("== the settings page keeps a server address apart from the origin ==")
+
+    def save_a(server_address):
+        return admin.session.post(base + "/admin/workshop/jump", timeout=30, data={
+            "nonce": admin.nonce, "instance": SLUG, "row_count": "1",
+            "kid-0": KID_A, "origin-0": PUBLIC_A,
+            "server_origin-0": server_address, "label-0": LABEL_A})
+
+    page = save_a("jump-sk-service:3030/api")
+    stored = json.loads(admin.config("workshop_jump_keys") or "{}")
+    check("is not an origin" in page.text
+          and stored.get(KID_A, {}).get("server_origin") == origin,
+          "a server address that is not an origin is refused, nothing saved")
+    save_a(origin + "/")
+    stored = json.loads(admin.config("workshop_jump_keys") or "{}")
+    check(stored.get(KID_A, {}).get("server_origin") == origin
+          and stored[KID_A]["origin"] == PUBLIC_A
+          and stored[KID_A]["secret"] == SECRET_A,
+          "a valid one is saved beside the origin, the secret kept")
+    save_a("")
+    stored = json.loads(admin.config("workshop_jump_keys") or "{}")
+    check(KID_A in stored and "server_origin" not in stored[KID_A],
+          "a blank one is not stored, so it reads as the origin")
+    admin.set_configs({"workshop_jump_keys": json.dumps(keys)})
+
     # -- the calls that declare this instance on each Jump ----------------
     print("== the settings page hands over the calls that declare it on Jump ==")
     page = admin.session.get(base + "/admin/workshop/jump", timeout=30).text
-    for kid in (KID_A, KID_B):
-        check(f"<code>{kid}</code>, {origin}" in page,
-              f"one pair of calls for {kid}")
+    # Each key's calls are built from its public origin: an admin runs them
+    # from their own machine, where A's server address would not resolve.
+    for kid, public in ((KID_A, PUBLIC_A), (KID_B, origin)):
+        check(f"<code>{kid}</code>, {public}" in page,
+              f"one pair of calls for {kid}, to its public origin")
     # Rendered through Jinja, so the JSON quotes come back escaped.
-    check(page.count(f"{origin}/api/admin/write/workshop-instance") == 2
+    check(page.count(f"{PUBLIC_A}/api/admin/write/workshop-instance") == 1
+          and page.count(f"{origin}/api/admin/write/workshop-instance") == 1
           and f"&#34;instance&#34;: &#34;{SLUG}&#34;" in page,
           "the instance call names this instance's slug, once per key")
-    check(page.count(f"{origin}/api/admin/write/workshop ") == 2
+    check(page.count(f"{PUBLIC_A}/api/admin/write/workshop ") == 1
+          and page.count(f"{origin}/api/admin/write/workshop ") == 1
           and f"&#34;slug&#34;: &#34;{CONTENT}&#34;" in page,
           "the activity call names the synced content, once per key")
     # The address is the value a retyped call got wrong in production, and the

@@ -4481,7 +4481,7 @@ exemption for the server's IP was tried at the edge and did not hold.
 
 The instances run in the same cluster as Jump, and the Salesforce worker already reaches Jump at
 `http://jump-sk-service.jump-prod.svc.cluster.local:3030`. Pointing the key's `origin` there makes
-the callbacks work, and was done by hand on the production instances, but `origin` has two readers
+the callbacks work, and was done by hand on the production instances, but `origin` has three readers
 and that address suits only one of them:
 
 | Reader | Where | Needs |

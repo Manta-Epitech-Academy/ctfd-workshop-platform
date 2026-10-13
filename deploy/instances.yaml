@@ -39,8 +39,8 @@ defaults:
   # per environment, because one instance serving both the dev Jump and the
   # production one is exactly what a demo needs and costs nothing to allow.
   #
-  # The key id is what a ticket carries, and the `origin` below — never the
-  # ticket — is where this instance reports progress back to, so nobody can
+  # The key id is what a ticket carries, and the key below — never the
+  # ticket — says where this instance reports progress back to, so nobody can
   # redirect its callbacks. `origin` is Jump's public address, the one a
   # talent's browser follows from the login page. An instance that reaches
   # Jump more directly than its talents do (on the cluster, through Jump's

@@ -118,7 +118,8 @@ def _jump_block(name, block):
     than at run time.
 
     A bad origin or a duplicated label is a silent misroute once it is live:
-    the origin is where progress gets posted, and the label namespaces every
+    the origin is where a talent is sent and, without a `server_origin`,
+    where progress gets posted, and the label namespaces every
     account that key creates, so two keys sharing one merges two Jump
     environments into a single set of students.
     """

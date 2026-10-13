@@ -229,15 +229,32 @@ OUT = "/out/calls"
 os.makedirs(OUT, exist_ok=True)
 
 
+def record(handler, body):
+    name = "%.6f-%s.json" % (time.time(), uuid.uuid4().hex[:8])
+    with open(os.path.join(OUT, name), "w") as handle:
+        json.dump({"method": handler.command, "path": handler.path,
+                   "body": body.decode("utf-8", "replace"),
+                   "headers": {k: v for k, v in handler.headers.items()}}, handle)
+
+
 class Handler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        # What a followed redirect would land on: a 200 that is not Jump.
+        record(self, b"")
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html")
+        self.end_headers()
+        self.wfile.write(b"<html>not Jump</html>")
+
     def do_POST(self):
         body = self.rfile.read(int(self.headers.get("Content-Length") or 0))
-        record = {"path": self.path,
-                  "body": body.decode("utf-8", "replace"),
-                  "headers": {k: v for k, v in self.headers.items()}}
-        name = "%.6f-%s.json" % (time.time(), uuid.uuid4().hex[:8])
-        with open(os.path.join(OUT, name), "w") as handle:
-            json.dump(record, handle)
+        record(self, body)
+        if os.path.exists("/out/redirect"):
+            # An address that redirects, as `https://epiboost.fr` does.
+            self.send_response(301)
+            self.send_header("Location", "/elsewhere")
+            self.end_headers()
+            return
         answer, status = {"ok": True}, 200
         if self.path == "/api/workshops/erasures":
             # What Jump would say it has erased: whatever the script listed,
@@ -367,6 +384,14 @@ class Sink:
         """What the sink answers when asked which talents Jump erased."""
         with open(os.path.join(self.dir, "erased.json"), "w") as handle:
             json.dump(list(talent_ids), handle)
+
+    def redirecting(self, on):
+        """Make every POST answer a 301 to a page that answers GET with 200."""
+        flag = os.path.join(self.dir, "redirect")
+        if on:
+            open(flag, "w").close()
+        elif os.path.exists(flag):
+            os.remove(flag)
 
     def erasures_down(self, down):
         """Make the erasure question fail with a 503, or answer again."""
@@ -789,6 +814,32 @@ def main():
                           RETURN_DEADLINE, 2)
         check(bool(drained), "every queued row drained once the sink returned")
         check(len(sink.received) >= 1, "and the sink received what it had missed")
+
+    # -- §52 ---------------------------------------------------------------
+    print("== an address that redirects keeps the row, it does not follow ==")
+    sent = [e for e in admin.events(user_id=user_a) if e["status"] == "sent"]
+    if sent:
+        sink.redirecting(True)
+        sink.clear()
+        admin.api("POST", f"/workshop/jump/events/{sent[0]['id']}/resend")
+        refused = waitfor(
+            lambda: [e for e in admin.events(user_id=user_a)
+                     if e["id"] == sent[0]["id"] and e["status"] == "pending"
+                     and e["attempts"] > 0], DRAIN_DEADLINE)
+        check(bool(refused) and (refused[0]["last_error"] or "")
+              .startswith("HTTP 301 to /elsewhere"),
+              f"a 301 is a failure that names where it pointed "
+              f"({(refused[0]['last_error'] if refused else None)!r})")
+        check(not [c for c in sink.received if c.get("method") == "GET"],
+              "and the POST was not replayed as a GET on the redirect target")
+        sink.redirecting(False)
+        back = waitfor(
+            lambda: [e for e in admin.events(user_id=user_a)
+                     if e["id"] == sent[0]["id"] and e["status"] == "sent"],
+            RETURN_DEADLINE, 2)
+        check(bool(back), "the row goes out once the address answers again")
+    else:
+        print("  (no row was sent to resend, skipped)")
 
     # -- AC9 ---------------------------------------------------------------
     print("== a key id that is gone is dropped, not retried forever ==")

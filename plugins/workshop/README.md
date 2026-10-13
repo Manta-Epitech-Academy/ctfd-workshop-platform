@@ -275,8 +275,14 @@ to queue the solve in `workshop_jump_event` and a background drainer posts a sig
 callback, so a slow or absent Jump never slows a participant down.
 
 Two config keys, both provisioned by `tools/provision.py`: `workshop_jump_keys`
-(`{kid: {origin, secret, label}}`) and `workshop_jump_instance` (this instance's slug). Empty
-means every ticket is refused. `/admin/workshop/jump` edits both and shows the outbox.
+(`{kid: {origin, server_origin?, secret, label}}`) and `workshop_jump_instance` (this instance's
+slug). Empty means every ticket is refused. `/admin/workshop/jump` edits both and shows the outbox.
+
+**`origin` is where a browser goes; `server_origin` is where this server posts** (PLAN.md §52).
+The login page and the declaration calls use `origin`, Jump's public address. The progress
+callback and the erasure question go to `server_origin` when it is set, which on the cluster is
+Jump's Service: the public edge challenges a server as a bot. A redirect is never followed, so a
+wrong address shows on the outbox as `HTTP 301 to ...` instead of passing for delivered.
 
 **The slug names the host; the content names the activity** (PLAN.md §51). The slug stays the
 same when an instance moves on to another content. What Jump files a talent's participation and

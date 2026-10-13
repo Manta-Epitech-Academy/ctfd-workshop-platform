@@ -3005,6 +3005,9 @@ from the token**, so nobody can point this instance's reports somewhere else.
 `label` namespaces the synthetic email, and that is what keeps a dev talent off a production
 scoreboard when one instance serves both.
 
+A key may also carry `server_origin`, the address this server itself reaches Jump at, when that is
+not the public one: §52.
+
 **A label belongs to the accounts it namespaces, not to the key row that declared it.** The
 configuration is the current intent; it is not a history. A key id can be renamed, or removed and
 re-added, and `tools/provision.py` rewrites the whole map on every `setup` — so a rule enforced
@@ -4467,3 +4470,70 @@ and entries are not refused, since an older plugin ignores the claim.
 - CTFd's scoreboard sums every solve, hidden challenges included (`get_standings`), so a regular
   who comes back after a rotation leads the new room on the old content's points. Separate from
   this section.
+
+## 52. The address a talent clicks and the address the server posts to (2026-10-13)
+
+In production no PyPong step reached Jump. The outbox on `/admin/workshop/jump` held every row as
+`pending` with `HTTP 403: <title>Just a moment...</title>`: Cloudflare's bot challenge, answered to
+the instance's own POST to `https://jump.epiboost.fr/api/workshops/callback`. A talent's browser
+crosses that edge without trouble; a server in a datacenter is exactly what it is built to stop. An
+exemption for the server's IP was tried at the edge and did not hold.
+
+The instances run in the same cluster as Jump, and the Salesforce worker already reaches Jump at
+`http://jump-sk-service.jump-prod.svc.cluster.local:3030`. Pointing the key's `origin` there makes
+the callbacks work, and was done by hand on the production instances, but `origin` has two readers
+and that address suits only one of them:
+
+| Reader | Where | Needs |
+| --- | --- | --- |
+| This server: the progress callback, the erasure question | `jumpqueue.py` `_signed_post` | an address the pod resolves |
+| A talent's browser: "Continue with Jump" on the login page | `templates/login.html` | the public address |
+| An admin's shell: the declaration calls and the API reference link | `jump.py` `jump_declarations` | the public address |
+
+With the cluster address in `origin`, the login page sends a talent to a name no browser resolves.
+
+### 52.1 Two addresses, one of them optional
+
+A key is `{origin, server_origin?, secret, label}`. `origin` stays Jump's public address, and keeps
+every reader it had except one: this server's own calls go to `server_origin`, and to `origin` when
+it is empty. `server_origin()` in `jump.py` is the one place that says so. The settings page shows
+it as "Server address", beside the origin; `provision.py` accepts it in `deploy/instances.yaml`;
+none of the instances there sets it, since they sit outside the cluster and the public address is
+the only one they have.
+
+Optional rather than required, so a stored configuration means what it meant before, with no
+migration, and an instance outside the cluster has nothing to fill in.
+
+### 52.2 A redirect is an answer
+
+`requests.post` follows redirects, and a 301 or a 302 turns the POST into a GET on wherever it
+points. Measured: `https://epiboost.fr`, the `jump-prod` origin `deploy/instances.yaml` carried
+until this change, answers 301 to `https://epitech.eu/`, which answers the GET with a 200. The
+outbox would have marked every row sent, and the XP would have gone nowhere with nothing on the page
+to say so: the one failure §31.5 built the outbox to prevent. Jump answers its own routes directly,
+so a redirect only ever means the address is wrong. `_signed_post` no longer follows one, and the
+row keeps `HTTP 301 to <Location>` as its error. The origins in `deploy/instances.yaml` are
+corrected to the two Jumps that answer (`https://jump.epiboost.fr`, `https://jump-dev.epiboost.eu`).
+
+### 52.3 Verified
+
+`scripts/jump_check.py` configures key A with a public origin that resolves nowhere and the sink as
+its server address, and key B with the sink as its origin and no server address:
+
+- the login page links each key to its public origin and never to a server address;
+- the declaration calls are built from the public origin, once per key;
+- A's progress and erasure questions reach the sink, which they could only do through its server
+  address; B's reach it through the fallback;
+- the form refuses a server address that is not an origin, stores a valid one beside the origin with
+  the secret kept, and stores nothing for a blank one;
+- with the sink answering 301, a resent row stays `pending` with `HTTP 301 to /elsewhere`, the
+  redirect target is never fetched, and the row goes out once the sink answers again.
+
+### 52.4 Rejected
+
+- **More rules at the edge.** One was tried and did not hold, and a bot filter tuned for browsers
+  has no business on a call between two services of one cluster.
+- **The cluster address in `origin`.** It fixes the callback and breaks the talent's way back to
+  Jump.
+- **Deriving one address from the other.** They are independent facts: which name resolves inside
+  the cluster says nothing about which one resolves in a browser.

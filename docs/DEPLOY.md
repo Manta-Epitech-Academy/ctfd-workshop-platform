@@ -338,7 +338,7 @@ Two things have to agree, and `provision.py setup` writes both:
 | Config key | What it is |
 |---|---|
 | `workshop_jump_instance` | this instance's slug, which a ticket names as `workshop:<slug>`. Defaults to the instance name; set `jump_slug:` on an instance to override it. **Empty means every ticket is refused**, which is how a half-configured instance fails safely. |
-| `workshop_jump_keys` | `{key id: {origin, secret, label}}` — the Jump environments allowed to send talents here. Declared in `deploy/instances.yaml` under `defaults.jump:` (or per instance), with the secret merged in from `deploy/secrets.yaml`. |
+| `workshop_jump_keys` | `{key id: {origin, server_origin?, secret, label}}` — the Jump environments allowed to send talents here. `origin` is Jump's public address; `server_origin`, when set, is where this server posts progress instead (see *Things that will bite*). Declared in `deploy/instances.yaml` under `defaults.jump:` (or per instance), with the secret merged in from `deploy/secrets.yaml`. |
 
 **The shared secret is one value per Jump environment, not per instance.** A
 Jump deployment reads a single `WORKSHOP_TICKET_SECRET`, so `provision.py`
@@ -703,6 +703,13 @@ sync page — the example overlay carries it.
   with `REVERSE_PROXY` set or not. Anything that has to name the address
   talents use takes it from the browser (`location.origin`), as the Jump
   declaration does, never from the request.
+- **On the cluster, an instance must not reach Jump through the public edge.**
+  Cloudflare answers a server's POST with a bot challenge (`HTTP 403` and
+  `Just a moment...` in the outbox), so every progress report waits there and
+  no XP arrive. Set the key's **Server address** on `/admin/workshop/jump` to
+  Jump's Service, `http://jump-sk-service.jump-prod.svc.cluster.local:3030`
+  for `jump-prod` (`jump-dev` for the dev Jump), and leave **Origin** on the
+  public address: it is what the login page sends a talent to (PLAN.md §52).
 - **A plugin change needs a container restart.** `plugins/workshop/` is bind
   mounted, but Python imports it once at boot. `docker restart ctfd-<name>-ctfd-1`.
 - **Any change made to the database behind CTFd's back needs a cache flush.**

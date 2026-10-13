@@ -84,7 +84,7 @@ from CTFd.utils.decorators import admins_only
 
 from .accounts import delete_accounts
 from .jump import (JumpEvent, JumpLink, content_slug, derived_key, instance_slug, jump_keys,
-                   requeue, unverifiable_links)
+                   requeue, server_origin, unverifiable_links)
 from .progress import progress_for_user
 
 CALLBACK_PATH = "/api/workshops/callback"
@@ -197,13 +197,21 @@ def sign(body, secret, ts):
 
 
 def _signed_post(key, path, payload, extra_headers=None):
-    """POST `payload` to the key's origin, signed with the callback key.
-    Never raises: `(response, None)` on any answer, `(None, detail)` when
+    """POST `payload` to the key's server address, signed with the callback
+    key. Never raises: `(response, None)` on any answer, `(None, detail)` when
     there was none.
 
     Every request this instance makes to Jump goes through here: the progress
     callback and the erasure question share one key, one signature and one
     freshness window on the Jump side.
+
+    **A redirect is an answer, not a detour.** Followed, a 301 or a 302 turns
+    the POST into a GET on wherever it points, and whatever answers that GET
+    with a 200 marks the row sent: an origin set to `https://epiboost.fr`,
+    which redirects to a marketing site, would have lost every report it
+    carried with nothing on this page to say so (PLAN.md §52). Jump answers its
+    own routes directly, so a redirect only ever means the address is wrong,
+    and the row keeps it as its error.
     """
     # Serialized once, and passed as `data=`. With `json=`, requests would
     # re-serialize the dict and the signature would stop covering the bytes
@@ -217,10 +225,21 @@ def _signed_post(key, path, payload, extra_headers=None):
         **(extra_headers or {}),
     }
     try:
-        return requests.post(key["origin"] + path, data=body, headers=headers,
-                             timeout=TIMEOUT), None
+        return requests.post(server_origin(key) + path, data=body,
+                             headers=headers, timeout=TIMEOUT,
+                             allow_redirects=False), None
     except requests.RequestException as exc:
         return None, f"{type(exc).__name__}: {exc}"[:500]
+
+
+def _refusal(response):
+    """What a non-2xx answer becomes on the outbox page: where a redirect
+    pointed, since that is the misconfiguration it reveals, or the start of the
+    body otherwise."""
+    if response.is_redirect:
+        return (f"HTTP {response.status_code} to "
+                f"{response.headers.get('Location', '?')}")
+    return f"HTTP {response.status_code}: {response.text[:200]}"
 
 
 def post_event(event, key, slug):
@@ -236,7 +255,7 @@ def post_event(event, key, slug):
         return False, detail
     if 200 <= response.status_code < 300:
         return True, None
-    return False, f"HTTP {response.status_code}: {response.text[:200]}"
+    return False, _refusal(response)
 
 
 def _back_off(event, detail):
@@ -280,7 +299,7 @@ def erased_among(key, talent_ids):
     if response is None:
         return None, detail
     if not 200 <= response.status_code < 300:
-        return None, f"HTTP {response.status_code}: {response.text[:200]}"
+        return None, _refusal(response)
     try:
         erased = response.json().get("erased")
     except (ValueError, AttributeError):

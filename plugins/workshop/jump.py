@@ -47,12 +47,22 @@ is a better token here: with no `alg` header, the whole "alg: none" /
 
 ## The key id is what makes one instance serve two Jumps
 
-`workshop_jump_keys` is a map `{kid: {origin, secret, label}}` from day one.
-The `kid` in the ticket selects the verification key, and **the callback origin
-comes from that key's configuration, never from the token** — so nobody can
-influence where this instance reports progress. `label` namespaces the
-synthetic email, which is what keeps a dev talent off a production scoreboard
-when one instance serves `epiboost.eu` and `epiboost.fr` at once.
+`workshop_jump_keys` is a map `{kid: {origin, secret, label}}` from day one,
+plus an optional `server_origin` (below). The `kid` in the ticket selects the
+verification key, and **the callback origin comes from that key's
+configuration, never from the token** — so nobody can influence where this
+instance reports progress. `label` namespaces the synthetic email, which is
+what keeps a dev talent off a production scoreboard when one instance serves
+`epiboost.eu` and `epiboost.fr` at once.
+
+**Two parties reach Jump, and not at the same address** (PLAN.md §52).
+`origin` is Jump's public address: the one a talent's browser is sent to from
+the login page, and the one the declaration calls are printed with, since an
+admin runs those from their own machine. `server_origin` is where this
+server posts progress and asks about erasures, when it can reach Jump more
+directly than through the public edge: on the cluster, Jump's Service, because
+the edge challenges a datacenter caller as a bot. Empty means `origin`, and
+`server_origin()` is the one place that says so.
 
 **A label belongs to the accounts it namespaces, not to the key row that
 declared it.** Each link row records the label it was created under, and that
@@ -292,7 +302,8 @@ class TicketError(Exception):
 # --------------------------------------------------------------------------
 
 def jump_keys():
-    """The allowlist, `{kid: {origin, secret, label}}`, or empty.
+    """The allowlist, `{kid: {origin, secret, label}}`, or empty. A key may
+    also carry `server_origin`; read it through `server_origin()`.
 
     Empty means this instance refuses every ticket. Failing closed is the only
     safe default: a misconfigured instance must not be a door.
@@ -308,6 +319,15 @@ def jump_keys():
         return {}
     return {k: v for k, v in keys.items() if isinstance(v, dict)
             and v.get("origin") and v.get("secret") and v.get("label")}
+
+
+def server_origin(key):
+    """Where this server reaches the key's Jump: `server_origin`, else `origin`.
+
+    Only this server's own calls read it. Anything a browser follows or an
+    admin copies keeps `origin`, which is the address that resolves outside.
+    """
+    return key.get("server_origin") or key["origin"]
 
 
 def set_jump_keys(keys):
@@ -391,6 +411,8 @@ def jump_declarations(keys, instance, content):
         return []
     out = []
     for kid, key in keys.items():
+        # `origin`, never `server_origin()`: the admin runs these from their
+        # own machine, where a cluster-internal address does not resolve.
         origin = key["origin"].rstrip("/")
         out.append({
             "kid": kid,
@@ -897,9 +919,11 @@ def unverifiable_links(keys=None):
 def _parse_rows(form, stored):
     """The submitted key rows, or `(None, errors)`.
 
-    Row `i` is `kid-i` / `origin-i` / `label-i` / `secret-i` / `remove-i`. A
-    blank secret on an existing kid keeps the stored one, so an admin can fix a
-    typo in an origin without being handed the secret back through the DOM.
+    Row `i` is `kid-i` / `origin-i` / `server_origin-i` / `label-i` /
+    `secret-i` / `remove-i`. A blank secret on an existing kid keeps the stored
+    one, so an admin can fix a typo in an origin without being handed the
+    secret back through the DOM. A blank `server_origin` is not stored at all,
+    so it reads as `origin` (`server_origin()`).
 
     The label rules are one rule read in both directions, against the accounts
     that exist rather than against the keys that are configured: a label is
@@ -913,6 +937,7 @@ def _parse_rows(form, stored):
         if not kid or form.get(f"remove-{i}"):
             continue
         origin = (form.get(f"origin-{i}") or "").strip().rstrip("/")
+        backend = (form.get(f"server_origin-{i}") or "").strip().rstrip("/")
         label = (form.get(f"label-{i}") or "").strip().lower()
         secret = (form.get(f"secret-{i}") or "").strip()
         if not KID_RE.match(kid):
@@ -920,6 +945,10 @@ def _parse_rows(form, stored):
             continue
         if not ORIGIN_RE.match(origin):
             errors.append(f"{kid}: {origin!r} is not an origin "
+                          f"(scheme and host only, no path)")
+            continue
+        if backend and not ORIGIN_RE.match(backend):
+            errors.append(f"{kid}: server address {backend!r} is not an origin "
                           f"(scheme and host only, no path)")
             continue
         if not LABEL_RE.match(label):
@@ -953,6 +982,8 @@ def _parse_rows(form, stored):
             secret = was["secret"]
         labels[label] = kid
         keys[kid] = {"origin": origin, "secret": secret, "label": label}
+        if backend:
+            keys[kid]["server_origin"] = backend
     return (None, errors) if errors else (keys, [])
 
 

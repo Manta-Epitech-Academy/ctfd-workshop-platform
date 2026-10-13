@@ -108,11 +108,18 @@ def load_manifest():
     return data
 
 
+# The plugin's own rule (plugins/workshop/jump.py `ORIGIN_RE`), which this
+# script cannot import: it runs outside CTFd, where the plugin does not load.
+ORIGIN_RE = re.compile(r"https?://[A-Za-z0-9.-]+(:\d+)?")
+
+
 def _jump_block(name, block):
-    """`{kid: {origin, label}}`, refused at load time rather than at run time.
+    """`{kid: {origin, label, server_origin?}}`, refused at load time rather
+    than at run time.
 
     A bad origin or a duplicated label is a silent misroute once it is live:
-    the origin is where progress gets posted, and the label namespaces every
+    the origin is where a talent is sent and, without a `server_origin`,
+    where progress gets posted, and the label namespaces every
     account that key creates, so two keys sharing one merges two Jump
     environments into a single set of students.
     """
@@ -123,12 +130,16 @@ def _jump_block(name, block):
         if not isinstance(key, dict):
             sys.exit(f"{name}: jump key {kid!r} must be a map")
         origin = str(key.get("origin") or "").strip().rstrip("/")
+        backend = str(key.get("server_origin") or "").strip().rstrip("/")
         label = str(key.get("label") or "").strip().lower()
         if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}", str(kid)):
             sys.exit(f"{name}: {kid!r} is not a usable jump key id")
-        if not re.fullmatch(r"https?://[A-Za-z0-9.-]+(:\d+)?", origin):
+        if not ORIGIN_RE.fullmatch(origin):
             sys.exit(f"{name}: jump key {kid}: {origin!r} is not an origin "
                      f"(scheme and host only, no path)")
+        if backend and not ORIGIN_RE.fullmatch(backend):
+            sys.exit(f"{name}: jump key {kid}: server_origin {backend!r} is not "
+                     f"an origin (scheme and host only, no path)")
         if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,31}", label):
             sys.exit(f"{name}: jump key {kid}: {label!r} is not a usable label")
         if label in labels:
@@ -136,6 +147,10 @@ def _jump_block(name, block):
                      f"label {label!r}; their accounts would collide")
         labels[label] = kid
         out[str(kid)] = {"origin": origin, "label": label}
+        if backend:
+            # Optional, and only written when set: an absent one reads as
+            # `origin` on the instance (jump.py `server_origin`).
+            out[str(kid)]["server_origin"] = backend
     return out
 
 

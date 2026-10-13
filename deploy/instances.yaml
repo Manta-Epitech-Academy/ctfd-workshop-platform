@@ -39,9 +39,14 @@ defaults:
   # per environment, because one instance serving both the dev Jump and the
   # production one is exactly what a demo needs and costs nothing to allow.
   #
-  # The key id is what a ticket carries, and the `origin` below — never the
-  # ticket — is where this instance reports progress back to, so nobody can
-  # redirect its callbacks. The `label` namespaces the accounts that
+  # The key id is what a ticket carries, and the key below — never the
+  # ticket — says where this instance reports progress back to, so nobody can
+  # redirect its callbacks. `origin` is Jump's public address, the one a
+  # talent's browser follows from the login page. An instance that reaches
+  # Jump more directly than its talents do (on the cluster, through Jump's
+  # Service) also sets `server_origin`, and posts there instead (PLAN.md §52).
+  # These instances do not: they sit outside the cluster, where the public
+  # address is the only one. The `label` namespaces the accounts that
   # environment creates: it is what keeps a dev talent out of a production
   # scoreboard, so it must differ between entries and must not be renamed once
   # accounts exist.
@@ -52,10 +57,10 @@ defaults:
   # secrets.yaml under `jump_secrets:` first and provision.py will keep it.
   jump:
     jump-prod:
-      origin: https://epiboost.fr
+      origin: https://jump.epiboost.fr
       label: prod
     jump-dev:
-      origin: https://epiboost.eu
+      origin: https://jump-dev.epiboost.eu
       label: dev
 
 # `source` is the repository an instance imports from when somebody presses Sync

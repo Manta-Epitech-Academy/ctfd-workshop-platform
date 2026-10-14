@@ -28,6 +28,18 @@
 </div>
 
 <div class="container">
+  {# Right after /supervisor/join (staff.py), once: the moment a supervisor
+     needs this address is after a logout or an expired session, and by then
+     the join page is gone. Jump has no account for them (PLAN.md §55).
+     Supervisors only: an admin knows where the staff form is. #}
+  {% if request.args.get("joined") and not is_admin() %}
+    {% set staff_door = url_for('auth.login', staff=1, _external=True) %}
+    <div class="alert alert-info ws-joined" role="status">
+      <strong>Your supervisor account is ready.</strong>
+      It is a local account on this instance, not a Jump one: to sign in again
+      later, go to <a href="{{ staff_door }}">{{ staff_door }}</a>. Bookmark it.
+    </div>
+  {% endif %}
   {% include "workshop_scope.html" %}
   <div class="row text-center ws-st-totals">
     <div class="col-6 col-md-3"><h5><b>{{ totals.participants }}</b> <small class="text-muted">participant{{ "" if totals.participants == 1 else "s" }}</small></h5></div>

@@ -279,7 +279,10 @@ def join():
             log("registrations",
                 format="[{date}] {ip} - {name} joined as a supervisor with {email}",
                 name=user.name, email=user.email)
-            return redirect(url_for("workshop_stats.stats"))
+            # `joined` asks the statistics page to say, once, where this
+            # account signs in again: the join page is read before the
+            # address matters, and it matters days later (PLAN.md §55).
+            return redirect(url_for("workshop_stats.stats", joined=1))
 
     return render_template("workshop_supervisor_join.html", errors=errors,
                            name=name, email=email_address)

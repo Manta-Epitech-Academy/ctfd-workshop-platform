@@ -398,6 +398,13 @@ msgstr "Le glossaire de cette étape est dans la boîte à outils."
 msgid "The workshop is not open yet"
 msgstr "L'atelier n'est pas encore ouvert"
 
+msgid ""
+"This creates a local supervisor account, not a Jump one. To sign in again "
+"later, go to %(link)s."
+msgstr ""
+"Cela crée un compte superviseur local, pas un compte Jump. Pour vous "
+"reconnecter plus tard, allez sur %(link)s."
+
 msgid "This link is no longer valid"
 msgstr "Ce lien n'est plus valable"
 

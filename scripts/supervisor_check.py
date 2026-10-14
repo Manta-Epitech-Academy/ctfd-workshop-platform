@@ -154,6 +154,14 @@ check(joining.status_code == 200, "with a code set, /supervisor/join renders")
 check("epi-login-credit" in joining.text, "on the login layout, credit included")
 check("/supervisor/join" in anon.get(STAFF_DOOR, timeout=20).text,
       "and the login page's staff door links to it")
+# The way back (PLAN.md §55): a supervisor is a password account, and on an
+# instance on Jump the bare /login sends them away. Matched by href, since the
+# sentence around it is translated.
+check(re.search(r'class="[^"]*ws-join-door[^"]*"[^>]*>[^<]*<a href="https?://[^"]+/login\?staff=1"',
+                joining.text) is not None,
+      "the join page names the staff sign-in address, absolute")
+check("ws-join-door" in joining.text and "Jump" in joining.text.split("ws-join-door", 1)[1][:400],
+      "and says the account is not a Jump one")
 
 wrong = requests.Session()
 name_wrong = "svcheckw" + RUN
@@ -173,6 +181,15 @@ created.append(name_sup)
 r = join(sup, CODE, name_sup)
 check(r.status_code == 302 and "/admin/workshop/stats" in r.headers.get("Location", ""),
       "the right code creates the account and lands on the statistics")
+landing = sup.get(BASE + r.headers["Location"].replace(BASE, ""), timeout=20).text
+check("ws-joined" in landing and "/login?staff=1" in landing.split("ws-joined", 1)[1][:600],
+      "which says, once, where to sign in again")
+check("ws-joined" not in sup.get(BASE + "/admin/workshop/stats", timeout=20).text,
+      "and not on the next visit")
+check("/admin" not in landing.split("ws-joined", 1)[1].split("</div>", 1)[0].replace("/admin/workshop", ""),
+      "and does not send a supervisor to /admin")
+check("ws-joined" not in admin.s.get(BASE + "/admin/workshop/stats?joined=1", timeout=20).text,
+      "an admin never gets the reminder")
 
 print("what a supervisor opens")
 for path in ALLOWED:

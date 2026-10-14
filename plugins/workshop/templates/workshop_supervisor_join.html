@@ -25,6 +25,18 @@
   <p class="epi-login-sub">
     {% trans %}For the people running the room. You will see the answers, who is where, what was submitted and the feedback — and you will not appear among the participants.{% endtrans %}
   </p>
+  {#
+    A supervisor signs in with a password, never through Jump, so the staff
+    form is their only door back (PLAN.md §53.3, §55). Said here because
+    somebody joining has no reason to guess that the bare /login of an
+    instance on Jump would send them away. The address is built, not typed:
+    it is the instance's own on every deploy.
+  #}
+  {% set staff_door = url_for('auth.login', staff=1, _external=True) %}
+  {% set staff_link %}<a href="{{ staff_door }}">{{ staff_door }}</a>{% endset %}
+  <p class="epi-login-sub ws-join-door">
+    {% trans link=staff_link %}This creates a local supervisor account, not a Jump one. To sign in again later, go to {{ link }}.{% endtrans %}
+  </p>
 {% endblock %}
 
 {% block login_main %}

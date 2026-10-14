@@ -4634,3 +4634,28 @@ the plugin's blueprints.
 
 The check scripts read their CSRF nonce from `/login?staff=1` rather than the bare `/login`: the
 staff form is the door their password sign-ins use, and it is the one that never sends anybody away.
+
+## 55. A supervisor is told where their door is (2026-10-14)
+
+§53.3 accepted a cost: a password account that is not staff-by-URL has no door drawn for it once
+`/` and the bare `/login` send everybody to Jump. A supervisor is such an account. Jump has no
+account for them, so a supervisor whose session expires, or who logs out, lands on Jump's login and
+cannot get back in from there. Their door is the staff form, `/login?staff=1`, and nothing told
+them so.
+
+Two places say it now, both with the address built by `url_for(..., _external=True)`, so it is the
+instance's own on every deploy:
+
+- **The join page** (`/supervisor/join`), under its lead: this creates a local supervisor account,
+  not a Jump one, and the address to sign in again. Translated like the rest of that page, since the
+  person reading it has not signed in yet.
+- **The statistics page, once**, right after joining (`staff.py` redirects with `joined=1`). The
+  join page is read before the address matters; it matters after a logout, days later, so the
+  reminder sits on the first page they land on and asks them to bookmark it. English, like every
+  staff page. Never shown to an admin, who knows where the staff form is.
+
+Neither mentions `/admin`: a supervisor is not an admin, even though a bare `/admin` opens the same
+form (§53.2).
+
+`scripts/supervisor_check.py` checks both: the absolute address on the join page, the reminder
+once and not on the next visit, no `/admin` in it, and no reminder for an admin.

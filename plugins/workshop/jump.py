@@ -142,6 +142,7 @@ from sqlalchemy.exc import IntegrityError
 from CTFd.cache import cache
 from CTFd.models import Users, db
 from CTFd.utils import get_config, set_config
+from CTFd.utils.config.integrations import mlc_registration
 from CTFd.utils.config.visibility import registration_visible
 from CTFd.utils.decorators import admins_only
 from CTFd.utils.logging import log
@@ -451,8 +452,13 @@ def jump_is_the_way_in():
     setting of its own: an instance that lets people register (a self-serve
     one, an instructor-led one with a code) serves participants who never
     went through Jump, and its front door is theirs.
+
+    Registration is core's form or Major League Cyber's, asked separately
+    because core's `registration_visible()` is false for `"mlc"`: an MLC
+    instance's participants sign in from the login page and its error
+    messages are flashed there, so it keeps it.
     """
-    return jump_enabled() and not registration_visible()
+    return jump_enabled() and not (registration_visible() or mlc_registration())
 
 
 def talent_door():

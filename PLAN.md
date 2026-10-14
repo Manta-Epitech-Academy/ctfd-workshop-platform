@@ -4561,7 +4561,9 @@ the activity.
 ### 53.1 The rule
 
 **Jump is the only way in** when a Jump door is configured (`jump_enabled()`) and the instance offers
-no registration of its own (`registration_visible()` false): `jump_is_the_way_in()` in `jump.py`.
+no registration of its own, neither core's form (`registration_visible()`) nor Major League Cyber's
+(`mlc_registration()`, which core's `registration_visible()` reads as closed):
+`jump_is_the_way_in()` in `jump.py`.
 Then `landing.py` sends an anonymous GET:
 
 - from `/` to Jump, or, when the instance answers to several Jumps, to the talent door, which is the

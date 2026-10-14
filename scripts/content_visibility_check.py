@@ -125,7 +125,7 @@ def participant(base, admin_pass):
 def admin(base, password):
     s = requests.Session()
     nonce = re.search(r"'csrfNonce':\s*\"([0-9a-f]+)\"",
-                      s.get(base + "/login", timeout=20).text).group(1)
+                      s.get(base + "/login?staff=1", timeout=20).text).group(1)
     s.post(base + "/login", data={"name": "admin", "password": password,
                                   "nonce": nonce}, timeout=20)
     return s

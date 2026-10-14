@@ -57,7 +57,7 @@ async function register(page, who) {
 }
 
 async function login(page, who) {
-  const n = await nonce(page, "/login");
+  const n = await nonce(page, "/login?staff=1");
   await page.evaluate(async ({ who, n, BASE }) => {
     const body = new URLSearchParams({
       name: who.name, password: who.pw, nonce: n, _submit: "Submit",

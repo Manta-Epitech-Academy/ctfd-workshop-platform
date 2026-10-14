@@ -64,7 +64,7 @@ def nonce(s, path="/"):
 admin = session()
 admin.post(BASE + "/login", timeout=20,
            data={"name": "admin", "password": ADMIN_PASS,
-                 "nonce": nonce(admin, "/login"), "_submit": "Submit"})
+                 "nonce": nonce(admin, "/login?staff=1"), "_submit": "Submit"})
 TOKEN = nonce(admin, PAGE)
 if TOKEN is None or admin.get(BASE + PAGE, timeout=20).status_code != 200:
     sys.exit(f"{PAGE} does not answer — not an admin session, or an old image")
@@ -184,7 +184,7 @@ print("\n== that account can do nothing else ==")
 who = session()
 who.post(BASE + "/login", timeout=20,
          data={"name": f"exta-{RUN}", "password": f"exta-{RUN}-pass",
-               "nonce": nonce(who, "/login"), "_submit": "Submit"})
+               "nonce": nonce(who, "/login?staff=1"), "_submit": "Submit"})
 doors = {d: who.get(BASE + d, timeout=20, allow_redirects=False).status_code
          for d in ("/admin", "/admin/users", PAGE, "/admin/workshop/stats",
                    "/admin/workshop/answers", "/admin/workshop/plugin")}
@@ -228,8 +228,10 @@ check(requests.get(BASE + ROUTE, timeout=20).status_code == 404,
 
 print("\n== and nothing tells anybody it is there ==")
 surfaces = {
-    "/": requests.get(BASE + "/", timeout=20).text,
-    "/login": requests.get(BASE + "/login", timeout=20).text,
+    # This instance's own answers, not Jump's: where Jump is the only way in,
+    # both send an anonymous visitor there (landing.py, PLAN.md §53).
+    "/": requests.get(BASE + "/", timeout=20, allow_redirects=False).text,
+    "/login": requests.get(BASE + "/login", timeout=20, allow_redirects=False).text,
     "/supervisor/join": requests.get(BASE + "/supervisor/join", timeout=20).text,
     "/workshop (signed in)": admin.get(BASE + "/workshop", timeout=20).text,
     "/challenges (signed in)": admin.get(BASE + "/challenges", timeout=20).text,

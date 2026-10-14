@@ -76,7 +76,7 @@ def nonce(s, path="/"):
 class Admin:
     def __init__(self):
         self.s = requests.Session()
-        n = nonce(self.s, "/login")
+        n = nonce(self.s, "/login?staff=1")
         self.s.post(BASE + "/login", data={"name": "admin", "password": ADMIN_PASS,
                                            "nonce": n, "_submit": "Submit"}, timeout=20)
         self.nonce = nonce(self.s)
@@ -231,7 +231,7 @@ check(r.ok, "a plain participant account can be created for the grant test")
 r = admin.manage(action="grant", who=name_user)
 check("notice=granted" in r.url, "an existing account can be granted the role by name")
 user = requests.Session()
-n = nonce(user, "/login")
+n = nonce(user, "/login?staff=1")
 user.post(BASE + "/login", data={"name": name_user, "password": "svcheck-pass-" + RUN,
                                  "nonce": n, "_submit": "Submit"}, timeout=20)
 check(user.get(BASE + "/admin/workshop/stats", timeout=20, allow_redirects=False).status_code == 200,
@@ -255,7 +255,7 @@ r = admin.manage(action="create", name=name_made, email=f"{name_made}@svcheck.in
 check("notice=invalid" in r.url and "why=" in r.url and not r.url.endswith("why="),
       "and is told why a duplicate is refused")
 made = requests.Session()
-n = nonce(made, "/login")
+n = nonce(made, "/login?staff=1")
 made.post(BASE + "/login", data={"name": name_made, "password": "svcheck-pass-" + RUN,
                                  "nonce": n, "_submit": "Submit"}, timeout=20)
 check(made.get(BASE + "/admin/workshop/stats", timeout=20, allow_redirects=False).status_code == 200,

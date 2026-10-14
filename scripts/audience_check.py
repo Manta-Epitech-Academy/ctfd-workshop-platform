@@ -53,7 +53,7 @@ def nonce(s, path="/"):
 admin = requests.Session()
 admin.post(BASE + "/login", timeout=20,
            data={"name": "admin", "password": ADMIN_PASS,
-                 "nonce": nonce(admin, "/login"), "_submit": "Submit"})
+                 "nonce": nonce(admin, "/login?staff=1"), "_submit": "Submit"})
 TOKEN = nonce(admin, PAGE)
 if TOKEN is None:
     sys.exit(f"{PAGE} does not answer — not an admin session, or an old image")
@@ -127,7 +127,7 @@ def make(name, password, code=None):
     s = requests.Session()
     s.post(BASE + "/login", timeout=20,
            data={"name": name, "password": password,
-                 "nonce": nonce(s, "/login"), "_submit": "Submit"})
+                 "nonce": nonce(s, "/login?staff=1"), "_submit": "Submit"})
     return row["id"], name, s
 
 

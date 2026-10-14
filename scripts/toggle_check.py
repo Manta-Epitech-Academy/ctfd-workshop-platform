@@ -63,7 +63,7 @@ def nonce(path="/"):
 
 s.post(BASE + "/login", timeout=20,
        data={"name": "admin", "password": ADMIN_PASS,
-             "nonce": nonce("/login"), "_submit": "Submit"})
+             "nonce": nonce("/login?staff=1"), "_submit": "Submit"})
 if s.get(BASE + PLUGIN, timeout=20).status_code != 200:
     sys.exit(f"{PLUGIN} does not answer — not an admin session, or an old image")
 

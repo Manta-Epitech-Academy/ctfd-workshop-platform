@@ -4613,6 +4613,13 @@ the plugin's blueprints.
 - **The external join's sign-in link opens the staff form**, whose line says it is the staff area.
   An external participant reads one line meant for staff; that was already the door their password
   opened, one click further.
+- **A password account that is not staff has no door drawn for it any more.** An external
+  participant who logs out, or whose session expires on `/workshop`, is sent to Jump, which has no
+  account for them; so is a supervisor whose session expires on a page outside `/admin`. The talent
+  door used to be one "Staff sign-in" click from their form. Their way back is the staff form,
+  `/login?staff=1`, which the external and supervisor joins link to while they are open and which a
+  bare `/admin` opens too. Telling them apart from a talent would need the session that just ended,
+  the same reason logging out is accepted above.
 
 ### 53.4 Verified
 

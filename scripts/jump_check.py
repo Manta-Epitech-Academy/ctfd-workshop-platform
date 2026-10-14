@@ -185,6 +185,12 @@ class Admin:
     def links(self):
         return self.api("GET", "/workshop/jump/links").json()["data"]
 
+    def switch(self, to):
+        """Turn the plugin "on" or "off" (toggle.py, PLAN.md §39)."""
+        page = "/admin/workshop/plugin"
+        self.session.post(self.base + page, timeout=20, data={
+            "nonce": nonce(self.session, self.base, page), "enabled": to})
+
 
 # --------------------------------------------------------------------------
 # The ticket, minted exactly as the contract says Jump mints it
@@ -476,7 +482,9 @@ def main():
 
     def restore():
         # Ordered so the instance is never left accepting this script's keys:
-        # config first, then the accounts.
+        # config first, then the accounts. The plugin is switched off for one
+        # section and was on to begin with, or nothing here would answer.
+        admin.switch("on")
         admin.set_configs(saved)
         for user_id in created:
             admin.api("DELETE", f"/users/{user_id}")
@@ -567,6 +575,15 @@ def main():
           f"`next` a supervisor could not follow ({where})")
     check(lands("/login?next=/admin/workshop/stats")[0] == 200,
           "and so does an admin page bounced to the login")
+    # Every hook reads the switch: guard_routes only covers the plugin's own
+    # blueprints, and `/`, `/login` and `/admin` are core's.
+    admin.switch("off")
+    check(lands("/")[0] == 200 and lands("/login")[0] == 200,
+          "switched off, / and /login are core's again")
+    status, where = lands("/admin")
+    check(status == 302 and where.endswith("/login"),
+          f"and so is a bare /admin ({where})")
+    admin.switch("on")
     admin.set_configs({"workshop_jump_keys": json.dumps(keys),
                        "registration_visibility": "public"})
 

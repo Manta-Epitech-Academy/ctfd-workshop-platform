@@ -4620,7 +4620,8 @@ the plugin's blueprints.
 - with one key, `/`, `/login` and `/login?next=%2Fworkshop` answer 302 to the key's public origin;
 - `/login?staff=1` is the form, a bare `/admin` answers 302 to `/login?staff=1`, and an admin page
   bounced to the login opens on the staff form;
-- with registration open, `/` and `/login` answer 200 as before.
+- with registration open, `/` and `/login` answer 200 as before;
+- switched off, `/` and `/login` answer 200 and a bare `/admin` goes to core's bare `/login`.
 
 The check scripts read their CSRF nonce from `/login?staff=1` rather than the bare `/login`: the
 staff form is the door their password sign-ins use, and it is the one that never sends anybody away.

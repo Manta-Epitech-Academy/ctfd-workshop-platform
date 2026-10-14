@@ -29,6 +29,8 @@ from CTFd.models import Challenges
 from CTFd.utils import get_config
 from CTFd.utils.challenges import get_solve_ids_for_user_id
 
+from .intro import hidden_intro_ids
+
 # A pure note is text rather than work: it stays out of the progress counters
 # and never becomes the current step. `rating` is NOT in here on purpose — see
 # the module docstring.
@@ -60,15 +62,20 @@ def optional_ids():
     return id_set("workshop_optional")
 
 
-def counts(challenge, optional):
+def counts(challenge, optional, hidden=None):
     """Does this step count towards progress?
 
     `optional` is passed in rather than read here so a caller iterating over a
-    board reads the config once instead of once per step. A non-quiz challenge
-    has no `quiz_type` at all, hence the defensive getattr.
+    board reads the config once instead of once per step; `hidden`, the
+    hidden introductions (intro.py), for the same reason — None reads them,
+    at one query per call, for a caller that asks about a single step. A
+    non-quiz challenge has no `quiz_type` at all, hence the defensive getattr.
     """
+    if hidden is None:
+        hidden = hidden_intro_ids()
     return (getattr(challenge, "quiz_type", None) not in NON_TASK_KINDS
-            and challenge.id not in optional)
+            and challenge.id not in optional
+            and challenge.id not in hidden)
 
 
 def count_steps(steps):
@@ -90,7 +97,8 @@ def counted_ids(challenges=None, optional=None):
         challenges = ordered_challenges()
     if optional is None:
         optional = optional_ids()
-    return {c.id for c in challenges if counts(c, optional)}
+    hidden = hidden_intro_ids()
+    return {c.id for c in challenges if counts(c, optional, hidden)}
 
 
 def progress_for_user(user_id):

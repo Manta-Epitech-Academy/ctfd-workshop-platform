@@ -1087,3 +1087,4 @@ def load_jump(app):
     app.jinja_env.globals["jump_enabled"] = jump_enabled
     app.jinja_env.globals["jump_keys"] = jump_keys
     app.jinja_env.globals["login_is_staff"] = login_is_staff
+    app.jinja_env.globals["jump_is_the_way_in"] = jump_is_the_way_in

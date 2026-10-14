@@ -18,6 +18,7 @@ from CTFd.models import Fails, Solves
 
 from .answers import _attendees, group_for_sheet
 from .links import documents as _documents
+from .intro import hidden_intro_ids
 from .progress import counts as _counts
 from .progress import optional_ids as _optional_ids
 from .progress import ordered_challenges as _ordered_challenges
@@ -43,6 +44,7 @@ def collect():
                     if a["current_id"] is not None and not a["finished"])
     people = len(attendees)
 
+    hidden = hidden_intro_ids()
     parts = []
     for title, members in group_for_sheet(challenges, _documents()):
         rows = []
@@ -54,7 +56,7 @@ def collect():
                 "name": c.name,
                 "kind": getattr(c, "quiz_type", None) or c.type,
                 "optional": c.id in optional,
-                "counts": _counts(c, optional),
+                "counts": _counts(c, optional, hidden),
                 "solved": solved,
                 "failed": failed,
                 "percent": round(100 * solved / people) if people else 0,

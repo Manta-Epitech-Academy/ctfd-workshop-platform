@@ -308,8 +308,11 @@
           </a>
         {% endif %}
         {# Not on the login page itself, where it would be a button to the page
-           the reader is already on, beside a form offering the same. #}
-        {% if request.endpoint != 'auth.login' %}
+           the reader is already on, beside a form offering the same. Nor when
+           Jump is the only way in (§53): the button would lead to /login,
+           which sends a talent on to Jump, and staff come in by
+           /login?staff=1 or /admin. #}
+        {% if request.endpoint != 'auth.login' and not jump_is_the_way_in() %}
           <a class="epi-cta-on-band btn btn-primary btn-sm" href="{{ url_for('auth.login') }}">
             {% trans %}Login{% endtrans %}
           </a>

@@ -22,6 +22,8 @@ from flask import Blueprint, redirect, render_template, request, url_for
 from CTFd.utils import get_config, set_config
 from CTFd.utils.decorators import admins_only
 
+from .intro import intro_hidden, set_intro_hidden
+
 from .staff import supervisor_code, supervisors
 
 INSTRUCTOR_LED = "instructor_led"
@@ -60,11 +62,14 @@ def settings():
         wanted = request.form.get("workshop_mode")
         if wanted in MODES:
             set_config(CONFIG_KEY, wanted)
+            # Tick boxes travel with the form: absent means unticked.
+            set_intro_hidden("intro_hidden" in request.form)
             saved = True
         else:
             return redirect(url_for("workshop_mode.settings"))
     return render_template(
         "workshop_settings.html", mode=current_mode(), labels=LABELS, saved=saved,
+        intro_hidden=intro_hidden(),
         # The supervisor tier is managed on this page too (staff.py handles
         # the POSTs, at /admin/workshop/supervisors); `notice` is what one of
         # them has to say on the way back.

@@ -477,7 +477,9 @@ def main():
              "workshop_jump_instance": admin.config("workshop_jump_instance") or "",
              "workshop_content": admin.config("workshop_content") or "",
              "registration_visibility":
-                 admin.config("registration_visibility") or "public"}
+                 admin.config("registration_visibility") or "public",
+             # Empty reads as unset, which is hidden (intro.py).
+             "workshop_intro_hidden": admin.config("workshop_intro_hidden") or ""}
     created = []
 
     def restore():
@@ -501,7 +503,13 @@ def main():
     admin.set_configs({"workshop_jump_keys": json.dumps(keys),
                        "workshop_jump_instance": SLUG,
                        "workshop_content": CONTENT,
-                       "registration_visibility": "public"})
+                       "registration_visibility": "public",
+                       # The introductions are shown while this runs: on an
+                       # instructor-led instance the intro is the only
+                       # button-only step `solvable_steps` can find, and a
+                       # hidden one is acknowledged silently, never queued
+                       # (PLAN.md §54). intro_check.py covers the hidden case.
+                       "workshop_intro_hidden": "false"})
 
     sink.start()
     atexit.register(sink.destroy)

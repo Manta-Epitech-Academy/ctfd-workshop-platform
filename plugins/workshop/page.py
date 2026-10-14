@@ -62,6 +62,8 @@ from .runtime_options import with_start_options
 # this page shows on one gathered page instead — see toolbox.py.
 from .cue import place_cues
 from .highlight import box_doit_section
+from .intro import hidden_intro_ids, intro_hidden
+from .intro import resolve as resolve_intros
 from .toolbox import (GLOSSARY_OPEN, HERE, TOOLBOX_OPEN, lift_leading_heading,
                       split_glossary, split_toolbox, strip_leading_heading,
                       tool_names)
@@ -326,9 +328,12 @@ def _body(challenge, user, validation=None, solved=False):
 
 
 def _steps(user):
-    solved = set(get_solve_ids_for_user_id(user.id))
     challenges = _ordered_challenges()
-    known = {c.id for c in challenges}
+    # Hidden introductions (intro.py): left out below, passed through in the
+    # prerequisites, and acknowledged for the participant when their turn
+    # comes — all three decided in one place, shared with the graph.
+    hidden, prereqs_of, solved = resolve_intros(
+        user, challenges, get_solve_ids_for_user_id(user.id))
     names = {c.id: c.name for c in challenges}
     optional = _optional_ids()
     free = _free_ids()
@@ -337,7 +342,9 @@ def _steps(user):
 
     steps, current_taken = [], False
     for c in challenges:
-        prereqs = _prerequisites(c, known)
+        if c.id in hidden:
+            continue
+        prereqs = prereqs_of[c.id]
         unlocked = set(prereqs).issubset(solved)
         is_solved = c.id in solved
 
@@ -371,7 +378,7 @@ def _steps(user):
             "type": c.type,
             "state": state,
             "solved": is_solved,
-            "counts": counts(c, optional),
+            "counts": counts(c, optional, hidden),
             # Distinct from `counts`, which is also false for a plain note: this
             # one means "bonus work", and it is what the step summary shows. A
             # participant who does not read the chapter intro has no other way
@@ -849,7 +856,7 @@ def workshop():
     # part 1 (`workshop_intro_step`). It is a step like any other — the same
     # body, the same « J'ai lu » control, the same gate on everything after it
     # — rendered above the cards instead of inside one of them.
-    intro_id = _intro_step_id()
+    intro_id = None if intro_hidden() else _intro_step_id()
     cards, steps = _index_cards(user, documents,
                                 visible_ids={intro_id} if intro_id else set())
     intro = (next((s for s in steps if s["id"] == intro_id), None)
@@ -903,6 +910,7 @@ def _reference(user, subject=None):
     go gives no sense of what the subject holds.
     """
     steps = {s["id"]: s for s in _steps(user)}
+    hidden = hidden_intro_ids()
     docs = _documents()
     pages = step_pages(docs)
     owner = {cid: (d.get("subject"), d.get("subject_title") or d.get("subject"))
@@ -910,7 +918,16 @@ def _reference(user, subject=None):
     several = len({slug for slug, _ in owner.values() if slug}) > 1
     glossary, tools = [], []
     for challenge in _ordered_challenges():
-        step = steps.get(challenge.id)
+        if challenge.id in hidden:
+            # The introduction is hidden (intro.py); what it introduces is
+            # not. Its glossary and toolbox stay here, open from the start,
+            # and the entry points at the index since the step is on no page.
+            step = {"unlocked": True, "solved": True, "state": INFO,
+                    "name": challenge.name}
+            href = url_for("workshop_page.workshop")
+        else:
+            step = steps.get(challenge.id)
+            href = step_href(challenge.id, pages)
         if step is None:
             continue
         slug, subject_title = owner.get(challenge.id, (None, None))
@@ -921,7 +938,7 @@ def _reference(user, subject=None):
         if several and subject_title:
             name = f"{subject_title}: {name}"
         entry = {"id": challenge.id, "name": name, "state": step["state"],
-                 "href": step_href(challenge.id, pages), "locked": not open_to_them}
+                 "href": href, "locked": not open_to_them}
         if open_to_them:
             region, rest = split_glossary(challenge.html)
             toolbox, _ = split_toolbox(rest)
@@ -987,9 +1004,10 @@ def _routes_after(user, docs, doc):
     started yet) while another one is open, and offering it sends the reader
     to a page of padlocks.
     """
-    solved = set(get_solve_ids_for_user_id(user.id)) | set(doc["challenge_ids"])
     ordered = _ordered_challenges()            # board order
-    known = {c.id for c in ordered}
+    hidden, prereqs_of, solved = resolve_intros(
+        user, ordered, get_solve_ids_for_user_id(user.id))
+    solved = solved | set(doc["challenge_ids"])
     skipped = _optional_ids()
     open_parts, left = [], False
     for other in docs:
@@ -998,6 +1016,7 @@ def _routes_after(user, docs, doc):
         ids = set(other["challenge_ids"])
         todo = [c for c in ordered
                 if c.id in ids and c.id not in solved and c.id not in skipped
+                and c.id not in hidden
                 and getattr(c, "quiz_type", None) not in NON_TASK_KINDS]
         if not todo:
             continue
@@ -1006,7 +1025,7 @@ def _routes_after(user, docs, doc):
         # A quiz written at document level waits on the introduction alone, so
         # it is unlocked from the first minute in a part whose exercises are
         # still two parts away, and "any step" called that part a way forward.
-        if set(_prerequisites(todo[0], known)) <= solved:
+        if set(prereqs_of[todo[0].id]) <= solved:
             open_parts.append(other)
     return open_parts, left
 

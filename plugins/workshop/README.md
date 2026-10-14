@@ -321,6 +321,28 @@ Dockerfile's plugin-requirements loop runs at build time over the `./CTFd` conte
 plugin arrives at run time as a bind mount. See the `jump.py` docstring for the frozen wire
 contract shared with the Jump repository; changing either half means changing both.
 
+## Hiding the introductions (PLAN.md §54)
+
+Once the introduction is read on Jump, the entrypoint step is a page of text the talent has just
+read, a button whose only purpose is to unlock the work, and a step the progress bar counts.
+`intro.py` takes it out: `workshop_intro_hidden`, **unset reads as hidden**, ticked on
+`/admin/workshop/settings`, read at render time like the mode. Every subject's intro, not only the
+starter's. Hidden means on no page (index, part, stepper, Parcours graph), not counted
+(`progress.counts()`, so the bar, the Answers table and the number Jump receives agree), and
+passed through: a step that waited on the intro waits on what the intro waited on, so part 1
+opens at once and an advanced subject still waits on the starter's closing step. Its glossary and
+toolbox regions stay on the toolbox page, open from the start.
+
+CTFd enforces prerequisites itself in the attempt endpoint (`api/v1/challenges.py:712`), so the
+page showing part 1 open is not enough: `intro.py` writes the acknowledgement for the participant
+(a `Solves` row, inserted directly so `QuizChallenge.solve()` and the Jump outbox never see it)
+the moment the intro's own prerequisites are met, from the page and the graph. The row stays out
+of the counters while hidden and reads as acknowledged if the intro is shown again.
+
+The header's sign-in button is dropped whenever Jump is the only way in
+(`jump_is_the_way_in()`, §53): it led to `/login`, which sends a talent on to Jump anyway. Staff
+sign in at `/login?staff=1` or from `/admin`, as before. `scripts/intro_check.py` is the suite.
+
 ## Portability notes (for future CTFd upgrades)
 
 - Structure copied from `CTFd/plugins/dynamic_challenges` — if that plugin still works on

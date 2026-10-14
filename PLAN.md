@@ -4634,3 +4634,68 @@ the plugin's blueprints.
 
 The check scripts read their CSRF nonce from `/login?staff=1` rather than the bare `/login`: the
 staff form is the door their password sign-ins use, and it is the one that never sends anybody away.
+
+## 54. The introduction belongs to Jump too (2026-10-14)
+
+§53 moved the front door to Jump. Signed in, the participant still met the subject's entrypoint
+step (`__intro__`, an `ack` quiz) above the part cards: a page of text that Jump had just shown
+them, a « J'ai lu » button whose only purpose was to unlock part 1, and a step the progress bar
+counted. Jump's PO asked that it go, for every subject of a workshop, not only the starter.
+
+### 54.1 The rule
+
+`workshop_intro_hidden`, a tick box on `/admin/workshop/settings`. **Unset reads as hidden**: the
+introduction lives on Jump by default, and an instance has to ask for it back. It is read at render
+time like the mode (§25), so flipping it is a toggle and not a re-sync. Hidden means:
+
+- **not shown**: on no page, not above the index cards, not folded into part 1, not in the stepper,
+  not in the Parcours graph;
+- **not counted**: `progress.counts()` leaves it out, so the bar, the Answers table, the Stats page
+  and the number Jump receives (§31) still agree;
+- **passed through**: a step that waited on the intro waits on what the intro waited on. The
+  starter's intro waited on nothing, so part 1 opens at once; an advanced subject's intro waited on
+  the starter's closing step (§19), so the advanced subject still does;
+- **its toolbox and glossary kept**: they stay on the toolbox page, open from the start, because the
+  terms an introduction defines are the ones every step after it uses.
+
+The sign-in button in the header goes too, whenever Jump is the only way in (§53): it led to
+`/login`, which now sends a talent straight on to Jump.
+
+### 54.2 Why a solve is written on the participant's behalf
+
+CTFd enforces prerequisites itself, in the attempt endpoint (`api/v1/challenges.py:712`), before any
+plugin code runs. The page could show part 1 open and core would still answer the first submission
+with a 403. Rewriting the requirements the sync wrote would make the toggle a re-import in disguise.
+
+So `intro.py` records the acknowledgement for the participant, the moment the intro's own
+prerequisites are met: the same `Solves` row pressing the button writes, inserted directly rather
+than through `QuizChallenge.solve()`, so the Jump outbox never hears of a step nobody saw. It
+happens where the participant's state is read, the page and the graph, which both run before any
+attempt can. The row is harmless both ways: it stays out of the counters while hidden, and if the
+intro is shown again it reads as acknowledged, which is what the participant's progress past it
+already says.
+
+The intro is found by the topic the sync tags it with (`ws:<subject>:__intro__`), not by
+`quiz_type == "ack"`, so an acknowledgement step an author writes on purpose is never taken for one.
+
+### 54.3 Verified
+
+`scripts/intro_check.py`, on the Pacman subject (16 steps with the intro, 15 without):
+
+- unset: no intro on the index, 15 steps counted, no node in the graph, part 1's first step current
+  and graded by core (200), the acknowledgement written and absent from the Jump outbox, the
+  glossary open on the toolbox page;
+- unticked: the intro back on the index, 16 steps, the graph gating part 1 on it, core refusing the
+  first answer with a 403, and the participant acknowledged on their behalf reading as done;
+- ticked again: a participant who met the gate while it was shown is back to 15 and not gated;
+- with Jump the only way in, no sign-in button in the header, the staff form still at
+  `/login?staff=1`; with registration open, the button is back.
+
+The pass-through itself was checked on a two-subject shape (part 1 open, the advanced subject still
+gated on the starter's closing step, two hidden gates collapsing without duplicates) and on a cycle.
+A composed workshop instance was not run end to end.
+
+`scripts/jump_check.py` now shows the introductions while it runs and puts the setting back: on an
+instructor-led instance the intro is the only button-only step it can find to solve, and a hidden
+one is acknowledged silently rather than queued. With that, it is green on the branch, as is
+`scripts/toggle_check.py`.

@@ -29,6 +29,7 @@ from CTFd.utils.decorators import authed_only, during_ctf_time_only
 from CTFd.utils.decorators.visibility import check_challenge_visibility
 from CTFd.utils.user import get_current_user
 
+from .intro import resolve as resolve_intros
 from .links import step_href, step_pages
 
 workshop_api = Blueprint("workshop_api", __name__)
@@ -44,27 +45,23 @@ workshop_api = Blueprint("workshop_api", __name__)
 @authed_only
 def graph():
     user = get_current_user()
-    solved = get_solve_ids_for_user_id(user.id)
-
     challenges = (
         Challenges.query.filter(Challenges.state != "hidden")
         .order_by(Challenges.position.is_(None), Challenges.position, Challenges.id)
         .all()
     )
-    all_ids = {c.id for c in challenges}
-
-    def prereqs(c):
-        reqs = (c.requirements or {}).get("prerequisites", []) if c.requirements else []
-        return [r for r in reqs if r in all_ids]
-
-    def unlocked(c):
-        return set(prereqs(c)).issubset(solved)
+    # Hidden introductions are no node and no edge: what waited on one waits
+    # on what it waited on (intro.py), the same rule the page applies.
+    hidden, prereqs_of, solved = resolve_intros(
+        user, challenges, get_solve_ids_for_user_id(user.id))
 
     pages = step_pages()
 
     nodes, next_map = [], {}
     for c in challenges:
-        pr = prereqs(c)
+        if c.id in hidden:
+            continue
+        pr = prereqs_of[c.id]
         is_unlocked = set(pr).issubset(solved)
         visible = c.id in solved or is_unlocked
         nodes.append({
@@ -82,7 +79,8 @@ def graph():
 
     return jsonify({
         "success": True,
-        "data": {"nodes": nodes, "next": next_map, "solved": sorted(solved)},
+        # Minus the hidden introductions: a solve the graph has no node for.
+        "data": {"nodes": nodes, "next": next_map, "solved": sorted(solved - hidden)},
     })
 
 

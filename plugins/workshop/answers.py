@@ -36,6 +36,7 @@ from flask_babel import lazy_gettext as _l
 
 from .mode import LABELS as MODE_NAMES, current_mode, is_self_serve
 from .page import _documents, _validation_modes
+from .intro import hidden_intro_ids, pass_through
 from .progress import counts as _counts
 from .progress import optional_ids as _optional_ids
 from .progress import ordered_challenges as _ordered_challenges
@@ -383,7 +384,8 @@ def _attendees(challenges, optional, scope):
     """
     # progress.counts, not a second copy of the rule: this column and the
     # ratio the participant reads on /workshop have to be the same number.
-    counted = [c for c in challenges if _counts(c, optional)]
+    hidden = hidden_intro_ids()
+    counted = [c for c in challenges if _counts(c, optional, hidden)]
     total = len(counted)
     counted_ids = {c.id for c in counted}
     names = {c.id: c.name for c in challenges}
@@ -392,6 +394,10 @@ def _attendees(challenges, optional, scope):
     # them for the same reason.
     prereqs = {c.id: set((c.requirements or {}).get("prerequisites", [])) & names.keys()
                for c in challenges}
+    # A hidden introduction gates nothing (intro.py): what waited on it waits
+    # on what it waited on, as on the page.
+    prereqs = {cid: set(gates) for cid, gates in
+               pass_through({cid: sorted(g) for cid, g in prereqs.items()}, hidden).items()}
 
     users = (Users.query.filter(*participant_criteria(scope))
              .order_by(Users.name).all())

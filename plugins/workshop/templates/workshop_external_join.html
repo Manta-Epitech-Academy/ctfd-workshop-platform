@@ -9,7 +9,9 @@
   Nothing links here, by requirement. So the page says nothing about what the
   instance is for beyond its name, carries **no `login_switch`** — a way to the
   other door would be a way to learn this one exists from the other side — and
-  keeps only the ordinary link back to the login page. Somebody who reached this
+  keeps only the link to the password form (`?staff=1`), the door this account
+  opens: the bare login page may send a visitor straight on to Jump
+  (PLAN.md §53), which has no account for them. Somebody who reached this
   address already knows why they are here, and anybody who reached it by
   accident should learn nothing from it.
 
@@ -56,6 +58,6 @@
   </form>
 
   <p class="epi-login-sub pt-3 mb-0">
-    <a href="{{ url_for('auth.login') }}">{% trans %}Already have an account? Log in{% endtrans %}</a>
+    <a href="{{ url_for('auth.login', staff=1) }}">{% trans %}Already have an account? Log in{% endtrans %}</a>
   </p>
 {% endblock %}

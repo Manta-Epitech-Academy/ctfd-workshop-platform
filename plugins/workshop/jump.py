@@ -57,12 +57,13 @@ what keeps a dev talent off a production scoreboard when one instance serves
 
 **Two parties reach Jump, and not at the same address** (PLAN.md §52).
 `origin` is Jump's public address: the one a talent's browser is sent to from
-the login page, and the one the declaration calls are printed with, since an
-admin runs those from their own machine. `server_origin` is where this
-server posts progress and asks about erasures, when it can reach Jump more
-directly than through the public edge: on the cluster, Jump's Service, because
-the edge challenges a datacenter caller as a bot. Empty means `origin`, and
-`server_origin()` is the one place that says so.
+this instance's front door (`talent_door()`) and its login page, and the one
+the declaration calls are printed with, since an admin runs those from their
+own machine. `server_origin` is where this server posts progress and asks
+about erasures, when it can reach Jump more directly than through the public
+edge: on the cluster, Jump's Service, because the edge challenges a
+datacenter caller as a bot. Empty means `origin`, and `server_origin()` is the
+one place that says so.
 
 **A label belongs to the accounts it namespaces, not to the key row that
 declared it.** Each link row records the label it was created under, and that
@@ -141,6 +142,7 @@ from sqlalchemy.exc import IntegrityError
 from CTFd.cache import cache
 from CTFd.models import Users, db
 from CTFd.utils import get_config, set_config
+from CTFd.utils.config.visibility import registration_visible
 from CTFd.utils.decorators import admins_only
 from CTFd.utils.logging import log
 from CTFd.utils.security.auth import login_user
@@ -436,6 +438,39 @@ def jump_enabled():
             and bool(instance_slug()))
 
 
+def jump_is_the_way_in():
+    """Is Jump the only way a participant gets into this instance? (§53)
+
+    It is when a Jump door is configured and the instance offers no
+    registration of its own. Then the front door (`/`) and the talent door of
+    `/login` have nothing to offer a participant that Jump does not do better,
+    since the copy that presents an activity lives on Jump, and landing.py
+    sends an anonymous visitor straight on.
+
+    Read off the configuration the instance already has rather than off a
+    setting of its own: an instance that lets people register (a self-serve
+    one, an instructor-led one with a code) serves participants who never
+    went through Jump, and its front door is theirs.
+    """
+    return jump_enabled() and not registration_visible()
+
+
+def talent_door():
+    """The Jump an anonymous talent is sent to, or None when there are several.
+
+    With one key, its public `origin`, never `server_origin()`: this address is
+    followed by a browser. With several, the instance really does serve
+    several Jumps and choosing one would send the others' talents to the wrong
+    door (the reason login.html draws a button per key), so the talent door is
+    drawn as the choice it is.
+    """
+    keys = jump_keys()
+    if len(keys) != 1:
+        return None
+    (key,) = keys.values()
+    return key["origin"]
+
+
 def login_is_staff():
     """Which of login.html's two doors to draw: the staff form, or the Jump one.
 
@@ -456,9 +491,10 @@ def login_is_staff():
 
     One admin URL does not carry a `next`: core's bare `/admin`
     (CTFd/admin/__init__.py `view`) redirects to `auth.login` with nothing
-    after it, so it lands on the talent door, one "Staff sign-in" click from
-    the form. Left alone on purpose: telling it apart would mean reading the
-    Referer or hooking a core route, and neither is worth one click.
+    after it. It used to land on the talent door, one "Staff sign-in" click
+    from the form; now that the talent door can send a visitor on to Jump
+    (landing.py), it would leave the instance altogether, so landing.py sends
+    an anonymous `/admin` to the staff door itself.
     """
     return (not jump_enabled()
             or request.method == "POST"

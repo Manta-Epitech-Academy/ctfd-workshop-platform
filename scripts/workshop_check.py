@@ -51,7 +51,7 @@ def api(s, method, path, **kw):
 
 def admin():
     s = requests.Session()
-    n = nonce(s, "/login")
+    n = nonce(s, "/login?staff=1")
     s.post(BASE + "/login", data={"name": "admin", "password": "adminpass",
                                   "nonce": n, "_submit": "Submit"})
     s.nonce = nonce(s)

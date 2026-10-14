@@ -199,7 +199,9 @@ staff, each ending on `LoginFooter.svelte`'s link to the other. Here both are on
 form posts to core's `auth.login` and core re-renders `login.html` after a failure: `/login` opens
 on the talent door (the "Continuer avec Jump" button alone), `/login?staff=1` on core's form.
 `login_is_staff()` (`jump.py`) also opens the staff door when the talent one would be wrong: no Jump
-configured, a failed attempt being re-rendered, an admin page in `next`. The form column copies
+configured, a failed attempt being re-rendered, an admin page in `next`. Where Jump is the only way
+in and there is one Jump to go to, the talent door is never drawn: `landing.py` sends the visitor
+straight on (PLAN.md §53). The form column copies
 `jump`'s login rather than the platform's defaults: small uppercase muted labels, 3rem fields, a
 3rem bold call to action (`.btn.epi-login-btn`, geometry only, colour from `.btn-primary`), no
 required-field `*`. The header's own Login CTA is dropped on this page, which it would link to.

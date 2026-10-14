@@ -338,7 +338,8 @@ contract shared with the Jump repository; changing either half means changing bo
     branch. The form is core's field for field; only the layout around it is ours, so an upstream
     change to authentication does not have to be mirrored. It also carries the **"Continue with
     Jump" button**, on a talent door of its own: `login_is_staff()` (`jump.py`) picks between that
-    door and the staff form, and the MLC branch stays inside the staff door, byte for byte what
+    door and the staff form (and where Jump is the only way in, with one Jump to go to,
+    `landing.py` sends a visitor on before the door is drawn, PLAN.md §53), and the MLC branch stays inside the staff door, byte for byte what
     core renders, so an upstream change to it is a straight re-copy. The page also leans on core
     re-rendering `login.html` itself after a failed POST (that is how the error lands on the staff
     door) and on core's footer being `body > .footer`, which `epitech-theme.css` hides on the pages

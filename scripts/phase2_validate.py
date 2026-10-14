@@ -99,7 +99,7 @@ def run_setup():
     # Nothing is set: the plugin's migration makes a fresh instance French
     # (PLAN.md §42), and an English browser must not change that. The rest of
     # the suite asserts French copy, so it depends on this holding.
-    login = requests.get(BASE + "/login", headers={"Accept-Language": "en"}).text
+    login = requests.get(BASE + "/login?staff=1", headers={"Accept-Language": "en"}).text
     check("Mot de passe" in login or "S'identifier" in login,
           "a fresh instance serves French to an English browser")
 
@@ -262,7 +262,7 @@ def main():
           "no duplicate trailing page beside the outro step")
 
     print("== Image styling ==")
-    r = requests.get(BASE + "/login")
+    r = requests.get(BASE + "/login?staff=1")
     check("plugins/workshop/assets/workshop.css" in r.text,
           "workshop stylesheet injected on every page (caps hint images)")
 
@@ -367,7 +367,7 @@ def main():
           "every graph node points at a workshop page, never at /challenges")
     check(gmap[first]["url"].endswith(f"#step-{first}"),
           "a node's URL is anchored at its step")
-    r = requests.get(BASE + "/login")
+    r = requests.get(BASE + "/login?staff=1")
     check("plugins/workshop/assets/graph.js" in r.text, "graph.js injected on every page")
 
     print("== Navigation: Parcours page ==")
@@ -737,9 +737,10 @@ def main():
     check(r.status_code == 302 and r.headers["Location"].endswith("/workshop"),
           "a signed-in participant landing on / goes to the workshop")
     check(requests.get(BASE + "/", allow_redirects=False).status_code == 200,
-          "anonymous visitors still get the public index page")
+          "anonymous visitors get the public index page where Jump is not the "
+          "only way in (a fresh instance has no Jump key)")
     fresh = requests.Session()
-    n = get_nonce(fresh, "/login")
+    n = get_nonce(fresh, "/login?staff=1")
     r = fresh.post(BASE + "/login", allow_redirects=False, data={
         "name": ATTENDEE["name"], "password": ATTENDEE["password"],
         "nonce": n, "_submit": "Submit"})
@@ -747,7 +748,7 @@ def main():
           "login lands on the workshop page instead of the board")
     # An explicit ?next= is honoured by CTFd before its default landing, so
     # retargeting the default must not break deep links.
-    n = get_nonce(fresh, "/login?next=%2Fscoreboard")
+    n = get_nonce(fresh, "/login?staff=1&next=%2Fscoreboard")
     r = fresh.post(BASE + "/login?next=%2Fscoreboard", allow_redirects=False, data={
         "name": ATTENDEE["name"], "password": ATTENDEE["password"],
         "nonce": n, "_submit": "Submit"})
@@ -850,7 +851,7 @@ def main():
     # a whole section of the workshop was invisible until the participant got
     # there, while the exercise after it said "reuse the code above".
     fresh = requests.Session()
-    fresh_nonce = get_nonce(fresh, "/login")
+    fresh_nonce = get_nonce(fresh, "/login?staff=1")
     fresh.post(BASE + "/login", data={"name": "bob", "password": "phase2-bob-pass",
                                       "nonce": fresh_nonce})
     locked_page = fresh.get(BASE + "/workshop/pypong").text

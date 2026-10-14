@@ -156,7 +156,7 @@ class Admin:
         self.session.mount(base, HTTPAdapter(max_retries=retry))
         self.session.post(base + "/login", timeout=20, data={
             "name": "admin", "password": password,
-            "nonce": nonce(self.session, base, "/login"), "_submit": "Submit"})
+            "nonce": nonce(self.session, base, "/login?staff=1"), "_submit": "Submit"})
         self.nonce = nonce(self.session, base)
         if self.api("GET", "/configs/ctf_name").status_code != 200:
             sys.exit("could not sign in as admin — wrong password?")
@@ -184,6 +184,12 @@ class Admin:
 
     def links(self):
         return self.api("GET", "/workshop/jump/links").json()["data"]
+
+    def switch(self, to):
+        """Turn the plugin "on" or "off" (toggle.py, PLAN.md §39)."""
+        page = "/admin/workshop/plugin"
+        self.session.post(self.base + page, timeout=20, data={
+            "nonce": nonce(self.session, self.base, page), "enabled": to})
 
 
 # --------------------------------------------------------------------------
@@ -469,12 +475,16 @@ def main():
 
     saved = {"workshop_jump_keys": admin.config("workshop_jump_keys") or "",
              "workshop_jump_instance": admin.config("workshop_jump_instance") or "",
-             "workshop_content": admin.config("workshop_content") or ""}
+             "workshop_content": admin.config("workshop_content") or "",
+             "registration_visibility":
+                 admin.config("registration_visibility") or "public"}
     created = []
 
     def restore():
         # Ordered so the instance is never left accepting this script's keys:
-        # config first, then the accounts.
+        # config first, then the accounts. The plugin is switched off for one
+        # section and was on to begin with, or nothing here would answer.
+        admin.switch("on")
         admin.set_configs(saved)
         for user_id in created:
             admin.api("DELETE", f"/users/{user_id}")
@@ -485,9 +495,13 @@ def main():
     keys = {KID_A: {"origin": PUBLIC_A, "server_origin": origin,
                     "secret": SECRET_A, "label": LABEL_A},
             KID_B: {"origin": origin, "secret": SECRET_B, "label": LABEL_B}}
+    # Registration open to begin with, so the doors below are drawn rather
+    # than skipped: a closed one is what sends a visitor on to Jump, and that
+    # has its own section.
     admin.set_configs({"workshop_jump_keys": json.dumps(keys),
                        "workshop_jump_instance": SLUG,
-                       "workshop_content": CONTENT})
+                       "workshop_content": CONTENT,
+                       "registration_visibility": "public"})
 
     sink.start()
     atexit.register(sink.destroy)
@@ -517,7 +531,7 @@ def main():
           "which links back to the talent door rather than to Jump itself")
     r = anon.post(base + "/login", timeout=20, data={
         "name": "nobody" + RUN, "password": "wrong",
-        "nonce": nonce(anon, base, "/login")})
+        "nonce": nonce(anon, base, "/login?staff=1")})
     check('name="password"' in r.text and "alert-danger" in r.text,
           "a wrong password is answered next to the form, not on the talent door")
     bounced = anon.get(base + "/login?next=/admin/workshop/stats", timeout=20).text
@@ -532,6 +546,46 @@ def main():
     check("epi-cta-on-band" in front
           and "epi-cta-on-band" not in talent and "epi-cta-on-band" not in staff,
           "the header drops its Login button on the login page, and only there")
+
+    # -- the front door, where Jump is the only way in (landing.py, §53) ---
+    print("== where Jump is the only way in, an anonymous visitor is sent there ==")
+    def lands(path):
+        r = anon.get(base + path, timeout=20, allow_redirects=False)
+        return r.status_code, r.headers.get("Location", "")
+
+    check(lands("/")[0] == 200 and lands("/login")[0] == 200,
+          "an instance that lets people register keeps its front door")
+    admin.set_configs({"registration_visibility": "private"})
+    status, where = lands("/")
+    check(status == 302 and where.endswith("/login"),
+          f"with two Jumps, / leads to the choice between them ({status} {where})")
+    check(lands("/login")[0] == 200, "which is drawn, not chosen")
+    admin.set_configs({"workshop_jump_keys": json.dumps({KID_A: keys[KID_A]})})
+    for path in ("/", "/login", "/login?next=%2Fworkshop"):
+        status, where = lands(path)
+        check(status == 302 and where == PUBLIC_A,
+              f"with one Jump, {path} goes straight to its public origin "
+              f"({status} {where})")
+    staff = anon.get(base + "/login?staff=1", timeout=20, allow_redirects=False)
+    check(staff.status_code == 200 and 'name="password"' in staff.text,
+          "the staff form stays, for every account a password opens")
+    status, where = lands("/admin")
+    check(status == 302 and where.endswith("/login?staff=1"),
+          f"a bare /admin goes to the staff form, not to Jump, and with no "
+          f"`next` a supervisor could not follow ({where})")
+    check(lands("/login?next=/admin/workshop/stats")[0] == 200,
+          "and so does an admin page bounced to the login")
+    # Every hook reads the switch: guard_routes only covers the plugin's own
+    # blueprints, and `/`, `/login` and `/admin` are core's.
+    admin.switch("off")
+    check(lands("/")[0] == 200 and lands("/login")[0] == 200,
+          "switched off, / and /login are core's again")
+    status, where = lands("/admin")
+    check(status == 302 and where.endswith("/login"),
+          f"and so is a bare /admin ({where})")
+    admin.switch("on")
+    admin.set_configs({"workshop_jump_keys": json.dumps(keys),
+                       "registration_visibility": "public"})
 
     # -- AC1, AC4 ----------------------------------------------------------
     print("== a cold entry creates one account and one link ==")

@@ -1,25 +1,42 @@
-"""Make the workshop page the landing page — without touching CTFd core.
+"""Where somebody lands on an instance, without touching CTFd core.
 
-Two places decide where a participant ends up:
+Four places decide it:
 
   1. `/` — CTFd serves the `index` Page there (`views.static_html`).
   2. after login/registration — CTFd falls back to `challenges.listing`
      (CTFd/auth.py). It honours an explicit `?next=` *before* that fallback,
      so rewriting the fallback never breaks a deep link.
+  3. the talent door of `/login` (login.html, `login_is_staff()` in jump.py).
+  4. core's bare `/admin`, which sends a visitor to `auth.login` with no `next`.
 
-Both are redirected to `/workshop` for a signed-in user. The challenge board
-stays exactly where it was and keeps working; it is simply no longer the first
-thing a participant sees.
+A signed-in user is sent from the first two to `/workshop`. The challenge
+board stays exactly where it was and keeps working; it is simply no longer the
+first thing a participant sees. Nothing is lost by skipping the index either:
+its document is the Intro section of the workshop page.
 
-Anonymous visitors still get the index Page — it is the public front door, and
-`/workshop` requires authentication anyway. Nothing is lost for signed-in users
-either: the index document is the Intro section of the workshop page.
+An anonymous visitor is sent to Jump whenever Jump is the only way a
+participant gets in (`jump_is_the_way_in()`, PLAN.md §53): from `/` and from
+the talent door, straight to the one Jump this instance answers to
+(`talent_door()`), or, when it answers to several, from `/` to the talent door,
+which is then the choice between them. The copy that presents an activity and
+the sign-in both live on Jump, so a page here that restated the first or
+offered the second would be one more page between a talent and the activity.
+An instance that lets people register keeps its front door: it is theirs.
+
+What stays is every door a password opens: the staff form (`/login?staff=1`),
+the supervisor and external joins, and `/admin`, which is sent to the staff
+form rather than on to Jump. Admins, mentors and the emergency local accounts
+sign in there.
+
+Each hook reads the switch itself: `guard_routes` (toggle.py) only covers the
+plugin's blueprints, and switched off, CTFd is CTFd again (§39).
 """
 from flask import redirect, request, url_for
 
 from CTFd.models import Challenges
 from CTFd.utils.user import authed
 
+from .jump import jump_is_the_way_in, login_is_staff, talent_door
 from .toggle import workshop_enabled
 
 # Endpoints whose default post-authentication redirect we retarget.
@@ -42,6 +59,36 @@ def load_landing(app):
         if Challenges.query.count() == 0:
             return None
         return redirect(workshop_url())
+
+    @app.before_request
+    def anonymous_to_jump():
+        # Cheapest tests first: this runs on every request.
+        if request.method != "GET" or authed():
+            return None
+        front = request.path == "/"
+        if not front and request.endpoint != "auth.login":
+            return None
+        # `jump_enabled()`, inside, reads the switch.
+        if not jump_is_the_way_in():
+            return None
+        if front:
+            return redirect(talent_door() or url_for("auth.login"))
+        # The staff form, a failed attempt or an admin `next` stay here.
+        if login_is_staff():
+            return None
+        target = talent_door()
+        return redirect(target) if target else None
+
+    @app.before_request
+    def admin_to_staff_door():
+        if request.endpoint != "admin.view" or authed():
+            return None
+        if not workshop_enabled():
+            return None
+        # No `next=/admin`: a supervisor is staff without being an admin, and
+        # core's `/admin` sends a signed-in non-admin back to the login page.
+        # Without it, everybody lands where any sign-in lands.
+        return redirect(url_for("auth.login", staff=1))
 
     @app.after_request
     def post_auth_to_workshop(response):

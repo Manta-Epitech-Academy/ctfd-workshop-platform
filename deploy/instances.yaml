@@ -42,7 +42,9 @@ defaults:
   # The key id is what a ticket carries, and the key below — never the
   # ticket — says where this instance reports progress back to, so nobody can
   # redirect its callbacks. `origin` is Jump's public address, the one a
-  # talent's browser follows from the login page. An instance that reaches
+  # talent's browser is sent to from the front door and the login page; with
+  # both keys, the login page is where the talent picks (PLAN.md §53). An
+  # instance that reaches
   # Jump more directly than its talents do (on the cluster, through Jump's
   # Service) also sets `server_origin`, and posts there instead (PLAN.md §52).
   # These instances do not: they sit outside the cluster, where the public

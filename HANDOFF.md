@@ -43,7 +43,8 @@ plugins/workshop/   the CTFd plugin, bind-mounted over CTFd/CTFd/plugins/worksho
                     submodule pins resolved through the API
   syncpage.py       /admin/workshop/sync — fetch the repo and import it, with
                     encrypted answers opened in the admin's browser
-  landing.py        / and the post-login default redirect to /workshop
+  landing.py        where somebody lands: /workshop once signed in, Jump when it
+                    is the only way in (PLAN.md §53), the staff form for /admin
   assets/, templates/
 deploy/             the production deploy (PLAN.md §22)
   instances.yaml    the ten instances: name, host, port, content, mode. Committed.

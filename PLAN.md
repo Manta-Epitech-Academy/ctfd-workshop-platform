@@ -451,7 +451,9 @@ Design rules that came out of it:
 default post-authentication redirect are retargeted in `plugins/workshop/landing.py`
 (`before_request` / `after_request`, no core edit). CTFd honours an explicit `?next=` *before*
 its own fallback, so deep links are untouched; anonymous visitors still get the public index
-page, which is also the Intro section of the workshop page for everyone else.
+page, which is also the Intro section of the workshop page for everyone else. *Since §53, only
+where the instance offers its own registration: where Jump is the only way in, they are sent to
+Jump.*
 
 Consequences: the challenge board and its modal still exist (untouched, still reachable at
 `/challenges`, just no longer the first thing a participant sees — and since §30, no longer in a
@@ -4487,7 +4489,7 @@ and that address suits only one of them:
 | Reader | Where | Needs |
 | --- | --- | --- |
 | This server: the progress callback, the erasure question | `jumpqueue.py` `_signed_post` | an address the pod resolves |
-| A talent's browser: "Continue with Jump" on the login page | `templates/login.html` | the public address |
+| A talent's browser: "Continue with Jump" on the login page, and the redirect from the front door (§53) | `templates/login.html`, `landing.py` | the public address |
 | An admin's shell: the declaration calls and the API reference link | `jump.py` `jump_declarations` | the public address |
 
 With the cluster address in `origin`, the login page sends a talent to a name no browser resolves.
@@ -4545,3 +4547,78 @@ its server address, and key B with the sink as its origin and no server address:
   Jump.
 - **Deriving one address from the other.** They are independent facts: which name resolves inside
   the cluster says nothing about which one resolves in a browser.
+
+## 53. The front door belongs to Jump (2026-10-14)
+
+Where Jump is the way in, a talent who reached an instance by its address (a URL a campus shared, a
+bookmark, a session that expired) used to read two pages before the activity: the instance's index,
+which restated what the activity is, and the talent door of `/login`, whose one button sent them to
+Jump anyway. Jump's PO asked that neither exist for a talent: the copy that presents an activity is
+written once, on Jump (its hero, authored over Jump's API), and signing in happens on Jump. Every
+page here that did either was one more page to keep in step and one more step between a talent and
+the activity.
+
+### 53.1 The rule
+
+**Jump is the only way in** when a Jump door is configured (`jump_enabled()`) and the instance offers
+no registration of its own (`registration_visible()` false): `jump_is_the_way_in()` in `jump.py`.
+Then `landing.py` sends an anonymous GET:
+
+- from `/` to Jump, or, when the instance answers to several Jumps, to the talent door, which is the
+  choice between them;
+- from the talent door of `/login` to Jump, when there is one Jump to go to.
+
+"The Jump" is `talent_door()`: the one key's public `origin`, never its server address (§52), and
+`None` when there are several keys. With several, choosing one would send the other Jump's talents to
+the wrong door, the reason the talent door has drawn one button per key since it exists, so the
+choice stays drawn. Every instance in `deploy/instances.yaml` answers to both Jumps for demos, and
+keeps it; a production instance answers to production's alone, and sends its talents straight on.
+
+The predicate is read off configuration every instance already has, not off a setting of its own.
+An instance that lets people register (self-serve, instructor-led with a code, §25) serves
+participants who never went through Jump: its front door and its talent door are theirs, and stay
+exactly as they were. On the cluster, `PRESET_CONFIGS` sets `registration_visibility: private`, so
+the rule holds there without anybody provisioning anything.
+
+### 53.2 Every door a password opens stays
+
+Admins, mentors and the emergency local accounts sign in with a password, and all of it stays:
+
+- the staff form, `/login?staff=1`, and every case `login_is_staff()` already opened it on (a POST, a
+  failed attempt being re-rendered, an admin page in `next`);
+- core's bare `/admin`, which redirects to `auth.login` with no `next`. It used to land on the talent
+  door, one click from the form, and was left alone on purpose (`login_is_staff()` said why). Now
+  that the talent door can send a visitor on to Jump, `landing.py` sends an anonymous `/admin` to
+  the staff form itself, with `next=/admin`;
+- the supervisor join and the external join. The external join's link to sign in pointed at the bare
+  `/login` and now names the staff form, the door an external account opens;
+- `/jump/enter`, which never showed a page.
+
+Switched off (§39), CTFd is CTFd again: every hook reads the switch, since `guard_routes` only covers
+the plugin's blueprints.
+
+### 53.3 What it costs
+
+- **Logging out lands on Jump.** Core's logout redirects to `/`, which an anonymous visitor now
+  leaves. A talent belongs there; an admin who logs out ends up on Jump's login too. Nothing tells
+  who logged out once the session is cleared, and an admin signs in again from `/login?staff=1` or
+  `/admin`, so it is accepted rather than worked around.
+- **`next` is not carried to Jump.** A talent whose session expired on `/workshop` is sent to Jump
+  and comes back through the activity on their home, which `/jump/enter` drops on the workshop
+  anyway.
+- **The external join's sign-in link opens the staff form**, whose line says it is the staff area.
+  An external participant reads one line meant for staff; that was already the door their password
+  opened, one click further.
+
+### 53.4 Verified
+
+`scripts/jump_check.py`, with registration closed:
+
+- with two keys, `/` answers 302 to `/login`, which is drawn;
+- with one key, `/`, `/login` and `/login?next=%2Fworkshop` answer 302 to the key's public origin;
+- `/login?staff=1` is the form, a bare `/admin` answers 302 to `/login?staff=1&next=%2Fadmin`, and an
+  admin page bounced to the login opens on the staff form;
+- with registration open, `/` and `/login` answer 200 as before.
+
+The check scripts read their CSRF nonce from `/login?staff=1` rather than the bare `/login`: the
+staff form is the door their password sign-ins use, and it is the one that never sends anybody away.

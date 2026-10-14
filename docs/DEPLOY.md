@@ -709,7 +709,8 @@ sync page — the example overlay carries it.
   no XP arrive. Set the key's **Server address** on `/admin/workshop/jump` to
   Jump's Service, `http://jump-sk-service.jump-prod.svc.cluster.local:3030`
   for `jump-prod` (`jump-dev` for the dev Jump), and leave **Origin** on the
-  public address: it is what the login page sends a talent to (PLAN.md §52).
+  public address: it is what the front door and the login page send a talent
+  to (PLAN.md §52, §53).
 - **A plugin change needs a container restart.** `plugins/workshop/` is bind
   mounted, but Python imports it once at boot. `docker restart ctfd-<name>-ctfd-1`.
 - **Any change made to the database behind CTFd's back needs a cache flush.**

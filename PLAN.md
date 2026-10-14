@@ -4589,7 +4589,9 @@ Admins, mentors and the emergency local accounts sign in with a password, and al
 - core's bare `/admin`, which redirects to `auth.login` with no `next`. It used to land on the talent
   door, one click from the form, and was left alone on purpose (`login_is_staff()` said why). Now
   that the talent door can send a visitor on to Jump, `landing.py` sends an anonymous `/admin` to
-  the staff form itself, with `next=/admin`;
+  the staff form itself. Still with no `next`: a supervisor is staff without being an admin, and
+  core's `/admin` sends a signed-in non-admin back to the login page, so `next=/admin` would turn
+  their sign-in into a loop. Without it, everybody lands where any sign-in lands;
 - the supervisor join and the external join. The external join's link to sign in pointed at the bare
   `/login` and now names the staff form, the door an external account opens;
 - `/jump/enter`, which never showed a page.
@@ -4616,8 +4618,8 @@ the plugin's blueprints.
 
 - with two keys, `/` answers 302 to `/login`, which is drawn;
 - with one key, `/`, `/login` and `/login?next=%2Fworkshop` answer 302 to the key's public origin;
-- `/login?staff=1` is the form, a bare `/admin` answers 302 to `/login?staff=1&next=%2Fadmin`, and an
-  admin page bounced to the login opens on the staff form;
+- `/login?staff=1` is the form, a bare `/admin` answers 302 to `/login?staff=1`, and an admin page
+  bounced to the login opens on the staff form;
 - with registration open, `/` and `/login` answer 200 as before.
 
 The check scripts read their CSRF nonce from `/login?staff=1` rather than the bare `/login`: the

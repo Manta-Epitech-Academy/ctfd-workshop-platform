@@ -85,7 +85,10 @@ def load_landing(app):
             return None
         if not workshop_enabled():
             return None
-        return redirect(url_for("auth.login", staff=1, next=url_for("admin.view")))
+        # No `next=/admin`: a supervisor is staff without being an admin, and
+        # core's `/admin` sends a signed-in non-admin back to the login page.
+        # Without it, everybody lands where any sign-in lands.
+        return redirect(url_for("auth.login", staff=1))
 
     @app.after_request
     def post_auth_to_workshop(response):

@@ -562,8 +562,9 @@ def main():
     check(staff.status_code == 200 and 'name="password"' in staff.text,
           "the staff form stays, for every account a password opens")
     status, where = lands("/admin")
-    check(status == 302 and "staff=1" in where and "next=%2Fadmin" in where,
-          f"a bare /admin goes to the staff form, not to Jump ({where})")
+    check(status == 302 and where.endswith("/login?staff=1"),
+          f"a bare /admin goes to the staff form, not to Jump, and with no "
+          f"`next` a supervisor could not follow ({where})")
     check(lands("/login?next=/admin/workshop/stats")[0] == 200,
           "and so does an admin page bounced to the login")
     admin.set_configs({"workshop_jump_keys": json.dumps(keys),

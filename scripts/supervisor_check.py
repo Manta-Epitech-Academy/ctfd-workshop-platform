@@ -157,9 +157,16 @@ check("/supervisor/join" in anon.get(STAFF_DOOR, timeout=20).text,
 # The way back (PLAN.md §55): a supervisor is a password account, and on an
 # instance on Jump the bare /login sends them away. Matched by href, since the
 # sentence around it is translated.
-check(re.search(r'class="[^"]*ws-join-door[^"]*"[^>]*>[^<]*<a href="https?://[^"]+/login\?staff=1"',
+check(re.search(r'class="[^"]*ws-join-door[^"]*"[^>]*>[^<]*<a href="/login\?staff=1" data-ws-staff-door',
                 joining.text) is not None,
-      "the join page names the staff sign-in address, absolute")
+      "the join page links to the staff sign-in, for the browser to spell out")
+# The cluster's tunnel hands the server another host over http, so the server
+# must not be the one writing the address (docs/DEPLOY.md). Ask with a Host
+# nobody browses to and check it is named nowhere on the page.
+tunnelled = anon.get(BASE + "/supervisor/join", timeout=20,
+                     headers={"Host": "ctf-0000.tunnel.invalid"})
+check(tunnelled.status_code == 200 and "tunnel.invalid" not in tunnelled.text,
+      "and never names the host the request came in on")
 check("ws-join-door" in joining.text and "Jump" in joining.text.split("ws-join-door", 1)[1][:400],
       "and says the account is not a Jump one")
 
@@ -188,6 +195,9 @@ check("ws-joined" not in sup.get(BASE + "/admin/workshop/stats", timeout=20).tex
       "and not on the next visit")
 check("/admin" not in landing.split("ws-joined", 1)[1].split("</div>", 1)[0].replace("/admin/workshop", ""),
       "and does not send a supervisor to /admin")
+check("tunnel.invalid" not in sup.get(BASE + "/admin/workshop/stats?joined=1", timeout=20,
+                                      headers={"Host": "ctf-0000.tunnel.invalid"}).text,
+      "and never names the host the request came in on")
 check("ws-joined" not in admin.s.get(BASE + "/admin/workshop/stats?joined=1", timeout=20).text,
       "an admin never gets the reminder")
 

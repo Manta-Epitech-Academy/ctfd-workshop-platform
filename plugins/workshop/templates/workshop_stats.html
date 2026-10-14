@@ -33,12 +33,24 @@
      the join page is gone. Jump has no account for them (PLAN.md §55).
      Supervisors only: an admin knows where the staff form is. #}
   {% if request.args.get("joined") and not is_admin() %}
-    {% set staff_door = url_for('auth.login', staff=1, _external=True) %}
+    {% set staff_door = url_for('auth.login', staff=1) %}
     <div class="alert alert-info ws-joined" role="status">
       <strong>Your supervisor account is ready.</strong>
       It is a local account on this instance, not a Jump one: to sign in again
-      later, go to <a href="{{ staff_door }}">{{ staff_door }}</a>. Bookmark it.
+      later, go to <a href="{{ staff_door }}" data-ws-staff-door>{{ staff_door }}</a>. Bookmark it.
     </div>
+    <script>
+      (function () {
+        // The address a supervisor comes back to is the one this page was opened
+        // at, and only the browser knows it: behind the cluster's tunnel the
+        // server sees another host over http (docs/DEPLOY.md, "Things that will
+        // bite"). The href is relative and already right; this fixes the text a
+        // supervisor reads and bookmarks. As text, never as HTML.
+        document.querySelectorAll("a[data-ws-staff-door]").forEach(function (a) {
+          a.textContent = window.location.origin + a.getAttribute("href");
+        });
+      })();
+    </script>
   {% endif %}
   {% include "workshop_scope.html" %}
   <div class="row text-center ws-st-totals">

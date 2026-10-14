@@ -4643,8 +4643,7 @@ account for them, so a supervisor whose session expires, or who logs out, lands 
 cannot get back in from there. Their door is the staff form, `/login?staff=1`, and nothing told
 them so.
 
-Two places say it now, both with the address built by `url_for(..., _external=True)`, so it is the
-instance's own on every deploy:
+Two places say it now, both with the address the browser opened the page at (see below):
 
 - **The join page** (`/supervisor/join`), under its lead: this creates a local supervisor account,
   not a Jump one, and the address to sign in again. Translated like the rest of that page, since the
@@ -4659,3 +4658,11 @@ form (§53.2).
 
 `scripts/supervisor_check.py` checks both: the absolute address on the join page, the reminder
 once and not on the next visit, no `/admin` in it, and no reminder for an admin.
+
+**The address comes from the browser, not the server** (fixed after #60 merged). The first version
+built it with `url_for(..., _external=True)`. On the cluster the tunnel hands the server
+`http://ctf-NNNN…`, so the page told a supervisor to bookmark an address they cannot open
+(docs/DEPLOY.md, "Things that will bite"). The link is now relative, which the browser always
+resolves right, and a few lines of script write `location.origin` into its text, the pattern the
+Jump declaration uses. Without script the text reads `/login?staff=1`, still correct. The check
+asks with a made-up `Host` and fails if that host appears anywhere on either page.

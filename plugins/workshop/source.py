@@ -194,7 +194,8 @@ def fetch_tree(repo, sha, dest):
 def sidecars_in(directory):
     """Encrypted answer files sitting in a subject, unopened.
 
-    `flags.yaml.gpg` and `quiz_answers.yaml.gpg` (convention §3.3b, §3.7). The
+    `flags.yaml.gpg`, `quiz_answers.yaml.gpg` and `checkpoint_codes.yaml.gpg`
+    (convention §3.3b, §3.7) — any `*.yaml.gpg`, so a new one needs nothing. The
     plaintext beside one means it is already open and nothing is needed.
     """
     found = []

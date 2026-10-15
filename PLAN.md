@@ -4666,3 +4666,49 @@ built it with `url_for(..., _external=True)`. On the cluster the tunnel hands th
 resolves right, and a few lines of script write `location.origin` into its text, the pattern the
 Jump declaration uses. Without script the text reads `/login?staff=1`, still correct. The check
 asks with a made-up `Host` and fails if that host appears anywhere on either page.
+
+## 56. A subject may choose its checkpoint codes (2026-10-15)
+
+A `checkpoint` step's code was the instance's: the importer read back the code already live, or
+generated six hex characters, and the admin Sync button runs with a throwaway codes file, so
+nothing in the subject could name one. An instance that wanted readable codes had them typed into
+it by hand (turtle's are words, 8 to 15 characters), and they existed nowhere else: a second
+instance of the same subject, or a rebuilt one, got different codes from the instructor's guide.
+
+### 56.1 The rule
+
+`checkpoint_codes.yaml` in the subject, `codes: {exercise id: code}`, beside `quiz_answers.yaml`
+and `flags.yaml` and loaded the same way (`ws_parser.load_checkpoint_codes`). Precedence in
+`sync_subject.py`, highest first:
+
+1. the code the author chose in the subject;
+2. the `--codes` file (the command line's admin intent);
+3. the code already live in the instance;
+4. six fresh hex characters.
+
+Partial on purpose: an exercise with no entry keeps the instance's code, generated once and never
+rotated, which is what was asked ("keep the default instance-level generated code when the subject
+does not define one"). The subject's code wins over a live one, because a code that depends on
+which instance a step was first imported into is the problem being solved. The sync prints a
+warning for each step whose live code it replaces, since a sheet already handed out stops working
+for that step.
+
+### 56.2 Lint
+
+Refused: an entry matching no exercise, an entry for an exercise validated otherwise than by
+`checkpoint` (it would be ignored, and the author would print a code that validates nothing), an
+empty or non-scalar code. Advised: two steps sharing one code, which validates both with one word.
+
+### 56.3 Public repos
+
+A code readable in the repo validates the step for anyone who reads the repo. A public subject
+encrypts the file like its other answers, `checkpoint_codes.yaml.gpg`. The admin sync page already
+opens any `*.yaml.gpg` in the admin's browser (`source.sidecars_in`), so nothing changes there.
+
+### 56.4 Verified
+
+`scripts/codes_check.py`, against an instance holding the Pacman subject: the linter's refusals
+and advice; a sync with a partial `checkpoint_codes.yaml` gives the chosen steps their codes, warns
+for each live code replaced, and leaves every other step's code exactly as it was; a re-sync
+changes nothing; a participant solves a step with its chosen code in another case; the instance's
+codes are put back afterwards.

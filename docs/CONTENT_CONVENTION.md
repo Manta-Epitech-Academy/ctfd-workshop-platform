@@ -245,9 +245,10 @@ without moving the heading or changing its level.
 
 Four modes are implemented, and the difference is who knows the answer:
 
-- **`checkpoint`** (default) — somebody has to say the work is done. The platform generates one
-  code per exercise and writes the sheet to `instructor_codes.<subject>.yaml`; the instructor
-  reads a code out when they have seen the work. Codes never rotate on a re-sync, so one already
+- **`checkpoint`** (default) — somebody has to say the work is done. The instructor reads a code
+  out when they have seen the work. The author may choose the codes in `checkpoint_codes.yaml`
+  (below); every exercise without one gets a code the platform generates per instance, written to
+  `instructor_codes.<subject>.yaml`. A generated code never rotates on a re-sync, so one already
   handed out stays valid. **In a self-serve instance there is nobody to ask**, so the same step
   offers a button instead and the participant validates it themselves — the code stays stored,
   unrevealed, so the instance can be switched back (PLAN.md §25.4). The author writes
@@ -290,9 +291,28 @@ Comparison is case-insensitive unless the entry says otherwise, which is what yo
 answer is a command or a path. The linter refuses a `validation: flag` exercise with no entry —
 it would import as a step nobody can solve — and an entry matching no exercise.
 
-**Protect the sidecar** the way the subject already protects its answers: a public repo should
-encrypt it (shell-1 keeps `flag.txt.gpg` and a `decrypt.sh`) or leave it out and supply it at
-sync time.
+A `checkpoint` exercise may carry a code the author chose, in the same kind of sidecar. Use it
+when the codes have to be the same on every instance, for instance because they are printed in
+the instructor's guide, or when they should be words an instructor can say out loud:
+
+```yaml
+# checkpoint_codes.yaml, beside quiz_answers.yaml
+codes:
+  carre: tortue-carre
+  etoile: "2026"
+```
+
+It is partial on purpose: an exercise with no entry keeps the code its instance generated. A code
+chosen here wins over the one the instance already had, and the sync says so for every step whose
+code changes, since a sheet handed out before stops working for that step. Comparison is
+case-insensitive. The linter refuses an entry matching no exercise, an entry for an exercise that
+is not `checkpoint`, and an empty code, and advises when two steps share one code.
+
+**Protect the sidecars** the way the subject already protects its answers: a public repo should
+encrypt them (shell-1 keeps `flag.txt.gpg` and a `decrypt.sh`) or leave them out and supply them at
+sync time. A code readable in a public repo validates the step for anyone who finds it. The admin
+sync page opens any `*.yaml.gpg` in the browser, so `checkpoint_codes.yaml.gpg` needs nothing
+more.
 
 ### 3.4 The short version — marked region, shown as a summary
 

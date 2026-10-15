@@ -97,6 +97,11 @@ msgstr ""
 msgid "Could not save that — try again."
 msgstr ""
 
+msgid ""
+"Don't have a supervisor account yet? You can create one with the "
+"supervisor code."
+msgstr ""
+
 msgid "Email"
 msgstr ""
 
@@ -296,9 +301,6 @@ msgid "Reset your own progress? Your solved steps, attempts, opened hints and ra
 msgstr ""
 
 msgid "Review"
-msgstr ""
-
-msgid "Running the room? Join as a supervisor with your code."
 msgstr ""
 
 msgid "Save"

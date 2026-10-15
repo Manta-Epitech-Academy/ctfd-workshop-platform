@@ -118,7 +118,7 @@
        door keeps the Jump button as the only thing on it. #}
     {% if supervisor_joining_open() %}
       <p class="epi-login-note">
-        <a href="{{ url_for('workshop_staff.join') }}">{% trans %}Running the room? Join as a supervisor with your code.{% endtrans %}</a>
+        <a href="{{ url_for('workshop_staff.join') }}">{% trans %}Don't have a supervisor account yet? You can create one with the supervisor code.{% endtrans %}</a>
       </p>
     {% endif %}
   {% endif %}

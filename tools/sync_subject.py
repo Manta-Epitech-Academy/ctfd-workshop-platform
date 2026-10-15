@@ -25,11 +25,13 @@ Mapping (idempotent, keyed by an admin-only Topic `ws:<subject>:<slug>`):
   source reading order      -> Challenges.position (CTFd's native board order),
                               so the board is not sorted alphabetically
 
-Validation codes ("the code given by the instructor"): read from --codes YAML
-if given, otherwise read back from the checkpoint steps already in the
-instance, and only generated for an exercise that has neither. Codes therefore never rotate on a re-sync — once a
-code is handed to attendees it stays valid. The resolved sheet is written to
-the codes file; hand that file to the instructor.
+Validation codes ("the code given by the instructor"): taken from the
+subject's checkpoint_codes.yaml when the author chose one, otherwise from
+--codes YAML if given, otherwise read back from the checkpoint steps already in
+the instance, and only generated for an exercise that has none of those. A
+generated code therefore never rotates on a re-sync — once handed to attendees
+it stays valid. The resolved sheet is written to the codes file; hand that file
+to the instructor.
 """
 import argparse
 import hashlib
@@ -44,7 +46,7 @@ import requests
 import yaml
 
 sys.path.insert(0, str(Path(__file__).parent))
-from ws_parser import (load_flags, load_quiz_answers, lint_all,  # noqa: E402
+from ws_parser import (load_checkpoint_codes, load_flags, load_quiz_answers, lint_all,  # noqa: E402
                        parse_subject, rewrite_asset_refs, rewrite_cover_refs)
 
 # The note under a step ("ask the instructor for the code", "paste the token
@@ -769,15 +771,20 @@ def sync(subject_dir, url, admin_user, admin_pass, codes_path=None, *,
     asset_urls = upload_assets(ctfd, subject)
     apply_asset_rewrite(subject, asset_urls)
 
-    # Validation codes (instructor sheet). A code, once handed out, must survive
-    # every later sync, so it is only ever generated for an exercise that has
-    # none yet. Precedence: the codes file (admin intent) > the code already
-    # live in the instance > a fresh random one.
+    # Validation codes (instructor sheet). Precedence: the code the author
+    # chose in the subject (checkpoint_codes.yaml, PLAN.md §56) > the codes
+    # file (admin intent) > the code already live in the instance > a fresh
+    # random one. Only the last is generated, and only for an exercise that has
+    # none yet: a generated code, once handed out, must survive every later
+    # sync. The subject's own code wins over a live one on purpose — the same
+    # subject then carries the same codes on every instance, which is what an
+    # instructor's guide printed from the repo relies on.
     codes_file = Path(codes_path) if codes_path else Path(f"instructor_codes.{subject.slug}.yaml")
     codes = {}
     if codes_file.exists():
         # str(): an all-digit code hand-written unquoted parses as an int
         codes = {k: str(v) for k, v in (yaml.safe_load(codes_file.read_text()) or {}).items()}
+    authored = {k: str(v).strip() for k, v in load_checkpoint_codes(subject_dir).items()}
     flags = load_flags(subject_dir)
     # `validation: token` steps are solved by what the runtime reveals, so the
     # flag is derived here from the instance's secret rather than authored or
@@ -797,6 +804,7 @@ def sync(subject_dir, url, admin_user, admin_pass, codes_path=None, *,
         ctfd, [existing[ex.slug] for ex in subject.exercises
                if ex.validation == "checkpoint" and ex.slug in existing])
     changed_codes = False
+    from_subject = 0
     for ex in subject.exercises:
         if ex.validation != "checkpoint":
             # Only `checkpoint` uses a code. An authored answer would be
@@ -804,11 +812,27 @@ def sync(subject_dir, url, admin_user, admin_pass, codes_path=None, *,
             # secret — minting codes for either produces an instructor sheet
             # full of strings that solve nothing.
             continue
+        if authored.get(ex.slug):
+            live = live_codes.get(existing.get(ex.slug))
+            if live and live.lower() != authored[ex.slug].lower():
+                # Said, not refused: adopting the subject's code is the point,
+                # but a sheet already handed out for this step stops working.
+                print(f"warn code for {ex.slug!r} now comes from "
+                      f"checkpoint_codes.yaml; the one this instance had no "
+                      f"longer validates it")
+            if codes.get(ex.slug) != authored[ex.slug]:
+                codes[ex.slug] = authored[ex.slug]
+                changed_codes = True
+            from_subject += 1
+            continue
         if codes.get(ex.slug):
             continue
         codes[ex.slug] = (live_codes.get(existing.get(ex.slug))
                           or secrets.token_hex(3))
         changed_codes = True
+    if from_subject:
+        print(f"codes: {from_subject} checkpoint step(s) use the code chosen in "
+              f"checkpoint_codes.yaml, the others keep this instance's")
     if changed_codes:
         codes_file.write_text(
             "# Validation codes for instructors — one per exercise. NOT public.\n"

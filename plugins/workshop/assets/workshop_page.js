@@ -51,6 +51,23 @@
     }, options || {}));
   }
 
+  // A page the session has moved on from: signed out, signed in as somebody
+  // else, or holding a CSRF nonce the session no longer has. CTFd refuses all
+  // of them with a 401/403 before the endpoint runs, so nothing was checked
+  // or saved, and trying again from this page cannot work. Reloading is the
+  // one thing that does, and that is what the page says.
+  //
+  // Not the only 403 that lands here: a CTF window that has closed (or not
+  // opened) is one too, from `during_ctf_time_only`. Its body cannot be told
+  // from a refused nonce (both are `{"message": ...}`), and it needs no
+  // telling: the reload lands on `/workshop`, which carries the same guard
+  // (page.py) and shows CTFd's own "has ended" page. The advice still leads
+  // to the answer, one click later.
+  function refused(r) {
+    return r.status === 401 || r.status === 403;
+  }
+  var STALE = t("stale", "This page is out of date. Reload it, then try again.");
+
   /* ---------- answer collection ---------- */
 
   // Turn the controls into the grammar the server grades (see quiz.py):
@@ -136,9 +153,20 @@
           ? { challenge_id: id, submission: answer, skip_code: true }
           : { challenge_id: id, submission: answer }),
       });
-      var body = await r.json();
+      var body = await r.json().catch(function () { return null; });
       var data = (body && body.data) || {};
-      var status = data.status || "error";
+      var status = data.status;
+      // Only a verdict is reported as one. A refusal carries no status, or
+      // `authentication_required` with no message, and used to fall through to
+      // the wrong-answer branch: a right code typed into a stale page read
+      // « Pas encore » (issue #64). CTFd's own 403s that DO carry a verdict
+      // (`paused`, `ratelimited`, no attempts left) still go below.
+      if (!status || status === "authentication_required") {
+        feedback(form, "error", refused(r) ? STALE
+          : t("netError", "Could not reach the server — try again."));
+        button.disabled = false;
+        return;
+      }
       if (status === "correct" || status === "already_solved") {
         feedback(form, "correct", data.message || t("correct", "Correct"));
         // Everything the celebration needs is read BEFORE the refresh: it
@@ -241,6 +269,10 @@
         method: "PUT",
         body: JSON.stringify({ value: value, review: review ? review.value : "" }),
       });
+      if (refused(r)) {
+        if (thanks) thanks.textContent = STALE;
+        return;
+      }
       if (!r.ok) throw new Error("rating refused");
       box.dataset.value = String(value);
       box.dataset.review = review ? review.value : "";
@@ -290,10 +322,18 @@
     try {
       // POST /unlocks records the reveal in CTFd's HintUnlocks table — this is
       // how hint usage is tracked (free hints included, deliberately).
-      await api("/api/v1/unlocks", {
+      var unlock = await api("/api/v1/unlocks", {
         method: "POST",
         body: JSON.stringify({ target: id, type: "hints" }),
       });
+      // Its own refusals (already unlocked, not enough points) are 400s and
+      // the hint below says the rest. A 403 is the page itself: read on, and
+      // the hint would come back locked and empty and stay that way, marked
+      // loaded.
+      if (refused(unlock)) {
+        body.textContent = STALE;
+        return;
+      }
       var r = await api("/api/v1/hints/" + id);
       var payload = await r.json();
       var content = payload && payload.data && payload.data.html;

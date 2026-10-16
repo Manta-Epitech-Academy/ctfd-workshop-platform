@@ -14,6 +14,10 @@
  * endpoints; what only a browser can prove is the client-side rule that decides
  * WHICH copy wins, so that is what this exercises.
  *
+ * It ends on the other client-side rule only a browser can see: a page whose
+ * session has moved on stops saving, and says so for as long as it is open
+ * (issue #64).
+ *
  * One browser context throughout — that IS the shared classroom PC, since the
  * point is that localStorage follows the machine, not the account. Needs an
  * instance with a subject synced and its runtime dist built; it registers two
@@ -177,6 +181,63 @@ async function waitForSave(page, needle, timeout = 30000) {
   const kept = await cartOf(page2);
   check(!!kept && kept.includes("tout nouveau"),
         "a reload before the next save does not clobber unsaved work");
+
+  // Issue #64. Signing in again writes a new CSRF nonce, so every page already
+  // open sends the old one and CTFd refuses its writes before they run. Jump no
+  // longer does this to a talent who re-enters, but a page can still outlive
+  // its session (signed out, another account on the same browser), and then it
+  // has to say so rather than look like it is working.
+  console.log("\n== a page whose session has moved on says so, and keeps saying it ==");
+  // Opened before the session moves, like the tab left open behind a re-entry.
+  // The index, because its introduction is the one step a fresh account can
+  // answer: every part's steps stay locked behind it.
+  const subject = await fresh.newPage();
+  await subject.goto(BASE + "/workshop", { waitUntil: "domcontentloaded" });
+  const again = await fresh.newPage();
+  await login(again, A);
+  await again.close();
+
+  const staleNote = (p) => p.evaluate(() => {
+    const note = document.querySelector(".ws-runtime-note");
+    const said = document.querySelector("#ws-runtime").dataset.labelStale;
+    return !!note && !note.hidden && !!said && note.textContent === said;
+  });
+  await setCart(page2, "-- apres la reconnexion");
+  const said = await page2.waitForFunction(() => {
+    const note = document.querySelector(".ws-runtime-note");
+    return note && !note.hidden && note.textContent;
+  }, null, { timeout: 40000 }).then(() => true, () => false);
+  check(said && await staleNote(page2), "the runtime stops saving and says why");
+  check(!((await serverCart(page2)) || "").includes("apres la reconnexion"),
+        "and nothing it holds reached the server");
+
+  if (WHERE === "pane") {
+    // Shutting the pane saves and opening it clears the note, so the sentence
+    // used to go the first time the participant closed the editor.
+    await page2.click(".ws-runtime-close");
+    await page2.evaluate(() => document.querySelector(".ws-runtime-toggle").click());
+    check(await staleNote(page2), "closing and reopening the pane does not erase it");
+  }
+
+  const verdict = await subject.evaluate(async () => {
+    const form = document.querySelector('.ws-step[data-state="current"] .ws-form');
+    if (!form) return null;
+    const field = form.querySelector(".ws-answer");
+    if (field) field.value = "x";
+    form.requestSubmit();
+    const box = form.querySelector(".ws-feedback");
+    for (let i = 0; i < 50 && /pending/.test(box.className); i++) {
+      await new Promise((done) => setTimeout(done, 200));
+    }
+    return {
+      text: box.textContent,
+      stale: JSON.parse(document.getElementById("ws-i18n").textContent).stale,
+      shaken: !!field && field.classList.contains("ws-wrong"),
+    };
+  });
+  check(!!verdict && verdict.text === verdict.stale && !verdict.shaken,
+        `a step answered from that page says it is out of date, not wrong ` +
+        `(${verdict && verdict.text})`);
 
   await browser.close();
   console.log("\n" + (fails.length ? "FAILURES: " + JSON.stringify(fails) : "ALL GREEN"));

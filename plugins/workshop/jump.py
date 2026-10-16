@@ -146,6 +146,7 @@ from CTFd.utils.config.integrations import mlc_registration
 from CTFd.utils.config.visibility import registration_visible
 from CTFd.utils.decorators import admins_only
 from CTFd.utils.logging import log
+from CTFd.utils.security import signing
 from CTFd.utils.security.auth import login_user
 from CTFd.utils.user import get_ip
 
@@ -880,11 +881,21 @@ def enter():
         # no way to interpret.
         return _refused(f"user {user.id} is banned")
 
-    # The local sign-in path (CTFd/auth.py:485-487), not the OAuth one at :663,
-    # which skips the regeneration and leaves the pre-login session id valid.
-    session.regenerate()
-    login_user(user)
-    log("logins", "[{date}] {ip} - {name} entered from Jump", name=user.name)
+    if _holds(user):
+        # Jump's link is followed every time the talent clicks the activity,
+        # usually with the workshop still open in another tab. Signing in again
+        # would change nothing about who this is, but `login_user` writes a new
+        # CSRF nonce, and every page already open still sends the old one: CTFd
+        # refuses each of its submissions with a 403 before grading (issue #64).
+        log("logins", "[{date}] {ip} - {name} came back from Jump, session kept",
+            name=user.name)
+    else:
+        # The local sign-in path (CTFd/auth.py:485-487), not the OAuth one at
+        # :663, which skips the regeneration and leaves the pre-login session
+        # id valid.
+        session.regenerate()
+        login_user(user)
+        log("logins", "[{date}] {ip} - {name} entered from Jump", name=user.name)
 
     if not _workshop_is_open():
         # Signed in, but with nowhere to go yet. Saying so beats redirecting
@@ -893,6 +904,19 @@ def enter():
             _("The workshop is not open yet"),
             _("You are signed in. Come back when your instructor opens it."))
     return redirect(url_for("workshop_page.workshop"))
+
+
+def _holds(user):
+    """Is this browser already signed in as `user`?
+
+    The two fields `get_current_user()` checks (CTFd/utils/user/__init__.py),
+    so "yes" here is exactly "CTFd would serve this request as `user`". The
+    hash is how a password change ends every other session, and a session it
+    ended is not one to keep: that browser is signed in from scratch.
+    """
+    return (session.get("id") == user.id
+            and hmac.compare_digest(session.get("hash") or "",
+                                    signing.hmac(user.password)))
 
 
 def _workshop_is_open():

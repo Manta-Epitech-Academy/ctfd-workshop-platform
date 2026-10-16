@@ -412,9 +412,13 @@ class Sink:
 # Participant helpers
 # --------------------------------------------------------------------------
 
-def enter(base, token):
-    """Present a ticket. Returns the response and the session that holds it."""
-    session = requests.Session()
+def enter(base, token, session=None):
+    """Present a ticket. Returns the response and the session that holds it.
+
+    A fresh session is a browser with nothing open; passing one in is the same
+    browser following Jump's link again with the workshop still in a tab.
+    """
+    session = session or requests.Session()
     r = session.get(base + "/jump/enter", params={"t": token},
                     allow_redirects=False, timeout=30)
     return r, session
@@ -682,6 +686,33 @@ def main():
               "the same talent id on two key ids is two distinct accounts")
         check(other[0]["email"] == f"{TALENT}@{LABEL_B}.jump.invalid",
               "and two distinct namespaces, so neither is on the other's scoreboard")
+
+    # -- issue #64 ----------------------------------------------------------
+    # Jump's link is followed every time the talent clicks the activity, most
+    # often with the workshop still open in another tab. That tab holds the
+    # CSRF nonce it was rendered with; a re-entry that replaces it turns every
+    # later submission from that tab into a 403 before anything is graded.
+    print("== the same talent re-enters in the same browser: open pages keep working ==")
+    held = nonce(participant, base)
+    r, _ = enter(base, mint(KID_A, SECRET_A), session=participant)
+    check(r.status_code == 302,
+          f"a second ticket in the same browser is accepted ({r.status_code})")
+    check(nonce(participant, base) == held,
+          "the nonce an already-open page holds is still the session's")
+    # The workspace endpoint is CSRF-checked and answers 400 to an empty body
+    # whatever content the instance has, so a 403 here can only be the nonce.
+    r = participant.post(base + "/api/v1/workshop/workspace", timeout=30, json={},
+                         headers={"CSRF-Token": held, "Content-Type": "application/json"})
+    check(r.status_code != 403,
+          f"and a write signed with it gets past the CSRF check ({r.status_code})")
+
+    print("== another account entering in that browser still gets a session of its own ==")
+    r, _ = enter(base, mint(KID_B, SECRET_B), session=participant)
+    me = (participant.get(base + "/api/v1/users/me", timeout=20).json().get("data") or {})
+    check(r.status_code == 302 and other and me.get("id") == other[0]["user_id"],
+          f"the browser now holds the other account ({me.get('id')})")
+    check(nonce(participant, base) != held,
+          "with a nonce of its own, so the first account's pages cannot write as it")
 
     # -- a label belongs to the accounts it namespaces ---------------------
     print("== a label that already has accounts cannot move to another key id ==")

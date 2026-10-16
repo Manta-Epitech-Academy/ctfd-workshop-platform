@@ -54,14 +54,18 @@
       headers: { "Content-Type": "application/json", "CSRF-Token": nonce },
       body: "{}",
     }).then(function (r) {
+      // Refused before the endpoint ran (this menu item is an admin's, and
+      // the endpoint's own refusal is for participants): the page's session
+      // has moved on, and asking again from it cannot work.
+      if (r.status === 401 || r.status === 403) throw new Error("stale");
       if (!r.ok) throw new Error(String(r.status));
       return r.json();
     }).then(function (body) {
       wipeRuntime(body && body.data && body.data.runtime_keys);
       // Back to the start of the subject, which is where a reset leaves you.
       window.location.href = link.getAttribute("href");
-    }).catch(function () {
-      window.alert(link.getAttribute("data-failed"));
+    }).catch(function (e) {
+      window.alert(link.getAttribute(e && e.message === "stale" ? "data-stale" : "data-failed"));
     });
   });
 })();

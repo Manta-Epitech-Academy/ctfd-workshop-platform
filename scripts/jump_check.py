@@ -692,26 +692,32 @@ def main():
     # often with the workshop still open in another tab. That tab holds the
     # CSRF nonce it was rendered with; a re-entry that replaces it turns every
     # later submission from that tab into a 403 before anything is graded.
+    #
+    # A browser of its own, not `participant`: the last check below hands it
+    # to the other account, and every section after this one solves as
+    # `participant` and reads the outbox of `user_a`.
     print("== the same talent re-enters in the same browser: open pages keep working ==")
-    held = nonce(participant, base)
-    r, _ = enter(base, mint(KID_A, SECRET_A), session=participant)
+    r, browser = enter(base, mint(KID_A, SECRET_A))
+    check(r.status_code == 302, f"the talent is in ({r.status_code})")
+    held = nonce(browser, base)
+    r, _ = enter(base, mint(KID_A, SECRET_A), session=browser)
     check(r.status_code == 302,
           f"a second ticket in the same browser is accepted ({r.status_code})")
-    check(nonce(participant, base) == held,
+    check(nonce(browser, base) == held,
           "the nonce an already-open page holds is still the session's")
     # The workspace endpoint is CSRF-checked and answers 400 to an empty body
     # whatever content the instance has, so a 403 here can only be the nonce.
-    r = participant.post(base + "/api/v1/workshop/workspace", timeout=30, json={},
-                         headers={"CSRF-Token": held, "Content-Type": "application/json"})
+    r = browser.post(base + "/api/v1/workshop/workspace", timeout=30, json={},
+                     headers={"CSRF-Token": held, "Content-Type": "application/json"})
     check(r.status_code != 403,
           f"and a write signed with it gets past the CSRF check ({r.status_code})")
 
     print("== another account entering in that browser still gets a session of its own ==")
-    r, _ = enter(base, mint(KID_B, SECRET_B), session=participant)
-    me = (participant.get(base + "/api/v1/users/me", timeout=20).json().get("data") or {})
+    r, _ = enter(base, mint(KID_B, SECRET_B), session=browser)
+    me = (browser.get(base + "/api/v1/users/me", timeout=20).json().get("data") or {})
     check(r.status_code == 302 and other and me.get("id") == other[0]["user_id"],
           f"the browser now holds the other account ({me.get('id')})")
-    check(nonce(participant, base) != held,
+    check(nonce(browser, base) != held,
           "with a nonce of its own, so the first account's pages cannot write as it")
 
     # -- a label belongs to the accounts it namespaces ---------------------

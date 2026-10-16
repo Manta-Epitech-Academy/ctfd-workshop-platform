@@ -215,6 +215,8 @@
   var restored = false;      // NOTHING may be saved before that: an empty bucket
                              // must never overwrite a good snapshot
   var lastPrint = null, lastSaved = 0, saving = false, giveUp = false;
+  var stale = false;         // the server refused a save: this page's session
+                             // has moved on, and only a reload gets it back
 
   function ls(name) {
     try { return localStorage.getItem(name); } catch (e) { return null; }
@@ -332,7 +334,9 @@
         // in, or a CSRF nonce the session no longer has (issue #64). No later
         // tick from this page can succeed, and retrying in silence let
         // somebody keep working on code that was no longer being saved.
+        // Kept as state rather than said once: `note` keeps saying it.
         giveUp = true;
+        stale = true;
         note(pane.dataset.labelStale || "");
         return;
       }
@@ -544,6 +548,12 @@
   function note(text) {
     var el = pane.querySelector(".ws-runtime-note");
     if (!el) return;
+    // A stale page outranks every other note, and no later one replaces it:
+    // not the blocked tab, not the tab that cannot close, and not the clear an
+    // opening pane does. The refusal often lands while the pane is shut
+    // (shutting it saves), so that clear used to erase it before anybody read
+    // it, and the pane went on not saving in silence.
+    if (stale) text = pane.dataset.labelStale || "";
     el.textContent = text || "";
     el.hidden = !text;
   }

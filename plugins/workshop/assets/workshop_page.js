@@ -53,9 +53,16 @@
 
   // A page the session has moved on from: signed out, signed in as somebody
   // else, or holding a CSRF nonce the session no longer has. CTFd refuses all
-  // of them with a bare 401/403 before the endpoint runs, so nothing was
-  // checked or saved, and trying again from this page cannot work. Reloading
-  // is the one thing that does, and that is what the page says.
+  // of them with a 401/403 before the endpoint runs, so nothing was checked
+  // or saved, and trying again from this page cannot work. Reloading is the
+  // one thing that does, and that is what the page says.
+  //
+  // Not the only 403 that lands here: a CTF window that has closed (or not
+  // opened) is one too, from `during_ctf_time_only`. Its body cannot be told
+  // from a refused nonce (both are `{"message": ...}`), and it needs no
+  // telling: the reload lands on `/workshop`, which carries the same guard
+  // (page.py) and shows CTFd's own "has ended" page. The advice still leads
+  // to the answer, one click later.
   function refused(r) {
     return r.status === 401 || r.status === 403;
   }

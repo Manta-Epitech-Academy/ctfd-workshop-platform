@@ -397,6 +397,9 @@ msgstr ""
 msgid "This link is no longer valid"
 msgstr ""
 
+msgid "This page is out of date. Reload it, then try again."
+msgstr ""
+
 msgid "This step is just something to read"
 msgstr ""
 

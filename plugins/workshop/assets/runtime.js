@@ -327,6 +327,15 @@
         console.warn("workshop: your work is too large to save on the server");
         return;
       }
+      if (r.status === 401 || r.status === 403) {
+        // Refused before the endpoint ran: signed out, another account signed
+        // in, or a CSRF nonce the session no longer has (issue #64). No later
+        // tick from this page can succeed, and retrying in silence let
+        // somebody keep working on code that was no longer being saved.
+        giveUp = true;
+        note(pane.dataset.labelStale || "");
+        return;
+      }
       if (!r.ok) return;              // transient: the next tick tries again
       lastPrint = JSON.stringify(keys);
       lsSet(LS_OWNER, owner());

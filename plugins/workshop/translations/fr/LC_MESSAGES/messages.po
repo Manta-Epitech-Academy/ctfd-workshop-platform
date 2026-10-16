@@ -546,6 +546,9 @@ msgstr "au choix"
 msgid "Your progress could not be reset."
 msgstr "Ta progression n'a pas pu être réinitialisée."
 
+msgid "Your work is no longer being saved. Reload the page."
+msgstr "Ton travail n'est plus enregistré. Recharge la page."
+
 #, python-format
 msgid "What %(subject)s has given you so far, in one place."
 msgstr "Ce que %(subject)s t'a donné jusqu'ici, au même endroit."

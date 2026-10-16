@@ -512,6 +512,9 @@ msgid "your pick"
 msgid "Your progress could not be reset."
 msgstr ""
 
+msgid "Your work is no longer being saved. Reload the page."
+msgstr ""
+
 #, python-format
 msgid "What %(subject)s has given you so far, in one place."
 msgstr ""

@@ -716,6 +716,68 @@ def load_flags(subject_dir):
     return (yaml.safe_load(path.read_text()) or {}).get("flags", {})
 
 
+def load_checkpoint_codes(subject_dir):
+    """Codes an author chose for `checkpoint` exercises, keyed by exercise id.
+
+    Optional, and partial on purpose: an exercise with no entry keeps the code
+    the instance generated for it (sync_subject.py). Same shape and same
+    handling as flags.yaml — a public subject repo encrypts it, since a code
+    readable in the repo validates the step for anyone who finds it.
+
+        codes:
+          carre: "tortue-carre"
+          etoile: 7c4f2a
+
+    Values are returned as written; `_codes_problems` refuses the ones that
+    are not a non-empty string or number, and the importer stringifies them
+    (an all-digit code written unquoted parses as an int).
+    """
+    path = Path(subject_dir) / CHECKPOINT_CODES
+    if not path.exists():
+        return {}
+    return (yaml.safe_load(path.read_text()) or {}).get("codes", {}) or {}
+
+
+CHECKPOINT_CODES = "checkpoint_codes.yaml"
+
+
+def _codes_problems(subject, codes):
+    """What makes checkpoint_codes.yaml unusable. Each one refuses the subject.
+
+    An entry the importer would silently ignore is the dangerous kind: the
+    author believes a step has a chosen code, prints it on the instructor's
+    sheet, and the room gets the generated one instead.
+    """
+    problems = []
+    if not isinstance(codes, dict):
+        return [f"{CHECKPOINT_CODES}: `codes` must map exercise ids to codes"]
+    by_slug = {e.slug: e for e in subject.exercises}
+    for slug, code in codes.items():
+        ex = by_slug.get(slug)
+        if ex is None:
+            problems.append(f"{CHECKPOINT_CODES}: {slug!r} matches no exercise")
+        elif ex.validation != "checkpoint":
+            problems.append(f"{CHECKPOINT_CODES}: {slug!r} is validated by "
+                            f"{ex.validation!r}, not by a checkpoint code")
+        elif isinstance(code, bool) or not isinstance(code, (str, int)) \
+                or not str(code).strip():
+            problems.append(f"{CHECKPOINT_CODES}: {slug!r} needs a non-empty code")
+    return problems
+
+
+def _codes_warnings(codes):
+    """Advice: the same code on two steps validates both with one word."""
+    if not isinstance(codes, dict):
+        return []
+    seen = {}
+    for slug, code in codes.items():
+        if isinstance(code, (str, int)) and not isinstance(code, bool):
+            seen.setdefault(str(code).strip().lower(), []).append(slug)
+    return [f"{CHECKPOINT_CODES}: {', '.join(map(repr, slugs))} share one code, so "
+            f"reading it out validates all of them"
+            for slugs in seen.values() if len(slugs) > 1]
+
+
 # A tagline is the one line a participant reads before anything else, so it is a
 # headline and not a paragraph. The ceiling is editorial, not measured: this
 # parser is shared, the band that renders a tagline lives in the platform and
@@ -826,7 +888,8 @@ def lint_all(subject_dir):
         # Nothing parsed, or parsed and failed: advice about a cover would be
         # noise next to a real error, and may not even be computable.
         return problems, []
-    return problems, _cover_warnings(subject) + _toolbox_warnings(subject_dir, subject)
+    return problems, (_cover_warnings(subject) + _toolbox_warnings(subject_dir, subject)
+                      + _codes_warnings(load_checkpoint_codes(subject_dir)))
 
 
 def lint(subject_dir):
@@ -847,6 +910,7 @@ def _lint_problems(subject_dir):
         return [str(e)], None
     answers = load_quiz_answers(subject_dir)
     flags = load_flags(subject_dir)
+    problems.extend(_codes_problems(subject, load_checkpoint_codes(subject_dir)))
     # The importer resolves `project.entrypoint` against these documents to build
     # the index page and the opening step, and it does so after the images have
     # been uploaded — in a workshop, after the earlier subjects have been

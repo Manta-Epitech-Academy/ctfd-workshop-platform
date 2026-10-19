@@ -267,6 +267,9 @@
          {# Said only when a browser refuses the tab. Server-rendered, because
             it has to be translated and assets/runtime.js has no catalogue. #}
          data-label-blocked="{% trans %}Your browser blocked the new tab, so it opened beside the subject instead.{% endtrans %}"
+         {# Said when the server refuses a save: this page's session has moved
+            on, and only a reload gets saving going again. #}
+         data-label-stale="{% trans %}Your work is no longer being saved. Reload the page.{% endtrans %}"
          data-runtime-id="{{ runtime.id }}"
          data-runtime-src="{{ runtime.src }}"
          data-runtime-adapter="{{ runtime.adapter }}"

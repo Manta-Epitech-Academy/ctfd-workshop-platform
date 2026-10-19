@@ -399,6 +399,9 @@ msgstr ""
 msgid "This link is no longer valid"
 msgstr ""
 
+msgid "This page is out of date. Reload it, then try again."
+msgstr ""
+
 msgid "This step is just something to read"
 msgstr ""
 
@@ -509,6 +512,9 @@ msgstr ""
 msgid "your pick"
 
 msgid "Your progress could not be reset."
+msgstr ""
+
+msgid "Your work is no longer being saved. Reload the page."
 msgstr ""
 
 #, python-format

@@ -413,6 +413,9 @@ msgstr ""
 msgid "This link is no longer valid"
 msgstr "Ce lien n'est plus valable"
 
+msgid "This page is out of date. Reload it, then try again."
+msgstr "Cette page n'est plus à jour. Recharge-la, puis réessaie."
+
 msgid "This step is just something to read"
 msgstr "Cette étape est juste à lire"
 
@@ -547,6 +550,9 @@ msgstr "au choix"
 
 msgid "Your progress could not be reset."
 msgstr "Ta progression n'a pas pu être réinitialisée."
+
+msgid "Your work is no longer being saved. Reload the page."
+msgstr "Ton travail n'est plus enregistré. Recharge la page."
 
 #, python-format
 msgid "What %(subject)s has given you so far, in one place."

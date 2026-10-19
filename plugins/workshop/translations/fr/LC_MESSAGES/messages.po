@@ -101,6 +101,13 @@ msgstr "Le serveur ne répond pas. Réessaie."
 msgid "Could not save that — try again."
 msgstr "Impossible d'enregistrer. Réessaie."
 
+msgid ""
+"Don't have a supervisor account yet? You can create one with the "
+"supervisor code."
+msgstr ""
+"Vous n'avez pas encore de compte encadrant ? Vous pouvez en créer un avec "
+"le code superviseur."
+
 msgid "Email"
 msgstr ""
 
@@ -307,9 +314,6 @@ msgstr "Réinitialiser ta propre progression ? Tes étapes validées, tes essais
 msgid "Review"
 msgstr "Revoir"
 
-msgid "Running the room? Join as a supervisor with your code."
-msgstr "Vous encadrez la salle ? Rejoignez-la comme superviseur avec votre code."
-
 msgid "Save"
 msgstr "Enregistrer"
 
@@ -338,13 +342,14 @@ msgid "Skip validation code"
 msgstr "Passer le code de validation"
 
 msgid "Staff area: sign in with your username or email."
-msgstr "Espace staff : connectez-vous avec votre identifiant ou votre e-mail."
+msgstr ""
+"Espace Encadrant : connectez-vous avec votre identifiant ou votre e-mail."
 
 msgid "Staff member?"
 msgstr "Tu fais partie du staff ?"
 
 msgid "Staff sign-in"
-msgstr "Espace staff"
+msgstr "S'identifier en tant qu'encadrant"
 
 msgid "Start"
 msgstr "Commencer"

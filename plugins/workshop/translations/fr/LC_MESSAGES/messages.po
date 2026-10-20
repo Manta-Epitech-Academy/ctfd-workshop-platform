@@ -26,8 +26,8 @@ msgstr[0] "%(count)s réponse"
 msgstr[1] "%(count)s réponses"
 
 #, python-format
-msgid "%(n)s pts"
-msgstr "%(n)s pts"
+msgid "%(n)s XP"
+msgstr "%(n)s XP"
 
 msgid "Admin Panel"
 msgstr ""
@@ -491,6 +491,9 @@ msgstr "Atelier terminé. Beau travail."
 msgid "Workshop parts"
 msgstr "Parties de l'atelier"
 
+msgid "XP"
+msgstr "XP"
+
 msgid "You are signed in. Come back when your instructor opens it."
 msgstr "Tu es connecté. Reviens quand ton encadrant l'ouvrira."
 
@@ -511,9 +514,6 @@ msgstr "verrouillée"
 
 msgid "next"
 msgstr "ensuite"
-
-msgid "pts"
-msgstr "pts"
 
 msgid "starter"
 msgstr "pour commencer"

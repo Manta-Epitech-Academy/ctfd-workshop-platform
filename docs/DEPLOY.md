@@ -331,7 +331,8 @@ Every instance is reachable from Jump and, for a talent, only from Jump
 `https://<host>/jump/enter?t=...` in a new tab, and the plugin creates the
 account on first arrival, opens the session and lands the talent on the
 workshop. Solved steps are queued locally and posted back to Jump so XP land
-without anybody running a script against the database.
+without anybody running a script against the database: one XP per point the
+steps are worth in CTFd (PLAN.md §57).
 
 Two things have to agree, and `provision.py setup` writes both:
 

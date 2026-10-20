@@ -4385,10 +4385,11 @@ turns an all-digit value into an `int`.
 rather than defaulted to the starter's `project.slug`, which would make the composition and that
 subject alone one activity on Jump, and pay the one for the other.
 
-The key is the deployed content, not each subject. A camp composing three subjects has one budget
+The key is the deployed content, not each subject. A camp composing three subjects has one grant
 on Jump and is one card, and Jump shows one line per activity in the talent's history.
-Keyed per subject, a camp would be three lines, and the budget would have to be split or paid three
-times. The accepted cost: a subject shared by two successive workshops pays again under the second.
+Keyed per subject, a camp would be three lines, and the grant would have to be split or paid three
+times. (This section first said "budget": Jump then paid a per-event duration. Since §57 the grant
+is the points of the content's steps.) The accepted cost: a subject shared by two successive workshops pays again under the second.
 
 ### 51.2 The callback names it
 
@@ -4712,3 +4713,86 @@ and advice; a sync with a partial `checkpoint_codes.yaml` gives the chosen steps
 for each live code replaced, and leaves every other step's code exactly as it was; a re-sync
 changes nothing; a participant solves a step with its chosen code in another case; the instance's
 codes are put back afterwards.
+
+## 57. Jump grants the points (2026-10-20)
+
+Jump paid an activity by the clock: `solvedSteps / totalSteps x durationMinutes x 10`, the
+duration declared per event on Jump's side. The value an author gives a step here changed nothing
+there. The page showed "+25 pts" on a solve, the Jump dashboard then showed an XP figure that had
+nothing to do with it, and talents read two scores for one piece of work. The rule since jump#427 (PO, 2026-10-19):
+**1 XP in Jump = 1 point here**. No conversion, no per-step split, no duration. The author sets each
+step's value in the subject and can change it after a session.
+
+### 57.1 The callback carries the points
+
+`build_payload` adds `points`: `progress.points_for_user`, the sum of `Challenges.value` over the
+talent's solves on visible challenges. Jump grants it as it is and does no arithmetic. Jump
+requires the key and refuses a report without it with a 400, which waits in the outbox like a
+report without `contentSlug` (§51.2).
+
+### 57.2 The population is not the counters'
+
+The counters leave out optional steps so the bar can reach 100% (`progress.py`). The points do
+not: CTFd pays an optional step's value, and the rule is what CTFd pays. A note is worth 0 by
+construction (`sync_subject.py`, intro, outro and text steps), so it changes nothing either way.
+Hidden rows are out, as for the counters: they are a content this instance no longer serves, and
+Jump files them under that content's activity (§51).
+
+### 57.3 Hint costs are not taken off
+
+A paid hint is recorded by CTFd as a negative award with no challenge, so it cannot be told
+apart by content, and it is spent on the scoreboard. Jump's XP measure progress, not that
+spending. No hint shipped so far costs anything: the six subject repos `deploy/instances.yaml`
+imports carry 60 hints between them, none with a `cost` (checked 2026-10-20). So today the two
+agree anyway.
+
+### 57.4 A changed value is repriced at the next solve
+
+The payload is a recount (§31.6) and Jump upserts one grant per talent and activity, so a talent's
+grant follows the values live at their next solve, upwards or downwards. Jump celebrates only
+what goes past what it has already shown, so a lowered value takes XP back without a negative
+toast. A talent who has finished keeps the old price until something makes the outbox send for
+them again, the same reach the counters have.
+
+### 57.5 One word for one number
+
+The step badge and the float a solve sends up read "XP", in both languages: they are the number
+Jump grants. Left as points on purpose:
+
+- **the scoreboard**, which sums the whole instance, hidden contents included (§51.9), and takes
+  hint costs off. It ranks the room and is not a figure Jump shows. Calling it XP would bring back
+  two different numbers under one word;
+- **a hint's cost**, spent from that scoreboard;
+- **the admin panel and the answer sheet**, read by staff, where "points" is CTFd's own word for
+  the column.
+
+### 57.6 Deploy order
+
+1. This plugin on every instance. Safe against an older Jump, which ignores the extra key.
+2. Jump.
+
+A Jump deployed first refuses every report with a 400. The rows back off, end `failed` with their
+Send again button, and are rebuilt at send time, so a resend after the plugin is out delivers them.
+
+### 57.7 Not changed
+
+- The hook still sees only `quiz` solves (§31.7). A `standard` step validated by a flag is paid
+  when the next quiz solve recounts, as its counter already was. This is now visible in XP rather
+  than only in a ratio.
+- Level tiers are Jump's, and stay as they are until the values in use are known.
+
+### 57.8 Checked
+
+`scripts/jump_check.py` asserts the payload's key set with `points` and that `points` equals the
+value of the one step the account solved. That step is the check's own (`own_step`): an `ack`
+worth 13, with no prerequisite, created for the run and deleted after it. A first version picked
+the content's button steps, highest value first, and a synced subject defeats that both ways: its
+only `ack` is the introduction, worth 0, so an instructor-led instance checked the points at 0
+only; and every checkpoint is locked behind that introduction, so on a self-serve one the first
+step tried was refused and AC6 to AC9 failed. Jump's side is in jump#427's callback and
+celebration integration tests.
+
+Run on a fresh local instance with `santa_shooter_subject` synced, in both modes: ALL GREEN, the
+callback reporting `points: 13`. With `points_for_user` made to return 0, the check fails on that
+line and nowhere else. On an instance holding three `ack` steps worth 25, 10 and 0, `/workshop`
+renders the badges "25 XP" and "10 XP" in French and in English, and none on the step worth 0.

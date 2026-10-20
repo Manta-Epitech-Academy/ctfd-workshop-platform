@@ -172,10 +172,10 @@
         // Everything the celebration needs is read BEFORE the refresh: it
         // replaces .ws-step-body's innerHTML, which contains this very form and
         // the button the float is anchored to. .ws-step-summary survives, which
-        // is why the points are read from there.
+        // is why the step's value is read from there.
         var stepEl = form.closest(".ws-step");
         var meta = stepEl && stepEl.querySelector(".ws-step-meta");
-        var points = meta ? parseInt(meta.textContent, 10) : 0;
+        var xp = meta ? parseInt(meta.textContent, 10) : 0;
         // `correct` only, and here rather than anywhere else. This is the ONE
         // place in the page where a real solve and "you had already solved
         // this" are distinguishable: refresh() re-reads the graph and sees a
@@ -198,7 +198,7 @@
         // waiting for cannot drift apart.
         var hold = 0;
         if (status === "correct" && window.wsCelebrate) {
-          hold = window.wsCelebrate.step(button, points, I18N.points, COVER.mascot);
+          hold = window.wsCelebrate.step(button, xp, I18N.xp, COVER.mascot);
         }
         var counts = await refresh(id, hold ? performance.now() + hold : 0);
         if (status === "correct") celebrateCompletion(counts);

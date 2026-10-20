@@ -4,7 +4,7 @@
  * a chip from grey to green and did nothing else. This is the layer that says
  * something happened, at three intensities so the last one still counts:
  *
- *   a step        a "+N pts" figure floating off the row that was just solved
+ *   a step        a "+N XP" figure floating off the row that was just solved
  *   a part        confetti, over the completion block the page already renders
  *   the workshop  confetti, twice, and the block says it is over
  *
@@ -155,8 +155,8 @@
        many milliseconds this moment needs before the page may move, or 0 if
        nothing was drawn. The caller decides what to do with that; this only
        knows how long its own animation takes. */
-    step: function (anchor, points, label, mascot) {
-      return floatReward(anchor, points, label, mascot);
+    step: function (anchor, xp, label, mascot) {
+      return floatReward(anchor, xp, label, mascot);
     },
     part: function () {
       if (!reducedMotion()) burst();

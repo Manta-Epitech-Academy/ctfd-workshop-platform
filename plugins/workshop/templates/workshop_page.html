@@ -175,7 +175,7 @@
               <span class="ws-step-bonus"
                     title="{{ _("Optional — it does not count towards your progress") }}">{% trans %}Bonus{% endtrans %}</span>
             {% endif %}
-            {% if step.points %}<span class="ws-step-meta">{{ _("%(n)s pts", n=step.points) }}</span>{% endif %}
+            {% if step.points %}<span class="ws-step-meta">{{ _("%(n)s XP", n=step.points) }}</span>{% endif %}
           </summary>
           <div class="ws-step-body">
             {% include "workshop_step_body.html" %}

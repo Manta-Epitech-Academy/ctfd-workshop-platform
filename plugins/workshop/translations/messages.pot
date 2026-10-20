@@ -24,7 +24,7 @@ msgstr[0] ""
 msgstr[1] ""
 
 #, python-format
-msgid "%(n)s pts"
+msgid "%(n)s XP"
 msgstr ""
 
 msgid "Admin Panel"
@@ -473,6 +473,9 @@ msgstr ""
 msgid "Workshop parts"
 msgstr ""
 
+msgid "XP"
+msgstr ""
+
 msgid "You are signed in. Come back when your instructor opens it."
 msgstr ""
 
@@ -492,9 +495,6 @@ msgid "locked"
 msgstr ""
 
 msgid "next"
-msgstr ""
-
-msgid "pts"
 msgstr ""
 
 msgid "starter"

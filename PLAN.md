@@ -4782,10 +4782,15 @@ Send again button, and are rebuilt at send time, so a resend after the plugin is
 ### 57.8 Checked
 
 `scripts/jump_check.py` asserts the payload's key set with `points` and that `points` equals the
-value of the visible steps the account solved, read back through the admin API. Steps are solved
-highest value first, so the check runs above 0 whenever the instance has a valued step a button
-can solve. Jump's side is in jump#427's callback and celebration integration tests.
+value of the one step the account solved. That step is the check's own (`own_step`): an `ack`
+worth 13, with no prerequisite, created for the run and deleted after it. A first version picked
+the content's button steps, highest value first, and a synced subject defeats that both ways: its
+only `ack` is the introduction, worth 0, so an instructor-led instance checked the points at 0
+only; and every checkpoint is locked behind that introduction, so on a self-serve one the first
+step tried was refused and AC6 to AC9 failed. Jump's side is in jump#427's callback and
+celebration integration tests.
 
-Run on a fresh local instance holding three `ack` steps worth 25, 10 and 0: ALL GREEN, the
-callback reporting `points: 25` for the one step solved. `/workshop` renders the badges "25 XP"
-and "10 XP" in French and in English, and none on the step worth 0.
+Run on a fresh local instance with `santa_shooter_subject` synced, in both modes: ALL GREEN, the
+callback reporting `points: 13`. With `points_for_user` made to return 0, the check fails on that
+line and nowhere else. On an instance holding three `ack` steps worth 25, 10 and 0, `/workshop`
+renders the badges "25 XP" and "10 XP" in French and in English, and none on the step worth 0.

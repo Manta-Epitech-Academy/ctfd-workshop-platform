@@ -6,7 +6,8 @@
 The plugin has no test suite, so this script **is** this feature's test suite.
 It mints its own tickets and runs its own callback sink, so it needs no Jump:
 what it cannot prove is that the real Jump accepts what this sends, only that
-what this sends is what the contract says.
+what this sends is what the contract says. It solves steps of its own too, so
+what it checks does not depend on the content synced here (`own_step`).
 
 §50 adds the session a ticket names: a ticket with half a session is
 refused, an account follows the session its latest ticket names, two sessions
@@ -108,6 +109,12 @@ CAMPUS_A, CAMPUS_B = f"{KID_A}/{CAMPUS['campus']}", f"{KID_B}/{CAMPUS['campus']}
 # than a slow one.
 DRAIN_DEADLINE = 40
 RETURN_DEADLINE = 90
+
+# What the check's own solved step is worth, so the points Jump is sent are
+# checked against a figure other than 0. Not 25, the value a subject's steps
+# default to (`points_default`), so a payload that counted some other step
+# cannot match it by accident.
+STEP_VALUE = 13
 
 
 def check(cond, label):
@@ -431,41 +438,27 @@ def page_counters(session, base):
     return (int(m.group(1)), int(m.group(2))) if m else (None, None)
 
 
-def solvable_steps(admin, session, base):
-    """Steps this participant can solve without knowing an answer.
+def own_step(admin, name, value):
+    """A step of the check's own, worth `value`, deleted when the check ends.
 
-    `ack` is a lone Submit button by construction, so it is the one kind that
-    is solvable on any instance without reading the content. A self-serve
-    instance adds `checkpoint`, which is also a button there.
+    An `ack` quiz: a lone Submit button, solved without an answer, and through
+    `QuizChallenge.solve()`, the hook that queues a row for Jump. No
+    prerequisite, so every account can solve it at once.
 
-    Highest value first: an `ack` is authored worth 0, and the points Jump is
-    sent can only be told from a constant 0 once a step worth something has
-    been solved.
+    The content's own steps cannot stand in for it. A synced subject gates
+    every step on its introduction, its only `ack`, worth 0: picking from the
+    content either checks the points at 0 or tries a step that is still locked.
     """
-    self_serve = str(admin.config("workshop_mode") or "instructor_led") == "self_serve"
-    kinds = {"ack"} | ({"checkpoint"} if self_serve else set())
-    visible = session.get(base + "/api/v1/challenges", timeout=30).json()["data"]
-    out = []
-    for row in visible:
-        detail = admin.api("GET", f"/challenges/{row['id']}").json()["data"]
-        if detail.get("quiz_type") in kinds:
-            out.append((detail.get("value") or 0, row["id"]))
-    return [cid for _, cid in sorted(out, key=lambda pair: -pair[0])]
-
-
-def scored_points(admin, user_id):
-    """The value of every visible step this account solved, read as an admin.
-
-    What `points_for_user` must report, recounted from the API rather than
-    from the plugin's own code: hidden rows are a previous content's.
-    """
-    solves = admin.api("GET", f"/users/{user_id}/solves").json()["data"]
-    total = 0
-    for solve in solves:
-        detail = admin.api("GET", f"/challenges/{solve['challenge_id']}").json()["data"]
-        if detail.get("state") != "hidden":
-            total += detail.get("value") or 0
-    return total
+    r = admin.api("POST", "/challenges", json={
+        "name": f"{name} {RUN}", "category": "jumpcheck", "description": "-",
+        "value": value, "type": "quiz", "quiz_type": "ack", "quiz_spec": None,
+        "quiz_answers": {}, "state": "visible"})
+    step = (r.json().get("data") or {}).get("id") if r.status_code == 200 else None
+    if step is None:
+        sys.exit(f"could not create a step of the check's own: "
+                 f"HTTP {r.status_code} {r.text[:200]}")
+    atexit.register(lambda: admin.api("DELETE", f"/challenges/{step}"))
+    return step
 
 
 def attempt(session, base, challenge_id, submission="done"):
@@ -846,18 +839,19 @@ def main():
 
     # -- AC6, AC8 ----------------------------------------------------------
     print("== solving queues one row, and it reaches the sink ==")
-    steps = solvable_steps(admin, participant, base)
-    if not steps:
-        print("  (no button-only step is available to this account — "
-              "AC6 to AC9 need one, so they are skipped)")
-        return finish()
+    # Two steps, because the outage below needs a solve of its own: an
+    # already-solved challenge answers `already_solved` from
+    # CTFd/api/v1/challenges.py:988 without ever calling `solve()`, so a
+    # re-solve writes no row and there would be nothing to watch back off.
+    valued = own_step(admin, "jumpcheck valued step", STEP_VALUE)
+    second = own_step(admin, "jumpcheck second step", 0)
 
     sink.clear()
-    response, baseline = attempt(participant, base, steps[0])
-    check(response.get("data", {}).get("status") in ("correct", "already_solved"),
+    response, baseline = attempt(participant, base, valued)
+    check(response.get("data", {}).get("status") == "correct",
           f"the step is accepted ({response.get('data', {}).get('status')})")
     rows = admin.events(user_id=user_a)
-    check(len(rows) == 1 and rows[0]["challenge_id"] == steps[0],
+    check(len(rows) == 1 and rows[0]["challenge_id"] == valued,
           f"exactly one outbox row was written ({len(rows)})")
 
     sent = waitfor(lambda: [e for e in admin.events(user_id=user_a)
@@ -886,51 +880,39 @@ def main():
               "the signature covers the exact bytes on the wire")
         check(abs(int(ts) - time.time()) < 300,
               "the timestamp is inside Jump's 300 s freshness window")
-        check(call["headers"].get("X-Idempotency-Key") == f"{user_a}:{steps[0]}",
+        check(call["headers"].get("X-Idempotency-Key") == f"{user_a}:{valued}",
               "the idempotency key is the outbox row's natural key")
         solved, total = page_counters(participant, base)
         check((body["solvedSteps"], body["totalSteps"]) == (solved, total),
               f"the reported counters are what the page renders "
               f"({body['solvedSteps']}/{body['totalSteps']} vs {solved}/{total})")
-        points = scored_points(admin, user_a)
-        check(body["points"] == points,
-              f"the reported points are the value of the visible steps solved "
-              f"({body['points']} vs {points})")
-        if not points:
-            print("  (every solvable step is worth 0 here, so the points were "
-                  "checked only at 0)")
+        # The account has solved that one step and nothing else.
+        check(body["points"] == STEP_VALUE,
+              f"the reported points are the value of the step solved "
+              f"({body['points']} vs {STEP_VALUE})")
 
     # -- AC7 ---------------------------------------------------------------
     print("== the sink is down: solving is unaffected, and the queue waits ==")
-    if len(steps) < 2:
-        # A re-solve cannot stand in for a second step: an already-solved
-        # challenge answers `already_solved` from CTFd/api/v1/challenges.py:988
-        # without ever calling `solve()`, so no row is written and there would
-        # be nothing to watch back off. Skipped rather than asserted against an
-        # empty queue, which is a failure that means nothing.
-        print("  (this instance has one button-only step, so there is no second "
-              "solve to make during the outage — skipped)")
-    else:
-        sink.stop()
-        sink.clear()
-        response, outage = attempt(participant, base, steps[1])
-        check(outage < max(2.0, baseline * 3 + 0.5),
-              f"the attempt is as fast with Jump down as with it up "
-              f"({outage:.2f}s vs {baseline:.2f}s)")
+    sink.stop()
+    sink.clear()
+    response, outage = attempt(participant, base, second)
+    check(outage < max(2.0, baseline * 3 + 0.5),
+          f"the attempt is as fast with Jump down as with it up "
+          f"({outage:.2f}s vs {baseline:.2f}s)")
 
-        backed_off = waitfor(
-            lambda: [e for e in admin.events(user_id=user_a)
-                     if e["status"] == "pending" and e["attempts"] > 0],
-            DRAIN_DEADLINE)
-        check(bool(backed_off), "rows back off rather than disappearing")
+    backed_off = waitfor(
+        lambda: [e for e in admin.events(user_id=user_a)
+                 if e["status"] == "pending" and e["attempts"] > 0],
+        DRAIN_DEADLINE)
+    check(bool(backed_off), "rows back off rather than disappearing")
 
-        print("== the sink comes back: the queue drains on its own ==")
-        sink.start()
-        drained = waitfor(lambda: not [e for e in admin.events(user_id=user_a)
-                                       if e["status"] == "pending"],
-                          RETURN_DEADLINE, 2)
-        check(bool(drained), "every queued row drained once the sink returned")
-        check(len(sink.received) >= 1, "and the sink received what it had missed")
+    print("== the sink comes back: the queue drains on its own ==")
+    sink.start()
+    drained = waitfor(lambda: not [e for e in admin.events(user_id=user_a)
+                                   if e["status"] == "pending"],
+                      RETURN_DEADLINE, 2)
+    check(bool(drained), "every queued row drained once the sink returned")
+    check(len(sink.received) >= 1, "and the sink received what it had missed")
 
     # -- §52 ---------------------------------------------------------------
     print("== an address that redirects keeps the row, it does not follow ==")
@@ -961,11 +943,10 @@ def main():
     # -- AC9 ---------------------------------------------------------------
     print("== a key id that is gone is dropped, not retried forever ==")
     r, orphan_session = enter(base, mint(KID_B, SECRET_B))
-    orphan_steps = solvable_steps(admin, orphan_session, base)
     orphan_id = other[0]["user_id"] if other else None
-    if orphan_steps and orphan_id:
+    if orphan_id:
         sink.stop()
-        attempt(orphan_session, base, orphan_steps[0])
+        attempt(orphan_session, base, valued)
         queued = waitfor(lambda: admin.events(user_id=orphan_id), DRAIN_DEADLINE)
         check(bool(queued), "the second talent's solve queued a row")
         admin.set_configs({"workshop_jump_keys": json.dumps({KID_A: keys[KID_A]})})
@@ -976,7 +957,7 @@ def main():
               "removing its key id drops the row instead of retrying it")
         sink.start()
     else:
-        print("  (no step available to the second account, skipped)")
+        print("  (the other key id's account was never created, skipped)")
 
     return finish()
 

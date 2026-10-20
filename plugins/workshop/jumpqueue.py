@@ -23,8 +23,9 @@ says so. Hence a table, a retry ladder, and a page an instructor can look at.
 *after* the challenge plugin's hook (CTFd/api/v1/challenges.py:855-859, then
 :884-885). A count taken inside `solve()` is therefore the count from *before*
 the solve, and may be a minute stale on top of that. Taking it here, from
-progress.py, is also what makes the number Jump receives the number the
-participant is reading on the page.
+progress.py, is also what makes the numbers Jump receives the numbers the
+participant is reading on the page: the step counters, and the points that
+become their XP.
 
 ## What the hook does not see
 
@@ -85,7 +86,7 @@ from CTFd.utils.decorators import admins_only
 from .accounts import delete_accounts
 from .jump import (JumpEvent, JumpLink, content_slug, derived_key, instance_slug, jump_keys,
                    requeue, server_origin, unverifiable_links)
-from .progress import progress_for_user
+from .progress import points_for_user, progress_for_user
 
 CALLBACK_PATH = "/api/workshops/callback"
 ERASURES_PATH = "/api/workshops/erasures"
@@ -130,9 +131,9 @@ def enqueue_solve(user_id, challenge_id):
     request. A participant who did not arrive through Jump has no link row and
     costs one indexed lookup.
 
-    The payload is deliberately left empty: what Jump needs is a ratio, and the
-    ratio is only correct once CTFd has invalidated its solve cache, which
-    happens after this returns. The drainer fills it in.
+    The payload is deliberately left empty: what Jump needs is a recount, and
+    the recount is only correct once CTFd has invalidated its solve cache,
+    which happens after this returns. The drainer fills it in.
     """
     link = JumpLink.query.filter_by(user_id=user_id).first()
     if link is None:
@@ -168,6 +169,10 @@ def build_payload(event, slug):
     either way, and one that requires it refuses the row, which then waits in
     this outbox for a re-sync and a resend rather than being filed under a
     guess.
+
+    `points` is what Jump grants as XP, one for one (§57). It is a recount
+    like the rest, so a step whose value an author changes is repriced for a
+    talent at their next solve, upwards or downwards.
     """
     solved, total = progress_for_user(event.user_id)
     payload = {
@@ -176,6 +181,7 @@ def build_payload(event, slug):
         "solvedSteps": solved,
         "totalSteps": total,
         "isComplete": bool(total) and solved == total,
+        "points": points_for_user(event.user_id),
     }
     content = content_slug()
     if content:

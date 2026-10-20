@@ -2,7 +2,8 @@
 
 Three places need the same two numbers — the workshop page renders "8 / 15",
 the admin Answers table shows a column of them, and the Jump outbox reports
-them so a talent's XP match the screen they are looking at (PLAN.md §31). They
+them so a talent's progress matches the screen they are looking at (PLAN.md
+§31). They
 used to be three implementations of one rule: `page.py` wrote the predicate
 once and the sum four times, and `answers.py` carried its own copy against
 `Challenges` rows instead of step dicts. A fourth copy, in a background
@@ -18,6 +19,13 @@ property of the challenge alone —
   optional   bonus work, listed in the `workshop_optional` config by the sync.
              Without it a subject with bonus steps can never read 100%, and
              100% is what gets the end-of-workshop feedback in.
+
+The outbox reports a third number, the points: what Jump grants as XP, one for
+one (PLAN.md §57). It does not follow the counted population, on purpose. An
+optional step is left out of the ratio so the bar can reach 100%, but CTFd pays
+its value, and the points are what CTFd pays. A note is worth 0 by
+construction, so leaving it in changes nothing. Only the hidden rows are out:
+they belong to a content this instance no longer serves.
 
 This module imports nothing from `page.py` — the dependency runs the other
 way, so the page, the admin report and the drainer can all reach it without a
@@ -105,3 +113,17 @@ def progress_for_user(user_id):
     counted = counted_ids()
     solved = set(get_solve_ids_for_user_id(user_id))
     return len(solved & counted), len(counted)
+
+
+def points_for_user(user_id):
+    """The points CTFd paid one participant on the content served now.
+
+    Every visible step they solved, at its `value`, optional ones included
+    (module docstring). Hint costs are not taken off: CTFd records them as
+    awards with no challenge, so they cannot be told apart by content, and
+    they are spent on the scoreboard, not on Jump (PLAN.md §57). Same
+    memoized reader as `progress_for_user`, so the two describe the same
+    solves.
+    """
+    solved = set(get_solve_ids_for_user_id(user_id))
+    return sum(c.value or 0 for c in ordered_challenges() if c.id in solved)

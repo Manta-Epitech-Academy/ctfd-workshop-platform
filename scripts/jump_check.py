@@ -437,6 +437,10 @@ def solvable_steps(admin, session, base):
     `ack` is a lone Submit button by construction, so it is the one kind that
     is solvable on any instance without reading the content. A self-serve
     instance adds `checkpoint`, which is also a button there.
+
+    Highest value first: an `ack` is authored worth 0, and the points Jump is
+    sent can only be told from a constant 0 once a step worth something has
+    been solved.
     """
     self_serve = str(admin.config("workshop_mode") or "instructor_led") == "self_serve"
     kinds = {"ack"} | ({"checkpoint"} if self_serve else set())
@@ -445,8 +449,23 @@ def solvable_steps(admin, session, base):
     for row in visible:
         detail = admin.api("GET", f"/challenges/{row['id']}").json()["data"]
         if detail.get("quiz_type") in kinds:
-            out.append(row["id"])
-    return out
+            out.append((detail.get("value") or 0, row["id"]))
+    return [cid for _, cid in sorted(out, key=lambda pair: -pair[0])]
+
+
+def scored_points(admin, user_id):
+    """The value of every visible step this account solved, read as an admin.
+
+    What `points_for_user` must report, recounted from the API rather than
+    from the plugin's own code: hidden rows are a previous content's.
+    """
+    solves = admin.api("GET", f"/users/{user_id}/solves").json()["data"]
+    total = 0
+    for solve in solves:
+        detail = admin.api("GET", f"/challenges/{solve['challenge_id']}").json()["data"]
+        if detail.get("state") != "hidden":
+            total += detail.get("value") or 0
+    return total
 
 
 def attempt(session, base, challenge_id, submission="done"):
@@ -853,7 +872,7 @@ def main():
         check(call["path"] == "/api/workshops/callback",
               f"posted to the contract's path ({call['path']})")
         check(set(body) == {"instanceSlug", "contentSlug", "talentId",
-                            "solvedSteps", "totalSteps", "isComplete"},
+                            "solvedSteps", "totalSteps", "isComplete", "points"},
               f"the payload is the agreed shape ({sorted(body)})")
         check(body["instanceSlug"] == SLUG and body["talentId"] == TALENT,
               "and names this instance and this talent")
@@ -873,6 +892,13 @@ def main():
         check((body["solvedSteps"], body["totalSteps"]) == (solved, total),
               f"the reported counters are what the page renders "
               f"({body['solvedSteps']}/{body['totalSteps']} vs {solved}/{total})")
+        points = scored_points(admin, user_a)
+        check(body["points"] == points,
+              f"the reported points are the value of the visible steps solved "
+              f"({body['points']} vs {points})")
+        if not points:
+            print("  (every solvable step is worth 0 here, so the points were "
+                  "checked only at 0)")
 
     # -- AC7 ---------------------------------------------------------------
     print("== the sink is down: solving is unaffected, and the queue waits ==")

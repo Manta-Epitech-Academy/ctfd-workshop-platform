@@ -202,14 +202,14 @@ Fields (all optional — an empty `<!-- ws: type: exercise -->` is a valid minim
 |---|---|---|
 | `type` | `exercise` \| `chapter` \| `prose` | `prose` — **headings without a marker are plain prose**, which solves gotcha #5 explicitly |
 | `id` | stable slug for this node | slugified heading, scoped by parent slugs (`bullet/sprite`) — explicit `id` only needed when even the scoped slug collides; the linter enforces uniqueness |
-| `points` | reward on validation | `platform.points_default` |
+| `points` | reward on validation: the XP the talent receives in Jump, one for one (PLAN.md §57), shown as "XP" on the step | `platform.points_default` |
 | `validation` | overrides `validation_default`: `checkpoint` \| `flag` \| `token` \| `quiz` (`tests`, `review` are specified, not implemented) | inherited |
 | `token_id` | `validation: token` only: the exercise's id **inside its runtime**, which is what the token is derived from | none |
 | `skills` | competency refs, slash notation `DOMAIN/SKILL/LEVEL` | none |
 | `obs` | observable ids from `ref_comp` (`slug.N`) | none |
 | `topology` | on `type: chapter`: `linear` \| `free` | `linear` |
 | `requires` | explicit prerequisite ids, for cross-chapter gating | previous sibling (linear) / chapter entry (free) |
-| `optional` | on `type: exercise`: bonus work — unlocks with its neighbours, gates nothing, **counts towards nothing** | `false` |
+| `optional` | on `type: exercise`: bonus work — unlocks with its neighbours, gates nothing, **counts towards no progress counter** (its `points` are still paid, in CTFd and in Jump) | `false` |
 | `review` | instructor-led only: `non_blocking` \| `blocking` — whether an unreviewed submission gates progression (§3.5) | `non_blocking` |
 | `rewards` | open object for future extensions (badges, …) | none |
 
@@ -541,7 +541,8 @@ Table de correspondance : https://github.com/nesbox/TIC-80/wiki/key-map
 ```
 
 GitHub renders a collapsible — exactly the Notion toggle the current content loses on export.
-The platform converts it into a CTFd paid hint (`cost` points). Without the marker comment, a
+The platform converts it into a CTFd paid hint (`cost` points, spent on the scoreboard: the XP a
+talent receives in Jump are not reduced, PLAN.md §57). Without the marker comment, a
 `<details>` block is just content and renders collapsed everywhere.
 
 ### 3.7 Quizzes — body stays, marker goes invisible

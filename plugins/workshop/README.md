@@ -292,6 +292,12 @@ callback names it, the ticket names the content the talent meant to enter, and a
 another is refused. `/admin/workshop/jump` shows it, since Jump's activity carries exactly that
 slug. Re-sync an instance once after upgrading, so it has a content recorded.
 
+**A step's value is the XP it earns in Jump** (PLAN.md §57). Every callback carries `points`, the
+value of every visible step the talent solved, optional ones included and hint costs not taken
+off, and Jump grants exactly that. So the step reads "25 XP" and its solve floats "+25 XP". The
+scoreboard keeps "points": it sums the whole instance and takes hint costs off, so it is not a
+figure Jump shows.
+
 **Jump has to declare both the host and the content** before it sends anyone. The same page
 prints the two calls to Jump's admin API that do it, one pair per key, built from the slug, the
 synced content and the address the page was opened at, so nobody retypes them (DEPLOY.md §6d).

@@ -4742,7 +4742,9 @@ Jump files them under that content's activity (§51).
 
 A paid hint is recorded by CTFd as a negative award with no challenge, so it cannot be told
 apart by content, and it is spent on the scoreboard. Jump's XP measure progress, not that
-spending. The hints shipped so far cost 0 (`assets/hints.js`), so today the two agree anyway.
+spending. No hint shipped so far costs anything: the six subject repos `deploy/instances.yaml`
+imports carry 60 hints between them, none with a `cost` (checked 2026-10-20). So today the two
+agree anyway.
 
 ### 57.4 A changed value is repriced at the next solve
 

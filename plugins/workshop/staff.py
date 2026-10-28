@@ -82,7 +82,16 @@ class WorkshopStaff(db.Model):
 # ---------------------------------------------------------------------------
 
 def supervisor_code():
-    return (get_config(CODE_KEY) or "").strip()
+    """The code `/supervisor/join` asks for, or empty when joining is closed.
+
+    `str()` is not decoration, for the reason `instance_slug()` gives in
+    jump.py: `get_config` turns an all-digit value into an `int` and
+    "true"/"false" into a `bool` (CTFd/utils/__init__.py `_get_config`). A
+    code like `246810` would raise on `.strip()`, and the login page asks
+    whether joining is open on every render, so it would go down with it.
+    """
+    raw = get_config(CODE_KEY)
+    return str(raw).strip() if raw not in (None, "") else ""
 
 
 def joining_open():

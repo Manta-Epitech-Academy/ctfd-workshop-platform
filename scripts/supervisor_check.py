@@ -172,8 +172,9 @@ check("ws-join-door" in joining.text and "Jump" in joining.text.split("ws-join-d
 
 print("a code CTFd reads back as something else")
 # `get_config` hands back an all-digit value as an int and "true"/"false" as a
-# bool, so a code is only safe if it is read as a string. A code read out loud
-# is very often digits.
+# bool, so a code is only safe if it is read as a string. The codes in use are
+# shaped like `MPL-HALLOWEEN-26` and never meet this; nothing on the settings
+# page stops an admin typing one that does.
 for odd in ("246810", "true"):
     admin.set_config("workshop_supervisor_code", odd)
     check(anon.get(STAFF_DOOR, timeout=20).status_code == 200

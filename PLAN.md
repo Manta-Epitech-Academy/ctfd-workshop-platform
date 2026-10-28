@@ -4819,6 +4819,8 @@ nobody retypes them (§52). The body gains `supervisorCode`:
   on `/supervisor/join`, so a card would offer a manta a closed door.
 
 A code changed on the settings page reaches Jump when the call is run again, as an address does.
+Both pages say so: the Jump page beside the calls, and the settings page under the code itself
+when a Jump key is configured, since that is where an admin rotates or clears it.
 
 **The button opens `/supervisor/join`**, and Jump builds that path in one place
 (`supervisorJoinUrl`). It suits every visitor: a signed-in supervisor is sent on to the subject, a
@@ -4831,4 +4833,6 @@ newcomer finds the form, and someone whose session is gone reads there where to 
 ### 58.1 Checked
 
 `scripts/jump_check.py` asserts that each key's instance call carries `"supervisorCode": null` with
-no code set, and the code itself once one is set, then puts the instance's own code back.
+no code set, and the code itself once one is set, and that the settings page links to the Jump
+page beside the code. The instance's own code is saved with the rest of the configuration it
+touches, so `restore()` puts it back however the run ends.

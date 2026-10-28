@@ -819,6 +819,12 @@ def main():
     page = admin.session.get(base + "/admin/workshop/jump", timeout=30).text
     check(page.count(f"&#34;supervisorCode&#34;: &#34;CODE-{RUN}&#34;") == 2,
           "and with one, each instance call carries it")
+    # The code is changed on the settings page, so that is where the admin
+    # must read that Jump keeps a copy until the call is run again.
+    page = admin.session.get(base + "/admin/workshop/settings", timeout=30).text
+    check("Jump's staff catalogue shows this code too" in page
+          and 'href="/admin/workshop/jump"' in page,
+          "the settings page says where Jump learns a new code")
     # Behind the cluster's tunnel the Host is another name than the one talents
     # use, so nothing in the calls may be built from it. The cookie is passed by
     # hand: requests picks cookies by the Host header when one is set, and would

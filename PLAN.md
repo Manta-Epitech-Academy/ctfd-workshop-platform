@@ -4796,3 +4796,38 @@ Run on a fresh local instance with `santa_shooter_subject` synced, in both modes
 callback reporting `points: 13`. With `points_for_user` made to return 0, the check fails on that
 line and nowhere else. On an instance holding three `ack` steps worth 25, 10 and 0, `/workshop`
 renders the badges "25 XP" and "10 XP" in French and in English, and none on the step worth 0.
+
+## 58. Jump shows the supervisor code (2026-10-28)
+
+Jump's staff catalogue (jump#439) lists the subjects a campus can offer. Its mockup shows each one
+with the supervisor code and an « Accéder au sujet » button, so a manta walking into a room has both
+the door and the key in hand. The first catalogue shipped without them, in favour of signing Jump
+staff in as supervisors directly (#67, jump#449). The PO chose the code first: the catalogue is worth
+little to a manta without it, and the shared code has served for months. #67 waits.
+
+**The code is the instance's, so it travels with the instance call.** It is one value per instance
+(`workshop_supervisor_code`, §32), and Jump holds the instance as its own row beside the subjects it
+serves, so it lands there and every subject of the instance shows the same one. Jump never asks the
+instance for it: it calls no instance today, and a value that changes a few times a year is not
+worth a client, an authentication and a failure mode at page load. It is carried instead by the
+call `jump_declarations` already prints, the one built from the instance's own values so that
+nobody retypes them (§52). The body gains `supervisorCode`:
+
+- the current code, as `/admin/workshop/settings` holds it;
+- `null` when it is empty. That clears Jump's copy, and Jump then shows neither the code nor the
+  button, which is right: an instance with no code answers 404 on `/supervisor/join`.
+
+A code changed on the settings page reaches Jump when the call is run again, as an address does.
+
+**The button opens `/supervisor/join`**, and Jump builds that path in one place
+(`supervisorJoinUrl`). It suits every visitor: a signed-in supervisor is sent on to the subject, a
+newcomer finds the form, and someone whose session is gone reads there where to sign in (§55).
+`staff.py` says beside the route that Jump quotes it.
+
+**Deploy order: Jump first.** Jump refuses a field it does not know, so an instance printing
+`supervisorCode` before Jump's release (jump#459) prints a call Jump rejects.
+
+### 58.1 Checked
+
+`scripts/jump_check.py` asserts that each key's instance call carries `"supervisorCode": null` with
+no code set, and the code itself once one is set, then puts the instance's own code back.

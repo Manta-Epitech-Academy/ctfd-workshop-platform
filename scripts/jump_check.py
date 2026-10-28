@@ -805,6 +805,18 @@ def main():
     check('data-ws-address="&lt;address of this page&gt;"' in page
           and "&#34;baseUrl&#34;: &#34;&lt;address of this page&gt;&#34;" in page,
           "the instance call leaves the address to the browser")
+    # The supervisor code rides on the instance call (PLAN.md §58), and an
+    # instance with none sends null, which clears Jump's copy.
+    previous_code = admin.config("workshop_supervisor_code") or ""
+    admin.set_configs({"workshop_supervisor_code": ""})
+    page = admin.session.get(base + "/admin/workshop/jump", timeout=30).text
+    check(page.count("&#34;supervisorCode&#34;: null") == 2,
+          "with no supervisor code, each instance call clears Jump's")
+    admin.set_configs({"workshop_supervisor_code": f"CODE-{RUN}"})
+    page = admin.session.get(base + "/admin/workshop/jump", timeout=30).text
+    check(page.count(f"&#34;supervisorCode&#34;: &#34;CODE-{RUN}&#34;") == 2,
+          "and with one, each instance call carries it")
+    admin.set_configs({"workshop_supervisor_code": previous_code})
     # Behind the cluster's tunnel the Host is another name than the one talents
     # use, so nothing in the calls may be built from it. The cookie is passed by
     # hand: requests picks cookies by the Host header when one is set, and would

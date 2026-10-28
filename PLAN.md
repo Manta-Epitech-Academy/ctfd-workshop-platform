@@ -4814,8 +4814,9 @@ call `jump_declarations` already prints, the one built from the instance's own v
 nobody retypes them (§52). The body gains `supervisorCode`:
 
 - the current code, as `/admin/workshop/settings` holds it;
-- `null` when it is empty. That clears Jump's copy, and Jump then shows neither the code nor the
-  button, which is right: an instance with no code answers 404 on `/supervisor/join`.
+- `null` when it is empty. That clears Jump's copy, and Jump's catalogue then leaves the instance's
+  subjects out, as it does an incomplete one, which is right: an instance with no code answers 404
+  on `/supervisor/join`, so a card would offer a manta a closed door.
 
 A code changed on the settings page reaches Jump when the call is run again, as an address does.
 

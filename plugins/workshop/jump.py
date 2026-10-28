@@ -403,8 +403,9 @@ def jump_declarations(keys, instance, content, code):
 
     The supervisor code rides on the instance call for the same reason (§58):
     Jump's staff catalogue shows it beside a link to /supervisor/join. An
-    empty one is sent as `null`, which clears Jump's copy, since an instance
-    with no code accepts no supervisor and Jump should not show one.
+    empty one is sent as `null`, which clears Jump's copy and takes the
+    instance's subjects out of that catalogue, since an instance with no code
+    accepts no supervisor.
 
     Except the address, which this server cannot know. On the cluster a
     Cloudflare tunnel rewrites the `Host` to the Ingress's `ctf-NNNN` name and

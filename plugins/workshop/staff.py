@@ -243,6 +243,10 @@ def delete_supervisor(user_id):
 # The way in
 # ---------------------------------------------------------------------------
 
+# Jump links here from its staff catalogue, beside the code the declaration
+# call carries (jump.py `jump_declarations`, PLAN.md §58), and writes this path
+# in its `supervisorJoinUrl`: moving it breaks that link with nothing here to
+# say so.
 @workshop_staff.route("/supervisor/join", methods=["GET", "POST"])
 # Per subject (IP, in practice): the code is the secret and this is the only
 # place it can be tried. Twenty, not core's fifty, and not fewer: a staff room

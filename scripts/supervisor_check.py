@@ -170,6 +170,24 @@ check(tunnelled.status_code == 200 and "tunnel.invalid" not in tunnelled.text,
 check("ws-join-door" in joining.text and "Jump" in joining.text.split("ws-join-door", 1)[1][:400],
       "and says the account is not a Jump one")
 
+print("a code CTFd reads back as something else")
+# `get_config` hands back an all-digit value as an int and "true"/"false" as a
+# bool, so a code is only safe if it is read as a string. A code read out loud
+# is very often digits.
+for odd in ("246810", "true"):
+    admin.set_config("workshop_supervisor_code", odd)
+    check(anon.get(STAFF_DOOR, timeout=20).status_code == 200
+          and anon.get(BASE + "/supervisor/join", timeout=20).status_code == 200
+          and admin.s.get(BASE + "/admin/workshop/settings", timeout=20).status_code == 200,
+          f"with the code {odd!r}, the staff door, the join page and the settings page render")
+digits = requests.Session()
+name_digits = "svcheckd" + RUN
+created.append(name_digits)
+admin.set_config("workshop_supervisor_code", "246810")
+r = join(digits, "246810", name_digits)
+check(r.status_code == 302, f"and a code of digits lets a supervisor in ({r.status_code})")
+admin.set_config("workshop_supervisor_code", CODE)
+
 wrong = requests.Session()
 name_wrong = "svcheckw" + RUN
 r = join(wrong, "not-the-code", name_wrong)

@@ -113,8 +113,8 @@ case "$RUNTIME_ID" in
     # fetch; every URL is relative, so it works under /runtime/<id>/<version>/.
     SOURCE="https://github.com/Manta-Epitech-Academy/voxel-world_runtime.git"
     PREPARE="true"
-    STATIC_EXCLUDE=(.git .github scripts tests README.md PORT_PLAN.md
-                    World-Generator.zip)
+    STATIC_EXCLUDE=(.git .github scripts tests docker Dockerfile .dockerignore
+                    README.md PORT_PLAN.md World-Generator.zip)
     ;;
   *)
     echo "unknown runtime '$RUNTIME_ID' — add a case here" >&2

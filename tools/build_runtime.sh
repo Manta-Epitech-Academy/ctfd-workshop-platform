@@ -104,6 +104,18 @@ case "$RUNTIME_ID" in
                     playwright.config.js package.json package-lock.json
                     Dockerfile .dockerignore README.md)
     ;;
+  voxel-world)
+    KIND="static"
+    # World Generator (subject voxel-world_subject). There are no readable
+    # sources: the repo's index.html is the original single-file app, patched
+    # by its scripts/port.py (solutions removed, check event, step API), and
+    # embed.js adds the per-step token. Committed as built, so nothing to
+    # fetch; every URL is relative, so it works under /runtime/<id>/<version>/.
+    SOURCE="https://github.com/Manta-Epitech-Academy/voxel-world_runtime.git"
+    PREPARE="true"
+    STATIC_EXCLUDE=(.git .github scripts tests README.md PORT_PLAN.md
+                    World-Generator.zip)
+    ;;
   *)
     echo "unknown runtime '$RUNTIME_ID' — add a case here" >&2
     exit 2

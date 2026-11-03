@@ -42,10 +42,19 @@
     return null;
   }
 
+  // A step with no `token_id` (validated by the instructor, e.g. 3a and 4a)
+  // has no check in the app. Left alone, the pane would keep showing the
+  // previous step's checks, red for work that is right. So the runtime is told,
+  // and shows a neutral note instead until the participant reaches a step it
+  // checks.
   function followStep(step) {
     if (!step || !window.WorldGenerator) return;
     var n = parseInt(exercises()[String(step.id)], 10);
-    if (n >= 1 && n !== window.WorldGenerator.etape() + 1) {
+    var checked = n >= 1;
+    if (window.VoxelWorld && window.VoxelWorld.etapeSansDefi) {
+      window.VoxelWorld.etapeSansDefi(!checked);
+    }
+    if (checked && n !== window.WorldGenerator.etape() + 1) {
       window.WorldGenerator.allerA(n - 1);
     }
   }

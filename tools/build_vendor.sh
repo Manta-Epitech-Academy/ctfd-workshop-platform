@@ -48,6 +48,22 @@ CONFETTI_SHA256="e103ab02784339d56c93ca3debe2c5a299372cafc5215148d55283de046e86d
 # depends on (package.json: "lolight": "^1.4.0"), 2.6 KB, UMD, global `lolight`.
 # Its DOMContentLoaded auto-run targets `.lolight`, a class nothing here uses,
 # so loading it twice highlights nothing twice.
+# three.js, for the 3D scenes that stand in for stills (assets/scene-viewer.js,
+# convention §3.8b). The ES module build: three has no UMD bundle any more, and
+# the viewer imports it by relative path, so no import map is needed. Loaded
+# only on a page that shows a scene, and only once that scene is in view.
+THREE_VERSION="0.170.0"
+THREE_URL="https://unpkg.com/three@${THREE_VERSION}/build/three.module.min.js"
+THREE_SHA256="08fd7545d13d2c7fb65ab691530a802dafefd638596501854f267d0fb13c39e7"
+# Its glTF loader, orbit controls and the utility the loader needs, from the
+# same release. They import the bare specifier `three`, which only an import
+# map resolves; the copies here have it rewritten to the relative file above
+# (and the loader's `../utils/` path to a sibling), after the checksum.
+THREE_EXAMPLES_URL="https://unpkg.com/three@${THREE_VERSION}/examples/jsm"
+GLTFLOADER_SHA256="45139faddd5aaf48ed2d62203d976e5cbd703db1a592de40527f9f6cf58abd44"
+ORBITCONTROLS_SHA256="80efaadea4f8a636a65fb0bd08bfef62f3d93a0bb94e2e7500f23176c5c07f4e"
+BGUTILS_SHA256="c25b7930e570e9ec56173cd3b866ec8d2e10016630db3937efb439daf1cedbf6"
+
 LOLIGHT_VERSION="1.4.1"
 LOLIGHT_URL="https://unpkg.com/lolight@${LOLIGHT_VERSION}/dist/lolight.min.js"
 LOLIGHT_SHA256="29ca09f5cd831f7e60bd73a7a4f6e911b7dcaadada97f6d0ba8d653fe4c24a2a"
@@ -131,5 +147,42 @@ if [[ -n "$force" || ! -f "$JS_DIR/lolight.min.js" ]]; then
 else
   echo "vendor: lolight already there (--force to redo)"
 fi
+
+if [[ -n "$force" || ! -f "$JS_DIR/three.module.min.js" ]]; then
+  mkdir -p "$JS_DIR"
+  echo "vendor: three.js $THREE_VERSION"
+  curl -fsSL -o "$JS_DIR/three.module.min.js.part" "$THREE_URL"
+  got="$(sha256sum "$JS_DIR/three.module.min.js.part" | cut -d' ' -f1)"
+  if [[ "$got" != "$THREE_SHA256" ]]; then
+    rm -f "$JS_DIR/three.module.min.js.part"
+    echo "three.js sha256 mismatch: expected $THREE_SHA256, got $got" >&2
+    exit 1
+  fi
+  mv "$JS_DIR/three.module.min.js.part" "$JS_DIR/three.module.min.js"
+else
+  echo "vendor: three.js already there (--force to redo)"
+fi
+
+vendor_three_module() {   # <path under examples/jsm> <sha256>
+  local name; name="$(basename "$1")"
+  if [[ -z "$force" && -f "$JS_DIR/$name" ]]; then
+    echo "vendor: $name already there (--force to redo)"; return
+  fi
+  echo "vendor: three.js $name"
+  curl -fsSL -o "$JS_DIR/$name.part" "$THREE_EXAMPLES_URL/$1"
+  got="$(sha256sum "$JS_DIR/$name.part" | cut -d' ' -f1)"
+  if [[ "$got" != "$2" ]]; then
+    rm -f "$JS_DIR/$name.part"
+    echo "$name sha256 mismatch: expected $2, got $got" >&2
+    exit 1
+  fi
+  sed -e "s#from 'three'#from './three.module.min.js'#" \
+      -e "s#from '../utils/BufferGeometryUtils.js'#from './BufferGeometryUtils.js'#" \
+      "$JS_DIR/$name.part" > "$JS_DIR/$name"
+  rm -f "$JS_DIR/$name.part"
+}
+vendor_three_module loaders/GLTFLoader.js "$GLTFLOADER_SHA256"
+vendor_three_module controls/OrbitControls.js "$ORBITCONTROLS_SHA256"
+vendor_three_module utils/BufferGeometryUtils.js "$BGUTILS_SHA256"
 
 echo "vendor: done. The container picks these up on its next restart."

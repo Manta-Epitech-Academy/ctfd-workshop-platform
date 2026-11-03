@@ -78,6 +78,7 @@ my-subject/
 ├── intro.md             # content, any number of .md files
 ├── main.md
 ├── img/…                # images, referenced by relative path — never hotlinked (§3.8)
+├── scenes/…             # 3D scenes standing in for stills, glTF binaries (§3.8b)
 ├── README.md            # GENERATED — never edited by hand
 └── .github/workflows/verify-content.yaml   # calls the reusable CI
 ```
@@ -638,6 +639,81 @@ committed is caught in CI rather than discovered as a broken image mid-workshop.
 > Known debt: `content/pypong` hotlinks three images back at `pypong_new` on `main`, inherited
 > from the conversion. It works, and it is exactly the pattern this section argues against —
 > vendoring them into `content/pypong/img/` is a small cleanup nobody has done yet.
+
+### 3.8b 3D scenes — a scene in place of a still
+
+Some results are three-dimensional. A still of a 128 × 128 voxel world shows its surface; what
+the step is about — the layers underground, the caves, the ore — is exactly what the still hides.
+So a subject may put an **interactive 3D scene** where a still would be. The author still writes
+the still, and under it an invisible marker naming the scene:
+
+```markdown
+![Vu depuis le coin du monde : socle, pierre, 3 terre, herbe.](img/etape3b-resultat.png)
+<!-- ws:scene {src: scenes/etape3b.glb, features: [orbit, zoom, reset, cut], cut: {axis: x, at: 64}, camera: {from: [-14, 30, -14], to: [12, 12, 12]}} -->
+```
+
+**The still is the fallback, and the marker replaces it.** On GitHub, in any other renderer, and
+on a machine without WebGL 2, the reader sees the still. On the platform the scene takes the
+still's place outright, as soon as it scrolls into view, and the still comes back if the scene
+cannot load. The `alt` of the still is the scene's caption, as it is for an image (§3.8). The
+marker goes on the line right after its image, and nowhere else: a marker with no image above
+it is refused, because it would have no fallback.
+
+Same grammar as `ws:cue` (§3.4d): an HTML comment holding a YAML flow mapping. A platform that
+does not know the marker shows the still and nothing else.
+
+| Key | Meaning | Default |
+|---|---|---|
+| `src` | the scene file, a path relative to the document, like an image. Required. | — |
+| `features` | what the viewer lets the participant do: `orbit` (turn), `zoom`, `pan`, `reset` (a button back to the author's view), `cut` (a button that cuts the scene open). A name the platform does not know is reported as advice and ignored. | `[orbit, zoom, reset]` |
+| `cut` | `{axis: x\|y\|z, at: N}`: the half-space kept when the cut is on (coordinates below `at` along `axis`). Required when `cut` is among the features. | none |
+| `camera` | `{from: [x, y, z], to: [x, y, z]}`, in the file's own units: where the viewer looks from, and at, before the participant moves. Use the still's camera, so the two match. | framed from the scene's bounding box, from its corner |
+
+**The file is a glTF 2.0 binary, one `.glb`** — the Khronos open standard, which every 3D tool
+and viewer reads, and which is not tied to voxels: a scene that is not blocks at all goes
+through the same marker and the same viewer. One file, with its textures inside; a `.gltf`
+pointing at separate `.bin` and image files is refused, since the importer uploads one file per
+reference. The viewer is three.js's own loader, so what it supports is what that loader
+supports; `KHR_mesh_quantization` and `KHR_materials_unlit` are the two extensions the
+converted subjects use, and compressed geometry (Draco, meshopt) is **not** available, as its
+decoders are not vendored.
+
+**The cut-away.** A cut is the reason to prefer a scene over a still, and a mesh is hollow: cut
+with a plane, a voxel world shows the back of its own surface, not its layers. So a file may
+carry its own cut-away as a **top-level node named `cut`**: the same scene with the half removed,
+meshed again so the cut surface shows what is inside. The viewer hides that node, and swaps to
+it when the participant presses « Cut away ». A file with no such node is clipped along the
+marker's plane instead, which is right for a scene that is not a solid.
+
+**Where a scene comes from.** The runtime that shows the result is the one that knows how to
+bake it. `voxel-world_runtime/scripts/export_scene.py` runs a program — the step's solution,
+which lives in a private repository — in the headless runtime and writes the world as a mesh:
+visible faces only, coplanar faces merged, the runtime's own textures tiled on them, the face
+shading in vertex colours, and the cut-away node when asked. A scene is data: no code can be
+recovered from it, no more than from a screenshot, so the no-solution rule (§3.3b) is kept. A
+flat world meshes to a few quads; the full World Generator with trees, caves and ore is 2.4 MB.
+Keep `scenes/` beside `img/` (§3.1).
+
+**What the importer does.** `parse_subject` collects every scene file as an asset of kind
+`scene`; `sync_subject.py` uploads it exactly as an image (§3.8: once, content-hashed, type
+`standard`) and rewrites the marker's `src:` in every body it sends. Nothing else in the
+marker is touched.
+
+**What the platform renders.** The page turns the marker into an anchor after the image
+(`scene.py`); `assets/scene.js` swaps the image for the viewer when it comes within 300 px of
+the viewport, keeps at most three scenes live at once — the one farthest away is disposed and
+its still returns — and draws the viewer's controls: drag to turn, click then wheel to zoom (a
+wheel over a scene must not take the page's scroll), « Reset view », « Cut away ». A browser
+without WebGL 2 keeps the still, with the enlarging click it already has.
+
+**What the linter checks.** Refused: a marker that does not parse, has no `src`, does not follow
+an image, names a file that is missing, is not a `.glb`, or has no `glTF` header; `cut` among the
+features without a `cut` plane; a malformed `cut` or `camera`. Advice: a feature the platform
+does not know; a file above 4 MB — every participant downloads it. The generated README counts
+scenes beside images.
+
+> Added 2026-11-03, for World Generator: its seven steps end on a world, and the step about
+> layers was illustrated by a still of a slab.
 
 ### 3.9 What is generated (never hand-written)
 

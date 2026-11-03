@@ -21,6 +21,8 @@ same-host URL (the runtime, an uploaded file), and any other scheme, because
 `mailto:` in a new tab is an empty tab.
 """
 import re
+
+from .scene import place_scenes
 from urllib.parse import urlsplit
 
 from flask import has_request_context, request
@@ -100,7 +102,9 @@ def load_external_links(app):
     original = pages.build_markdown
 
     def build_markdown(md, sanitize=False):
-        return open_externally(original(md, sanitize=sanitize))
+        # Every rendered surface passes here, so this is also where a scene
+        # marker becomes its anchor (scene.py, convention §3.8b).
+        return place_scenes(open_externally(original(md, sanitize=sanitize)))
 
     build_markdown._workshop_external_links = True
     pages.build_markdown = build_markdown

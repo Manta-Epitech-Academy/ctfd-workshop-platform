@@ -44,8 +44,10 @@ FENCED_REGIONS = ("resume", "toolbox", "glossary")
 # `ws:doit` says "the work starts here" (§3.4c). Same reason they are listed
 # here: the marker is a name, not a YAML mapping, and the metadata parser must
 # keep its hands off it and leave it in the body, which is how it reaches the
-# rendered page at all.
-MARKS = ("cue", "doit")
+# rendered page at all. `ws:scene {...}` (§3.8b) is a mapping, but one the
+# page reads, not metadata on a heading: same treatment, parsed on its own by
+# `find_scene_markers`.
+MARKS = ("cue", "doit", "scene")
 WS_COMMENT = re.compile(
     r"<!--\s*ws:(?!(?:%s)\b)(.*?)-->" % "|".join(FENCED_REGIONS + MARKS),
     re.DOTALL)
@@ -58,6 +60,15 @@ OPTION = re.compile(r"^([-*])\s+([A-Za-z])\.\s+(.*)$")
 # path is captured; whether it is repo-relative is decided by _is_local_asset.
 IMAGE_MD = re.compile(r"!\[[^\]]*\]\(\s*<?([^)\s>]+)>?(?:\s+[\"'][^\"']*[\"'])?\s*\)")
 IMAGE_HTML = re.compile(r"<img\b[^>]*?\bsrc\s*=\s*[\"']([^\"']+)[\"']", re.IGNORECASE)
+# A 3D scene standing in for a still (convention §3.8b): an invisible marker on
+# the line after the image it replaces, holding a YAML flow mapping —
+# `<!-- ws:scene {src: scenes/etape3.glb, features: [orbit, cut], ...} -->`.
+SCENE_MD = re.compile(r"<!--\s*ws:scene\s+(\{.*?\})\s*-->", re.S)
+SCENE_FEATURES = ("orbit", "zoom", "pan", "cut", "reset")
+SCENE_DEFAULT_FEATURES = ("orbit", "zoom", "reset")
+SCENE_AXES = ("x", "y", "z")
+SCENE_KEEP = ("below", "above")
+SCENE_SIZE_WARN = 4 * 1024 * 1024
 
 
 @dataclass
@@ -142,6 +153,7 @@ class Document:
     trailing_md: str = ""
     trailing_title: str = ""
     cover: dict = field(default_factory=dict)     # §3.2b, {} when undeclared
+    scenes: list = field(default_factory=list)    # scene markers, parsed (§3.8b)
 
 
 @dataclass
@@ -163,6 +175,7 @@ class Asset:
     path: Path
     documents: list = field(default_factory=list)   # docs that reference it
     key: str = ""
+    kind: str = "image"                             # image | scene (§3.8b)
 
     def __post_init__(self):
         if not self.key:
@@ -201,6 +214,14 @@ class Subject:
         out = [q for d in self.documents for q in d.quizzes]
         out += [q for e in self.exercises for q in e.quizzes]
         return out
+
+    @property
+    def scenes(self):
+        return [sc for d in self.documents for sc in d.scenes]
+
+    @property
+    def images(self):
+        return [a for a in self.assets if a.kind == "image"]
 
 
 class ParseError(Exception):
@@ -254,6 +275,34 @@ def find_asset_refs(text):
             ref = m.group(1).strip()
             if _is_local_asset(ref) and ref not in refs:
                 refs.append(ref)
+    return refs
+
+
+def find_scene_markers(text):
+    """Every `ws:scene` marker of a document: (raw match, data or None, error).
+
+    Fenced code is skipped, like images. A marker whose mapping does not parse
+    is returned with its error rather than dropped, so the linter can name it.
+    """
+    out = []
+    for m in SCENE_MD.finditer(_strip_fences(text)):
+        try:
+            data = yaml.safe_load(m.group(1))
+            if not isinstance(data, dict):
+                raise ValueError("not a mapping")
+            out.append((m, data, None))
+        except (yaml.YAMLError, ValueError) as e:
+            out.append((m, None, str(e).split("\n")[0]))
+    return out
+
+
+def find_scene_refs(text):
+    """Repo-relative scene files referenced by a document's markers, in order."""
+    refs = []
+    for _, data, _ in find_scene_markers(text):
+        ref = str((data or {}).get("src") or "").strip()
+        if ref and _is_local_asset(ref) and ref not in refs:
+            refs.append(ref)
     return refs
 
 
@@ -331,7 +380,18 @@ def rewrite_asset_refs(md, mapping):
 
     for pattern in (IMAGE_MD, IMAGE_HTML):
         md = pattern.sub(sub, md)
-    return md
+
+    # The scene file, named by `src:` inside the marker's mapping. Only that
+    # value is touched, so the author's other keys stay exactly as written.
+    src_key = re.compile(r"(\bsrc\s*:\s*)([^,}\s]+)")
+
+    def sub_scene(m):
+        def sub_src(k):
+            target = mapping.get(k.group(2).strip())
+            return k.group(1) + target if target else k.group(0)
+        return src_key.sub(sub_src, m.group(0), count=1)
+
+    return SCENE_MD.sub(sub_scene, md)
 
 
 def _split_sections(text, where):
@@ -549,6 +609,16 @@ def parse_subject(subject_dir):
                                   path=(subject_dir / doc_path).parent / ref))
             asset.documents.append(doc_path)
 
+        # Scene files are assets like images (§3.8b): uploaded once, their
+        # `src:` rewritten in every body. The parsed markers are kept on the
+        # document for the linter and the README.
+        for ref in find_scene_refs(text):
+            asset = collect(Asset(ref=ref,
+                                  path=(subject_dir / doc_path).parent / ref,
+                                  kind="scene"))
+            asset.documents.append(doc_path)
+        scenes = [data for _, data, _ in find_scene_markers(text) if data]
+
         sections = _split_sections(text, where)
 
         doc_title = next((t for lv, t, _, _ in sections if lv == 1), doc_path)
@@ -567,7 +637,7 @@ def parse_subject(subject_dir):
                           documents=[doc_path],
                           key=cover_asset_key(ref, doc_path)))
         doc = Document(path=doc_path, title=doc_title, body_md="",
-                       cover=doc_cover)
+                       cover=doc_cover, scenes=scenes)
         page_parts = []          # doc body with ws markup stripped
         context_parts = []       # prose accumulated since the last exercise
         trailing_parts = []      # same prose, real headings — becomes a page if
@@ -870,6 +940,75 @@ def _toolbox_warnings(subject_dir, subject):
     return warnings
 
 
+def _scene_checks(subject_dir, subject):
+    """(problems, warnings) for every `ws:scene` marker (convention §3.8b).
+
+    A scene stands in for a still, so it must follow one: the image is what
+    GitHub and a machine without WebGL show. The file itself is checked the way
+    an image is — it exists — plus what makes it a scene: a glTF binary header.
+    Feature names the platform does not know are advice, not refusal: an older
+    platform ignores them, like unknown `ws:` fields.
+    """
+    problems, warnings = [], []
+    for doc in subject.documents:
+        text = (Path(subject_dir) / doc.path).read_text(encoding="utf-8")
+        scannable = _strip_fences(text)
+        for m, data, error in find_scene_markers(text):
+            where = f"{doc.path}: scene"
+            if error:
+                problems.append(f"{where} marker does not parse: {error}")
+                continue
+            src = str(data.get("src") or "").strip()
+            if not src:
+                problems.append(f"{where} marker has no `src`")
+                continue
+            where = f"{doc.path}: scene {src!r}"
+            before = [l for l in scannable[:m.start()].split("\n") if l.strip()]
+            if not before or not (IMAGE_MD.search(before[-1]) or IMAGE_HTML.search(before[-1])):
+                problems.append(f"{where}: the marker must directly follow the image it "
+                                f"replaces (the still is the fallback, §3.8b)")
+            if not src.lower().endswith(".glb"):
+                problems.append(f"{where}: a scene is a glTF binary, one `.glb` file")
+            path = (Path(subject_dir) / doc.path).parent / src
+            if path.is_file():
+                with open(path, "rb") as fh:
+                    magic = fh.read(4)
+                if magic != b"glTF":
+                    problems.append(f"{where}: not a glTF binary (no `glTF` header)")
+                size = path.stat().st_size
+                if size > SCENE_SIZE_WARN:
+                    warnings.append(f"{where}: {size / 1e6:.1f} MB. Every participant "
+                                    f"downloads it; simplify the mesh or cut the scene "
+                                    f"down (§3.8b)")
+            features = data.get("features", list(SCENE_DEFAULT_FEATURES))
+            if not isinstance(features, list) or not all(isinstance(f, str) for f in features):
+                problems.append(f"{where}: `features` must be a list of names")
+                features = []
+            for f in features:
+                if f not in SCENE_FEATURES:
+                    warnings.append(f"{where}: unknown feature {f!r}, ignored by the "
+                                    f"platform (known: {', '.join(SCENE_FEATURES)})")
+            cut = data.get("cut")
+            if "cut" in features and not isinstance(cut, dict):
+                problems.append(f"{where}: feature `cut` needs `cut: {{axis: x|y|z, at: N}}`")
+            if isinstance(cut, dict):
+                if cut.get("axis") not in SCENE_AXES or not isinstance(cut.get("at"), int):
+                    problems.append(f"{where}: `cut` needs `axis` (x, y or z) and an "
+                                    f"integer `at`")
+                if cut.get("keep", "below") not in SCENE_KEEP:
+                    problems.append(f"{where}: `cut.keep` is `below` (default) or `above`")
+            cam = data.get("camera")
+            if cam is not None:
+                ok = isinstance(cam, dict) and all(
+                    isinstance(cam.get(k), list) and len(cam[k]) == 3
+                    and all(isinstance(v, (int, float)) for v in cam[k])
+                    for k in ("from", "to"))
+                if not ok:
+                    problems.append(f"{where}: `camera` needs `from` and `to`, "
+                                    f"three numbers each")
+    return problems, warnings
+
+
 def lint_all(subject_dir):
     """Returns (problems, warnings).
 
@@ -889,7 +1028,8 @@ def lint_all(subject_dir):
         # noise next to a real error, and may not even be computable.
         return problems, []
     return problems, (_cover_warnings(subject) + _toolbox_warnings(subject_dir, subject)
-                      + _codes_warnings(load_checkpoint_codes(subject_dir)))
+                      + _codes_warnings(load_checkpoint_codes(subject_dir))
+                      + _scene_checks(subject_dir, subject)[1])
 
 
 def lint(subject_dir):
@@ -949,7 +1089,8 @@ def _lint_problems(subject_dir):
             problems.append(f"flags.yaml: {slug!r} matches no exercise")
     for a in subject.assets:
         if not a.exists:
-            problems.append(f"{a.documents[0]}: image {a.ref!r} does not exist")
+            problems.append(f"{a.documents[0]}: {a.kind} {a.ref!r} does not exist")
+    problems.extend(_scene_checks(subject_dir, subject)[0])
     for q in subject.quizzes:
         if q.id not in answers:
             problems.append(f"quiz {q.id!r}: no entry in quiz_answers.yaml")
@@ -1021,4 +1162,4 @@ if __name__ == "__main__":
     s = parse_subject(target)
     print(f"ok {s.slug}: {len(s.documents)} documents, "
           f"{len(s.exercises)} exercises, {len(s.quizzes)} quizzes, "
-          f"{len(s.assets)} images")
+          f"{len(s.images)} images, {len(s.scenes)} scenes")

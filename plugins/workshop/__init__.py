@@ -212,6 +212,10 @@ def load(app):
     # file's CSS has always styled them there. Two kilobytes, no dependency,
     # and one behaviour rather than one per surface.
     register_plugin_script(url="/plugins/workshop/assets/zoom.js")
+    # A 3D scene in place of a still (convention §3.8b): swaps a marked image
+    # for a viewer when it scrolls into view — see assets/scene.js. Global for
+    # the same reason as zoom.js; three.js itself is imported on demand.
+    register_plugin_script(url="/plugins/workshop/assets/scene.js")
     # Branching next-challenge button + the Parcours path graph — see
     # assets/graph.js, backed by GET /api/v1/workshop/graph.
     register_plugin_script(url="/plugins/workshop/assets/graph.js")

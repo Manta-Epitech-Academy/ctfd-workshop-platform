@@ -206,6 +206,27 @@ Jamais une URL `https://raw.githubusercontent.com/...`. Les deux s'affichent par
 mais seul le chemin relatif survit à un renommage du dépôt et fonctionne dans une salle sans
 internet.
 
+### Les scènes 3D
+
+Quand le résultat d'une étape est en trois dimensions, une image fixe cache ce qui compte : les
+couches sous le sol, les grottes. L'atelier peut alors montrer une **scène 3D** à la place de
+l'image, que le participant fait tourner. On garde l'image, et on ajoute un marqueur juste en
+dessous :
+
+```markdown
+![Vu depuis le coin du monde : socle, pierre, terre, herbe.](img/etape3.png)
+<!-- ws:scene {src: scenes/etape3.glb, features: [orbit, zoom, reset, cut], cut: {axis: x, at: 64}} -->
+```
+
+L'image reste ce que voient GitHub et un poste sans WebGL ; sa légende (`alt`) devient celle
+de la scène. La scène est un fichier **glTF binaire** (`.glb`), le format ouvert de Khronos,
+rangé dans `scenes/`. `features` dit ce que le participant peut faire : `orbit`, `zoom`, `pan`,
+`reset`, et `cut`, un bouton qui coupe la scène en deux pour voir l'intérieur, avec le plan dans
+`cut` (`keep: above` garde la moitié au-delà du plan, celle dont la tranche regarde la caméra). `camera: {from: [...], to: [...]}` fixe le point de vue de départ : prenez celui de
+l'image. Le runtime de l'atelier fournit l'outil qui fabrique le fichier à partir d'un
+programme (`scripts/export_scene.py` dans `voxel-world_runtime`) : la scène est une donnée, pas
+du code, les corrigés restent privés.
+
 ### L'intro et la fin
 
 Le premier document (`entrypoint`) devient la première étape, avec un bouton "j'ai lu". Le texte

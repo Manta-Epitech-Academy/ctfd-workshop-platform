@@ -388,6 +388,9 @@ def record_validation(ctfd, mapping):
 # runtime id, where a rename would silently break every flag.
 TOKEN_SCHEMES = {
     "miniasm": {"message": "miniasm:{id}", "flag": "asm{{{digest}}}"},
+    # voxel-world_runtime embed.js; its tests/check.py pins the same values.
+    # `id` is the step number, 1 to 7.
+    "voxel-world": {"message": "voxel-world:{id}", "flag": "monde{{{digest}}}"},
 }
 
 

@@ -49,6 +49,7 @@ ICONS = {
     "shell-1": "terminal",
     "shell-rpg": "terminal",
     "miniasm": "microchip",
+    "voxel-world": "cube",
     "mock": "flask",
 }
 DEFAULT_ICON = "play"

@@ -1680,6 +1680,13 @@ main > .container > .row > .col-md-12 > h3.text-muted:only-child::after,
   border: 1px solid var(--bs-border-color, #dee2e6);
   border-radius: var(--bs-border-radius-lg, 1rem);
   overflow: hidden;
+  /* Its own paint layer. Without it, Chrome composites the WebGL canvas with
+     the page, and once the scene is scrolled under the sticky step bar the
+     canvas is drawn shifted up by the bar's height: the framebuffer is full,
+     the last 40px of the stage show its own background. Measured, not read
+     about — `will-change: transform` on the canvas fixes it the same way, at
+     the cost of a promoted layer; this one costs nothing. */
+  contain: paint;
 }
 .ws-scene-stage .ws-scene-poster {
   position: absolute; inset: 0;

@@ -40,7 +40,12 @@ export function load(url) {
 
 export function createViewer(stage, canvas, spec, gltf) {
   const features = new Set(spec.features || ["orbit", "zoom", "reset"]);
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false, powerPreference: "low-power" });
+  // preserveDrawingBuffer: rendering is on demand, so the last frame has to
+  // stay in the canvas between two renders — without it Chrome may discard it
+  // after compositing, and a screenshot (a test, a participant saving the
+  // page) shows a black band where the buffer was dropped.
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false, powerPreference: "low-power",
+                                             preserveDrawingBuffer: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(SKY);
@@ -125,8 +130,10 @@ export function createViewer(stage, canvas, spec, gltf) {
   root.traverse((o) => { if (o.isMesh) (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => materials.add(m)); });
   let plane = null;
   if (spec.cut && !cutNode) {
-    const normal = new THREE.Vector3(spec.cut.axis === "x" ? -1 : 0, spec.cut.axis === "y" ? -1 : 0, spec.cut.axis === "z" ? -1 : 0);
-    plane = new THREE.Plane(normal, Number(spec.cut.at) || 0);
+    // Keep what lies below `at` along the axis (the default), or above it.
+    const sign = spec.cut.keep === "above" ? 1 : -1;
+    const normal = new THREE.Vector3(spec.cut.axis === "x" ? sign : 0, spec.cut.axis === "y" ? sign : 0, spec.cut.axis === "z" ? sign : 0);
+    plane = new THREE.Plane(normal, -sign * (Number(spec.cut.at) || 0));
     renderer.localClippingEnabled = true;
   }
   let cutOn = false;
@@ -135,6 +142,14 @@ export function createViewer(stage, canvas, spec, gltf) {
     if (cutNode) {
       cutNode.visible = cutOn;
       for (const n of mainNodes) n.visible = !cutOn;
+      // Look at what is left: the author's camera frames the whole scene, and
+      // the kept half may sit at its far edge. The camera stays where it is;
+      // only the point it turns around moves, so « Reset view » still means
+      // the author's view.
+      const box = new THREE.Box3();
+      if (cutOn) box.expandByObject(cutNode); else box.copy(bbox);
+      if (!box.isEmpty()) controls.target.copy(cutOn ? box.getCenter(new THREE.Vector3()) : home.to);
+      controls.update();
     } else if (plane) {
       for (const m of materials) { m.clippingPlanes = cutOn ? [plane] : null; m.needsUpdate = true; }
     }

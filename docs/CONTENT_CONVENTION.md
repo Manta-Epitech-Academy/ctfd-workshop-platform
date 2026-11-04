@@ -649,7 +649,7 @@ the still, and under it an invisible marker naming the scene:
 
 ```markdown
 ![Vu depuis le coin du monde : socle, pierre, 3 terre, herbe.](img/etape3b-resultat.png)
-<!-- ws:scene {src: scenes/etape3b.glb, features: [orbit, zoom, reset, cut], cut: {axis: x, at: 64}, camera: {from: [-14, 30, -14], to: [12, 12, 12]}} -->
+<!-- ws:scene {src: scenes/etape3b.glb, features: [orbit, zoom, reset, cut], cut: {axis: x, at: 64, keep: above}, camera: {from: [-14, 30, -14], to: [12, 12, 12]}} -->
 ```
 
 **The still is the fallback, and the marker replaces it.** On GitHub, in any other renderer, and
@@ -666,7 +666,7 @@ does not know the marker shows the still and nothing else.
 |---|---|---|
 | `src` | the scene file, a path relative to the document, like an image. Required. | — |
 | `features` | what the viewer lets the participant do: `orbit` (turn), `zoom`, `pan`, `reset` (a button back to the author's view), `cut` (a button that cuts the scene open). A name the platform does not know is reported as advice and ignored. | `[orbit, zoom, reset]` |
-| `cut` | `{axis: x\|y\|z, at: N}`: the half-space kept when the cut is on (coordinates below `at` along `axis`). Required when `cut` is among the features. | none |
+| `cut` | `{axis: x\|y\|z, at: N, keep: below\|above}`: the half kept when the cut is on — coordinates below `at` along `axis` (the default) or above it. Pick the side whose cut face looks at the camera. Required when `cut` is among the features. | none |
 | `camera` | `{from: [x, y, z], to: [x, y, z]}`, in the file's own units: where the viewer looks from, and at, before the participant moves. Use the still's camera, so the two match. | framed from the scene's bounding box, from its corner |
 
 **The file is a glTF 2.0 binary, one `.glb`** — the Khronos open standard, which every 3D tool

@@ -222,7 +222,7 @@ L'image reste ce que voient GitHub et un poste sans WebGL ; sa légende (`alt`) 
 de la scène. La scène est un fichier **glTF binaire** (`.glb`), le format ouvert de Khronos,
 rangé dans `scenes/`. `features` dit ce que le participant peut faire : `orbit`, `zoom`, `pan`,
 `reset`, et `cut`, un bouton qui coupe la scène en deux pour voir l'intérieur, avec le plan dans
-`cut`. `camera: {from: [...], to: [...]}` fixe le point de vue de départ : prenez celui de
+`cut` (`keep: above` garde la moitié au-delà du plan, celle dont la tranche regarde la caméra). `camera: {from: [...], to: [...]}` fixe le point de vue de départ : prenez celui de
 l'image. Le runtime de l'atelier fournit l'outil qui fabrique le fichier à partir d'un
 programme (`scripts/export_scene.py` dans `voxel-world_runtime`) : la scène est une donnée, pas
 du code, les corrigés restent privés.

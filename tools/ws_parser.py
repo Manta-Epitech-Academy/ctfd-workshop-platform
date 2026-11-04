@@ -67,6 +67,7 @@ SCENE_MD = re.compile(r"<!--\s*ws:scene\s+(\{.*?\})\s*-->", re.S)
 SCENE_FEATURES = ("orbit", "zoom", "pan", "cut", "reset")
 SCENE_DEFAULT_FEATURES = ("orbit", "zoom", "reset")
 SCENE_AXES = ("x", "y", "z")
+SCENE_KEEP = ("below", "above")
 SCENE_SIZE_WARN = 4 * 1024 * 1024
 
 
@@ -994,6 +995,8 @@ def _scene_checks(subject_dir, subject):
                 if cut.get("axis") not in SCENE_AXES or not isinstance(cut.get("at"), int):
                     problems.append(f"{where}: `cut` needs `axis` (x, y or z) and an "
                                     f"integer `at`")
+                if cut.get("keep", "below") not in SCENE_KEEP:
+                    problems.append(f"{where}: `cut.keep` is `below` (default) or `above`")
             cam = data.get("camera")
             if cam is not None:
                 ok = isinstance(cam, dict) and all(

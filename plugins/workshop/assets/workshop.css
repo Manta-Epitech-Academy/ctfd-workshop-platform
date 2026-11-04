@@ -1778,6 +1778,39 @@ main > .container > .row > .col-md-12 > h3.text-muted:only-child::after,
 .ws-scene-pad-name { display: flex; align-items: center; justify-content: center; font-size: .6rem; opacity: .85; white-space: nowrap; overflow: hidden; }
 .ws-scene-zoom { display: flex; flex-direction: column; gap: 2px; }
 .ws-scene-zoom .ws-scene-pad-btn { width: 1.7rem; height: 1.7rem; font-size: 1rem; }
+.ws-scene-enlarge {
+  position: absolute; right: .6rem; top: .6rem; z-index: 2;
+  width: 2rem; height: 2rem; padding: 0;
+  font: inherit; font-size: 1.1rem; line-height: 1; color: #fff;
+  background: rgba(0, 0, 0, .5);
+  border: 0; border-radius: .5rem;
+  cursor: pointer;
+}
+.ws-scene-enlarge:hover { background: rgba(0, 0, 0, .7); }
+.ws-scene-enlarge:focus-visible { outline: 2px solid #fff; outline-offset: 1px; }
+/* Enlarged: the stage full screen (Fullscreen API), or pinned over the page
+   where that API is missing. The canvas follows through the ResizeObserver. */
+.ws-scene-stage:fullscreen,
+.ws-scene-stage.ws-scene-large {
+  aspect-ratio: auto; max-height: none;
+  width: 100vw; height: 100vh;
+  border: 0; border-radius: 0;
+}
+.ws-scene-stage.ws-scene-large { position: fixed; inset: 0; z-index: 1100; }
+/* Out of the way: a quarter when the pointer is elsewhere, more over the
+   view, whole over the control itself or while it has the keyboard. */
+.ws-scene-tools, .ws-scene-pads, .ws-scene-enlarge { opacity: .25; transition: opacity .2s ease; }
+.ws-scene-stage:hover .ws-scene-tools, .ws-scene-stage:hover .ws-scene-pads, .ws-scene-stage:hover .ws-scene-enlarge { opacity: .6; }
+.ws-scene-stage .ws-scene-tools:hover, .ws-scene-stage .ws-scene-pads:hover, .ws-scene-stage .ws-scene-enlarge:hover,
+.ws-scene-stage .ws-scene-tools:focus-within, .ws-scene-stage .ws-scene-pads:focus-within,
+.ws-scene-stage .ws-scene-enlarge:focus-visible { opacity: 1; }
+/* No pointer to hover with: keep them readable. */
+@media (hover: none) {
+  .ws-scene-tools, .ws-scene-pads, .ws-scene-enlarge { opacity: .85; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ws-scene-tools, .ws-scene-pads, .ws-scene-enlarge { transition: none; }
+}
 /* Touch: a little bigger, on a screen where a finger is the pointer. */
 @media (pointer: coarse) {
   .ws-scene-pad { grid-template-columns: repeat(3, 2.2rem); grid-auto-rows: 2.2rem; }

@@ -224,7 +224,7 @@ rangé dans `scenes/`. `features` dit ce que le participant peut faire : `orbit`
 `reset`, et `cut`, un curseur qui coupe la scène petit à petit pour voir l'intérieur, le long de
 l'axe donné dans `cut` (`keep: above` enlève à partir du côté bas de l'axe, celui où est la caméra).
 Les commandes sont dessinées dans la vue, avec des pavés pour tourner, déplacer et zoomer au pavé
-tactile. `camera: {from: [...], to: [...]}` fixe le point de vue de départ : prenez celui de
+tactile, et un bouton pour passer en plein écran ; elles s'effacent tant que la souris n'est pas dessus. `camera: {from: [...], to: [...]}` fixe le point de vue de départ : prenez celui de
 l'image. Le runtime de l'atelier fournit l'outil qui fabrique le fichier à partir d'un
 programme (`scripts/export_scene.py` dans `voxel-world_runtime`) : la scène est une donnée, pas
 du code, les corrigés restent privés.

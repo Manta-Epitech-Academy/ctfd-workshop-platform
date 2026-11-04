@@ -23,6 +23,13 @@
  *   zoom buttons, held down to keep going. The mouse keeps dragging and the
  *   wheel, which zooms only once the scene has been clicked, so a scene in the
  *   middle of a page never captures the page's scroll.
+ * - top right, « Enlarge »: the view full screen, through the Fullscreen API
+ *   where there is one, and pinned over the page where there is none (an
+ *   iPhone). Escape, or the same button, brings it back.
+ *
+ * The controls fade to a quarter when the pointer is elsewhere, so the scene
+ * stays the thing on screen; they come back as the pointer reaches the view,
+ * fully as it reaches them (workshop.css).
  *
  * `camera: {from, to}` in the marker is the view the scene opens with and the
  * one « Reset view » returns to; without it the scene is framed from its
@@ -289,6 +296,32 @@ export function createViewer(stage, canvas, spec, gltf) {
   }
   if (pads.children.length) stage.appendChild(pads);
 
+  // Enlarge: full screen on the stage. The ResizeObserver above does the rest.
+  const enlarge = el("button", "ws-scene-enlarge", "⛶");
+  enlarge.type = "button";
+  const canFullscreen = !!(stage.requestFullscreen || stage.webkitRequestFullscreen);
+  function isLarge() { return document.fullscreenElement === stage || stage.classList.contains("ws-scene-large"); }
+  function labelEnlarge() {
+    const on = isLarge();
+    enlarge.title = on ? "Exit full screen" : "Enlarge";
+    enlarge.setAttribute("aria-label", enlarge.title);
+    enlarge.setAttribute("aria-pressed", on ? "true" : "false");
+    enlarge.textContent = on ? "✕" : "⛶";
+    requestAnimationFrame(resize);
+  }
+  function toggleEnlarge() {
+    if (document.fullscreenElement === stage) { document.exitFullscreen(); return; }
+    if (stage.classList.contains("ws-scene-large")) { stage.classList.remove("ws-scene-large"); labelEnlarge(); return; }
+    const req = canFullscreen ? (stage.requestFullscreen || stage.webkitRequestFullscreen).call(stage) : Promise.reject();
+    Promise.resolve(req).catch(() => { stage.classList.add("ws-scene-large"); labelEnlarge(); });
+  }
+  enlarge.addEventListener("click", toggleEnlarge);
+  document.addEventListener("fullscreenchange", labelEnlarge);
+  function escLarge(e) { if (e.key === "Escape" && stage.classList.contains("ws-scene-large")) { stage.classList.remove("ws-scene-large"); labelEnlarge(); } }
+  document.addEventListener("keydown", escLarge);
+  stage.appendChild(enlarge);
+  labelEnlarge();
+
   const viewer = {
     features,
     reset: () => { goHome(); if (slider) setCutPercent(0); },
@@ -302,7 +335,11 @@ export function createViewer(stage, canvas, spec, gltf) {
       if (holdFrame) cancelAnimationFrame(holdFrame);
       canvas.removeEventListener("pointerdown", arm);
       document.removeEventListener("pointerdown", disarm, true);
-      tools.remove(); pads.remove();
+      document.removeEventListener("fullscreenchange", labelEnlarge);
+      document.removeEventListener("keydown", escLarge);
+      if (document.fullscreenElement === stage) document.exitFullscreen();
+      stage.classList.remove("ws-scene-large");
+      tools.remove(); pads.remove(); enlarge.remove();
       scene.remove(root);
       grid.geometry.dispose(); frame.geometry.dispose();
       renderer.dispose();

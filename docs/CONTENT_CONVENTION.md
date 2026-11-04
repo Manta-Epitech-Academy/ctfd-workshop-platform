@@ -665,7 +665,7 @@ does not know the marker shows the still and nothing else.
 | Key | Meaning | Default |
 |---|---|---|
 | `src` | the scene file, a path relative to the document, like an image. Required. | — |
-| `features` | what the viewer lets the participant do: `orbit` (turn), `zoom`, `pan` (move), `reset` (a button back to the author's view), `cut` (a slider that cuts the scene open). Every control is drawn inside the view: the slider and the reset button top left, and for touchpad users, pads to turn, move and zoom bottom right. A name the platform does not know is reported as advice and ignored. | `[orbit, zoom, pan, reset]` |
+| `features` | what the viewer lets the participant do: `orbit` (turn), `zoom`, `pan` (move), `reset` (a button back to the author's view), `cut` (a slider that cuts the scene open). Every control is drawn inside the view: the slider and the reset button top left, an enlarge button top right (full screen), and for touchpad users, pads to turn, move and zoom bottom right; they fade until the pointer reaches them. A name the platform does not know is reported as advice and ignored. | `[orbit, zoom, pan, reset]` |
 | `cut` | `{axis: x\|y\|z, keep: above\|below}`: the axis the slider cuts along, and which side stays — with `above` (the default) the slider removes the scene from its low edge upwards, so the cut face looks towards the low side; pick the side the camera is on. Required when `cut` is among the features. | none |
 | `camera` | `{from: [x, y, z], to: [x, y, z]}`, in the file's own units: where the viewer looks from, and at, before the participant moves. Use the still's camera, so the two match. | framed from the scene's bounding box, from its corner |
 

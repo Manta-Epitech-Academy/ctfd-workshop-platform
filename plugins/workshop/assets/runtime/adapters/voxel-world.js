@@ -21,10 +21,11 @@
 (function () {
   var PROTOCOL = 1;
   var RUNTIME = "voxel-world";
-  // The app's own autosave (`Gu` in the bundle prefixes every key with mwg.).
-  // `mwg.etape` is left out: which step is shown is the host's call.
-  var STORAGE_KEYS = ["mwg.code", "mwg.graine", "mwg.reussites", "mwg.console",
-                      "mwg.tailles.monde-sujet"];
+  // The app's own autosave (src/stockage.js prefixes every key with mwg.):
+  // the code, the seed, the checks passed, and the panels' layout
+  // (src/disposition.js). `mwg.etape` is left out: which step is shown is
+  // the host's call.
+  var STORAGE_KEYS = ["mwg.code", "mwg.graine", "mwg.reussites", "mwg.disposition"];
   var params = {};
 
   function send(msg) {

@@ -105,16 +105,12 @@ case "$RUNTIME_ID" in
                     Dockerfile .dockerignore README.md)
     ;;
   voxel-world)
-    KIND="static"
-    # World Generator (subject voxel-world_subject). There are no readable
-    # sources: the repo's index.html is the original single-file app, patched
-    # by its scripts/port.py (solutions removed, check event, step API), and
-    # embed.js adds the per-step token. Committed as built, so nothing to
-    # fetch; every URL is relative, so it works under /runtime/<id>/<version>/.
+    KIND="vite"
+    # World Generator (subject voxel-world_subject): Vite from its sources,
+    # like tic80. Its vite.config.js sets `base: "./"`, so VITE_BASE is not
+    # needed — every URL in the dist is relative and works under
+    # /runtime/<id>/<version>/ as anywhere else.
     SOURCE="https://github.com/Manta-Epitech-Academy/voxel-world_runtime.git"
-    PREPARE="true"
-    STATIC_EXCLUDE=(.git .github scripts tests docker Dockerfile .dockerignore
-                    README.md PORT_PLAN.md World-Generator.zip)
     ;;
   *)
     echo "unknown runtime '$RUNTIME_ID' — add a case here" >&2

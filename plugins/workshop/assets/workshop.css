@@ -1719,6 +1719,7 @@ main > .container > .row > .col-md-12 > h3.text-muted:only-child::after,
   transition: opacity .3s ease;
 }
 .ws-scene-live .ws-scene-stage:hover .ws-scene-hint { opacity: 1; }
+.ws-scene-hint { z-index: 2; }
 .ws-scene-live .ws-scene-armed .ws-scene-hint { opacity: 0; }
 /* Loading or failed, said on the stage itself: a still with viewer buttons
    under it would otherwise read as a scene that never came. */
@@ -1733,8 +1734,55 @@ main > .container > .row > .col-md-12 > h3.text-muted:only-child::after,
   pointer-events: none;
 }
 .ws-scene-status:empty { display: none; }
-.ws-scene-bar { display: flex; gap: .5rem; justify-content: center; margin-top: .5rem; }
-.ws-scene-btn[aria-pressed="true"] { font-weight: 700; }
+/* The controls, inside the view (scene-viewer.js). Top left: the cut slider and
+   « Reset view ». Bottom right: the pads a touchpad user holds down to turn,
+   move and zoom. All on a translucent dark ground, the page's font, kept
+   small so the scene stays the thing on screen. */
+.ws-scene-tools, .ws-scene-pads {
+  position: absolute;
+  display: flex;
+  gap: .4rem;
+  font-size: .8rem;
+  color: #fff;
+  z-index: 2;
+}
+.ws-scene-tools { left: .6rem; top: .6rem; flex-direction: column; align-items: flex-start; }
+.ws-scene-pads { right: .6rem; bottom: .6rem; align-items: flex-end; }
+.ws-scene-cut {
+  display: flex; align-items: center; gap: .5rem;
+  margin: 0; padding: .3rem .6rem;
+  background: rgba(0, 0, 0, .5);
+  border-radius: 999px;
+  font-weight: 700;
+}
+.ws-scene-cut input[type="range"] { width: 7rem; margin: 0; accent-color: #fff; }
+.ws-scene-cut-value { min-width: 2.6rem; text-align: right; font-variant-numeric: tabular-nums; font-weight: 400; }
+.ws-scene-btn, .ws-scene-pad-btn {
+  font: inherit; color: #fff;
+  background: rgba(0, 0, 0, .5);
+  border: 0; border-radius: 999px;
+  padding: .3rem .7rem;
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+}
+.ws-scene-btn:hover, .ws-scene-pad-btn:hover { background: rgba(0, 0, 0, .7); }
+.ws-scene-btn:focus-visible, .ws-scene-pad-btn:focus-visible { outline: 2px solid #fff; outline-offset: 1px; }
+.ws-scene-pad {
+  display: grid; grid-template-columns: repeat(3, 1.7rem); grid-auto-rows: 1.7rem;
+  gap: 2px; padding: .3rem;
+  background: rgba(0, 0, 0, .35);
+  border-radius: .8rem;
+}
+.ws-scene-pad-btn { padding: 0; border-radius: .4rem; line-height: 1; }
+.ws-scene-pad-name { display: flex; align-items: center; justify-content: center; font-size: .6rem; opacity: .85; white-space: nowrap; overflow: hidden; }
+.ws-scene-zoom { display: flex; flex-direction: column; gap: 2px; }
+.ws-scene-zoom .ws-scene-pad-btn { width: 1.7rem; height: 1.7rem; font-size: 1rem; }
+/* Touch: a little bigger, on a screen where a finger is the pointer. */
+@media (pointer: coarse) {
+  .ws-scene-pad { grid-template-columns: repeat(3, 2.2rem); grid-auto-rows: 2.2rem; }
+  .ws-scene-zoom .ws-scene-pad-btn { width: 2.2rem; height: 2.2rem; }
+}
 .ws-scene-caption {
   margin-top: .4rem;
   font-size: .9rem;

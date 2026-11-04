@@ -649,7 +649,7 @@ the still, and under it an invisible marker naming the scene:
 
 ```markdown
 ![Vu depuis le coin du monde : socle, pierre, 3 terre, herbe.](img/etape3b-resultat.png)
-<!-- ws:scene {src: scenes/etape3b.glb, features: [orbit, zoom, reset, cut], cut: {axis: x, at: 64, keep: above}, camera: {from: [-14, 30, -14], to: [12, 12, 12]}} -->
+<!-- ws:scene {src: scenes/etape3b.glb, features: [orbit, zoom, pan, reset, cut], cut: {axis: x}, camera: {from: [-14, 30, -14], to: [12, 12, 12]}} -->
 ```
 
 **The still is the fallback, and the marker replaces it.** On GitHub, in any other renderer, and
@@ -665,8 +665,8 @@ does not know the marker shows the still and nothing else.
 | Key | Meaning | Default |
 |---|---|---|
 | `src` | the scene file, a path relative to the document, like an image. Required. | — |
-| `features` | what the viewer lets the participant do: `orbit` (turn), `zoom`, `pan`, `reset` (a button back to the author's view), `cut` (a button that cuts the scene open). A name the platform does not know is reported as advice and ignored. | `[orbit, zoom, reset]` |
-| `cut` | `{axis: x\|y\|z, at: N, keep: below\|above}`: the half kept when the cut is on — coordinates below `at` along `axis` (the default) or above it. Pick the side whose cut face looks at the camera. Required when `cut` is among the features. | none |
+| `features` | what the viewer lets the participant do: `orbit` (turn), `zoom`, `pan` (move), `reset` (a button back to the author's view), `cut` (a slider that cuts the scene open). Every control is drawn inside the view: the slider and the reset button top left, and for touchpad users, pads to turn, move and zoom bottom right. A name the platform does not know is reported as advice and ignored. | `[orbit, zoom, pan, reset]` |
+| `cut` | `{axis: x\|y\|z, keep: above\|below}`: the axis the slider cuts along, and which side stays — with `above` (the default) the slider removes the scene from its low edge upwards, so the cut face looks towards the low side; pick the side the camera is on. Required when `cut` is among the features. | none |
 | `camera` | `{from: [x, y, z], to: [x, y, z]}`, in the file's own units: where the viewer looks from, and at, before the participant moves. Use the still's camera, so the two match. | framed from the scene's bounding box, from its corner |
 
 **The file is a glTF 2.0 binary, one `.glb`** — the Khronos open standard, which every 3D tool
@@ -678,18 +678,20 @@ supports; `KHR_mesh_quantization` and `KHR_materials_unlit` are the two extensio
 converted subjects use, and compressed geometry (Draco, meshopt) is **not** available, as its
 decoders are not vendored.
 
-**The cut-away.** A cut is the reason to prefer a scene over a still, and a mesh is hollow: cut
-with a plane, a voxel world shows the back of its own surface, not its layers. So a file may
-carry its own cut-away as a **top-level node named `cut`**: the same scene with the half removed,
-meshed again so the cut surface shows what is inside. The viewer hides that node, and swaps to
-it when the participant presses « Cut away ». A file with no such node is clipped along the
-marker's plane instead, which is right for a scene that is not a solid.
+**The cut-away** is a slider, from 0 %, no cut, to 100 %, the scene removed up to its far edge
+along the marker's axis. The viewer clips the scene at the slider's position. A clipped mesh is
+hollow — cut with a plane alone, a voxel world shows the back of its own surface, not its layers —
+so a file may carry its **caps**: top-level nodes named `cap:<axis>:<at>`, each the cross-section at
+that position (the faces of the blocks on the plane that face the removed side), baked every few
+blocks by the exporter. The slider then snaps to the positions that have a cap and shows it, so a
+cut always reveals the layers, the ore and the caves. A file with no caps is simply clipped, which
+is right for a scene that is not a solid.
 
 **Where a scene comes from.** The runtime that shows the result is the one that knows how to
 bake it. `voxel-world_runtime/scripts/export_scene.py` runs a program — the step's solution,
 which lives in a private repository — in the headless runtime and writes the world as a mesh:
 visible faces only, coplanar faces merged, the runtime's own textures tiled on them, the face
-shading in vertex colours, and the cut-away node when asked. A scene is data: no code can be
+shading in vertex colours, and the caps when asked (`--cut x`). A scene is data: no code can be
 recovered from it, no more than from a screenshot, so the no-solution rule (§3.3b) is kept. A
 flat world meshes to a few quads; the full World Generator with trees, caves and ore is 2.4 MB.
 Keep `scenes/` beside `img/` (§3.1).
@@ -701,14 +703,15 @@ marker is touched.
 
 **What the platform renders.** The page turns the marker into an anchor after the image
 (`scene.py`); `assets/scene.js` swaps the image for the viewer when it comes within 300 px of
-the viewport, keeps at most three scenes live at once — the one farthest away is disposed and
-its still returns — and draws the viewer's controls: drag to turn, click then wheel to zoom (a
-wheel over a scene must not take the page's scroll), « Reset view », « Cut away ». A browser
-without WebGL 2 keeps the still, with the enlarging click it already has.
+the viewport, keeps at most three scenes live at once — the farthest one out of view is disposed
+and its still returns — and the viewer draws its controls inside the view: drag to turn, click then
+wheel to zoom (a wheel over a scene must not take the page's scroll), the cut slider and « Reset
+view », and pads to turn, move and zoom for a touchpad. A browser without WebGL 2 keeps the still,
+with the enlarging click it already has.
 
 **What the linter checks.** Refused: a marker that does not parse, has no `src`, does not follow
 an image, names a file that is missing, is not a `.glb`, or has no `glTF` header; `cut` among the
-features without a `cut` plane; a malformed `cut` or `camera`. Advice: a feature the platform
+features without a `cut` axis; a malformed `cut` or `camera`. Advice: a feature the platform
 does not know; a file above 4 MB — every participant downloads it. The generated README counts
 scenes beside images.
 

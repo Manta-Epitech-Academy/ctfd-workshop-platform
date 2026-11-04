@@ -65,7 +65,7 @@ IMAGE_HTML = re.compile(r"<img\b[^>]*?\bsrc\s*=\s*[\"']([^\"']+)[\"']", re.IGNOR
 # `<!-- ws:scene {src: scenes/etape3.glb, features: [orbit, cut], ...} -->`.
 SCENE_MD = re.compile(r"<!--\s*ws:scene\s+(\{.*?\})\s*-->", re.S)
 SCENE_FEATURES = ("orbit", "zoom", "pan", "cut", "reset")
-SCENE_DEFAULT_FEATURES = ("orbit", "zoom", "reset")
+SCENE_DEFAULT_FEATURES = ("orbit", "zoom", "pan", "reset")
 SCENE_AXES = ("x", "y", "z")
 SCENE_KEEP = ("below", "above")
 SCENE_SIZE_WARN = 4 * 1024 * 1024
@@ -990,11 +990,12 @@ def _scene_checks(subject_dir, subject):
                                     f"platform (known: {', '.join(SCENE_FEATURES)})")
             cut = data.get("cut")
             if "cut" in features and not isinstance(cut, dict):
-                problems.append(f"{where}: feature `cut` needs `cut: {{axis: x|y|z, at: N}}`")
+                problems.append(f"{where}: feature `cut` needs `cut: {{axis: x|y|z}}`")
             if isinstance(cut, dict):
-                if cut.get("axis") not in SCENE_AXES or not isinstance(cut.get("at"), int):
-                    problems.append(f"{where}: `cut` needs `axis` (x, y or z) and an "
-                                    f"integer `at`")
+                if cut.get("axis") not in SCENE_AXES:
+                    problems.append(f"{where}: `cut` needs `axis` (x, y or z)")
+                if "at" in cut and not isinstance(cut.get("at"), int):
+                    problems.append(f"{where}: `cut.at`, when given, is an integer")
                 if cut.get("keep", "below") not in SCENE_KEEP:
                     problems.append(f"{where}: `cut.keep` is `below` (default) or `above`")
             cam = data.get("camera")

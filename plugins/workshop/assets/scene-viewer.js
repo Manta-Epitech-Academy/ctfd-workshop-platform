@@ -10,26 +10,33 @@
  * module builds (tools/build_vendor.sh rewrites their bare `three` imports to
  * relative paths, so no import map is needed on a page we do not own).
  *
- * Two things the marker can ask for beyond looking:
+ * The controls live INSIDE the view, drawn by this module:
  *
- * - `cut`: a cut-away. If the file holds a top-level node named `cut`, that
- *   node is the author's own cut-away version (a voxel world re-meshed with
- *   half removed, so the layers and caves show) and the viewer swaps to it;
- *   otherwise the viewer clips every material along the marker's `cut` plane,
- *   which works on any mesh but shows a hollow shell.
- * - `camera`: where to look from and at, in the file's units; without it the
- *   scene is framed from its bounding box, from the corner the subject's own
- *   captures use.
+ * - top left, the cut slider and « Reset view ». The slider runs from 0 %, no
+ *   cut, to 100 %, the scene removed up to its far edge, along the marker's
+ *   axis. The world is clipped at the slider's position; a clipped mesh is
+ *   hollow, so a file may carry **caps** — top-level nodes named
+ *   `cap:<axis>:<at>`, the cross-section at that position, baked by the
+ *   exporter every few blocks — and the slider then snaps to the positions
+ *   that have one and shows it. A file with no caps is simply clipped.
+ * - bottom right, soft controls for a touchpad: a rotate pad, a move pad and
+ *   zoom buttons, held down to keep going. The mouse keeps dragging and the
+ *   wheel, which zooms only once the scene has been clicked, so a scene in the
+ *   middle of a page never captures the page's scroll.
  *
- * Wheel zoom only once the viewer has been clicked, so a scene in the middle of
- * a page never captures the scroll. Rendering is on demand, never a loop: ten
- * scenes on a page cost nothing while nobody moves.
+ * `camera: {from, to}` in the marker is the view the scene opens with and the
+ * one « Reset view » returns to; without it the scene is framed from its
+ * bounding box, from the corner the subject's own captures use.
+ *
+ * Rendering is on demand, never a loop: ten scenes on a page cost nothing
+ * while nobody moves.
  */
 import * as THREE from "./vendor/three.module.min.js";
 import { GLTFLoader } from "./vendor/GLTFLoader.js";
 import { OrbitControls } from "./vendor/OrbitControls.js";
 
 const SKY = 0x9dd2fa;
+const AXES = { x: 0, y: 1, z: 2 };
 const loader = new GLTFLoader();
 
 export function load(url) {
@@ -38,8 +45,15 @@ export function load(url) {
   });
 }
 
+function el(tag, className, text) {
+  const e = document.createElement(tag);
+  if (className) e.className = className;
+  if (text !== undefined) e.textContent = text;
+  return e;
+}
+
 export function createViewer(stage, canvas, spec, gltf) {
-  const features = new Set(spec.features || ["orbit", "zoom", "reset"]);
+  const features = new Set(spec.features || ["orbit", "zoom", "pan", "reset"]);
   // preserveDrawingBuffer: rendering is on demand, so the last frame has to
   // stay in the canvas between two renders — without it Chrome may discard it
   // after compositing, and a screenshot (a test, a participant saving the
@@ -51,20 +65,32 @@ export function createViewer(stage, canvas, spec, gltf) {
   scene.background = new THREE.Color(SKY);
   const camera = new THREE.PerspectiveCamera(60, 16 / 10, 0.5, 4000);
 
-  // The file's scene, cloned so a second viewer of the same file (a disposed
-  // one coming back) starts from untouched geometry.
+  /* ---------- the file's scene: main nodes, and the caps ---------- */
   const root = gltf.scene;
   scene.add(root);
-  const cutNode = root.children.find((n) => n.name === "cut") || null;
-  const mainNodes = root.children.filter((n) => n !== cutNode);
-  if (cutNode) cutNode.visible = false;
-
-  // Bounding box of the main nodes: the frame, the floor grid, the default camera.
+  const cutAxis = spec.cut && AXES[spec.cut.axis] !== undefined ? spec.cut.axis : null;
+  const caps = new Map();          // at -> node, for the marker's axis
+  const mainNodes = [];
+  for (const n of root.children) {
+    const m = /^cap:([xyz]):(-?\d+)$/.exec(n.name || "");
+    if (m) {
+      n.visible = false;
+      if (m[1] === cutAxis) caps.set(Number(m[2]), n);
+    } else if (n.name === "cut") {
+      // A file from before the slider: a pre-cut copy of the whole scene.
+      // Shown with the world it would fight with it on every shared face.
+      n.visible = false;
+    } else {
+      mainNodes.push(n);
+    }
+  }
   const bbox = new THREE.Box3();
   for (const n of mainNodes) bbox.expandByObject(n);
   if (bbox.isEmpty()) bbox.set(new THREE.Vector3(0, 0, 0), new THREE.Vector3(1, 1, 1));
   const size = bbox.getSize(new THREE.Vector3()), center = bbox.getCenter(new THREE.Vector3());
   const span = Math.max(size.x, size.z) || 1;
+
+  // The world's frame, as in the pane: a faint grid on the floor and the box.
   const grid = new THREE.GridHelper(span, Math.max(2, Math.round(span / 8)), 0x335577, 0x5b7e9e);
   grid.position.set(center.x, bbox.min.y + 0.01, center.z);
   grid.material.transparent = true; grid.material.opacity = 0.5;
@@ -80,12 +106,12 @@ export function createViewer(stage, canvas, spec, gltf) {
   sun.position.set(bbox.max.x + span, bbox.max.y + size.y, bbox.min.z - span);
   scene.add(sun);
 
+  /* ---------- camera and orbit ---------- */
   const cam = spec.camera || {};
   const home = {
     from: new THREE.Vector3(...(cam.from || [bbox.min.x - 0.23 * span, bbox.max.y + 0.5 * size.y + 0.2 * span, bbox.min.z - 0.23 * span])),
     to: new THREE.Vector3(...(cam.to || [center.x, bbox.min.y + 0.19 * size.y, center.z])),
   };
-
   const controls = new OrbitControls(camera, canvas);
   controls.enableDamping = false;
   controls.enableRotate = features.has("orbit");
@@ -118,54 +144,165 @@ export function createViewer(stage, canvas, spec, gltf) {
   const ro = new ResizeObserver(resize);
   ro.observe(stage);
 
+  // The soft controls and the keyboard move the camera around the target the
+  // same way a drag does: spherical coordinates for turning, the camera's own
+  // axes for moving, the distance for zooming. OrbitControls.update() then
+  // reads the new position back, so the two never disagree.
+  const sph = new THREE.Spherical();
+  const offset = new THREE.Vector3();
+  function rotate(dTheta, dPhi) {
+    if (!features.has("orbit")) return;
+    offset.copy(camera.position).sub(controls.target);
+    sph.setFromVector3(offset);
+    sph.theta -= dTheta;
+    sph.phi = Math.max(0.05, Math.min(Math.PI - 0.05, sph.phi - dPhi));
+    camera.position.copy(controls.target).add(offset.setFromSpherical(sph));
+    controls.update(); request();
+  }
+  function pan(dx, dy) {
+    if (!features.has("pan")) return;
+    const k = camera.position.distanceTo(controls.target) * 0.012;
+    const right = new THREE.Vector3().setFromMatrixColumn(camera.matrix, 0);
+    const up = new THREE.Vector3().setFromMatrixColumn(camera.matrix, 1);
+    const move = right.multiplyScalar(-dx * k).add(up.multiplyScalar(dy * k));
+    camera.position.add(move); controls.target.add(move);
+    controls.update(); request();
+  }
+  function zoom(factor) {
+    if (!features.has("zoom")) return;
+    offset.copy(camera.position).sub(controls.target);
+    const d = Math.max(controls.minDistance, Math.min(controls.maxDistance, offset.length() * factor));
+    camera.position.copy(controls.target).add(offset.setLength(d));
+    controls.update(); request();
+  }
+
   // Wheel zoom only after a click on the scene; a click elsewhere disarms it.
   function arm() { if (features.has("zoom")) controls.enableZoom = true; stage.classList.add("ws-scene-armed"); }
   function disarm(e) { if (!stage.contains(e.target)) { controls.enableZoom = false; stage.classList.remove("ws-scene-armed"); } }
   canvas.addEventListener("pointerdown", arm);
   document.addEventListener("pointerdown", disarm, true);
   canvas.style.touchAction = "none";
+  canvas.addEventListener("keydown", (e) => {
+    const step = 0.08;
+    const map = { ArrowLeft: () => (e.shiftKey ? pan(-1, 0) : rotate(-step, 0)), ArrowRight: () => (e.shiftKey ? pan(1, 0) : rotate(step, 0)),
+                  ArrowUp: () => (e.shiftKey ? pan(0, 1) : rotate(0, -step)), ArrowDown: () => (e.shiftKey ? pan(0, -1) : rotate(0, step)),
+                  "+": () => zoom(0.9), "=": () => zoom(0.9), "-": () => zoom(1.1) };
+    if (map[e.key]) { e.preventDefault(); map[e.key](); }
+  });
 
-  // The cut-away: the author's node when there is one, a clipping plane otherwise.
+  /* ---------- the cut: a clipping plane, and the baked caps ---------- */
   const materials = new Set();
-  root.traverse((o) => { if (o.isMesh) (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => materials.add(m)); });
-  let plane = null;
-  if (spec.cut && !cutNode) {
-    // Keep what lies below `at` along the axis (the default), or above it.
-    const sign = spec.cut.keep === "above" ? 1 : -1;
-    const normal = new THREE.Vector3(spec.cut.axis === "x" ? sign : 0, spec.cut.axis === "y" ? sign : 0, spec.cut.axis === "z" ? sign : 0);
-    plane = new THREE.Plane(normal, -sign * (Number(spec.cut.at) || 0));
+  for (const n of mainNodes) n.traverse((o) => { if (o.isMesh) (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => materials.add(m)); });
+  // The caps sit exactly on the clipping plane, so they get their own copies
+  // of the materials, which are never clipped.
+  for (const n of caps.values()) n.traverse((o) => { if (o.isMesh) o.material = Array.isArray(o.material) ? o.material.map((m) => m.clone()) : o.material.clone(); });
+  let plane = null, cutPct = 0;
+  const keepAbove = !(spec.cut && spec.cut.keep === "below");
+  if (cutAxis) {
     renderer.localClippingEnabled = true;
+    const n = new THREE.Vector3(); n[cutAxis] = keepAbove ? 1 : -1;
+    plane = new THREE.Plane(n, 0);
   }
-  let cutOn = false;
-  function setCut(on) {
-    cutOn = !!on && features.has("cut") && !!(cutNode || plane);
-    if (cutNode) {
-      cutNode.visible = cutOn;
-      for (const n of mainNodes) n.visible = !cutOn;
-      // Look at what is left: the author's camera frames the whole scene, and
-      // the kept half may sit at its far edge. The camera stays where it is;
-      // only the point it turns around moves, so « Reset view » still means
-      // the author's view.
-      const box = new THREE.Box3();
-      if (cutOn) box.expandByObject(cutNode); else box.copy(bbox);
-      if (!box.isEmpty()) controls.target.copy(cutOn ? box.getCenter(new THREE.Vector3()) : home.to);
-      controls.update();
-    } else if (plane) {
-      for (const m of materials) { m.clippingPlanes = cutOn ? [plane] : null; m.needsUpdate = true; }
+  const capPositions = [...caps.keys()].sort((a, b) => a - b);
+  let shownCap = null;
+  function setCutPercent(pct) {
+    cutPct = Math.max(0, Math.min(100, Number(pct) || 0));
+    if (!plane) return;
+    const lo = bbox.min[cutAxis], hi = bbox.max[cutAxis];
+    let at = keepAbove ? lo + (cutPct / 100) * (hi - lo) : hi - (cutPct / 100) * (hi - lo);
+    if (capPositions.length && cutPct > 0 && cutPct < 100) {
+      // Snap to the nearest baked cross-section, so the cut always shows one.
+      at = capPositions.reduce((best, p) => (Math.abs(p - at) < Math.abs(best - at) ? p : best), capPositions[0]);
     }
+    plane.constant = keepAbove ? -at : at;
+    const on = cutPct > 0;
+    for (const m of materials) { m.clippingPlanes = on ? [plane] : null; m.needsUpdate = true; }
+    if (shownCap) shownCap.visible = false;
+    shownCap = on && cutPct < 100 ? caps.get(at) || null : null;
+    if (shownCap) shownCap.visible = true;
+    if (slider) { slider.value = String(cutPct); sliderValue.textContent = Math.round(cutPct) + " %"; }
     request();
   }
 
+  /* ---------- the controls, inside the view ---------- */
+  const tools = el("div", "ws-scene-tools");
+  let slider = null, sliderValue = null;
+  if (features.has("cut") && plane) {
+    const row = el("label", "ws-scene-cut");
+    row.appendChild(el("span", "ws-scene-cut-label", "Cut"));
+    slider = el("input");
+    slider.type = "range"; slider.min = "0"; slider.max = "100"; slider.step = "1"; slider.value = "0";
+    slider.setAttribute("aria-label", "Cut away");
+    slider.addEventListener("input", () => setCutPercent(slider.value));
+    sliderValue = el("span", "ws-scene-cut-value", "0 %");
+    row.append(slider, sliderValue);
+    tools.appendChild(row);
+  }
+  if (features.has("reset")) {
+    const reset = el("button", "ws-scene-btn", "Reset view");
+    reset.type = "button";
+    reset.addEventListener("click", () => { goHome(); if (slider) setCutPercent(0); });
+    tools.appendChild(reset);
+  }
+  if (tools.children.length) stage.appendChild(tools);
+
+  const pads = el("div", "ws-scene-pads");
+  const held = new Set();
+  let holdFrame = null;
+  function tick() {
+    for (const fn of held) fn();
+    holdFrame = held.size ? requestAnimationFrame(tick) : null;
+  }
+  function holdButton(label, title, fn) {
+    const b = el("button", "ws-scene-pad-btn", label);
+    b.type = "button"; b.title = title; b.setAttribute("aria-label", title);
+    const start = (e) => { e.preventDefault(); b.setPointerCapture(e.pointerId); held.add(fn); fn(); if (!holdFrame) holdFrame = requestAnimationFrame(tick); };
+    const stop = () => held.delete(fn);
+    b.addEventListener("pointerdown", start);
+    b.addEventListener("pointerup", stop); b.addEventListener("pointercancel", stop); b.addEventListener("lostpointercapture", stop);
+    return b;
+  }
+  function pad(name, title, actions) {   // actions: {up, down, left, right}
+    const p = el("div", "ws-scene-pad");
+    p.setAttribute("role", "group"); p.setAttribute("aria-label", title);
+    const cells = [null, actions.up, null, actions.left, el("span", "ws-scene-pad-name", name), actions.right, null, actions.down, null];
+    for (const c of cells) p.appendChild(c || el("span"));
+    return p;
+  }
+  const r = 0.035;
+  if (features.has("orbit")) {
+    pads.appendChild(pad("Turn", "Turn the view", {
+      up: holdButton("▲", "Tilt up", () => rotate(0, -r)), down: holdButton("▼", "Tilt down", () => rotate(0, r)),
+      left: holdButton("◀", "Turn left", () => rotate(-r, 0)), right: holdButton("▶", "Turn right", () => rotate(r, 0)),
+    }));
+  }
+  if (features.has("pan")) {
+    pads.appendChild(pad("Move", "Move the view", {
+      up: holdButton("▲", "Move up", () => pan(0, 1)), down: holdButton("▼", "Move down", () => pan(0, -1)),
+      left: holdButton("◀", "Move left", () => pan(-1, 0)), right: holdButton("▶", "Move right", () => pan(1, 0)),
+    }));
+  }
+  if (features.has("zoom")) {
+    const z = el("div", "ws-scene-zoom");
+    z.append(holdButton("+", "Zoom in", () => zoom(0.97)), holdButton("−", "Zoom out", () => zoom(1.03)));
+    pads.appendChild(z);
+  }
+  if (pads.children.length) stage.appendChild(pads);
+
   const viewer = {
     features,
-    reset: goHome,
-    get cut() { return cutOn; },
-    setCut,
+    reset: () => { goHome(); if (slider) setCutPercent(0); },
+    get cut() { return cutPct; },
+    setCut: setCutPercent,
+    rotate, pan, zoom,
     dispose() {
       ro.disconnect();
       controls.dispose();
+      held.clear();
+      if (holdFrame) cancelAnimationFrame(holdFrame);
       canvas.removeEventListener("pointerdown", arm);
       document.removeEventListener("pointerdown", disarm, true);
+      tools.remove(); pads.remove();
       scene.remove(root);
       grid.geometry.dispose(); frame.geometry.dispose();
       renderer.dispose();

@@ -92,25 +92,16 @@
     stage.appendChild(canvas);
     var hint = document.createElement("div");
     hint.className = "ws-scene-hint";
-    hint.appendChild(label("Drag to turn · click, then scroll to zoom"));
+    hint.appendChild(label("Drag to turn · click, then scroll to zoom · or use the pads"));
     stage.appendChild(hint);
 
-    var bar = document.createElement("div");
-    bar.className = "ws-scene-bar";
-    var reset = document.createElement("button");
-    reset.type = "button"; reset.className = "btn btn-sm ws-scene-btn"; reset.textContent = "Reset view";
-    var cut = document.createElement("button");
-    cut.type = "button"; cut.className = "btn btn-sm ws-scene-btn"; cut.textContent = "Cut away";
-    cut.setAttribute("aria-pressed", "false");
-    var features = spec.features || ["orbit", "zoom", "reset"];
-    if (features.indexOf("reset") >= 0) bar.appendChild(reset);
-    if (features.indexOf("cut") >= 0 && spec.cut) bar.appendChild(cut);
+    // The controls themselves — the cut slider, « Reset view », the pads for
+    // a touchpad — are drawn inside the view by the viewer module.
     var caption = document.createElement("figcaption");
     caption.className = "ws-scene-caption";
     caption.textContent = img.alt || "";
 
     figure.appendChild(stage);
-    if (bar.children.length) figure.appendChild(bar);
     if (caption.textContent) figure.appendChild(caption);
     wrapper.parentNode.insertBefore(figure, wrapper);
     if (wrapper !== img) wrapper.remove();
@@ -121,13 +112,6 @@
     stage.appendChild(status);
     var state = { figure: figure, stage: stage, canvas: canvas, spec: spec, viewer: null, loading: false,
                   model: null, visible: false, status: status };
-    reset.addEventListener("click", function () { if (state.viewer) state.viewer.reset(); });
-    cut.addEventListener("click", function () {
-      if (!state.viewer) return;
-      state.viewer.setCut(!state.viewer.cut);
-      cut.setAttribute("aria-pressed", state.viewer.cut ? "true" : "false");
-      figure.classList.toggle("ws-scene-cut", state.viewer.cut);
-    });
 
     observer.observe(stage);
     stage._wsScene = state;
@@ -142,9 +126,7 @@
     viewerModule().then(function (mod) {
       return (state.model ? Promise.resolve(state.model) : mod.load(state.spec.src)).then(function (model) {
         state.model = model;
-        var wasCut = state.figure.classList.contains("ws-scene-cut");
         state.viewer = mod.createViewer(state.stage, state.canvas, state.spec, model);
-        if (wasCut) state.viewer.setCut(true);
         state.figure.classList.add("ws-scene-live");
         live.push(state);
         trim();

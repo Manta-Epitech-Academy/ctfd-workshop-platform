@@ -150,6 +150,7 @@ from CTFd.utils.security import signing
 from CTFd.utils.security.auth import login_user
 from CTFd.utils.user import get_ip
 
+from .staff import supervisor_code
 from .toggle import workshop_enabled
 
 CONFIG_KEYS = "workshop_jump_keys"
@@ -390,7 +391,7 @@ def _curl_post(url, body):
             + " -d " + shlex.quote(json.dumps(body)))
 
 
-def jump_declarations(keys, instance, content):
+def jump_declarations(keys, instance, content, code):
     """The calls that make each configured Jump know this instance.
 
     Jump only sends a talent to an instance it has declared, and to a content
@@ -399,6 +400,12 @@ def jump_declarations(keys, instance, content):
     Typing them again on the other side is how one Jump came to hold an
     instance pointing at another instance's host. So the calls are built here,
     from the values themselves, one pair per key: each key is one Jump.
+
+    The supervisor code rides on the instance call for the same reason (§58):
+    Jump's staff catalogue shows it beside a link to /supervisor/join. An
+    empty one is sent as `null`, which clears Jump's copy and takes the
+    instance's subjects out of that catalogue, since an instance with no code
+    accepts no supervisor.
 
     Except the address, which this server cannot know. On the cluster a
     Cloudflare tunnel rewrites the `Host` to the Ingress's `ctf-NNNN` name and
@@ -425,7 +432,8 @@ def jump_declarations(keys, instance, content):
             "commands": [
                 _curl_post(origin + JUMP_DECLARE_INSTANCE,
                            {"instance": instance,
-                            "baseUrl": JUMP_ADDRESS_PLACEHOLDER}),
+                            "baseUrl": JUMP_ADDRESS_PLACEHOLDER,
+                            "supervisorCode": code or None}),
                 _curl_post(origin + JUMP_DECLARE_ACTIVITY,
                            {"slug": content, "instance": instance,
                             "label": JUMP_LABEL_PLACEHOLDER}),
@@ -1084,7 +1092,8 @@ def settings():
         # _link_namespaces(), enforced in _parse_rows for the submit that
         # ignores the attribute.
         keys=stored, instance=instance_slug(), content=content_slug(),
-        declarations=jump_declarations(stored, instance_slug(), content_slug()),
+        declarations=jump_declarations(stored, instance_slug(), content_slug(),
+                                       supervisor_code()),
         # What the page swaps for the address it was opened at, which only
         # the browser knows (see jump_declarations).
         address=JUMP_ADDRESS_PLACEHOLDER,

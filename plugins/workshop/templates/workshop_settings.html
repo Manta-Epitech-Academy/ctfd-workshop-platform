@@ -119,6 +119,11 @@
       <code>/supervisor/join</code>, whatever the registration setting says. Leave it empty
       to close that door; the supervisors already in keep their access.
       {% if supervisor_code %}<strong>Joining is open.</strong>{% else %}<strong>Joining is closed.</strong>{% endif %}
+      {% if jump_keys() %}
+        Jump's staff catalogue shows this code too, and learns a new one only
+        when the instance call on the <a href="/admin/workshop/jump">Jump</a>
+        page is run again (PLAN.md §58).
+      {% endif %}
     </small>
   </form>
 

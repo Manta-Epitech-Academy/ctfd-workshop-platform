@@ -14,7 +14,15 @@
  * viewport. And at most LIVE viewers exist at a time: past that, the one
  * farthest from the viewport is disposed and its still comes back, since a
  * browser allows about a dozen WebGL contexts before it drops the oldest on its
- * own, which would leave a blank canvas.
+ * own, which would leave a blank canvas. Only a scene that is out of view is
+ * ever disposed: the observer keeps watching it, and brings it back the moment
+ * it is scrolled into view again — a scene disposed while on screen would
+ * stay a still until the reader scrolled it out and back, which is what the
+ * first version did.
+ *
+ * Loading and failure both show on the figure, so a scene that is still
+ * downloading or could not load never looks like a scene that is simply
+ * missing.
  *
  * Registered globally like zoom.js: `.challenge-desc` is core's own container,
  * so the statements, the hints and the documents' pages are all covered.
@@ -108,7 +116,11 @@
     if (wrapper !== img) wrapper.remove();
     anchor.remove();
 
-    var state = { figure: figure, stage: stage, canvas: canvas, spec: spec, viewer: null, loading: false, model: null };
+    var status = document.createElement("div");
+    status.className = "ws-scene-status";
+    stage.appendChild(status);
+    var state = { figure: figure, stage: stage, canvas: canvas, spec: spec, viewer: null, loading: false,
+                  model: null, visible: false, status: status };
     reset.addEventListener("click", function () { if (state.viewer) state.viewer.reset(); });
     cut.addEventListener("click", function () {
       if (!state.viewer) return;
@@ -124,6 +136,9 @@
   function activate(state) {
     if (state.viewer || state.loading) return;
     state.loading = true;
+    state.figure.classList.remove("ws-scene-failed");
+    state.figure.classList.add("ws-scene-loading");
+    state.status.textContent = "Loading the 3D scene…";
     viewerModule().then(function (mod) {
       return (state.model ? Promise.resolve(state.model) : mod.load(state.spec.src)).then(function (model) {
         state.model = model;
@@ -138,7 +153,12 @@
       // The still is already there; say why in the console and leave it.
       console.warn("workshop: scene not shown, the still stays:", state.spec.src, err);
       state.figure.classList.add("ws-scene-failed");
-    }).then(function () { state.loading = false; });
+      state.status.textContent = "The 3D scene could not be loaded; this is the still.";
+    }).then(function () {
+      state.loading = false;
+      state.figure.classList.remove("ws-scene-loading");
+      if (state.viewer) state.status.textContent = "";
+    });
   }
 
   function deactivate(state) {
@@ -157,16 +177,19 @@
   }
 
   function trim() {
-    while (live.length > LIVE) {
-      var far = live.slice().sort(function (a, b) { return distance(b) - distance(a); })[0];
-      deactivate(far);
-    }
+    // Dispose the farthest scenes that are out of view, never one on screen:
+    // the observer only fires on a change, so a scene disposed while visible
+    // would not come back until scrolled away and back.
+    var hidden = live.filter(function (s) { return !s.visible; });
+    hidden.sort(function (a, b) { return distance(b) - distance(a); });
+    while (live.length > LIVE && hidden.length) deactivate(hidden.shift());
   }
 
   var observer = new IntersectionObserver(function (entries) {
     entries.forEach(function (entry) {
       var state = entry.target._wsScene;
       if (!state) return;
+      state.visible = entry.isIntersecting;
       if (entry.isIntersecting) activate(state);
     });
   }, { rootMargin: "300px 0px" });

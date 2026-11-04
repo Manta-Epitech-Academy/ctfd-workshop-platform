@@ -1720,6 +1720,19 @@ main > .container > .row > .col-md-12 > h3.text-muted:only-child::after,
 }
 .ws-scene-live .ws-scene-stage:hover .ws-scene-hint { opacity: 1; }
 .ws-scene-live .ws-scene-armed .ws-scene-hint { opacity: 0; }
+/* Loading or failed, said on the stage itself: a still with viewer buttons
+   under it would otherwise read as a scene that never came. */
+.ws-scene-status {
+  position: absolute; left: 50%; bottom: .75rem; transform: translateX(-50%);
+  max-width: 90%;
+  padding: .25rem .75rem;
+  font-size: .85rem;
+  color: #fff;
+  background: rgba(0, 0, 0, .55);
+  border-radius: 999px;
+  pointer-events: none;
+}
+.ws-scene-status:empty { display: none; }
 .ws-scene-bar { display: flex; gap: .5rem; justify-content: center; margin-top: .5rem; }
 .ws-scene-btn[aria-pressed="true"] { font-weight: 700; }
 .ws-scene-caption {

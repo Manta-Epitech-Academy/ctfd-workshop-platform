@@ -746,7 +746,8 @@ Décompresse-le sur ton bureau.
 Any kind of file goes: the platform does not read it, it serves it.
 
 **What the importer does.** `parse_subject` collects every repo-relative link whose target
-names a file, as an asset of kind `file`; `sync_subject.py` uploads it exactly as an image
+names a file — any extension or none at all, `fichiers/inconnu` is a file if it exists — as an
+asset of kind `file`; `sync_subject.py` uploads it exactly as an image
 (§3.8: once, content-hashed, type `standard`, so it is served outside any competition window)
 and rewrites the link's target in every body it sends. The link text is the author's and is
 left alone. On the page, `attachments.py` turns every link to one of those uploads into the

@@ -36,7 +36,7 @@ _UPLOAD = re.compile(r"<a\b([^>]*?)\bhref\s*=\s*\"(/files/ws-[^\"]+)\"([^>]*)>(.
                      re.IGNORECASE | re.S)
 # A card that is its paragraph's whole content: `<p>` + one anchor + `</p>`.
 _ALONE = re.compile(r"<p>\s*(<a class=\"ws-attachment\")(.*?</a>)\s*</p>", re.S)
-_HASHED = re.compile(r"^(.*)-[0-9a-f]{8}(\.[^.]+)$")
+_HASHED = re.compile(r"^(.*)-[0-9a-f]{8}(\.[^.]+)?$")
 _ATTRS_TO_DROP = re.compile(r"""\s*\b(?:class|download)\s*=\s*(?:"[^"]*"|'[^']*')""",
                             re.IGNORECASE)
 
@@ -68,7 +68,7 @@ def _original_name(location):
     """`kit-1a2b3c4d.zip` -> `kit.zip`: the name without the sync's content hash."""
     name = location.rsplit("/", 1)[-1]
     m = _HASHED.match(name)
-    return (m.group(1) + m.group(2)) if m else name
+    return (m.group(1) + (m.group(2) or "")) if m else name
 
 
 def _size(location):

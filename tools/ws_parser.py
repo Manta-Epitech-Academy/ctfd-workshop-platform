@@ -290,25 +290,37 @@ def find_asset_refs(text):
     return refs
 
 
-def _is_attachment(ref):
-    """A repo-relative link that names a file: not a document, not an anchor."""
+def _is_attachment(ref, base=None):
+    """A repo-relative link that names a file: not a document, not an anchor.
+
+    A target with an extension counts even when it is missing, so the linter
+    can refuse the typo. A target without one (`fichiers/inconnu`) counts when
+    it exists as a file beside the document; otherwise it is left alone, as a
+    bare path the author meant as a link.
+    """
     if not _is_local_asset(ref):
         return False
     bare = ref.split("#", 1)[0].split("?", 1)[0]
-    name = bare.rsplit("/", 1)[-1]
-    if "." not in name or bare.lower().endswith(ATTACHMENT_NOT):
+    if not bare or bare.lower().endswith(ATTACHMENT_NOT):
         return False
-    return True
+    name = bare.rsplit("/", 1)[-1]
+    if "." in name:
+        return True
+    return base is not None and (Path(base) / bare).is_file()
 
 
-def find_attachment_refs(text):
-    """Repo-relative files linked from a document (convention §3.8c), in order."""
+def find_attachment_refs(text, base=None):
+    """Repo-relative files linked from a document (convention §3.8c), in order.
+
+    `base` is the document's folder, used to recognise a file with no
+    extension; without it only targets with an extension are returned.
+    """
     scannable = _strip_fences(text)
     refs = []
     for pattern in (LINK_MD, LINK_HTML):
         for m in pattern.finditer(scannable):
             ref = m.group(1).strip()
-            if _is_attachment(ref) and ref not in refs:
+            if _is_attachment(ref, base) and ref not in refs:
                 refs.append(ref)
     return refs
 
@@ -660,7 +672,7 @@ def parse_subject(subject_dir):
             asset.documents.append(doc_path)
         # Attachments (§3.8c) are assets too: uploaded once, the link's target
         # rewritten in every body, the text left to the author.
-        for ref in find_attachment_refs(text):
+        for ref in find_attachment_refs(text, (subject_dir / doc_path).parent):
             asset = collect(Asset(ref=ref,
                                   path=(subject_dir / doc_path).parent / ref,
                                   kind="file"))

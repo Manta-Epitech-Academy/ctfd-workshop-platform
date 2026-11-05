@@ -240,7 +240,9 @@ Télécharge [le kit de départ](fichiers/kit.zip) et décompresse-le sur ton bu
 
 Sur GitHub, le lien ouvre le fichier. Sur la plateforme, il devient une **carte de
 téléchargement** : une icône selon le type de fichier, votre texte, puis le nom et la taille du
-fichier. Tout type de fichier convient ; la phrase autour n'est pas touchée. Un lien vers un
+fichier. Dans une phrase, la carte est petite et suit le texte ; **seul sur sa ligne**, le lien
+devient une grande carte avec un bouton « Télécharger », pour le fichier au cœur de l'étape.
+Tout type de fichier convient ; la phrase autour n'est pas touchée. Un lien vers un
 autre document `.md`, vers une ancre ou vers un site reste un lien. Le vérificateur refuse un
 fichier manquant et signale un fichier de plus de 20 Mo, que chaque participant télécharge.
 

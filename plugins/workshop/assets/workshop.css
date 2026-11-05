@@ -1858,3 +1858,28 @@ main > .container > .row > .col-md-12 > h3.text-muted:only-child::after,
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* The block card: a link alone in its paragraph. */
+.ws-attachment-alone { margin: 1rem 0; }
+.ws-attachment-block {
+  display: flex;
+  width: 100%;
+  margin: 0;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+}
+.ws-attachment-block .ws-attachment-icon { font-size: 2.2rem; }
+.ws-attachment-block .ws-attachment-text { flex: 1; }
+.ws-attachment-block .ws-attachment-label { font-size: 1.1rem; }
+.ws-attachment-block .ws-attachment-meta { font-size: .9rem; }
+.ws-attachment-action {
+  align-self: center;
+  padding: .4rem .9rem;
+  border-radius: 999px;
+  background: var(--bs-primary, #0d6efd);
+  color: #fff;
+  font-weight: 600;
+  white-space: nowrap;
+}
+@media (max-width: 480px) {
+  .ws-attachment-action { display: none; }
+}

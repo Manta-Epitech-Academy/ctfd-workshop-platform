@@ -12,6 +12,11 @@ turned into a download card: an icon for the kind of file, the author's text,
 then the file's name and size. `download=` restores the name the author gave
 the file, without the content hash the location carries.
 
+Two sizes of card. A link inside a sentence gets a compact one, which flows
+with the text. A link that stands alone in its paragraph — the author put it
+on its own line — gets a block card, wider, with a « Télécharger » affordance:
+that is the author's option, chosen by layout, and it reads the same on GitHub.
+
 The size is read from the upload folder when the instance keeps its files on
 disk (CTFd's default uploader); with another provider the card simply has no
 size. It is cached per location, since a location is content-addressed and
@@ -29,6 +34,8 @@ from flask import current_app, has_app_context
 # Only the sync's uploads: an author's own `/files/...` link is left alone.
 _UPLOAD = re.compile(r"<a\b([^>]*?)\bhref\s*=\s*\"(/files/ws-[^\"]+)\"([^>]*)>(.*?)</a>",
                      re.IGNORECASE | re.S)
+# A card that is its paragraph's whole content: `<p>` + one anchor + `</p>`.
+_ALONE = re.compile(r"<p>\s*(<a class=\"ws-attachment\")(.*?</a>)\s*</p>", re.S)
 _HASHED = re.compile(r"^(.*)-[0-9a-f]{8}(\.[^.]+)$")
 _ATTRS_TO_DROP = re.compile(r"""\s*\b(?:class|download)\s*=\s*(?:"[^"]*"|'[^']*')""",
                             re.IGNORECASE)
@@ -111,9 +118,15 @@ def _card(match):
             f'<span class="ws-attachment-meta">{meta}</span></span></a>')
 
 
+def _block(match):
+    return (f'<p class="ws-attachment-alone">{match.group(1).replace("ws-attachment", "ws-attachment ws-attachment-block")}'
+            f'{match.group(2)[:-len("</a>")]}'
+            f'<span class="ws-attachment-action" aria-hidden="true">Télécharger ⬇</span></a></p>')
+
+
 def place_attachments(rendered):
     """Turn every link to a synced upload into a download card."""
     text = str(rendered or "")
     if "/files/ws-" not in text:
         return text
-    return _UPLOAD.sub(_card, text)
+    return _ALONE.sub(_block, _UPLOAD.sub(_card, text))

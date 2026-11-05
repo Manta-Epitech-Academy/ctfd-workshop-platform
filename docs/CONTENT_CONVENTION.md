@@ -731,7 +731,18 @@ Télécharge [le kit de départ](fichiers/kit.zip) et décompresse-le sur ton bu
 
 On GitHub the link opens the file in the repo. On the platform the link becomes a **download
 card**: an icon for the kind of file, the author's link text, then the file's name and size.
-The sentence around it is untouched, so the card sits in the prose or on a line of its own.
+**Two sizes, chosen by where the link sits.** Inside a sentence, the card is compact and flows
+with the text. **Alone on its line** — its own paragraph — the link becomes a wide block card
+with a « Télécharger » button, for the file a step is built around:
+
+```markdown
+Tout part de ce projet :
+
+[Le kit de départ](fichiers/kit.zip)
+
+Décompresse-le sur ton bureau.
+```
+
 Any kind of file goes: the platform does not read it, it serves it.
 
 **What the importer does.** `parse_subject` collects every repo-relative link whose target

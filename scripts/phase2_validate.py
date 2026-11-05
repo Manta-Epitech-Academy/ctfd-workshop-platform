@@ -184,6 +184,12 @@ def check_validation_modes():
           "a flag exercise with no authored answer is refused")
     (root / "flags.yaml").write_text('flags:\n  a: "demo{x}"\n')
     check(ws_parser.lint(root) == [], "and accepted once the answer exists")
+    # A public repo commits only the encrypted copy; CI has no passphrase.
+    (root / "flags.yaml").rename(root / "flags.yaml.gpg")
+    check(ws_parser.lint(root) == [], "flags only encrypted: the flag step is not refused")
+    check(any("not checked" in w for w in ws_parser.lint_all(root)[1]),
+          "and a warning says the flags were not checked")
+    (root / "flags.yaml.gpg").rename(root / "flags.yaml")
     subject = ws_parser.parse_subject(root)
     modes = {e.slug: e.validation for e in subject.exercises}
     check(modes == {"a": "flag", "b": "checkpoint"},

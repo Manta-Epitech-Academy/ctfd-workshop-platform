@@ -1102,7 +1102,25 @@ def lint_all(subject_dir):
     return problems, (_cover_warnings(subject) + _toolbox_warnings(subject_dir, subject)
                       + _codes_warnings(load_checkpoint_codes(subject_dir))
                       + _scene_checks(subject_dir, subject)[1]
-                      + _attachment_checks(subject))
+                      + _attachment_checks(subject)
+                      + _flags_warnings(subject_dir, subject))
+
+
+def _flags_sealed(subject_dir):
+    """True when the flags exist only encrypted: flags.yaml.gpg, no flags.yaml."""
+    root = Path(subject_dir)
+    return (root / "flags.yaml.gpg").is_file() and not (root / "flags.yaml").is_file()
+
+
+def _flags_warnings(subject_dir, subject):
+    """Advice when flag entries could not be checked because they are encrypted."""
+    if not _flags_sealed(subject_dir):
+        return []
+    n = sum(1 for e in subject.exercises if e.validation == "flag")
+    if not n:
+        return []
+    return [f"flags.yaml.gpg: {n} flag step(s) not checked, the flags are encrypted. "
+            f"Decrypt flags.yaml locally and lint again before a sync (§3.3b)."]
 
 
 def lint(subject_dir):
@@ -1123,6 +1141,10 @@ def _lint_problems(subject_dir):
         return [str(e)], None
     answers = load_quiz_answers(subject_dir)
     flags = load_flags(subject_dir)
+    # A public repo commits only flags.yaml.gpg, and the answers arrive at sync
+    # time. CI has no passphrase, so the entries cannot be checked there: say
+    # so in a warning (`_flags_warnings`) rather than refuse every flag step.
+    sealed = _flags_sealed(subject_dir)
     problems.extend(_codes_problems(subject, load_checkpoint_codes(subject_dir)))
     # The importer resolves `project.entrypoint` against these documents to build
     # the index page and the opening step, and it does so after the images have
@@ -1152,7 +1174,7 @@ def _lint_problems(subject_dir):
             # solved — and it would import as a control with nothing in it.
             problems.append(f"exercise {ex.slug!r}: validation: quiz, but the step "
                             f"hosts no `type: quiz` marker")
-        elif ex.validation == "flag" and not flags.get(ex.slug):
+        elif ex.validation == "flag" and not sealed and not flags.get(ex.slug):
             # The answer is the flag, so a missing one is not a small gap: the
             # step would import with no way to solve it.
             problems.append(f"exercise {ex.slug!r}: validation: flag, but no entry "

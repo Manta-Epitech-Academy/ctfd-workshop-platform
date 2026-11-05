@@ -314,7 +314,9 @@ is not `checkpoint`, and an empty code, and advises when two steps share one cod
 encrypt them (shell-1 keeps `flag.txt.gpg` and a `decrypt.sh`) or leave them out and supply them at
 sync time. A code readable in a public repo validates the step for anyone who finds it. The admin
 sync page opens any `*.yaml.gpg` in the browser, so `checkpoint_codes.yaml.gpg` needs nothing
-more.
+more. When the repo holds only `flags.yaml.gpg`, the linter cannot read the answers: it
+accepts the flag steps and says in a warning that they were not checked. Decrypt `flags.yaml`
+and lint again before a sync, which checks them in full.
 
 ### 3.4 The short version — marked region, shown as a summary
 

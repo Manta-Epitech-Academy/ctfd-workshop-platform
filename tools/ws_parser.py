@@ -69,6 +69,14 @@ SCENE_DEFAULT_FEATURES = ("orbit", "zoom", "pan", "reset")
 SCENE_AXES = ("x", "y", "z")
 SCENE_KEEP = ("below", "above")
 SCENE_SIZE_WARN = 4 * 1024 * 1024
+# An attachment (convention §3.8c): an ordinary link to a file of the repo,
+# `[Télécharge le kit](fichiers/kit.zip)` or `<a href="fichiers/kit.zip">`.
+# The lookbehind keeps images out; a link to another document (`.md`) or to
+# an anchor is content, not a file, and is left alone.
+LINK_MD = re.compile(r"(?<!!)\[[^\]]*\]\(\s*<?([^)\s>]+)>?(?:\s+[\"'][^\"']*[\"'])?\s*\)")
+LINK_HTML = re.compile(r"<a\b[^>]*?\bhref\s*=\s*[\"']([^\"']+)[\"']", re.IGNORECASE)
+ATTACHMENT_NOT = (".md", ".markdown")
+ATTACHMENT_SIZE_WARN = 20 * 1024 * 1024
 
 
 @dataclass
@@ -175,7 +183,7 @@ class Asset:
     path: Path
     documents: list = field(default_factory=list)   # docs that reference it
     key: str = ""
-    kind: str = "image"                             # image | scene (§3.8b)
+    kind: str = "image"                             # image | scene (§3.8b) | file (§3.8c)
 
     def __post_init__(self):
         if not self.key:
@@ -222,6 +230,10 @@ class Subject:
     @property
     def images(self):
         return [a for a in self.assets if a.kind == "image"]
+
+    @property
+    def attachments(self):
+        return [a for a in self.assets if a.kind == "file"]
 
 
 class ParseError(Exception):
@@ -274,6 +286,29 @@ def find_asset_refs(text):
         for m in pattern.finditer(scannable):
             ref = m.group(1).strip()
             if _is_local_asset(ref) and ref not in refs:
+                refs.append(ref)
+    return refs
+
+
+def _is_attachment(ref):
+    """A repo-relative link that names a file: not a document, not an anchor."""
+    if not _is_local_asset(ref):
+        return False
+    bare = ref.split("#", 1)[0].split("?", 1)[0]
+    name = bare.rsplit("/", 1)[-1]
+    if "." not in name or bare.lower().endswith(ATTACHMENT_NOT):
+        return False
+    return True
+
+
+def find_attachment_refs(text):
+    """Repo-relative files linked from a document (convention §3.8c), in order."""
+    scannable = _strip_fences(text)
+    refs = []
+    for pattern in (LINK_MD, LINK_HTML):
+        for m in pattern.finditer(scannable):
+            ref = m.group(1).strip()
+            if _is_attachment(ref) and ref not in refs:
                 refs.append(ref)
     return refs
 
@@ -379,6 +414,12 @@ def rewrite_asset_refs(md, mapping):
         return m.group(0)[:m.start(1) - m.start(0)] + target + m.group(0)[m.end(1) - m.start(0):]
 
     for pattern in (IMAGE_MD, IMAGE_HTML):
+        md = pattern.sub(sub, md)
+
+    # An attachment is a plain link (§3.8c): same substitution, on the path
+    # only, so the link text stays. A link whose target has no mapping (a
+    # document, an anchor, an absolute URL) is left as written.
+    for pattern in (LINK_MD, LINK_HTML):
         md = pattern.sub(sub, md)
 
     # The scene file, named by `src:` inside the marker's mapping. Only that
@@ -616,6 +657,13 @@ def parse_subject(subject_dir):
             asset = collect(Asset(ref=ref,
                                   path=(subject_dir / doc_path).parent / ref,
                                   kind="scene"))
+            asset.documents.append(doc_path)
+        # Attachments (§3.8c) are assets too: uploaded once, the link's target
+        # rewritten in every body, the text left to the author.
+        for ref in find_attachment_refs(text):
+            asset = collect(Asset(ref=ref,
+                                  path=(subject_dir / doc_path).parent / ref,
+                                  kind="file"))
             asset.documents.append(doc_path)
         scenes = [data for _, data, _ in find_scene_markers(text) if data]
 
@@ -940,6 +988,17 @@ def _toolbox_warnings(subject_dir, subject):
     return warnings
 
 
+def _attachment_checks(subject):
+    """Warnings for attachments (§3.8c): a big file, which every participant downloads."""
+    warnings = []
+    for a in subject.attachments:
+        if a.exists and a.path.stat().st_size > ATTACHMENT_SIZE_WARN:
+            warnings.append(f"{a.documents[0]}: file {a.ref!r} is "
+                            f"{a.path.stat().st_size / 1e6:.0f} MB. Every participant "
+                            f"downloads it; is a smaller one possible?")
+    return warnings
+
+
 def _scene_checks(subject_dir, subject):
     """(problems, warnings) for every `ws:scene` marker (convention §3.8b).
 
@@ -1030,7 +1089,8 @@ def lint_all(subject_dir):
         return problems, []
     return problems, (_cover_warnings(subject) + _toolbox_warnings(subject_dir, subject)
                       + _codes_warnings(load_checkpoint_codes(subject_dir))
-                      + _scene_checks(subject_dir, subject)[1])
+                      + _scene_checks(subject_dir, subject)[1]
+                      + _attachment_checks(subject))
 
 
 def lint(subject_dir):

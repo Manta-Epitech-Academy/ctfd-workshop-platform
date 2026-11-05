@@ -457,7 +457,7 @@ def set_flag(ctfd, cid, content, data="case_insensitive"):
 
 
 def asset_location(subject_slug, asset):
-    """Deterministic `<dir>/<filename>` for an image (CTFd requires two parts).
+    """Deterministic `<dir>/<filename>` for an asset (CTFd requires two parts).
 
     The content hash is in the filename, so re-syncing unchanged content maps to
     the same location (nothing is re-uploaded) while an edited image lands on a
@@ -469,7 +469,7 @@ def asset_location(subject_slug, asset):
 
 
 def upload_assets(ctfd, subject):
-    """Upload every referenced image once; return {Asset.key -> /files URL}.
+    """Upload every referenced asset once (image, scene, file); return {Asset.key -> /files URL}.
 
     Keyed on `Asset.key`, not on `asset.ref`: the ref is the path as written,
     and the same path written in subject.yaml and inside a document names two
@@ -490,7 +490,10 @@ def upload_assets(ctfd, subject):
             uploaded += 1
         mapping[asset.key] = f"/files/{location}"
     if subject.assets:
-        print(f"images: {len(subject.assets)} referenced, {uploaded} uploaded, "
+        kinds = ", ".join(f"{n} {k}" for k, n in (("images", len(subject.images)),
+                                                  ("scenes", len(subject.assets) - len(subject.images) - len(subject.attachments)),
+                                                  ("files", len(subject.attachments))) if n)
+        print(f"assets: {len(subject.assets)} referenced ({kinds}), {uploaded} uploaded, "
               f"{len(subject.assets) - uploaded} already present")
     return mapping
 

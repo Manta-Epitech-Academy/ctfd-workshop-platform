@@ -229,6 +229,21 @@ l'image. Le runtime de l'atelier fournit l'outil qui fabrique le fichier à part
 programme (`scripts/export_scene.py` dans `voxel-world_runtime`) : la scène est une donnée, pas
 du code, les corrigés restent privés.
 
+### Les fichiers à télécharger
+
+Quand une étape donne un fichier au participant — un projet de départ, des données, une carte,
+un PDF — écrivez un **lien ordinaire** vers le fichier, rangé dans `fichiers/` :
+
+```markdown
+Télécharge [le kit de départ](fichiers/kit.zip) et décompresse-le sur ton bureau.
+```
+
+Sur GitHub, le lien ouvre le fichier. Sur la plateforme, il devient une **carte de
+téléchargement** : une icône selon le type de fichier, votre texte, puis le nom et la taille du
+fichier. Tout type de fichier convient ; la phrase autour n'est pas touchée. Un lien vers un
+autre document `.md`, vers une ancre ou vers un site reste un lien. Le vérificateur refuse un
+fichier manquant et signale un fichier de plus de 20 Mo, que chaque participant télécharge.
+
 ### L'intro et la fin
 
 Le premier document (`entrypoint`) devient la première étape, avec un bouton "j'ai lu". Le texte

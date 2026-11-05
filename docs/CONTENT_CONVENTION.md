@@ -79,6 +79,7 @@ my-subject/
 ├── main.md
 ├── img/…                # images, referenced by relative path — never hotlinked (§3.8)
 ├── scenes/…             # 3D scenes standing in for stills, glTF binaries (§3.8b)
+├── fichiers/…           # files to download, linked from the prose (§3.8c)
 ├── README.md            # GENERATED — never edited by hand
 └── .github/workflows/verify-content.yaml   # calls the reusable CI
 ```
@@ -717,6 +718,40 @@ scenes beside images.
 
 > Added 2026-11-03, for World Generator: its seven steps end on a world, and the step about
 > layers was illustrated by a still of a slab.
+
+### 3.8c Attachments — a file to download, linked from the prose
+
+A step sometimes hands the participant a file: a starter project, a dataset, a map, a PDF to
+print. The author writes an **ordinary link to a file of the repo**, relative to the document,
+and keeps such files in `fichiers/` (§3.1):
+
+```markdown
+Télécharge [le kit de départ](fichiers/kit.zip) et décompresse-le sur ton bureau.
+```
+
+On GitHub the link opens the file in the repo. On the platform the link becomes a **download
+card**: an icon for the kind of file, the author's link text, then the file's name and size.
+The sentence around it is untouched, so the card sits in the prose or on a line of its own.
+Any kind of file goes: the platform does not read it, it serves it.
+
+**What the importer does.** `parse_subject` collects every repo-relative link whose target
+names a file, as an asset of kind `file`; `sync_subject.py` uploads it exactly as an image
+(§3.8: once, content-hashed, type `standard`, so it is served outside any competition window)
+and rewrites the link's target in every body it sends. The link text is the author's and is
+left alone. On the page, `attachments.py` turns every link to one of those uploads into the
+card, with `download=` set to the file's name without the content hash, so the participant
+saves `kit.zip`, not `kit-1a2b3c4d.zip`.
+
+**What is not an attachment.** A link to another document (`.md`), to an anchor, to an
+absolute URL or to a site-absolute path is left exactly as written: a document link is
+content, the others already resolve (§3.8). An author's own `/files/...` link is not turned
+into a card either, since the platform cannot know what it is.
+
+**What the linter checks.** Refused: a linked file that does not exist. Advice: a file above
+20 MB, because every participant downloads it. The generated README counts the files to
+download beside the images and scenes.
+
+> Added 2026-11-05.
 
 ### 3.9 What is generated (never hand-written)
 

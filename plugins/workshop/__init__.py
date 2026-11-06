@@ -145,6 +145,15 @@ def load(app):
     # maintainer's laptop, so an instructor in the room had no way to read one.
     # Staff-only: admins and supervisors (§32).
     load_answers(app)
+
+    # What the sync uploads besides PNG and GIF (convention §3.8b, §3.8c): an
+    # animated WebP and a glTF scene. Python's mimetypes may not know them,
+    # and CTFd then serves `application/octet-stream`. Browsers sniff an
+    # <img>, and the scene viewer reads bytes, so both work either way; the
+    # right type is for caches, proxies and curiosity.
+    import mimetypes
+    mimetypes.add_type("image/webp", ".webp")
+    mimetypes.add_type("model/gltf-binary", ".glb")
     register_admin_plugin_menu_bar("Answers", "/admin/workshop/answers")
     # The two pages a supervisor gets in place of core's Statistics and
     # Submissions (§32): the same questions asked of a workshop rather than a

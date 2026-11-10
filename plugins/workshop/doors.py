@@ -1,0 +1,111 @@
+"""The ways a participant gets in, as a list the login page reads.
+
+`/login` has two sides (login.html): the staff form, which is core's, and the
+participant side, which used to be Jump's button and nothing else. The page
+asked `jump.py` what to draw, and landing.py asked it where to send an
+anonymous visitor. A second way in would have meant a second special case in
+each (PLAN.md §58).
+
+So a way in registers a `Door` here, and the page draws whatever doors are
+open. landing.py and login.html read only this module; they do not know what
+Jump is.
+
+A door is not a route. The route that actually signs somebody in stays in the
+door's own module (`/jump/enter` in jump.py), and so does everything it
+stores. What is registered is only what the login page needs: whether the
+door is open, and the piece of page that leads to it.
+
+The external door (external.py, §42) is deliberately not one: its address is
+half its secret, and nothing participant-facing may point at it.
+"""
+from flask import request
+
+from .toggle import workshop_enabled
+
+_DOORS = {}
+
+
+class Door:
+    """One way in. Subclass it and `register()` an instance."""
+
+    # Unique, and stable: the registry is keyed on it.
+    name = ""
+    # The template included on the participant side of login.html.
+    template = ""
+    # The line under the title while this door is the first one drawn, and
+    # what the staff form's link back to the participant side says. Lazy
+    # strings: they are built at import time and read in a request.
+    intro = ""
+    label = ""
+
+    def open(self):
+        """Is there anything to draw right now?"""
+        return False
+
+    def takeover(self, front):
+        """Where to send an anonymous visitor instead of drawing a page.
+
+        `front` is true for `/` and false for the participant side of
+        `/login`. None, the default, draws the page. Only a door that is the
+        instance's one way in has a reason to answer (Jump's rule, §53).
+        """
+        return None
+
+
+def register(door):
+    """Add a door, or replace the one of the same name (see cohorts.py)."""
+    _DOORS[door.name] = door
+
+
+def open_doors():
+    """The doors to draw, in registration order. None while the plugin is off:
+    switched off, CTFd's login page is CTFd's again (toggle.py, §39)."""
+    if not workshop_enabled():
+        return []
+    return [door for door in _DOORS.values() if door.open()]
+
+
+def takeover(front):
+    """The first open door's answer to `Door.takeover`, or None."""
+    for door in open_doors():
+        target = door.takeover(front)
+        if target:
+            return target
+    return None
+
+
+def login_is_staff():
+    """Which side of login.html to draw: the staff form, or the doors.
+
+    The participant side is the default, as on Jump's own login, and
+    `?staff=1` is the other one. One URL rather than a route of our own,
+    because the form posts to core's `auth.login` and core re-renders
+    `login.html` itself after a failed attempt: a second route would have to
+    re-implement signing in.
+
+    The staff form wins whenever the participant side would be the wrong
+    answer:
+
+      - no door is open (which also covers the plugin switched off) and a
+        page with nothing on it is a dead end;
+      - the request is a POST, which only the staff form sends, so the error
+        after a wrong password lands next to the form that caused it;
+      - `next` is an admin page: core's `admins_only` and our `staff_only`
+        (staff.py) both bounce to `auth.login` with `next=request.full_path`,
+        and no participant is going there.
+
+    One admin URL does not carry a `next`: core's bare `/admin`
+    (CTFd/admin/__init__.py `view`) redirects to `auth.login` with nothing
+    after it, so landing.py sends an anonymous `/admin` to the staff side
+    itself.
+    """
+    return (not open_doors()
+            or request.method == "POST"
+            or "staff" in request.args
+            or (request.args.get("next") or "").startswith("/admin"))
+
+
+def load_doors(app):
+    # login.html asks which side to open on, and which doors to draw.
+    app.jinja_env.globals["login_is_staff"] = login_is_staff
+    app.jinja_env.globals["open_doors"] = open_doors

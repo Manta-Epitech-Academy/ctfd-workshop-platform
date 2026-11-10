@@ -4796,3 +4796,74 @@ Run on a fresh local instance with `santa_shooter_subject` synced, in both modes
 callback reporting `points: 13`. With `points_for_user` made to return 0, the check fails on that
 line and nowhere else. On an instance holding three `ack` steps worth 25, 10 and 0, `/workshop`
 renders the badges "25 XP" and "10 XP" in French and in English, and none on the step worth 0.
+
+## 58. Two registries: who is in which cohort, and the ways in (2026-11-10)
+
+Jump is paused for a time nobody can give, and workshops still have to run. The plan is a way in
+that needs no Jump and no personal data (§59 to §61, issues #70 to #86), and later the Jump code
+moving to a plugin of its own. Both need the same thing first: the rest of this plugin must stop
+knowing what Jump is.
+
+Three modules imported `jump.py` to do their own job:
+
+- `audience.py` read Jump's link table to build the wall between cohorts (§50), and the external
+  door's field beside it (§43);
+- `scope.py` read Jump's session table to draw the campus and session picker of the supervision
+  pages (§50);
+- `landing.py` and `login.html` asked Jump what to draw on the participant side of `/login` and
+  where to send an anonymous visitor (§53).
+
+A second way in would have been a second special case in each. This section adds two extension
+points and plugs Jump and the external door into them. **Behaviour does not change**: this is a
+refactor, and the existing check scripts are its test.
+
+### 58.1 The cohort provider (`cohorts.py`)
+
+A way in that files accounts into rooms registers a `CohortProvider`. It answers four questions:
+
+| Method | For | Answer |
+|---|---|---|
+| `memberships()` | `audience.py` | `{user_id: value}`; the audience key is `(provider.name, value)` |
+| `groups()` | `scope.py` | `[(ref, label)]`, the campuses somebody is in |
+| `rooms(ref)` | `scope.py` | `[(id, label)]`, the sessions of one campus, newest first |
+| `members(ref, room_id)` | `scope.py` | a query of the user ids in that campus or session |
+
+- **Order is precedence.** An account two providers claim belongs to the first one registered.
+  `__init__.py` loads them in the order §50 already stated: the external code, then the Jump
+  session.
+- **A ref is opaque and unique across providers.** It travels alone in a query string. Jump's is
+  `<kid>/<campus>`, and a key id starts with a letter or a digit, so any other provider starts its
+  refs with another character.
+- `Scope` keeps two fields, the ref and the session id. A scope stored in a staff session before
+  this (`[kid, campus, session_id]`) is still read, and rebuilt as Jump's ref.
+- The external door registers a provider with memberships only. Its cohorts have no campus, so
+  they were never in the picker, and still are not.
+
+### 58.2 The entry door (`doors.py`)
+
+A way in that wants a place on the participant side of `/login` registers a `Door`: a name, a
+template fragment, the line under the title, the label of the link back from the staff form,
+`open()`, and `takeover(front)`.
+
+- `login.html` includes the fragment of every open door. `login_is_staff()` moved here from
+  `jump.py`, unchanged.
+- `takeover` exists only to carry §53 through this refactor: Jump's door answers with Jump's
+  address when Jump is the only way in. §61 removes it.
+- The external door is **not** a `Door`. Its address is half its secret (§42), so nothing
+  participant-facing may point at it.
+
+### 58.3 Rejected
+
+- **A Flask signal or a generic event bus.** Two readers and two questions each: a class with four
+  methods says more, and a typo in a signal name fails silently.
+- **Moving Jump out in the same change.** The repository for it does not exist yet, and a move plus
+  a refactor cannot be checked against "nothing changed".
+
+### 58.4 Checked
+
+On a fresh local instance holding the Pacman subject, before and after the change, the same
+results: `external_check`, `audience_check`, `toggle_check`, `reset_check` and `jump_check` all
+green (`jump_check` with its 140 assertions, the §53 redirects included). `supervisor_check` fails
+the same two assertions on both sides (`GET /api/v1/users/1 -> 200`), on an instance whose
+`account_visibility` is private. `scope.py`, `audience.py` and `landing.py` import nothing from
+`jump.py`.

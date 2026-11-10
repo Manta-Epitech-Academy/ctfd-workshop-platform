@@ -199,6 +199,24 @@ CTFd's own view on its own query, so no markup moves and no template is overridd
 `scripts/audience_check.py <base-url> <admin-pass>` builds three accounts in three cohorts, gives
 each a score, and asks every surface as each of them.
 
+## Two registries the ways in plug into (PLAN.md §58)
+
+Nothing outside a way in's own module knows it exists. A way in registers itself, as it loads, in
+one or both of:
+
+- **`cohorts.py`**: a `CohortProvider` says which room each of its accounts is in
+  (`memberships()`, read by `audience.py`) and how the supervision pages pick one (`groups()`,
+  `rooms()`, `members()`, read by `scope.py`). Registration order is precedence, so the order of
+  the `load_*` calls in `__init__.py` matters and is commented there.
+- **`doors.py`**: a `Door` is a fragment on the participant side of `/login`, drawn while
+  `open()` says so.
+
+Registered today: the external door (cohorts only, its address is a secret), the registration
+codes and the token door (§59, §60), and Jump (both).
+
+To add a way in: write its module, subclass the two classes, call the two `register()` from its
+`load_*`, and place that call in `__init__.py` where its precedence belongs.
+
 ## Supervisors (PLAN.md §32)
 
 The people running the room, without the admin panel. CTFd has two user types and no group
@@ -342,10 +360,10 @@ contract shared with the Jump repository; changing either half means changing bo
   - `page.html` — that `views.static_html` still passes `title` alongside `content`.
   - `login.html` — `Forms.auth.LoginForm()`, `components/errors.html` and the `integrations.mlc()`
     branch. The form is core's field for field; only the layout around it is ours, so an upstream
-    change to authentication does not have to be mirrored. It also carries the **"Continue with
-    Jump" button**, on a talent door of its own: `login_is_staff()` (`jump.py`) picks between that
-    door and the staff form (and where Jump is the only way in, with one Jump to go to,
-    `landing.py` sends a visitor on before the door is drawn, PLAN.md §53), and the MLC branch stays inside the staff door, byte for byte what
+    change to authentication does not have to be mirrored. Its participant side is
+    the **doors** (`doors.py`, PLAN.md §58): each way in registers a fragment, and
+    `login_is_staff()` (`doors.py`) picks between that side and the staff form. The MLC branch
+    stays inside the staff door, byte for byte what
     core renders, so an upstream change to it is a straight re-copy. The page also leans on core
     re-rendering `login.html` itself after a failed POST (that is how the error lands on the staff
     door) and on core's footer being `body > .footer`, which `epitech-theme.css` hides on the pages

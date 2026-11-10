@@ -137,6 +137,7 @@ from datetime import datetime
 
 from flask import Blueprint, redirect, render_template, request, session, url_for
 from flask_babel import gettext as _
+from flask_babel import lazy_gettext as _l
 from sqlalchemy.exc import IntegrityError
 
 from CTFd.cache import cache
@@ -150,6 +151,10 @@ from CTFd.utils.security import signing
 from CTFd.utils.security.auth import login_user
 from CTFd.utils.user import get_ip
 
+from .cohorts import CohortProvider
+from .cohorts import register as register_cohorts
+from .doors import Door
+from .doors import register as register_door
 from .toggle import workshop_enabled
 
 CONFIG_KEYS = "workshop_jump_keys"
@@ -476,37 +481,6 @@ def talent_door():
         return None
     (key,) = keys.values()
     return key["origin"]
-
-
-def login_is_staff():
-    """Which of login.html's two doors to draw: the staff form, or the Jump one.
-
-    The talent door is the default, as on Jump's own login, and `?staff=1` is
-    the other one. One URL rather than a route of our own, because the form
-    posts to core's `auth.login` and core re-renders `login.html` itself after
-    a failed attempt — a second route would have to re-implement signing in.
-
-    The staff form wins whenever the talent door would be the wrong answer:
-
-      - there is no talent door (`jump_enabled()` false, which also covers the
-        plugin switched off) and a page with only a way out is a dead end;
-      - the request is a POST, which only the staff form sends, so the error
-        after a wrong password lands next to the form that caused it;
-      - `next` is an admin page: core's `admins_only` and our `staff_only`
-        (staff.py) both bounce to `auth.login` with `next=request.full_path`,
-        and nobody Jump signs in is going there.
-
-    One admin URL does not carry a `next`: core's bare `/admin`
-    (CTFd/admin/__init__.py `view`) redirects to `auth.login` with nothing
-    after it. It used to land on the talent door, one "Staff sign-in" click
-    from the form; now that the talent door can send a visitor on to Jump
-    (landing.py), it would leave the instance altogether, so landing.py sends
-    an anonymous `/admin` to the staff door itself.
-    """
-    return (not jump_enabled()
-            or request.method == "POST"
-            or "staff" in request.args
-            or (request.args.get("next") or "").startswith("/admin"))
 
 
 def derived_key(secret, purpose):
@@ -1104,10 +1078,107 @@ def requeue(event):
     event.next_attempt = datetime.utcnow()
 
 
+# --------------------------------------------------------------------------
+# What Jump hands the rest of the plugin (cohorts.py, doors.py, PLAN.md §58)
+# --------------------------------------------------------------------------
+
+class JumpCohorts(CohortProvider):
+    """A room is the session a link is filed under, a campus is Jump's.
+
+    A campus is named by its key id and its campus id together,
+    `<kid>/<campus>`: one instance can serve a development and a production
+    Jump, whose ids are unrelated, so two Jumps that both call a campus `1`
+    are two campuses here. A key id is `[A-Za-z0-9_-]` (`KID_RE`), so the
+    first `/` is the separator whatever the campus id holds.
+
+    Only rooms somebody is filed in are listed: a link follows the session its
+    latest ticket names (`file_session`), so a room its talents have left for
+    the next content empties out and stops being a choice.
+    """
+    name = "session"
+
+    def memberships(self):
+        return dict(
+            db.session.query(JumpLink.user_id, JumpLink.session_id)
+            .filter(JumpLink.session_id.isnot(None)).all())
+
+    @staticmethod
+    def _filed():
+        """The ids of the rooms somebody is filed in, as a subquery."""
+        return db.session.query(JumpLink.session_id).filter(
+            JumpLink.session_id.isnot(None))
+
+    @staticmethod
+    def _parse(ref):
+        """`(kid, campus)` from `<kid>/<campus>`, or `(None, None)`."""
+        kid, sep, campus = (ref or "").strip().partition("/")
+        return (kid, campus) if sep and kid and campus else (None, None)
+
+    def _rooms(self, ref):
+        kid, campus = self._parse(ref)
+        return JumpSession.query.filter(JumpSession.jump_kid == kid,
+                                        JumpSession.campus_key == campus,
+                                        JumpSession.id.in_(self._filed()))
+
+    def groups(self):
+        """A campus is labelled with its key id only on an instance that has
+        heard from more than one Jump, where two campuses can share a name.
+        One Jump is the normal case, and its picker reads as it always did."""
+        rows = (JumpSession.query.filter(JumpSession.id.in_(self._filed()))
+                .order_by(JumpSession.created.desc()).all())
+        several = len({row.jump_kid for row in rows}) > 1
+        campuses = {}
+        for row in rows:
+            label = (f"{row.campus_label} ({row.jump_kid})" if several
+                     else row.campus_label)
+            campuses.setdefault(f"{row.jump_kid}/{row.campus_key}", label)
+        return list(campuses.items())
+
+    def rooms(self, ref):
+        return [(row.id, row.label) for row in
+                self._rooms(ref).order_by(JumpSession.created.desc()).all()]
+
+    def members(self, ref, room_id=None):
+        kid, campus = self._parse(ref)
+        rooms = db.session.query(JumpSession.id).filter(
+            JumpSession.jump_kid == kid, JumpSession.campus_key == campus)
+        if room_id is not None:
+            rooms = rooms.filter(JumpSession.id == room_id)
+        return db.session.query(JumpLink.user_id).filter(
+            JumpLink.session_id.in_(rooms))
+
+
+class JumpDoor(Door):
+    """The Jump button on the participant side of the login page.
+
+    A talent is not supposed to reach that page at all: they arrive on
+    `/jump/enter` already signed in. The ones who do are the ones who
+    bookmarked the URL or were sent it, and the button is their way back.
+    """
+    name = "jump"
+    template = "workshop_jump_door.html"
+    intro = _l("Sign in with your Jump account.")
+    label = _l("Continue with Jump")
+
+    def open(self):
+        return jump_enabled()
+
+    def takeover(self, front):
+        """Where Jump is the only way in, an anonymous visitor is sent to it
+        (§53): from `/` and from the participant side, straight to the one
+        Jump this instance answers to, or, when it answers to several, from
+        `/` to the login page, which is then the choice between them."""
+        if not jump_is_the_way_in():
+            return None
+        if front:
+            return talent_door() or url_for("auth.login")
+        return talent_door()
+
+
 def load_jump(app):
     app.register_blueprint(workshop_jump)
-    # login.html asks whether there is a door before drawing one, and which of
-    # its two doors to open on.
+    register_cohorts(JumpCohorts())
+    register_door(JumpDoor())
+    # workshop_jump_door.html draws one button per key.
     app.jinja_env.globals["jump_enabled"] = jump_enabled
     app.jinja_env.globals["jump_keys"] = jump_keys
-    app.jinja_env.globals["login_is_staff"] = login_is_staff

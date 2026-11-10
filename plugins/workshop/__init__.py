@@ -31,6 +31,7 @@ from .checkpoint import load_checkpoint
 from .syncpage import load_syncpage
 from .reset import load_reset
 from .shell import load_shell
+from .doors import load_doors
 from .jump import load_jump
 from .jumpqueue import load_jump_queue
 from .external_links import load_external_links
@@ -93,6 +94,9 @@ def load(app):
     # registered further down land in it.
     load_toggle(app)
     register_admin_plugin_menu_bar("Workshop plugin", "/admin/workshop/plugin")
+    # The login page's two sides, and the list of ways in it draws (PLAN.md
+    # §58). Before every door, which registers itself as it loads.
+    load_doors(app)
     # A link out of the workshop (the Lua manual from a toolbox, say) opens in
     # a new tab, so coming back does not cost the runtime pane and the scroll
     # position. Wraps the one Markdown entry point every surface renders
@@ -108,8 +112,9 @@ def load(app):
     load_external(app)
     register_admin_plugin_menu_bar("External access", "/admin/workshop/external")
     # Several populations, each seeing only its own: the external cohorts
-    # (PLAN.md §43) and the Jump sessions (§50). After `load_external`, whose
-    # field it reads.
+    # (PLAN.md §43) and the Jump sessions (§50). It names neither: each way
+    # in registers a cohort provider as it loads (cohorts.py, §58), and the
+    # order they load in is the order an account is claimed in.
     load_audience(app)
     load_graph(app)  # GET /api/v1/workshop/graph — challenge DAG for the user
     # The participant-facing view: the whole workshop as one page, steps as

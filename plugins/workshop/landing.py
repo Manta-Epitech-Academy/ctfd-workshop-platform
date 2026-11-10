@@ -6,7 +6,8 @@ Four places decide it:
   2. after login/registration — CTFd falls back to `challenges.listing`
      (CTFd/auth.py). It honours an explicit `?next=` *before* that fallback,
      so rewriting the fallback never breaks a deep link.
-  3. the talent door of `/login` (login.html, `login_is_staff()` in jump.py).
+  3. the participant side of `/login` (login.html, `login_is_staff()` in
+     doors.py).
   4. core's bare `/admin`, which sends a visitor to `auth.login` with no `next`.
 
 A signed-in user is sent from the first two to `/workshop`. The challenge
@@ -14,14 +15,16 @@ board stays exactly where it was and keeps working; it is simply no longer the
 first thing a participant sees. Nothing is lost by skipping the index either:
 its document is the Intro section of the workshop page.
 
-An anonymous visitor is sent to Jump whenever Jump is the only way a
-participant gets in (`jump_is_the_way_in()`, PLAN.md §53): from `/` and from
-the talent door, straight to the one Jump this instance answers to
-(`talent_door()`), or, when it answers to several, from `/` to the talent door,
-which is then the choice between them. The copy that presents an activity and
-the sign-in both live on Jump, so a page here that restated the first or
-offered the second would be one more page between a talent and the activity.
-An instance that lets people register keeps its front door: it is theirs.
+An anonymous visitor is sent wherever an open door says (doors.py
+`takeover`, PLAN.md §58). This module does not know which doors exist. The
+one that answers today is Jump's, whenever Jump is the only way a participant
+gets in (jump.py `JumpDoor`, §53): from `/` and from the participant side of
+the login page, straight to the one Jump this instance answers to, or, when
+it answers to several, from `/` to the login page, which is then the choice
+between them. The copy that presents an activity and the sign-in both live on
+Jump, so a page here that restated the first or offered the second would be
+one more page between a talent and the activity. An instance that lets people
+register keeps its front door: it is theirs.
 
 What stays is every door a password opens: the staff form (`/login?staff=1`),
 the supervisor and external joins, and `/admin`, which is sent to the staff
@@ -36,7 +39,7 @@ from flask import redirect, request, url_for
 from CTFd.models import Challenges
 from CTFd.utils.user import authed
 
-from .jump import jump_is_the_way_in, login_is_staff, talent_door
+from .doors import login_is_staff, takeover
 from .toggle import workshop_enabled
 
 # Endpoints whose default post-authentication redirect we retarget.
@@ -61,22 +64,18 @@ def load_landing(app):
         return redirect(workshop_url())
 
     @app.before_request
-    def anonymous_to_jump():
+    def anonymous_to_door():
         # Cheapest tests first: this runs on every request.
         if request.method != "GET" or authed():
             return None
         front = request.path == "/"
         if not front and request.endpoint != "auth.login":
             return None
-        # `jump_enabled()`, inside, reads the switch.
-        if not jump_is_the_way_in():
-            return None
-        if front:
-            return redirect(talent_door() or url_for("auth.login"))
         # The staff form, a failed attempt or an admin `next` stay here.
-        if login_is_staff():
+        if not front and login_is_staff():
             return None
-        target = talent_door()
+        # `open_doors()`, inside, reads the switch.
+        target = takeover(front)
         return redirect(target) if target else None
 
     @app.before_request

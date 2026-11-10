@@ -53,6 +53,8 @@ from CTFd.utils.logging import log
 from CTFd.utils.security.auth import login_user
 from CTFd.utils.user import authed, get_ip
 
+from .cohorts import CohortProvider
+from .cohorts import register as register_cohorts
 from .staff import WorkshopStaff, account_errors
 
 CODES_KEY = "workshop_external_codes"
@@ -368,5 +370,25 @@ def _set_banned(code, banned):
     return "revoked" if banned else "restored"
 
 
+class ExternalCohorts(CohortProvider):
+    """A cohort is a code: every account that came in on it (§43, §58).
+
+    No campus and no session: the supervision pages' picker (scope.py) is
+    about rooms, and a code says nothing of where its group sat. These
+    accounts are counted when no scope is set, as they always were.
+    """
+    name = "code"
+
+    def memberships(self):
+        field = code_field()
+        if field is None:
+            return {}
+        # An empty value is no code: such an account is in nobody's cohort.
+        return {e.user_id: e.value
+                for e in UserFieldEntries.query.filter_by(field_id=field.id).all()
+                if e.value}
+
+
 def load_external(app):
     app.register_blueprint(workshop_external)
+    register_cohorts(ExternalCohorts())

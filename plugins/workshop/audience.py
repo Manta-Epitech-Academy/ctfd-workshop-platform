@@ -17,6 +17,11 @@ last spring is not the room a talent is sitting in today.
     a supervisor who joined with the staff code, and a Jump account created
     before tickets named a session, until its next entry files it.
 
+Neither of the first two is named in this module. Each way in registers a
+cohort provider (cohorts.py, §58) and the key is `(provider name, value)`
+of the first provider that has filed the account, in registration order,
+which is the order above.
+
 An account sees its own audience and nothing else. Two external cohorts do not
 see each other, two sessions do not see each other, and neither sees the
 other door's people: one rule, applied to three kinds of key. The keys are
@@ -63,15 +68,14 @@ from flask import g, has_request_context, request, session
 from sqlalchemy import event
 from sqlalchemy.orm import Session, with_loader_criteria
 
-from CTFd.models import Awards, Solves, UserFieldEntries, UserFields, Users, db
+from CTFd.models import Awards, Solves, Users
 from CTFd.utils import get_config
 from CTFd.utils.dates import isoformat, unix_time_to_utc
 from CTFd.utils.modes import generate_account_url
 from CTFd.utils.scores import get_standings
 from CTFd.utils.user import authed, is_admin
 
-from .external import FIELD_NAME
-from .jump import JumpLink
+from .cohorts import memberships
 from .staff import is_staff
 
 # Whoever carries no code and no session.
@@ -116,55 +120,23 @@ LIST_ENDPOINTS = (
 TOP_MAX = 50
 
 
-def _coded():
-    """`{user_id: code}` for every account that came through the other door.
-
-    One query per request, not one per row: the scoreboard is a list and a
-    lookup per entry would turn a page into a hundred round trips.
-    """
-    if "ws_coded" not in g:
-        field = UserFields.query.filter_by(name=FIELD_NAME).first()
-        if field is None:
-            g.ws_coded = {}
-        else:
-            g.ws_coded = {
-                e.user_id: (e.value or "")
-                for e in UserFieldEntries.query.filter_by(field_id=field.id).all()
-            }
-    return g.ws_coded
-
-
-def _sessions():
-    """`{user_id: session_id}` for every Jump account filed under a session.
-
-    One query per request, like `_coded`.
-    """
-    if "ws_sessions" not in g:
-        g.ws_sessions = dict(
-            db.session.query(JumpLink.user_id, JumpLink.session_id)
-            .filter(JumpLink.session_id.isnot(None)).all())
-    return g.ws_sessions
-
-
 def audience_of(user_id):
     """The cohort an account belongs to, as a tagged key (see the docstring)."""
-    code = _coded().get(user_id)
-    if code:
-        return ("code", code)
-    session_id = _sessions().get(user_id)
-    if session_id is not None:
-        return ("session", session_id)
+    for name, filed in memberships():
+        if user_id in filed:
+            return (name, filed[user_id])
     return DEFAULT
 
 
 def split_applies():
     """Is there anything to separate at all?
 
-    No external account and no filed session means one population, and then
-    every hook below is a dictionary lookup that always agrees — cheaper to
-    answer once here.
+    No provider with an account filed means one population, and then every
+    hook below is a dictionary lookup that always agrees: cheaper to answer
+    once here.
     """
-    return get_config("user_mode") != "teams" and bool(_coded() or _sessions())
+    return (get_config("user_mode") != "teams"
+            and any(filed for _name, filed in memberships()))
 
 
 def viewer_audience():
@@ -186,13 +158,12 @@ def visible(user_id, viewer=None):
 def _members(key):
     """`audience_of(Users.id) == key`, as a criterion on `Users.id`.
 
-    Built from the same two maps `audience_of` reads, so a narrowed query and a
-    filtered list cannot disagree about who is in a room. Not a subquery: the
-    code is CTFd's `FieldEntries.value`, a JSON column, which SQL would compare
-    as JSON text rather than as the string `audience_of` sees.
+    Built from the same maps `audience_of` reads, so a narrowed query and a
+    filtered list cannot disagree about who is in a room. Not a subquery: a
+    provider's value need not be something SQL compares the way Python does
+    (the external code is CTFd's `FieldEntries.value`, a JSON column).
     """
-    keyed = {u for u in set(_coded()) | set(_sessions())
-             if u is not None and audience_of(u) != DEFAULT}
+    keyed = {u for _name, filed in memberships() for u in filed if u is not None}
     if key == DEFAULT:
         return Users.id.notin_(sorted(keyed))
     return Users.id.in_(sorted(u for u in keyed if audience_of(u) == key))

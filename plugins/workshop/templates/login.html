@@ -2,8 +2,8 @@
 
 {#
   Override of the core theme's login page. It exists because this is the
-  handover: a participant arrives here from Jump's talent space, and what they
-  landed on was a form floating in the middle of an empty white page. The panel
+  first page a participant sees, and what core shows there is a name and
+  password form floating in the middle of an empty white page. The panel
   beside the form, and the credit under it, are the shared layout's
   (workshop_login_layout.html).
 
@@ -16,7 +16,10 @@
 
   The participant side belongs to the doors (doors.py, PLAN.md §58): each way
   in registers one, and this page includes the fragment of every door that is
-  open. It does not know which ones exist.
+  open, in the order they registered, with a ruled "or" between two. It does
+  not know which ones exist. The first one is the front of the page: its
+  title is the page's, its intro the sentence under it. Today that is the
+  token door (PLAN.md §60), which is always open.
 
   The form itself is core's, field for field — same `Forms.auth.LoginForm()`,
   same errors include, same Major League Cyber branch, same nonce. Only the
@@ -29,11 +32,21 @@
 {% set login_accroche = Configs.ctf_description %}
 
 {% block login_head %}
-  <h1 class="epi-login-title epi-title-cursor">{% trans %}Login{% endtrans %}</h1>
+  {# The first door names the page it is the front of ("Enter your code");
+     the staff side, and a door with nothing to say, keep "Login". The two
+     data attributes are for a door that changes what the page is about once
+     it is walked through (door.js). #}
+  <h1 class="epi-login-title epi-title-cursor" data-ws-login-title>
+    {%- if not staff and doors[0].title -%}
+      {{ doors[0].title }}
+    {%- else -%}
+      {% trans %}Login{% endtrans %}
+    {%- endif -%}
+  </h1>
   {# Tu on the talent door and vous on the staff one: the participant path
      speaks to lycéens the way Jump does, the staff strings of this plugin
      already say vous. #}
-  <p class="epi-login-sub">
+  <p class="epi-login-sub" data-ws-login-sub>
     {% if staff %}
       {% trans %}Staff area: sign in with your username or email.{% endtrans %}
     {% else %}
@@ -45,6 +58,9 @@
 {% block login_main %}
   {% if not staff %}
     {% for door in doors %}
+      {% if not loop.first %}
+        <p class="epi-login-or" aria-hidden="true"><span>{% trans %}or{% endtrans %}</span></p>
+      {% endif %}
       {% include door.template %}
     {% endfor %}
   {% else %}

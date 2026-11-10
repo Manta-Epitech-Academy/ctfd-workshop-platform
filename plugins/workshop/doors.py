@@ -41,9 +41,11 @@ class Door:
     name = ""
     # The template included on the participant side of login.html.
     template = ""
-    # The line under the title while this door is the first one drawn, and
-    # what the staff form's link back to the participant side says. Lazy
-    # strings: they are built at import time and read in a request.
+    # The page's title and the line under it while this door is the first one
+    # drawn, and what the staff form's link back to the participant side
+    # says. Lazy strings: they are built at import time and read in a request.
+    # An empty title leaves the page its own ("Login").
+    title = ""
     intro = ""
     label = ""
 

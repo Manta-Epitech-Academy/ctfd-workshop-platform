@@ -381,7 +381,7 @@ def refusal(reason, code=None):
     }), 403
 
 
-def _text(payload, field):
+def text_field(payload, field):
     value = payload.get(field) if isinstance(payload, dict) else None
     return value if isinstance(value, str) else ""
 
@@ -401,7 +401,7 @@ def check_code():
     a token for an account that could never be made. The account is made by
     the next request, once they have said they saved it.
     """
-    row, reason = resolve(_text(request.get_json(silent=True), "code"))
+    row, reason = resolve(text_field(request.get_json(silent=True), "code"))
     if row is None:
         return refusal(reason)
     return jsonify({"success": True})
@@ -416,14 +416,14 @@ def register_account():
     like the first even if theirs was the last place under the cap.
     """
     payload = request.get_json(silent=True)
-    signin = _text(payload, "signin")
+    signin = text_field(payload, "signin")
     if not SIGNIN_RE.fullmatch(signin):
         return refusal("format")
     digest = signin_hash(signin)
 
     user = account_for(digest)
     if user is None:
-        row, reason = resolve(_text(payload, "code"))
+        row, reason = resolve(text_field(payload, "code"))
         if row is None:
             return refusal(reason)
         user, reason = admit(row.id, digest)

@@ -29,6 +29,9 @@ msgstr[1] "%(count)s réponses"
 msgid "%(n)s XP"
 msgstr "%(n)s XP"
 
+msgid "Address:"
+msgstr "Adresse :"
+
 msgid "Admin Panel"
 msgstr ""
 
@@ -86,6 +89,12 @@ msgstr "Continuer avec Jump"
 msgid "Continue with Jump (%(label)s)"
 msgstr "Continuer avec Jump (%(label)s)"
 
+msgid "Copied!"
+msgstr "Copié !"
+
+msgid "Copy"
+msgstr "Copier"
+
 msgid "Correct"
 msgstr "C'est bon"
 
@@ -101,6 +110,9 @@ msgstr "Le serveur ne répond pas. Réessaie."
 msgid "Could not save that — try again."
 msgstr "Impossible d'enregistrer. Réessaie."
 
+msgid "Do not leave this file on the classroom computer."
+msgstr "Ne laisse pas ce fichier sur l'ordinateur de la salle."
+
 msgid ""
 "Don't have a supervisor account yet? You can create one with the "
 "supervisor code."
@@ -108,14 +120,27 @@ msgstr ""
 "Vous n'avez pas encore de compte encadrant ? Vous pouvez en créer un avec "
 "le code superviseur."
 
+msgid "Download the file"
+msgstr "Télécharger le fichier"
+
 msgid "Email"
 msgstr ""
+
+msgid "Enter your code"
+msgstr "Entre ton code"
 
 msgid "Everything the workshop has given you so far, in one place."
 msgstr "Tout ce que l'atelier t'a donné jusqu'ici, au même endroit."
 
 msgid "Finish"
 msgstr "Termine"
+
+msgid ""
+"First time? Enter the code your supervisor gave you. Coming back? Enter "
+"your personal code."
+msgstr ""
+"Première fois ? Entre le code donné par ton encadrant. Tu reviens ? Entre"
+" ton code personnel."
 
 msgid ""
 "For the people running the room. You will see the answers, who is where, "
@@ -137,6 +162,9 @@ msgstr ""
 msgid "Good"
 msgstr "Bien"
 
+msgid "Here is your personal code"
+msgstr "Voici ton code personnel"
+
 #, python-format
 msgid "Hide %(title)s"
 msgstr "Masquer %(title)s"
@@ -154,8 +182,17 @@ msgstr "Cette partie t'a plu ?"
 msgid "How was this workshop?"
 msgstr "Cet atelier t'a plu ?"
 
+msgid "I have a code file"
+msgstr "J'ai un fichier de code"
+
 msgid "I have read this"
 msgstr "J'ai lu"
+
+msgid "I have saved my code"
+msgstr "J'ai noté mon code"
+
+msgid "If you lose it, nobody can give it back to you."
+msgstr "Si tu le perds, personne ne peut te le redonner."
 
 msgid "In progress"
 msgstr "En cours"
@@ -169,6 +206,13 @@ msgstr "Pas encore"
 msgid "Introduction"
 msgstr "Introduction"
 
+msgid ""
+"It is what lets you come back. Nobody can give it back to you: if you "
+"lose it, you start over."
+msgstr ""
+"C'est lui qui te permet de revenir. Personne ne peut te le redonner : si "
+"tu le perds, tu recommences à zéro."
+
 msgid "Join"
 msgstr "Rejoindre"
 
@@ -177,6 +221,11 @@ msgstr "Rejoindre comme superviseur"
 
 msgid "Just something to read"
 msgstr "Juste à lire"
+
+msgid "Keep this file to yourself: anyone who has this code can come in as you."
+msgstr ""
+"Garde ce fichier pour toi : toute personne qui a ce code peut entrer à ta"
+" place."
 
 msgid "Loading…"
 msgstr "Chargement…"
@@ -202,9 +251,15 @@ msgstr "Cette étape est mal configurée, préviens l'encadrant"
 msgid "Misconfigured quiz, please report it"
 msgstr "Ce quiz est mal configuré, préviens l'encadrant"
 
+msgid "my-workshop-code.txt"
+msgstr "mon-code-atelier.txt"
+
 #, python-format
 msgid "Next part: %(title)s"
 msgstr "Partie suivante : %(title)s"
+
+msgid "No code was found in this file."
+msgstr "Aucun code trouvé dans ce fichier."
 
 msgid "No longer part of the subject"
 msgstr "Ne fait plus partie du sujet"
@@ -252,6 +307,16 @@ msgstr "Ouvrir la boîte à outils dans un nouvel onglet"
 
 msgid "Optional — it does not count towards your progress"
 msgstr "Facultatif, ça ne compte pas dans ta progression"
+
+msgid "or"
+msgstr "ou"
+
+msgid ""
+"Or take a picture of this screen with your phone: scanning the QR code "
+"brings you back here."
+msgstr ""
+"Ou prends cet écran en photo avec ton téléphone : scanner le QR code te "
+"ramène ici."
 
 msgid "Part"
 msgstr "Partie"
@@ -341,6 +406,9 @@ msgstr "Connecte-toi avec ton compte Jump."
 msgid "Skip validation code"
 msgstr "Passer le code de validation"
 
+msgid "Something went wrong. Try again."
+msgstr "Un problème est survenu. Réessaie."
+
 msgid "Staff area: sign in with your username or email."
 msgstr ""
 "Espace Encadrant : connectez-vous avec votre identifiant ou votre e-mail."
@@ -421,6 +489,14 @@ msgstr "Ce lien n'est plus valable"
 msgid "This page is out of date. Reload it, then try again."
 msgstr "Cette page n'est plus à jour. Recharge-la, puis réessaie."
 
+msgid "This page needs a secure connection (https). Tell your supervisor."
+msgstr ""
+"Cette page a besoin d'une connexion sécurisée (https). Préviens ton "
+"encadrant."
+
+msgid "This page needs JavaScript."
+msgstr "Cette page a besoin de JavaScript."
+
 msgid "This step is just something to read"
 msgstr "Cette étape est juste à lire"
 
@@ -436,6 +512,13 @@ msgid ""
 msgstr ""
 "Cet onglet ne peut pas se fermer tout seul. Le sujet est de nouveau "
 "affiché à côté, tu peux fermer celui-ci."
+
+msgid ""
+"To come back: open the address above, then drop this file on the page or "
+"type the code."
+msgstr ""
+"Pour revenir : ouvre l'adresse ci-dessus, puis dépose ce fichier sur la "
+"page ou recopie le code."
 
 msgid "Toggle navigation"
 msgstr "Afficher le menu"
@@ -496,6 +579,9 @@ msgstr "Atelier terminé. Beau travail."
 msgid "Workshop parts"
 msgstr "Parties de l'atelier"
 
+msgid "Workshop: %(title)s"
+msgstr "Atelier : %(title)s"
+
 msgid "XP"
 msgstr "XP"
 
@@ -504,6 +590,9 @@ msgstr "Tu es connecté. Reviens quand ton encadrant l'ouvrira."
 
 msgid "Your browser blocked the new tab, so it opened beside the subject instead."
 msgstr "Ton navigateur a bloqué le nouvel onglet, donc il s'ouvre à côté du sujet."
+
+msgid "Your code"
+msgstr "Ton code"
 
 msgid "Your email address is not from an allowed domain"
 msgstr "Ton adresse e-mail n'est pas d'un domaine autorisé"
@@ -549,6 +638,9 @@ msgstr "ton parcours"
 
 #~ msgid "Already have an account? Log in"
 #~ msgstr "Déjà un compte ? Se connecter"
+
+msgid "Your personal code:"
+msgstr "Ton code personnel :"
 
 msgid "your pick"
 msgstr "au choix"

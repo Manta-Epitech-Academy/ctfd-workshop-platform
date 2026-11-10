@@ -5002,3 +5002,200 @@ two assertions as before (§58.4).
 
 Not checked by a script: `num_users`, and the admin page's time-zone conversion, which was checked
 by hand in a browser set to Europe/Paris (09:00 typed, 08:00 UTC stored).
+
+## 60. The token door: one box, and a secret only the browser holds (2026-11-10)
+
+§59 is the server's half of the way in without Jump. This is the page (issue #75): what a lycéen
+sees on `/login`, what they are handed, and how they come back. The files are `tokendoor.py`,
+`templates/workshop_token_door.html` and `assets/door.js`.
+
+A participant types the code on the slide and is given a **personal code**, which this section
+calls the token. The token is the account. There is no name, no e-mail and no password, so there
+is nothing else to sign in with, and **a lost token is a lost account**: the participant starts
+over. The page says so in the sentence under its title, at the moment it hands the token out.
+
+### 60.1 The token
+
+- **128 random bits**, from the browser's `crypto.getRandomValues`. Not words: a token made of
+  dictionary words is a token somebody can guess.
+- **Shown as 28 characters, seven groups of four**: `DDXS-PNYG-149K-BHM5-XPWH-90MY-2WSY`. The first
+  26 are the 128 bits in Crockford's base 32 (no `I`, `L`, `O`, `U`). The last two are a
+  **checksum**, the first ten bits of the SHA-256 of the 16 bytes.
+- **Read forgivingly**: case, spaces and dashes do not count, `O` is read as `0`, `I` and `L` as
+  `1`. The same folding as a registration code (§59.1).
+- **The checksum is what makes one box possible** (§60.3). A token copied by hand with one wrong
+  character is caught on the page, without asking the server anything.
+
+### 60.2 Two values from one token
+
+**The server never sees the token.** The browser derives two values from it with HKDF-SHA-256
+(Web Crypto), salt `ctfd-workshop-token-door-v1`:
+
+- info `sign-in`: 32 bytes, sent as 64 hex characters. **This is all the server ever receives.**
+  It stores the SHA-256 of it (`workshop_token_account.signin_hash`), so a copy of the database
+  signs nobody in.
+- info `encryption`: an AES-GCM 256 key that never leaves the browser. It is imported as
+  non-extractable and kept in IndexedDB (`ws-door` / `keys` / `encryption`), where a later page
+  can use it and no script can read it out. **Nothing uses it yet.** It is there for saved code
+  (#82), and it is derived now because a token cannot be asked for again later.
+
+Knowing the sign-in value gives neither the token nor the key: HKDF does not run backwards, and
+its two outputs are independent.
+
+**Those three strings are frozen.** Change the salt or an info and every token already handed out
+stops opening its account, with no way to tell its owner. Both check scripts hold one test vector
+for this (bytes `00` to `0f`, token `000G-40R4-0M30-E209-185G-R38E-1WQS`, sign-in value
+`86a70e11…d414`), computed three ways: `door.js` on Web Crypto, Node's `hkdfSync`, and a dozen
+lines of Python.
+
+**One salt for every instance.** A token is made on one instance and is 128 random bits: there is
+nothing for a per-instance salt to separate.
+
+**The key lives as long as the session.** It is stored when the browser registers or signs in. It
+is deleted when the door is shown to a browser nobody is signed in on, which is what a classroom
+computer shows the next pupil after a sign-out. Somebody signed in who opens `/login` anyway keeps
+theirs.
+
+### 60.3 One box
+
+The participant side of `/login` is one text box, « Ton code », and a button. It takes the code
+on the slide and it takes a token, and **the participant does not have to know there are two
+kinds**. The door is always open, also when every registration code is closed: somebody who
+registered last week must still be able to come back.
+
+**The browser tells them apart, not the server**:
+
+| What is typed, folded | What the page does |
+|---|---|
+| holds a token with a right checksum | signs in (`/door/signin`) |
+| has a token's shape, wrong checksum | refuses on the page, sends nothing |
+| 6 to 24 characters | asks whether it is a registration code (`/door/code`) |
+| anything else | refuses on the page, sends nothing |
+
+- **One sentence for every refusal**, from the page and from the server alike: « Ce code n'est pas
+  valable. Vérifie-le ou demande le bon code à ton encadrant. » (§59.2).
+- **A token is looked for inside what was pasted**, so the whole text of the file pasted into the
+  box works.
+- **What this leaves**: a token cut down to 24 characters or fewer cannot be told from a
+  registration code, and is sent as one. The server finds no such code and refuses. It does not
+  store or log what was typed (§59.2); what stays is a hashed counter key in the cache for 15
+  minutes (§59.4). 24 characters of a token are 120 of its 128 bits, so this is the one way a
+  token can mostly reach the server, and it takes a participant pasting a broken one.
+- **The page needs JavaScript and a secure context** (https, or localhost): Web Crypto exists
+  nowhere else. Without the first a `<noscript>` line says so. Without the second the page says
+  « Cette page a besoin d'une connexion sécurisée (https). » and disables the box, instead of a
+  button that does nothing.
+- **No sentence lives in the script.** Everything `door.js` says is in the template's `data-*`,
+  through the catalogue.
+
+### 60.4 The handout
+
+When a registration code is good, the page makes the token and shows it **once**, with three ways
+to keep it on one screen:
+
+- **A file**, `mon-code-atelier.txt`: the workshop's name, the address of the door, the token, and
+  three lines on how to come back and why to keep it private. CRLF line ends, because the
+  classroom computer is Windows and Notepad is what opens it.
+- **A copy button**, for a notes app or a message to oneself.
+- **A QR code** of `https://<instance>/login#<token>`, with the advice to photograph the screen.
+  A lycéen's phone is the one thing they leave the room with. The token is in the **fragment**,
+  which a browser never sends, and the page takes it out of the address bar before doing anything
+  else, so it is not in the history either.
+- Under them, « Ne laisse pas ce fichier sur l'ordinateur de la salle. »
+
+**The account is made when « Continuer » is pressed**, and the button is disabled until
+« J'ai noté mon code » is ticked. Before that press nothing exists on the server: `/door/code`
+creates nothing (§59.2). So nobody owns an account whose token they were never shown, and closing
+the tab on the handout leaves no orphan. A code that filled up between the two requests sends the
+participant back to the box with the one sentence.
+
+The QR code is drawn by `qrcode-generator` 1.4.4 (MIT), fetched and checksum-pinned by
+`tools/build_vendor.sh` like the other vendored libraries, and loaded by this page only. Drawn as
+SVG, black on white whatever the theme: a phone camera wants contrast. Without the library the
+figure is hidden and the two other ways still work.
+
+### 60.5 Coming back
+
+Type the token, paste it, choose the file, drop the file anywhere on the page, or scan the QR
+code. All five end in one request:
+
+- `POST /api/v1/workshop/door/signin` with `{signin}`. It answers `{next, name}` and signs the
+  browser in, or answers §59.2's one refusal: unknown value, malformed request, banned account.
+- **Not throttled, and it does not feed §59.4's brake.** The value is 256 bits derived from 128
+  random ones. There is no list to run against it, so a counter would protect nothing and would be
+  one more thing able to shut a room out.
+- **A file is only ever read for a token**, never taken for a registration code, and not above
+  64 KB.
+- The `logins` log gets the generated name. Never the value, never an address.
+- A request the server answers with anything but JSON is core's CSRF page: the tab was open longer
+  than the session. The page reloads itself and the participant types again.
+
+### 60.6 An account with no name cannot type one
+
+Core's settings page is a name box, an e-mail box and a password box. The first two are where a
+lycéen would type who they are, into an account whose point is to hold nothing of the kind. The
+third would give the account a second way in that nobody was told about.
+
+- **The navbar has no Settings entry** for an account made at this door (`navbar.html`).
+- **`GET /settings` goes back to the workshop**, and **a write to `/api/v1/users/me` is refused**
+  (403), for these accounts only. A `before_request` hook in `tokendoor.py` does both. Reading the
+  profile is untouched, and so are staff.
+- **Not gated on the plugin switch** (§39). The promise was made to the account, and switching the
+  plugin off does not unmake it.
+- An admin can still rename an account from the admin panel. That is staff typing, not the
+  participant.
+
+### 60.7 What this does not protect
+
+- **A classroom computer that keeps the file.** The warning is a sentence. Whoever opens the
+  Downloads folder next is that account. What they find there is workshop progress, nothing about
+  a person.
+- **A photo of the screen** is the token, in somebody's camera roll and wherever that syncs to.
+- **Core still records the address of a signed-in user** (its `tracking` table). Not storing it is
+  #79.
+- **A token is not revocable by its owner.** There is nothing to prove ownership with except the
+  token. An admin can ban the account.
+
+### 60.8 Rejected
+
+- **A token made of words** (`tigre-lune-sable-4821`). Easy to copy, and guessable.
+- **Sending the token and hashing it on the server.** It works, and it means trusting the server,
+  its logs and every proxy in front of it not to keep the token. It also leaves nothing to derive
+  an encryption key from that the server has not seen.
+- **Two boxes**, one for the code and one for the token. The participant would have to know which
+  one they hold, on a page they see twice in their life.
+- **The server telling a code from a token.** It would have to receive the token to do it.
+- **A password field holding the token**, so the browser offers to save it. On a classroom
+  computer that is the next pupil's way in.
+- **Making the account before showing the token.** A closed tab would leave an account nobody can
+  open.
+- **A "forgot my code" path.** It needs something to recognise a person by, and there is nothing.
+- **Throttling sign-in.** See §60.5.
+
+### 60.9 Checked
+
+On a fresh local instance holding the Pacman subject, with a secure context:
+
+- `scripts/token_door_check.py <base-url> <admin-pass>`, 67 assertions, plays the browser with its
+  own token and HKDF. It registers with a code, signs out, signs back in with the value, from a
+  second session too; compares fourteen malformed or unknown sign-ins and a banned account with
+  the wrong-code refusal, byte for byte; sends 320 wrong sign-in values and then the right one;
+  tries to save a name, an e-mail, a password and a website; downloads core's export of every
+  table and searches it for the token and for the sign-in value (only the SHA-256 is there);
+  switches the plugin off and back on.
+- `scripts/token_door_browser_check.js <base-url> <admin-pass>`, 66 assertions, in headless
+  Chromium. It records every request its visitors make, about 800, and **none carries the token**.
+  It walks the handout (the file's content and line ends, the clipboard, the QR code compared with
+  one drawn by the same library for the same address, the tick box), reads the key back from
+  IndexedDB and checks it is not extractable, and comes back seven ways: typed as shown, in lower
+  case with spaces, without dashes and with `O` and `l`, the whole file pasted, the file chosen,
+  the file dropped, and `/login#<token>`, then again from a browser that never saw it. It checks
+  the page at 360 px, and what the page says without a secure context.
+- Both hold the test vector of §60.2.
+- By hand: the instance's three logs hold no token and no sign-in value after both scripts.
+- The scripts that were green before are green after, with the same counts: `registration_check`,
+  `external_check`, `audience_check`, `toggle_check`, `reset_check`, `jump_check`.
+  `supervisor_check` fails the same two assertions as before (§58.4).
+
+Not checked by a script: a real phone scanning the QR code, and a real Windows Notepad opening the
+file.

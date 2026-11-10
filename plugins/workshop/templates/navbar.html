@@ -268,11 +268,16 @@
                 </a>
               </li>
             {% endif %}
-            <li>
-              <a class="dropdown-item" href="{{ url_for('views.settings') }}">
-                <i class="fas fa-cogs"></i>{% trans %}Settings{% endtrans %}
-              </a>
-            </li>
+            {# Not for an account made at the token door: the settings page
+               is a name box and a password box, and that account has neither
+               on purpose (tokendoor.py, PLAN.md §60.6). #}
+            {% if not token_account() %}
+              <li>
+                <a class="dropdown-item" href="{{ url_for('views.settings') }}">
+                  <i class="fas fa-cogs"></i>{% trans %}Settings{% endtrans %}
+                </a>
+              </li>
+            {% endif %}
             {% if is_admin() %}
               <li><hr class="dropdown-divider"></li>
               <li>

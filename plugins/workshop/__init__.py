@@ -38,6 +38,7 @@ from .external_links import load_external_links
 from .staff import load_staff
 from .external import load_external
 from .codes import load_codes
+from .tokendoor import load_tokendoor
 from .audience import load_audience
 from .scope import load_scope
 from .stats import load_stats
@@ -117,6 +118,10 @@ def load(app):
     # order the ways in load in is the order an account is claimed in.
     load_codes(app)
     register_admin_plugin_menu_bar("Registration codes", "/admin/workshop/codes")
+    # The door those codes are typed at, and the way back in for an account
+    # made there (PLAN.md §60). Before `load_jump`: doors are drawn in the
+    # order they register, and this one is the front of the login page.
+    load_tokendoor(app)
     # Several populations, each seeing only its own: the external cohorts
     # (PLAN.md §43) and the Jump sessions (§50). It names neither: each way
     # in registers a cohort provider as it loads (cohorts.py, §58), and the

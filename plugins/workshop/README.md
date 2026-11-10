@@ -239,6 +239,32 @@ Tables: `workshop_registration_code`, `workshop_token_account` (migration `c5d81
 `scripts/registration_check.py <base-url> <admin-pass>` walks all of it and puts the instance
 back; it closes the door for up to a minute while it runs.
 
+## The token door (PLAN.md §60)
+
+The page the registration codes are typed on, and the way back in. It is the first door on the
+participant side of `/login` (`tokendoor.py`, `templates/workshop_token_door.html`,
+`assets/door.js`), and it is always open.
+
+- **One box** takes the code on the slide and the personal code a participant was given. The
+  browser tells them apart (a personal code is 28 characters with a checksum), so a mistyped one
+  is refused on the page and sent nowhere.
+- **The personal code is the account**: 128 random bits made in the browser, shown once as seven
+  groups of four with a file to download, a copy button and a QR code. The account is made only
+  when the participant has ticked « J'ai noté mon code ». A lost code is a lost account.
+- **The server never sees it.** The browser derives a sign-in value with HKDF and sends that;
+  the server stores its SHA-256. A second derived value is an encryption key that stays in the
+  browser's IndexedDB, non-extractable, for saved code later. The salt and the two info strings
+  in `door.js` are frozen: changing one locks every existing account out.
+- **Coming back**: type, paste, choose or drop the file, or scan the QR code.
+  `POST /api/v1/workshop/door/signin`, not throttled.
+- **No settings for these accounts**: no navbar entry, `/settings` redirects, and a write to
+  `/api/v1/users/me` is refused, also with the plugin switched off.
+- **Needs https (or localhost) and JavaScript.** Without a secure context the page says so and
+  disables the box.
+
+No table of its own. `scripts/token_door_check.py <base-url> <admin-pass>` holds the server's
+half and `scripts/token_door_browser_check.js <base-url> <admin-pass>` the page's (Playwright).
+
 ## Supervisors (PLAN.md §32)
 
 The people running the room, without the admin panel. CTFd has two user types and no group
@@ -408,9 +434,9 @@ contract shared with the Jump repository; changing either half means changing bo
   `get_translations` merges every directory in it. If a CTFd upgrade changes either of those two
   behaviours, the plugin's strings fall back to English rather than breaking — but check it.
 - **`assets/vendor/` is a build artifact**, not committed: `tools/build_vendor.sh` fetches
-  openpgp.js, canvas-confetti and lolight at pinned versions with their sha256 verified. Without it
-  the sync page cannot decrypt answers, the workshop page draws no confetti, and code injected
-  after a solve stays monochrome.
+  openpgp.js, canvas-confetti, lolight and qrcode-generator at pinned versions with their sha256
+  verified. Without it the sync page cannot decrypt answers, the workshop page draws no confetti,
+  code injected after a solve stays monochrome, and the token door's handout has no QR code.
 - **The plugin carries a second copy of lolight on purpose.** The core theme highlights `pre code`
   once on `DOMContentLoaded` and does not expose the library, so every step body the workshop page
   fetches after a solve would arrive unhighlighted. Pin it to whatever
@@ -445,6 +471,13 @@ contract shared with the Jump repository; changing either half means changing bo
   has a nonce, and core's own login form refuses an account whose password is NULL. The last one
   is what keeps a token account closed to anybody without the token: check it after an upgrade
   (`scripts/registration_check.py` does).
+- **`tokendoor.py` names two core endpoints** (PLAN.md §60.6): `views.settings` and
+  `api.users_user_private`, the settings page and the request it saves with. A token account is
+  kept off both by a `before_request` hook. If upstream renames either, the hook stops matching
+  and nothing fails: a participant could then type a name into an account that is meant to hold
+  none. `scripts/token_door_check.py` catches it. The door's template also reads `Session.nonce`
+  and the `authed` jinja global, and `door.js` relies on core answering a JSON write that has a
+  stale nonce with an HTML page (it reloads on anything that is not JSON).
 - **`audience.py` names core endpoints by their Flask endpoint name** (`api.users_user_list`,
   `api.challenges_challenge_solves`, …). flask-restx derives those from the namespace and the
   resource class, so a renamed class upstream silently stops being filtered: after a CTFd upgrade,

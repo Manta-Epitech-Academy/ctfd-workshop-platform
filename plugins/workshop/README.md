@@ -282,7 +282,11 @@ change nothing about it.
 - **Staff are where they were**: `/login?staff=1`, a bare `/admin` sent to it, the supervisor and
   external joins.
 
-`scripts/front_door_check.py <base-url> <admin-pass>`.
+`scripts/front_door_check.py <base-url> <admin-pass>` switches the settings both ways, so it
+belongs on a scratch instance. `scripts/standalone_acceptance_check.js <base-url> <admin-pass>
+[runtime-id|none]` (Playwright) changes no setting: it walks an instance about to be used, from
+the door to a step, the runtime, the way back in and what an export holds, and removes the two
+codes and two accounts it made.
 
 ## Supervisors (PLAN.md §32)
 

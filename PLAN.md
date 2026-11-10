@@ -5330,6 +5330,30 @@ On a fresh local instance holding the Pacman subject:
   `token_door_browser_check.js`, `external_check`, `audience_check`, `toggle_check`,
   `reset_check`. `supervisor_check` fails the same two assertions as before (§58.4).
 
+Then on a local k3s cluster running the `ctfd-standalone` image CI built from this branch, one
+namespace per instance (CTFd, MariaDB, Redis), TLS ended in front and Traefik behind, the runtimes
+on their own route, as on the cluster:
+
+- A scratch instance: `registration_check` 83, `token_door_check` 67, `front_door_check` 49,
+  `token_door_browser_check.js` 66, `external_check` 29, `audience_check` 24, `toggle_check` 20,
+  `reset_check` 16, all green. `supervisor_check` fails its same two assertions.
+- Three instances whose settings are preset (registration private, French), holding Pacman,
+  LuaPong and the beginner CTF synced from their repositories' `main`:
+  `token_door_browser_check.js` green on each, then
+  `scripts/standalone_acceptance_check.js <base-url> <admin-pass> [runtime-id|none]`, which
+  changes no setting. A stranger gets the door in French and `/register` answers 404. A code leads
+  to the workshop (to the one document, on a subject that has only one), a first step is done, the
+  steps show their XP, and the runtime boots in its pane from the instance's own `/runtime/<id>/`
+  (Pacman, TIC-80; the CTF has none and offers no button). The token opens the same account with
+  its progress from another browser, and a token nobody kept gets the code's refusal. Two codes
+  each carry their campus, event and date and list their own account. None of the requests
+  carries a token, and `/admin/export` holds neither a token nor a sign-in value. 61, 61 and 57
+  assertions. On the scratch instance, where registration is not preset, the same script fails
+  on `/register` and on nothing else, which is the assertion doing its work.
+- Behind the two proxies CTFd records the visitor's own address, and an `X-Forwarded-For` the
+  visitor sends is dropped by the front proxy. The throttle of §59.4 counts on both.
+
 Not checked: `tools/provision.py setup` against a compose deploy. The local instances of this work
 are k3s ones, set up by `PRESET_CONFIGS` as on the cluster, so the provisioning change is read and
-linted, not run.
+linted, not run. Not checked either: a phone scanning the QR code, and the door from outside this
+machine.

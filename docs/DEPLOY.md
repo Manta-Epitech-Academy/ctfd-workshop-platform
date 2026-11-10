@@ -700,6 +700,26 @@ with `PRESET_CONFIGS {"setup": true}` never ran the wizard), and
 `WORKSHOP_TOOLS=/opt/workshop/tools` is set on the container for the admin
 sync page — the example overlay carries it.
 
+## The `ctfd-standalone` test image
+
+`.github/workflows/ctfd-standalone.yml` builds
+`ghcr.io/manta-epitech-academy/ctfd-standalone` from the branch that carries the
+way in without Jump (PLAN.md §58 to §61). It is ctfd-custom's own Dockerfile at
+a pinned commit, with this repository's `plugins/` and `tools/` in place of the
+submodule, so it differs from production's image by this branch and by nothing
+else. Two tags per build: the branch name with `/` turned into `-`, and
+`sha-<short commit>`. Its OCI title is `ctfd-standalone`.
+
+It is not a deploy. Nothing on the cluster pulls that name, the workflow never
+writes to ctfd-custom, and production keeps running `ctfd-custom:latest` until
+somebody bumps the submodule there, which stays the only way to deploy.
+
+To run it, use it as the image of any instance overlay, with no Jump key
+configured and core registration closed
+(`"registration_visibility":"private"` in `PRESET_CONFIGS`), then make a
+registration code on `/admin/workshop/codes`: until one exists nobody can come
+in.
+
 ## Things that will bite
 
 - **An instance does not know its public address.** On the cluster, the

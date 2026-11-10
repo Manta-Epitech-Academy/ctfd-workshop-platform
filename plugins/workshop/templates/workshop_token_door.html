@@ -46,9 +46,10 @@
      data-handout-sub="{{ _('It is what lets you come back. Nobody can give it back to you: if you lose it, you start over.') }}"
      data-copied="{{ _('Copied!') }}"
      data-file-name="{{ _('my-workshop-code.pdf') }}"
-     data-file-workshop="{% trans title=workshop_title() %}Workshop: {{ title }}{% endtrans %}"
-     data-file-address="{{ _('Address:') }}"
-     data-file-code="{{ _('Your personal code:') }}"
+     data-file-brand="/plugins/workshop/assets/pdf-brand.json"
+     data-file-title="{{ workshop_title() }}"
+     data-file-address="{{ _('Address') }}"
+     data-file-code="{{ _('Your personal code') }}"
      data-file-back="{{ _('To come back: open the address above, then drop this file on the page or type the code.') }}"
      data-file-keep="{{ _('Keep this file to yourself: anyone who has this code can come in as you.') }}"
      data-file-lost="{{ _('If you lose it, nobody can give it back to you.') }}">

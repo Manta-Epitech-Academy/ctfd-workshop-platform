@@ -16,7 +16,9 @@
  *   - a good code shows the personal code once, with a file, a copy button
  *     and a QR code, and makes no account until the box is ticked;
  *   - the file is a PDF a reader opens, plain ASCII, with the code written
- *     once and the same QR code as the page;
+ *     once and the same QR code as the page, set in the platform's typefaces
+ *     under the workshop's name, and in the standard fonts when the brand
+ *     file cannot be fetched;
  *   - the same token opens the same account again: typed, pasted with words
  *     around it, chosen as a file, dropped on the page, from a text file of
  *     before the PDF, carried in the address's fragment, and from a browser
@@ -311,11 +313,32 @@ function check(cond, label) {
     check(table.startsWith(`xref\n0 ${offsets.length + 1}\n`) && offsets.length >= 7
           && offsets.every((at, i) => fileBody.startsWith(`${i + 1} 0 obj\n`, at)),
           `its table points at its ${offsets.length} objects`);
-    const stream = (/<< \/Length (\d+) >>\nstream\n([\s\S]*)\nendstream/.exec(fileBody) || []);
+    const stream = (/<< \/Length (\d+) >>\nstream\n([\s\S]*?)\nendstream/.exec(fileBody) || []);
     check(!!stream[2] && Number(stream[1]) === stream[2].length, "and the page is as long as it says");
+    // The platform's typefaces travel in the file (assets/pdf-brand.json),
+    // each as hexadecimal on one line: text, and nothing a code could hide in.
+    const faces = Array.from(fileBody.matchAll(
+      /<< \/Length (\d+) \/Length1 (\d+) \/Filter \/ASCIIHexDecode >>\nstream\n([0-9A-F]+>)\nendstream/g));
+    check(faces.length === 4
+          && faces.every((face) => Number(face[1]) === face[3].length
+                                   && Number(face[2]) * 2 === face[3].length - 1)
+          && ["Anton-Regular", "IBMPlexSans", "IBMPlexSans-SemiBold", "SpaceMono-Bold"]
+            .every((name) => new RegExp(`/BaseFont /[A-Z]{6}\\+${name} `).test(fileBody)),
+          "it carries the platform's four typefaces, each as long as it says");
+    // The card's blue header: the workshop's name in capitals, and the
+    // wordmark, which is the one long filled outline of the page.
+    const named = (await text(page, "file-title")).toLocaleUpperCase("fr");
+    const heading = Array.from(named).map((ch) =>
+      (ch.charCodeAt(0) > 126 ? "\\" + ch.charCodeAt(0).toString(8) : ch)).join("");
+    check(/^[\x20-\xff]+$/.test(named) && !/[()\\]/.test(named)
+          ? fileBody.includes(`(${heading}) Tj`) : true,
+          `the workshop's name heads the card: ${named}`);
+    check(/ cm 1\.000 1\.000 1\.000 rg\n(?:(?:[-\d. ]+ )?[mlch]\n){200,}f Q/.test(fileBody)
+          && fileBody.includes("0.004 0.227 0.984 rg"),
+          "with the wordmark in white on the platform's blue");
     // What lets the door read it back with no PDF parser, and lets a person
     // who opens it in an editor still see the code.
-    check(!/[^\n\x20-\x7e]/.test(fileBody) && fileBody.length < 65536,
+    check(!/[^\n\x20-\x7e]/.test(fileBody) && fileBody.length < 262144,
           `plain ASCII, nothing compressed, ${fileBody.length} bytes`);
     check(fileBody.includes(`(${token}) Tj`), "the personal code is written on the page");
     const runs = fileBody.toUpperCase()
@@ -435,7 +458,7 @@ function check(cond, label) {
 
     await signOut(page);
     // Copied out of the PDF with what is written around it.
-    await page.fill("#ws-door-code", `Adresse : ${BASE}/login Ton code personnel : ${token} Pour revenir`);
+    await page.fill("#ws-door-code", `TON CODE PERSONNEL ${token} ADRESSE ${BASE}/login Si tu le perds`);
     await page.click("[data-ws-door-form] [type=submit]");
     await comeBack(page, "pasted with the words around it");
 
@@ -495,7 +518,7 @@ function check(cond, label) {
 
     before = doorCalls();
     await page.setInputFiles("[data-ws-door-file]", {
-      name: "big.txt", mimeType: "text/plain", buffer: Buffer.alloc(200000, "a"),
+      name: "big.txt", mimeType: "text/plain", buffer: Buffer.alloc(400000, "a"),
     });
     await page.waitForSelector("#ws-door-error:not([hidden])");
     check((await error(page)) === await text(page, "no-code") && doorCalls() === before,
@@ -587,6 +610,28 @@ function check(cond, label) {
     await narrow.goto("/login");
     check((await codeRow()).accounts === 1, "leaving that screen made no account");
     await small.close();
+
+    console.log("== without the brand file ==");
+    const unbranded = await visitor();
+    await unbranded.route("**/pdf-brand.json", (route) => route.abort());
+    const plainPage = await unbranded.newPage();
+    await plainPage.goto("/login");
+    await plainPage.fill("#ws-door-code", CODE);
+    await plainPage.click("[data-ws-door-form] [type=submit]");
+    await plainPage.waitForSelector("[data-ws-door-handout]:not([hidden])");
+    const bareToken = await plainPage.getAttribute("[data-ws-door-token]", "data-token");
+    const [bareFile] = await Promise.all([
+      plainPage.waitForEvent("download"),
+      plainPage.click("[data-ws-door-download]"),
+    ]);
+    const bareBody = fs.readFileSync(await bareFile.path(), "latin1");
+    check(bareBody.startsWith("%PDF-1.") && bareBody.endsWith("%%EOF\n")
+          && bareBody.includes(`(${bareToken}) Tj`),
+          "the file is still handed out, with the personal code on it");
+    check(!bareBody.includes("/FontFile2") && bareBody.includes("/BaseFont /Helvetica ")
+          && bareBody.includes("/BaseFont /Courier-Bold "),
+          `in the standard fonts every reader has, ${bareBody.length} bytes`);
+    await unbranded.close();
   } catch (e) {
     check(false, `the script itself failed: ${e && e.stack ? e.stack.split("\n").slice(0, 3).join(" ") : e}`);
   } finally {

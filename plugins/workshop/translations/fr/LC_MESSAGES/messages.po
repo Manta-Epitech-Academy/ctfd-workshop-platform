@@ -29,8 +29,8 @@ msgstr[1] "%(count)s réponses"
 msgid "%(n)s XP"
 msgstr "%(n)s XP"
 
-msgid "Address:"
-msgstr "Adresse :"
+msgid "Address"
+msgstr "Adresse"
 
 msgid "Admin Panel"
 msgstr ""
@@ -587,9 +587,6 @@ msgstr "Atelier terminé. Beau travail."
 msgid "Workshop parts"
 msgstr "Parties de l'atelier"
 
-msgid "Workshop: %(title)s"
-msgstr "Atelier : %(title)s"
-
 msgid "XP"
 msgstr "XP"
 
@@ -647,8 +644,8 @@ msgstr "ton parcours"
 #~ msgid "Already have an account? Log in"
 #~ msgstr "Déjà un compte ? Se connecter"
 
-msgid "Your personal code:"
-msgstr "Ton code personnel :"
+msgid "Your personal code"
+msgstr "Ton code personnel"
 
 msgid "your pick"
 msgstr "au choix"

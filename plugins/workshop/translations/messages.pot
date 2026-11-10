@@ -27,7 +27,7 @@ msgstr[1] ""
 msgid "%(n)s XP"
 msgstr ""
 
-msgid "Address:"
+msgid "Address"
 msgstr ""
 
 msgid "Admin Panel"
@@ -553,9 +553,6 @@ msgstr ""
 msgid "Workshop parts"
 msgstr ""
 
-msgid "Workshop: %(title)s"
-msgstr ""
-
 msgid "XP"
 msgstr ""
 
@@ -595,7 +592,7 @@ msgstr ""
 msgid "your path"
 msgstr ""
 
-msgid "Your personal code:"
+msgid "Your personal code"
 msgstr ""
 
 msgid "your pick"

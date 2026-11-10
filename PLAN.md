@@ -5122,19 +5122,40 @@ registered last week must still be able to come back.
 When a registration code is good, the page makes the token and shows it **once**, with three ways
 to keep it on one screen:
 
-- **A file**, `mon-code-atelier.pdf`: one A4 page with the workshop's name, the address of the
-  door as a link, the token in a panel, the same QR code as the screen, and three lines on how to
-  come back and why to keep it private. **A PDF and not a text file** (decided 2026-11-10; it was
-  `mon-code-atelier.txt` for a day): a text file opens in an editor, where one stray key changes a
-  character of the code and saves it, and the pupil finds out when the code is refused. A PDF
-  opens in a reader, prints, and keeps its QR code.
-  - **Made in the browser, by hand** (`assets/pdf.js`, some 200 lines, no library): the token
-    exists nowhere else, and one page of text needs a catalog, a page, a content stream and the
-    three standard fonts every reader has. Nothing is embedded.
-  - **Plain ASCII and nothing compressed.** The token is in the file as the literal text
+- **A file**, `mon-code-atelier.pdf`: one A4 page with **a card** at its top and, under it, three
+  lines on how to come back and why to keep it private. **A PDF and not a text file** (decided
+  2026-11-10; it was `mon-code-atelier.txt` for a day): a text file opens in an editor, where one
+  stray key changes a character of the code and saves it, and the pupil finds out when the code is
+  refused. A PDF opens in a reader, prints, and keeps its QR code.
+  - **The card looks like the platform** (2026-11-11; the first PDF was black Helvetica on white,
+    and nothing on it said where it came from). The blue header of DESIGN.md with the white
+    wordmark, the workshop's name in Anton capitals with the green cursor and the three pale
+    squares in the corner; under it the token on one line in Space Mono, in the same grey well as
+    on the screen, then the address of the door as a link, the one line that says a lost code is
+    lost, and the same QR code as the screen.
+  - **It is a bank card's size**, 85.6 by 54 mm (ISO 7810 ID-1), drawn at that size on the page:
+    printed at 100 % and cut out, it goes where a card goes. `drawCard(pdf, x, y, token)` in
+    `door.js` takes its place as arguments, so ten of them on a sheet is that function in a loop.
+    **Printing codes in bulk to hand them out is not built**, and is more than the loop: today a
+    token is made in the browser of the pupil who will use it, and a printed batch is made by
+    somebody else, who has then seen every one of them. That is a decision to take before the
+    sheet is drawn.
+  - **Made in the browser, by hand** (`assets/pdf.js`, some 330 lines, no library): the token
+    exists nowhere else, and one page needs a catalog, a page, a content stream and its fonts.
+  - **The typefaces and the wordmark come from `assets/pdf-brand.json`**, 90 KB (47 gzipped),
+    which `scripts/build_pdf_brand.py` derives from the woff2 files and the SVG the plugin already
+    vendors: a PDF takes neither. Four TrueType subsets (Anton, Plex at 400 and 600, Space Mono
+    cut down to what a token is made of) with the widths of their characters, and the logo's
+    outline as path operators. The page asks for it when the personal code shows, so it is there
+    when the button is pressed. **Without it the file is still handed out**, in the three
+    standard fonts every reader has and with no wordmark: a card that looks plainer is worth more
+    than a button that does nothing. Run the script again when a font or the logo changes.
+  - **Plain ASCII and nothing compressed**, which is why the file weighs 135 KB with its fonts
+    in it, written in hexadecimal. The token is in the file as the literal text
     `(XXXX-...-XXXX) Tj`, so the door reads the file back as text with the code it already had,
-    and no PDF parser. Coordinates carry two decimals and the QR code is drawn in small integer
-    cells, so no other run of characters in the file has a token's shape.
+    and no PDF parser. Nothing else in the file may have a token's shape: coordinates carry two
+    decimals, the QR code is drawn in small integer cells, a font's widths are one a line and its
+    bytes one unbroken run.
   - A character WinAnsi cannot write (an emoji in a workshop's name) is left out, not shown as a
     question mark.
 - **A copy button**, for a notes app or a message to oneself.
@@ -5166,7 +5187,7 @@ code. All five end in one request:
   random ones. There is no list to run against it, so a counter would protect nothing and would be
   one more thing able to shut a room out.
 - **A file is only ever read for a token**, never taken for a registration code, and not above
-  64 KB. It is read as text, whatever it is: the PDF of §60.4 holds the token as text, and so do
+  256 KB. It is read as text, whatever it is: the PDF of §60.4 holds the token as text, and so do
   the text files handed out before it, which still open. **A PDF that was saved again by another
   program** (« Imprimer en PDF ») has its page compressed: the door says it found no code in it,
   and the code printed on the page can still be typed.
@@ -5227,10 +5248,12 @@ On a fresh local instance holding the Pacman subject, with a secure context:
   tries to save a name, an e-mail, a password and a website; downloads core's export of every
   table and searches it for the token and for the sign-in value (only the SHA-256 is there);
   switches the plugin off and back on.
-- `scripts/token_door_browser_check.js <base-url> <admin-pass>`, 86 assertions, in headless
+- `scripts/token_door_browser_check.js <base-url> <admin-pass>`, 91 assertions, in headless
   Chromium. It records every request its visitors make, about 800, and **none carries the token**.
-  It walks the handout (the PDF: its cross-reference table, that it is plain ASCII, that the token
-  is written once and nothing else has its shape, the cells of its QR code; then the clipboard,
+  It walks the handout (the PDF: its cross-reference table, that it is plain ASCII, its four
+  typefaces, the workshop's name and the wordmark on the blue, that the token is written once and
+  nothing else has its shape, the cells of its QR code, and the file handed out in the standard
+  fonts when the brand file is refused; then the clipboard,
   the QR code of the screen compared with one drawn by the same library for the same address, the
   tick box), reads the key back from IndexedDB and checks it is not extractable, and comes back
   eight ways: typed as shown, in lower case with spaces, without dashes and with `O` and `l`,
@@ -5245,7 +5268,8 @@ On a fresh local instance holding the Pacman subject, with a secure context:
 
 Not checked by a script: a real phone scanning the QR code, on the screen and on the printed
 page, and the PDF opened by the reader of a classroom computer (Edge, Acrobat). Ghostscript and
-MuPDF open it with no warning.
+MuPDF open it with no warning, embedded fonts included. The card's look is checked by eye, on a
+render: nothing in a script says whether it is handsome.
 
 ## 61. The token door is the front door (2026-11-10)
 

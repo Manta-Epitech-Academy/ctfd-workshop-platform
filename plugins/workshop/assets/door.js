@@ -45,9 +45,9 @@
   var INFO_ENCRYPTION = "encryption";
   // Where the encryption key waits for the page that will use it.
   var DB_NAME = "ws-door", DB_STORE = "keys", DB_KEY = "encryption";
-  // A token file is one page, some 5 KB. Anything much bigger is not one,
-  // and is not read into memory to find that out.
-  var FILE_MAX = 65536;
+  // A token file is one page with its fonts in it, some 120 KB. Anything much
+  // bigger is not one, and is not read into memory to find that out.
+  var FILE_MAX = 262144;
 
   var text = root.dataset;
   var entry = root.querySelector("[data-ws-door-entry]");
@@ -321,6 +321,7 @@
       });
       tokenLine.setAttribute("data-token", token);
       drawQr(token);
+      loadBrand();
       saved.checked = false;
       enter.disabled = true;
       title.dataset.entry = title.textContent;
@@ -444,61 +445,137 @@
     return window.location.origin + window.location.pathname;
   }
 
+  // What the file is drawn with: the platform's typefaces and its wordmark,
+  // as a PDF takes them (assets/pdf-brand.json). Asked for when the personal
+  // code shows, so that it is here when the button is pressed. Null when it
+  // cannot be had: the file is then plainer, and still handed out.
+  var brand = null;
+  function loadBrand() {
+    if (!brand) {
+      brand = fetch(text.fileBrand, { credentials: "omit" }).then(function (response) {
+        return response.ok ? response.json() : null;
+      }).catch(function () { return null; }).then(function (found) {
+        if (!found) brand = null;
+        return found;
+      });
+    }
+    return brand;
+  }
+
+  // The platform's colours (assets/epitech-theme.css, the light theme: a
+  // printed page is white). The three squares are white over the blue at
+  // one half, one quarter and a third, as the header draws them.
+  var INK = {
+    blue: "#013afb", green: "#00ff97", white: "#ffffff", text: "#181818",
+    muted: "#555b71", line: "#d9dce8", well: "#eceef5",
+    squares: ["#809dfd", "#416bfc", "#5a7ffc"],
+  };
+  // A bank card, ISO 7810 ID-1: 85.60 by 53.98 mm, in points.
+  var CARD = { wide: 242.65, high: 153.01, radius: 9, band: 47, pad: 14 };
+
+  function upper(sentence) {
+    return String(sentence || "").toLocaleUpperCase(text.locale || undefined);
+  }
+
+  // One card, (x, y) its bottom left corner: the platform's blue header with
+  // the workshop's name, then the code, the address and the QR code. It is
+  // drawn at a bank card's size and takes its place as arguments, so a sheet
+  // of them is this function in a loop.
+  function drawCard(pdf, x, y, token) {
+    var w = CARD.wide, h = CARD.high, pad = CARD.pad, inner = w - 2 * pad;
+    var band = y + h - CARD.band;
+    pdf.box(x, y, w, h, { fill: INK.white, radius: CARD.radius });
+    pdf.clip(x, y, w, h, CARD.radius);
+    pdf.box(x, band, w, CARD.band, { fill: INK.blue });
+    pdf.box(x + w - 14, y + h - 14, 14, 14, { fill: INK.squares[0] });
+    pdf.box(x + w - 23, y + h - 14, 7, 14, { fill: INK.squares[1] });
+    pdf.box(x + w - 7, y + h - 23, 7, 7, { fill: INK.squares[2] });
+    pdf.unclip();
+    pdf.box(x, y, w, h, { stroke: INK.line, line: 0.6, radius: CARD.radius });
+    pdf.logo(x + pad, y + h - 10 - 10.5, 10.5, INK.white);
+
+    // The workshop's name, as the header writes it: capitals, and the green
+    // cursor after it. A long one is set smaller, then cut.
+    var name = upper(text.fileTitle), size = 15;
+    function across(string) { return pdf.measure(string + "_", "display", size); }
+    while (size > 10 && across(name) > inner) size -= 0.5;
+    if (across(name) > inner) {
+      while (name.length > 1 && across(name + "\u2026") > inner) name = name.slice(0, -1);
+      name = name.replace(/\s+$/, "") + "\u2026";
+    }
+    pdf.text(name, x + pad, band + 9, "display", size, INK.white);
+    pdf.text("_", x + pad + pdf.measure(name, "display", size), band + 9, "display", size,
+             INK.green);
+
+    // The code, on one line: it is what `readFile` looks for.
+    var label = 5.5, tracking = 0.6;
+    pdf.text(upper(text.fileCode), x + pad, band - 12.5, "bold", label, INK.muted, tracking);
+    var well = band - 41;
+    pdf.box(x + pad, well, inner, 23, { fill: INK.well, stroke: INK.line, radius: 4 });
+    var mono = 9.5;
+    pdf.text(token, x + (w - pdf.measure(token, "mono", mono)) / 2, well + 8.2, "mono", mono,
+             INK.text);
+
+    // The QR code on the right, the address beside it.
+    var side = 50, qr = qrOf(token), room = inner;
+    if (qr) {
+      pdf.cells(x + w - pad - side, y + 10, side, qr.getModuleCount(),
+                function (r, c) { return qr.isDark(r, c); });
+      room = inner - side - 10;
+    }
+    // Beside it, the address from its top and the warning up from its foot.
+    pdf.text(upper(text.fileAddress), x + pad, y + 56, "bold", label, INK.muted, tracking);
+    // The address is a link: "open the address above" is then one click.
+    var here = address(), small = 7.5;
+    while (small > 5 && pdf.measure(here, "bold", small) > room) small -= 0.25;
+    var at = y + 46;
+    pdf.wrap(here, "bold", small, room).slice(0, 2).forEach(function (line) {
+      pdf.text(line, x + pad, at, "bold", small, INK.blue);
+      pdf.link(x + pad, at - 2, pdf.measure(line, "bold", small), small + 3, here);
+      at -= small + 1.5;
+    });
+    var lines = pdf.wrap(text.fileLost, "regular", label, room).slice(0, 3);
+    lines.forEach(function (line, i) {
+      pdf.text(line, x + pad, y + 11 + (lines.length - 1 - i) * (label + 1.5), "regular", label,
+               INK.muted);
+    });
+  }
+
   // The file is a PDF, made here because the token is nowhere else
   // (assets/pdf.js). Not a text file: that opens in an editor, where one
   // stray key changes a character of the code and saves it. The token is
   // written in it as plain text, which is how `readFile` finds it again.
-  function filePdf(token) {
-    var pdf = window.wsPdf();
-    var left = 56, wide = pdf.width - 2 * left, y = pdf.height - 84;
-    // A paragraph from `y` down. Answers how wide its widest line is.
-    function write(sentence, font, size, after) {
-      var widest = 0;
-      pdf.wrap(sentence, font, size, wide).forEach(function (line) {
-        pdf.text(line, left, y, font, size);
-        widest = Math.max(widest, pdf.measure(line, font, size));
-        y -= size * 1.45;
+  //
+  // One page: the card at the top, at the size it would be cut out at, and
+  // under it what to do with it.
+  function filePdf(token, found) {
+    var pdf = window.wsPdf(found);
+    var left = (pdf.width - CARD.wide) / 2, y = pdf.height - 72 - CARD.high;
+    drawCard(pdf, left, y, token);
+    y -= 34;
+    [text.fileBack, text.fileKeep, text.fileLost].forEach(function (sentence) {
+      pdf.wrap(sentence, "regular", 10.5, CARD.wide).forEach(function (line) {
+        pdf.text(line, left, y, "regular", 10.5, INK.text);
+        y -= 15.5;
       });
-      y -= after;
-      return widest;
-    }
-    write(text.fileWorkshop, "bold", 18, 4);
-    // The address is a link: "open the address above" is then one click.
-    var top = y + 11;
-    var across = write(text.fileAddress + " " + address(), "regular", 11, 0);
-    pdf.link(left, y + 11, across, top - y - 11, address());
-    y -= 30;
-    write(text.fileCode, "bold", 13, 2);
-    // Courier: every character is 0.6 of the size wide, so this is centred
-    // to the point.
-    var size = 20, high = 56, foot = y - high + 14;
-    pdf.panel(left, foot, wide, high);
-    pdf.text(token, (pdf.width - token.length * 0.6 * size) / 2,
-             foot + (high - 0.6 * size) / 2, "mono", size);
-    y = foot - 26;
-    var qr = qrOf(token);
-    if (qr) {
-      var side = 150;
-      pdf.cells((pdf.width - side) / 2, y - side, side, qr.getModuleCount(),
-                function (r, c) { return qr.isDark(r, c); });
-      y -= side + 40;
-    }
-    write(text.fileBack, "regular", 11, 8);
-    write(text.fileKeep, "regular", 11, 8);
-    write(text.fileLost, "regular", 11, 0);
+      y -= 8;
+    });
     return pdf.build();
   }
 
   function download() {
     if (!pending) return;
-    var blob = new Blob([filePdf(pending.token)], { type: "application/pdf" });
-    var link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = text.fileName;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    setTimeout(function () { URL.revokeObjectURL(link.href); }, 1000);
+    var token = pending.token;
+    loadBrand().then(function (found) {
+      var blob = new Blob([filePdf(token, found)], { type: "application/pdf" });
+      var link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = text.fileName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(function () { URL.revokeObjectURL(link.href); }, 1000);
+    });
   }
 
   function selectToken() {

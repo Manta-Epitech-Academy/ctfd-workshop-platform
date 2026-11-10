@@ -259,6 +259,10 @@ participant side of `/login` (`tokendoor.py`, `templates/workshop_token_door.htm
   file opens in an editor, where one key changes the code. It is plain ASCII with nothing
   compressed, so the door reads the code back out of it as text. Keep it that way: compress the
   page, and no file handed out opens the door any more.
+- **The page holds a card**, a bank card's size, in the platform's look: `drawCard` in `door.js`.
+  Its typefaces and the wordmark come from `assets/pdf-brand.json`, which is generated: after
+  changing a font or the logo, run `python scripts/build_pdf_brand.py` (needs `fonttools` and
+  `brotli`) and commit the result. Without that file the PDF falls back to the standard fonts.
 - **The server never sees it.** The browser derives a sign-in value with HKDF and sends that;
   the server stores its SHA-256. A second derived value is an encryption key that stays in the
   browser's IndexedDB, non-extractable, for saved code later. The salt and the two info strings

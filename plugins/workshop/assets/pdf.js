@@ -5,34 +5,45 @@
  * a text file: a text file opens in an editor, where one stray key changes a
  * character of the code and saves it.
  *
- * What a library would bring is not needed for one page of text, so this
- * writes the few objects itself:
+ * What a library would bring is not needed for one page, so this writes the
+ * few objects itself:
  *
- *   - A4, the three standard fonts every reader has (Helvetica, its bold,
- *     Courier bold), so nothing is embedded;
+ *   - A4, in the platform's own typefaces and with its wordmark, which come
+ *     ready for a PDF in assets/pdf-brand.json (scripts/build_pdf_brand.py
+ *     makes it from the fonts and the logo the plugin vendors). Without that
+ *     file the page is set in the standard fonts every reader has
+ *     (Helvetica, its bold, Courier bold) and carries no wordmark: plainer,
+ *     and still handed out;
  *   - WinAnsi encoding, which holds French;
  *   - **plain ASCII from the first byte to the last, and nothing compressed.**
- *     An accent is written as an octal escape. So the text put on the page is
- *     in the file as it is, and door.js finds the code again by reading the
- *     file as text, with no PDF parser. It also makes the byte offsets of the
- *     cross-reference table plain string lengths.
+ *     An accent is written as an octal escape, a font's bytes in hexadecimal.
+ *     So the text put on the page is in the file as it is, and door.js finds
+ *     the code again by reading the file as text, with no PDF parser. It also
+ *     makes the byte offsets of the cross-reference table plain string
+ *     lengths.
  *
- * Every coordinate is written with two decimals, and a QR code is drawn in
- * its own small units: no run of digits in the file can be taken for a code.
+ * Nothing else in the file may have the shape of a code (seven groups of
+ * four letters or digits). So every coordinate is written with two decimals,
+ * a QR code is drawn in its own small units, a font's widths are one a line
+ * and its bytes one unbroken run.
  *
- *     var pdf = window.wsPdf();
- *     pdf.text("Bonjour", 56, 770, "bold", 18);
+ *     var pdf = window.wsPdf(brand);    // or wsPdf() for the standard fonts
+ *     pdf.box(56, 700, 200, 40, { fill: "#013afb", radius: 8 });
+ *     pdf.text("Bonjour", 64, 715, "bold", 18, "#ffffff");
  *     var bytes = pdf.build();          // a string, one character per byte
  *
- * Coordinates are PDF's: points, from the bottom left corner.
+ * Coordinates are PDF's: points, from the bottom left corner. A colour is
+ * "#rrggbb"; text is black when none is given.
  */
 (function () {
   var WIDTH = 595, HEIGHT = 842;
-  // Name in the page's resources, and the PostScript name.
+  // A font by its role: the name in the page's resources, then what stands in
+  // for it when no brand is given, as a PostScript name and a row of WIDTHS.
   var FONTS = {
-    regular: ["F1", "Helvetica"],
-    bold: ["F2", "Helvetica-Bold"],
-    mono: ["F3", "Courier-Bold"],
+    regular: ["F1", "Helvetica", "regular"],
+    bold: ["F2", "Helvetica-Bold", "bold"],
+    mono: ["F3", "Courier-Bold", null],
+    display: ["F4", "Helvetica-Bold", "bold"],
   };
   // Advance widths of characters 32 to 126, in thousandths of the font size
   // (the Adobe core font metrics). Courier is 600 throughout.
@@ -88,48 +99,96 @@
     return out + ")";
   }
 
-  // An accented letter is as wide as its letter, near enough to wrap a line.
-  function advance(ch, font) {
-    if (font === "mono") return 600;
-    if (EXTRA[ch]) return EXTRA[ch][1];
-    var c = ch.charCodeAt(0);
-    if (c > 126) c = ch.normalize("NFD").charCodeAt(0);
-    return c >= 32 && c <= 126 ? WIDTHS[font][c - 32] : 556;
-  }
-
-  function measure(string, font, size) {
-    var total = 0;
-    clean(string).split("").forEach(function (ch) { total += advance(ch, font); });
-    return total * size / 1000;
-  }
-
-  // The lines of a text no wider than `max`. A word wider than a whole line
-  // (an address) is cut where it has to be.
-  function wrap(string, font, size, max) {
-    var lines = [], line = "";
-    clean(string).split(" ").forEach(function (word) {
-      if (!word) return;
-      var longer = line ? line + " " + word : word;
-      if (measure(longer, font, size) <= max) { line = longer; return; }
-      if (line) lines.push(line);
-      while (word.length > 1 && measure(word, font, size) > max) {
-        var cut = word.length - 1;
-        while (cut > 1 && measure(word.slice(0, cut), font, size) > max) cut--;
-        lines.push(word.slice(0, cut));
-        word = word.slice(cut);
-      }
-      line = word;
-    });
-    if (line) lines.push(line);
-    return lines;
-  }
-
   function n(value) {
     return Number(value).toFixed(2);
   }
 
-  window.wsPdf = function () {
+  // "#013afb" as the three numbers PDF takes, and the operator after them.
+  function paint(color, operator) {
+    var value = parseInt(String(color || "#000000").slice(1), 16);
+    return [value >> 16, (value >> 8) & 255, value & 255].map(function (part) {
+      return (part / 255).toFixed(3);
+    }).join(" ") + " " + operator;
+  }
+
+  // Base64 to the hexadecimal a PDF stream can hold as text.
+  function hexOf(base64) {
+    var bytes = window.atob(base64), out = "";
+    for (var i = 0; i < bytes.length; i++) {
+      var b = bytes.charCodeAt(i);
+      out += (b < 16 ? "0" : "") + b.toString(16).toUpperCase();
+    }
+    return out;
+  }
+
+  // `brand` is assets/pdf-brand.json once parsed, or nothing: the page is
+  // then set in the standard fonts and carries no wordmark.
+  window.wsPdf = function (brand) {
     var ops = [], links = [];
+    var embedded = (brand && brand.fonts) || {};
+    var mark = brand && brand.logo;
+
+    // An accented letter is as wide as its letter, near enough to wrap a
+    // line. An embedded font knows the width of each of its characters.
+    function advance(ch, font) {
+      if (embedded[font]) return embedded[font].widths[code(ch) - 32] || 0;
+      if (font === "mono") return 600;
+      if (EXTRA[ch]) return EXTRA[ch][1];
+      var c = ch.charCodeAt(0);
+      if (c > 126) c = ch.normalize("NFD").charCodeAt(0);
+      return c >= 32 && c <= 126 ? WIDTHS[FONTS[font][2]][c - 32] : 556;
+    }
+
+    // `spacing` is what is added after every character, in points.
+    function measure(string, font, size, spacing) {
+      var total = 0, text = clean(string);
+      text.split("").forEach(function (ch) { total += advance(ch, font); });
+      return total * size / 1000 + text.length * (spacing || 0);
+    }
+
+    // The lines of a text no wider than `max`. A word wider than a whole line
+    // (an address) is cut where it has to be.
+    function wrap(string, font, size, max) {
+      var lines = [], line = "";
+      clean(string).split(" ").forEach(function (word) {
+        if (!word) return;
+        var longer = line ? line + " " + word : word;
+        if (measure(longer, font, size) <= max) { line = longer; return; }
+        if (line) lines.push(line);
+        while (word.length > 1 && measure(word, font, size) > max) {
+          var cut = word.length - 1;
+          while (cut > 1 && measure(word.slice(0, cut), font, size) > max) cut--;
+          lines.push(word.slice(0, cut));
+          word = word.slice(cut);
+        }
+        line = word;
+      });
+      if (line) lines.push(line);
+      return lines;
+    }
+
+    // The closed path of a rectangle, its corners rounded or not.
+    function outline(x, y, w, h, radius) {
+      var r = radius || 0;
+      r = typeof r === "number" ? [r, r, r, r] : r;
+      var k = 0.4477;   // 1 - 0.5523: where a quarter circle's handles sit
+      var path = [n(x + r[3]) + " " + n(y) + " m"];
+      function line(px, py) { path.push(n(px) + " " + n(py) + " l"); }
+      function turn(ax, ay, bx, by, px, py) {
+        path.push([ax, ay, bx, by, px, py].map(n).join(" ") + " c");
+      }
+      line(x + w - r[2], y);
+      if (r[2]) turn(x + w - r[2] * k, y, x + w, y + r[2] * k, x + w, y + r[2]);
+      line(x + w, y + h - r[1]);
+      if (r[1]) turn(x + w, y + h - r[1] * k, x + w - r[1] * k, y + h, x + w - r[1], y + h);
+      line(x + r[0], y + h);
+      if (r[0]) turn(x + r[0] * k, y + h, x, y + h - r[0] * k, x, y + h - r[0]);
+      line(x, y + r[3]);
+      if (r[3]) turn(x, y + r[3] * k, x + r[3] * k, y, x + r[3], y);
+      path.push("h");
+      return path.join("\n");
+    }
+
     return {
       width: WIDTH,
       height: HEIGHT,
@@ -137,15 +196,42 @@
       wrap: wrap,
 
       // One line of text, its baseline starting at (x, y).
-      text: function (string, x, y, font, size) {
-        ops.push("BT /" + FONTS[font][0] + " " + n(size) + " Tf " + n(x) + " " + n(y)
-                 + " Td " + literal(string) + " Tj ET");
+      text: function (string, x, y, font, size, color, spacing) {
+        ops.push("BT " + paint(color, "rg") + " /" + FONTS[font][0] + " " + n(size) + " Tf "
+                 + n(spacing || 0) + " Tc " + n(x) + " " + n(y) + " Td "
+                 + literal(string) + " Tj ET");
       },
 
-      // A light panel with a thin border, for what the eye should find.
-      panel: function (x, y, w, h) {
-        var rect = n(x) + " " + n(y) + " " + n(w) + " " + n(h) + " re";
-        ops.push("q 0.96 g 0.60 G 0.75 w " + rect + " B Q");
+      // A rectangle, (x, y) its bottom left corner. `look` is its fill, its
+      // stroke and the stroke's width, and `radius`, which rounds the
+      // corners: one number, or four from the top left corner clockwise.
+      box: function (x, y, w, h, look) {
+        ops.push("q " + (look.fill ? paint(look.fill, "rg") + " " : "")
+                 + (look.stroke ? paint(look.stroke, "RG") + " " + n(look.line || 0.5) + " w" : ""));
+        ops.push(outline(x, y, w, h, look.radius));
+        ops.push((look.fill && look.stroke ? "B" : look.fill ? "f" : "S") + " Q");
+      },
+
+      // From here to `unclip`, nothing is drawn outside this rectangle.
+      clip: function (x, y, w, h, radius) {
+        ops.push("q");
+        ops.push(outline(x, y, w, h, radius));
+        ops.push("W n");
+      },
+      unclip: function () { ops.push("Q"); },
+
+      // The wordmark, `high` points tall, (x, y) its bottom left corner.
+      // Answers its width: 0 when there is no brand to draw it from.
+      logo: function (x, y, high, color) {
+        if (!mark) return 0;
+        var scale = high / mark.height;
+        ops.push("q " + scale.toFixed(5) + " 0 0 " + scale.toFixed(5) + " " + n(x) + " " + n(y)
+                 + " cm " + paint(color, "rg"));
+        ops.push(mark.ops.map(function (op) {
+          return op.slice(1).map(n).concat(op[0]).join(" ");
+        }).join("\n"));
+        ops.push("f Q");
+        return mark.width * scale;
       },
 
       // A square of `count` by `count` cells, the dark ones black: a QR code.
@@ -178,22 +264,45 @@
       // The file. Every character is one byte.
       build: function () {
         var content = ops.join("\n");
-        var first = 5 + Object.keys(FONTS).length;
-        var fonts = Object.keys(FONTS).map(function (name, i) {
-          return "/" + FONTS[name][0] + " " + (5 + i) + " 0 R";
+        var roles = Object.keys(FONTS);
+        // Objects 1 to 4 are the catalogue, the page tree, the page and its
+        // content. Then the fonts, an embedded one with the two objects it
+        // needs right after it, then the links.
+        var objects = [null, null, null,
+          "<< /Length " + content.length + " >>\nstream\n" + content + "\nendstream"];
+        var fonts = roles.map(function (role) {
+          var face = embedded[role], at = objects.length + 1;
+          if (!face) {
+            objects.push("<< /Type /Font /Subtype /Type1 /BaseFont /" + FONTS[role][1]
+              + " /Encoding /WinAnsiEncoding >>");
+          } else {
+            var data = hexOf(face.data) + ">";
+            // One width a line: a row of four-digit widths with one space
+            // between them is the shape of a code.
+            objects.push("<< /Type /Font /Subtype /TrueType /BaseFont /" + face.name
+              + " /Encoding /WinAnsiEncoding /FirstChar 32 /LastChar 255 /FontDescriptor "
+              + (at + 1) + " 0 R /Widths [\n" + face.widths.join("\n") + "\n] >>");
+            objects.push("<< /Type /FontDescriptor /FontName /" + face.name
+              + " /Flags " + face.flags + " /FontBBox [" + face.box.map(n).join(" ") + "]"
+              + " /ItalicAngle 0 /Ascent " + n(face.ascent) + " /Descent " + n(face.descent)
+              + " /CapHeight " + n(face.cap) + " /StemV " + n(face.stem)
+              + " /FontFile2 " + (at + 2) + " 0 R >>");
+            // The font's bytes in hexadecimal, on one line: the file stays
+            // text, and one unbroken run cannot be read as a code.
+            objects.push("<< /Length " + data.length + " /Length1 " + face.bytes
+              + " /Filter /ASCIIHexDecode >>\nstream\n" + data + "\nendstream");
+          }
+          return "/" + FONTS[role][0] + " " + at + " 0 R";
         });
-        var annots = links.map(function (unused, i) { return (first + i) + " 0 R"; });
-        var objects = [
-          "<< /Type /Catalog /Pages 2 0 R >>",
-          "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
-          "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 " + WIDTH + " " + HEIGHT + "]"
-            + " /Resources << /Font << " + fonts.join(" ") + " >> >>"
-            + " /Contents 4 0 R /Annots [" + annots.join(" ") + "] >>",
-          "<< /Length " + content.length + " >>\nstream\n" + content + "\nendstream",
-        ].concat(Object.keys(FONTS).map(function (name) {
-          return "<< /Type /Font /Subtype /Type1 /BaseFont /" + FONTS[name][1]
-            + " /Encoding /WinAnsiEncoding >>";
-        }), links);
+        var annots = links.map(function (link) {
+          objects.push(link);
+          return objects.length + " 0 R";
+        });
+        objects[0] = "<< /Type /Catalog /Pages 2 0 R >>";
+        objects[1] = "<< /Type /Pages /Kids [3 0 R] /Count 1 >>";
+        objects[2] = "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 " + WIDTH + " " + HEIGHT + "]"
+          + " /Resources << /Font << " + fonts.join(" ") + " >> >>"
+          + " /Contents 4 0 R /Annots [" + annots.join(" ") + "] >>";
         var out = "%PDF-1.4\n", offsets = [];
         objects.forEach(function (body, i) {
           offsets.push(out.length);

@@ -5094,6 +5094,15 @@ registered last week must still be able to come back.
   valable. Vérifie-le ou demande le bon code à ton encadrant. » (§59.2). The exception is §59.2's:
   a registration code that is not open yet, for which the page writes the opening time in the
   reader's own zone.
+- **The box writes the dashes** (decided 2026-11-10, after the first testers typed 28 characters
+  and counted them). What is typed is shown in groups of four, the way the token is printed. A
+  dash or a space the participant types never lands anywhere else: where a group ends it is the
+  dash, and a space becomes one; elsewhere it is dropped. Only a text that can still be a code is
+  touched (letters, digits, dashes, spaces, 28 characters at most), so a sentence pasted with the
+  token in it stays as it came. **The box cannot know which code is being typed**, so the one on
+  the slide is grouped too: `LILLE-2026` appears as `LILL-E202-6`. It is still accepted, because
+  dashes never count (§59.1), and the codes page tells the admin to write a code in fours on the
+  slide. The random ones it proposes already are.
 - **A token is looked for inside what was pasted**, so the whole text of the file pasted into the
   box works.
 - **What this leaves**: a token cut down to 24 characters or fewer cannot be told from a
@@ -5203,7 +5212,7 @@ On a fresh local instance holding the Pacman subject, with a secure context:
   tries to save a name, an e-mail, a password and a website; downloads core's export of every
   table and searches it for the token and for the sign-in value (only the SHA-256 is there);
   switches the plugin off and back on.
-- `scripts/token_door_browser_check.js <base-url> <admin-pass>`, 66 assertions, in headless
+- `scripts/token_door_browser_check.js <base-url> <admin-pass>`, 80 assertions, in headless
   Chromium. It records every request its visitors make, about 800, and **none carries the token**.
   It walks the handout (the file's content and line ends, the clipboard, the QR code compared with
   one drawn by the same library for the same address, the tick box), reads the key back from

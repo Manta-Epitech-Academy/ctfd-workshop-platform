@@ -9,6 +9,8 @@
  *
  *   - the one box tells a code from a token, and refuses a mistyped one
  *     without sending anything;
+ *   - the box writes what is typed in groups of four, and a dash or a space
+ *     the person types never lands anywhere else;
  *   - a code that is not open yet is answered with when it opens, written in
  *     the visitor's own time zone;
  *   - a good code shows the personal code once, with a file, a copy button
@@ -208,6 +210,38 @@ function check(cond, label) {
     }
     await page.type("#ws-door-code", "x");
     check((await error(page)) === null, "typing again takes the sentence away");
+
+    console.log("== the box writes the dashes ==");
+    const typed = async (keys, ...presses) => {
+      await page.fill("#ws-door-code", "");
+      await page.focus("#ws-door-code");
+      await page.keyboard.type(keys);
+      for (const key of presses) await page.keyboard.press(key);
+      return page.inputValue("#ws-door-code");
+    };
+    check((await typed("abcdefghjk")) === "ABCD-EFGH-JK", "ten characters typed: groups of four, a dash between");
+    check((await typed("abcd")) === "ABCD", "no dash waits after a full group");
+    check((await typed("abcd-")) === "ABCD-" && (await typed("abcd ")) === "ABCD-",
+          "a dash or a space typed where a group ends is the dash");
+    check((await typed("abcd ef")) === "ABCD-EF" && (await typed("abcd--ef")) === "ABCD-EF",
+          "and it is there once");
+    check((await typed("-ab-c d- ef")) === "ABCD-EF", "typed anywhere else, it is dropped");
+    check((await typed("abcdefghjkmnpqrstvwxyz012345-")) === "ABCD-EFGH-JKMN-PQRS-TVWX-YZ01-2345",
+          "28 characters: seven groups, and no dash after the last");
+    const left = (n) => Array(n).fill("ArrowLeft");
+    check((await typed("abcdefgh", ...left(4), "Backspace")) === "ABCE-FGH",
+          "Backspace on a dash takes the character before it");
+    check((await typed("abcdefgh", ...left(5), "Delete")) === "ABCD-FGH",
+          "Delete on a dash takes the character after it");
+    await typed("abcdefgh", ...left(6));
+    await page.keyboard.type("x");
+    check((await page.inputValue("#ws-door-code")) === "ABCX-DEFG-H"
+          && (await page.evaluate(() => document.querySelector("#ws-door-code").selectionStart)) === 4,
+          "a character typed in the middle moves the dashes, and the caret stays behind it");
+    await page.fill("#ws-door-code", "Mon code : abcd-efgh");
+    check((await page.inputValue("#ws-door-code")) === "Mon code : abcd-efgh",
+          "a text that is more than a code is left as it came");
+    await page.fill("#ws-door-code", "");
 
     console.log("== a wrong code is asked about, and gets the same sentence ==");
     let before = doorCalls();

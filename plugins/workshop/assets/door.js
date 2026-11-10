@@ -20,7 +20,8 @@
  * The one box takes a token or a registration code, and this file tells them
  * apart: a token is found by its shape and its checksum; anything else that
  * is 6 to 24 letters and digits is a code (codes.py KEY_MIN, KEY_MAX) and is
- * sent to be checked; the rest is refused here.
+ * sent to be checked; the rest is refused here. Whichever it is, the box
+ * writes it in groups of four as it is typed (`group`).
  *
  * Every sentence comes from the template's data attributes, translated.
  */
@@ -66,6 +67,8 @@
   // it. Gone with the page, on purpose.
   var pending = null;
   var busy = false;
+  // What the box held after its last edit (`group`).
+  var shown = "";
 
   // -------------------------------------------------------------------------
   // The token, as bytes and as text
@@ -325,9 +328,58 @@
       entry.hidden = true;
       handout.hidden = false;
       say(entryError, "");
-      box.value = "";
+      box.value = shown = "";
       root.querySelector("[data-ws-door-download]").focus();
     });
+  }
+
+  // The box writes the dashes: what is typed is shown in groups of four, the
+  // way the personal code is printed, so nobody has to count characters or
+  // wonder whether the dashes matter. A dash or a space the person types is
+  // theirs to type and changes nothing: where a group ends it is the dash
+  // (and brings it up before the next character does), anywhere else it is
+  // dropped. Only a text that can still be a code is touched, which is
+  // letters, digits, dashes and spaces, 28 characters at most: anything
+  // else (a pasted sentence with the code in it) is left as it came, and
+  // `findToken` reads it as it is.
+  //
+  // The box cannot know which code is being typed, so the one on the slide is
+  // grouped too. Dashes never count (`fold`), so it is only a matter of looks.
+  function group(event) {
+    if (event.isComposing) return;
+    var raw = box.value, caret = box.selectionStart;
+    if (caret === null || caret === undefined) caret = raw.length;
+    if (/[^0-9A-Za-z -]/.test(raw)) { shown = raw; return; }
+    var chars = raw.replace(/[ -]/g, "").toUpperCase();
+    if (chars.length > TOKEN_CHARS) { shown = raw; return; }
+    var head = raw.slice(0, caret);
+    var before = head.replace(/[ -]/g, "").length;
+    var value = dashed(chars);
+    // Backspace or Delete on a dash alone would be undone by the line above,
+    // and the key would look dead: it takes the character next to it.
+    var erase = /^deleteContent(Back|For)ward$/.exec(event.inputType || "");
+    if (erase && value === shown) {
+      var gone = erase[1] === "Back" ? before - 1 : before;
+      if (gone >= 0 && gone < chars.length) {
+        chars = chars.slice(0, gone) + chars.slice(gone + 1);
+        value = dashed(chars);
+        before = gone;
+      }
+    }
+    var at = before + (before ? Math.floor((before - 1) / 4) : 0);
+    // A dash or a space typed where a group ends.
+    var asked = (event.data === "-" || event.data === " ")
+      && /[ -]$/.test(head) && before > 0 && before % 4 === 0;
+    if (asked && before < chars.length) at += 1;
+    else if (asked && chars.length < TOKEN_CHARS) { value += "-"; at += 1; }
+    shown = value;
+    if (value === raw) return;
+    box.value = value;
+    box.setSelectionRange(at, at);
+  }
+
+  function dashed(chars) {
+    return (chars.match(/.{1,4}/g) || []).join("-");
   }
 
   // What was typed, or read from a file. `fromFile` only changes the sentence
@@ -509,7 +561,12 @@
     event.preventDefault();
     take(box.value, false);
   });
-  box.addEventListener("input", function () { say(entryError, ""); });
+  box.addEventListener("input", function (event) {
+    say(entryError, "");
+    group(event);
+  });
+  // A keyboard that composes (a phone's) is left to finish its word first.
+  box.addEventListener("compositionend", group);
 
   pick.addEventListener("click", function () { fileInput.click(); });
   fileInput.addEventListener("change", function () {

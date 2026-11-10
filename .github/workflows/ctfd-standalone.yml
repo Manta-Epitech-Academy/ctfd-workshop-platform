@@ -91,7 +91,8 @@ jobs:
             set -e
             cd /opt/CTFd/CTFd/plugins/workshop
             for f in tokendoor.py codes.py doors.py assets/door.js assets/pdf.js \
-                     assets/vendor/qrcode.js templates/workshop_token_door.html \
+                     assets/pdf-brand.json assets/vendor/qrcode.js \
+                     templates/workshop_token_door.html \
                      translations/fr/LC_MESSAGES/messages.mo; do
               test -s "$f" || { echo "missing: $f"; exit 1; }
             done

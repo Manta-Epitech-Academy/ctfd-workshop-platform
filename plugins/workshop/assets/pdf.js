@@ -1,4 +1,4 @@
-/* A one-page PDF, written by hand (door.js is its one caller; PLAN.md \u00a760.4).
+/* A one-page PDF, written by hand (door.js is its one caller; PLAN.md §60.4).
  *
  * The token door hands the personal code out as a file, and the file has to
  * be made in the browser, because the code exists nowhere else. A PDF and not

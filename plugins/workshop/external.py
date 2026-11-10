@@ -45,7 +45,7 @@ from flask import (Blueprint, abort, redirect, render_template, request,
 from flask_babel import lazy_gettext as _l
 from sqlalchemy.exc import IntegrityError
 
-from CTFd.cache import cache, clear_standings, clear_user_session
+from CTFd.cache import cache
 from CTFd.models import UserFieldEntries, UserFields, Users, db
 from CTFd.utils import get_config, set_config
 from CTFd.utils.decorators import admins_only
@@ -53,9 +53,10 @@ from CTFd.utils.logging import log
 from CTFd.utils.security.auth import login_user
 from CTFd.utils.user import authed, get_ip
 
+from .accounts import ban_accounts
 from .cohorts import CohortProvider
 from .cohorts import register as register_cohorts
-from .staff import WorkshopStaff, account_errors
+from .staff import account_errors
 
 CODES_KEY = "workshop_external_codes"
 # Whether the door exists at all, as a decision of its own. Stored codes are not
@@ -310,11 +311,6 @@ def join():
 # The admin page: the only place any of this is named
 # ---------------------------------------------------------------------------
 
-def _is_staff(user):
-    return user.type == "admin" or db.session.query(
-        WorkshopStaff.user_id).filter_by(user_id=user.id).first() is not None
-
-
 @workshop_external.route("/admin/workshop/external", methods=["GET", "POST"])
 @admins_only
 def manage():
@@ -349,24 +345,9 @@ def manage():
 
 
 def _set_banned(code, banned):
-    """Ban, or un-ban, every account that came in on one code.
-
-    **Ban and not delete.** Shutting a cohort out is a decision made in a hurry,
-    and deleting takes their solves and their history with them, irreversibly.
-    Banning stops them signing in and is undone from the same page. Deleting one
-    account stays where it already is, under `/admin/users`, where the
-    confirmation names the person.
-
-    An account that has since become an admin or a supervisor is skipped: a bulk
-    action aimed at participants must not be able to lock out the room's staff.
-    """
-    users = [u for u in accounts_by_code().get(code, []) if not _is_staff(u)]
-    for user in users:
-        user.banned = banned
-    db.session.commit()
-    for user in users:
-        clear_user_session(user_id=user.id)
-    clear_standings()
+    """Ban, or un-ban, every account that came in on one code. What that
+    means, and who it skips, is `ban_accounts`'s to say (accounts.py)."""
+    ban_accounts(accounts_by_code().get(code, []), banned)
     return "revoked" if banned else "restored"
 
 

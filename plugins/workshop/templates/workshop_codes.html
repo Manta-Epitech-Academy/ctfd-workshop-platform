@@ -269,9 +269,14 @@
 
   <h2 class="h5">What the door tells a stranger</h2>
   <ul>
-    <li><strong>One answer for every refusal.</strong> Unknown, retired, not
-      open yet, full: the same message, so the door cannot be used to learn
-      which codes exist. The reason is in the <code>registrations</code> log.</li>
+    <li><strong>One answer for every refusal, bar one.</strong> Unknown,
+      retired, over, full: the same message, so the door cannot be used to
+      learn which codes exist. The reason is in the
+      <code>registrations</code> log.</li>
+    <li><strong>A code that is not open yet says so.</strong> The door
+      answers that the event has not started and when the code opens, so a
+      room that is early does not go looking for another code. Anybody who
+      types it learns that it exists: make a code later if that matters.</li>
     <li><strong>Wrong codes are counted, addresses are not.</strong> A text
       that is not a code stops being looked up after 10 tries in 15 minutes,
       and 300 wrong codes in one minute close the door to everybody until the

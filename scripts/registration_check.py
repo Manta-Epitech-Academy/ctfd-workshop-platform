@@ -14,7 +14,8 @@ The plugin has no test suite, so this script **is** this feature's test suite
   * a code is closed by hand, by its window or by its cap, and a closed code
     keeps its accounts and admits nobody new;
   * banning one cohort retires its code and does not touch another;
-  * **every refusal is the same answer**, byte for byte, whatever the reason;
+  * **every refusal is the same answer**, byte for byte, whatever the reason,
+    bar a code that is not open yet: that one says so, and when it opens;
   * a cap holds when a room presses the button together;
   * the throttle counts wrong codes: one typo read by a whole room does not
     close the door, a list of 300 does, and the door opens again by itself.
@@ -414,9 +415,22 @@ table = rows()
 check((table[EARLY]["state"], table[LATE]["state"], table[FULL]["state"])
       == ("not open yet", "closed by its window", "admits people"),
       "the page says which is which")
-check(refused(Visitor().ask(EARLY)) and refused(Visitor().register(EARLY))
-      and refused(Visitor().ask(LATE)) and refused(Visitor().register(LATE)),
-      "too early and too late are the same answer as an unknown code")
+check(refused(Visitor().ask(LATE)) and refused(Visitor().register(LATE)),
+      "too late is the same answer as an unknown code")
+soon, soon2 = Visitor().ask(EARLY), Visitor().register(EARLY)
+opens = soon.json().get("opens", "")
+check(soon.status_code == 403 and soon.json().get("success") is False
+      and not refused(soon) and soon.content == soon2.content,
+      f"too early is a refusal of its own, the same for both requests: {soon.status_code}")
+check(bool(re.fullmatch(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ", opens))
+      and abs((datetime.strptime(opens, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+               - datetime.now(timezone.utc)).total_seconds() - 3600) < 120,
+      f"it says when the code opens, in UTC: {opens}")
+check(set(soon.json()) == {"success", "message", "opens"}
+      and soon.json()["message"] != no.json()["message"],
+      "and that the event has not started, in a sentence of its own")
+check(Visitor().me().status_code != 200 and rows()[EARLY]["accounts"] == 0,
+      "and it admitted nobody")
 
 visitors = [Visitor() for _ in range(9)]
 with ThreadPoolExecutor(max_workers=9) as pool:

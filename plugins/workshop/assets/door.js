@@ -261,6 +261,19 @@
     });
   }
 
+  // The sentence of a refusal. They are all one sentence but one: a code that
+  // is not open yet comes with the instant it opens (codes.py `refusal`),
+  // written here in this reader's own time zone, which the server cannot
+  // know. `{when}` is where the template's sentence wants it.
+  function refusalText(answer) {
+    var when = answer.opens ? new Date(answer.opens) : null;
+    if (!when || isNaN(when) || !text.early) return answer.message || text.invalid;
+    var style = { dateStyle: "long", timeStyle: "short" }, written;
+    try { written = when.toLocaleString(text.locale || undefined, style); }
+    catch (e) { written = when.toLocaleString(undefined, style); }
+    return text.early.replace("{when}", written);
+  }
+
   function go(answer, key) {
     return keepKey(key).then(function () {
       window.location.assign(answer.data.next);
@@ -336,7 +349,7 @@
       var code = string.trim();
       return post("/api/v1/workshop/door/code", { code: code })
         .then(function (answer) {
-          if (!answer.success) { say(entryError, answer.message || text.invalid); return null; }
+          if (!answer.success) { say(entryError, refusalText(answer)); return null; }
           return showHandout(code);
         });
     }).catch(function () {
@@ -357,8 +370,8 @@
                   { code: mine.code, signin: made.signin })
         .then(function (answer) {
           // The code closed between the two requests (the last place under a
-          // cap went to somebody else). Back to the box, with the one answer.
-          if (!answer.success) { showEntry(answer.message || text.invalid); return null; }
+          // cap went to somebody else). Back to the box, with the answer.
+          if (!answer.success) { showEntry(refusalText(answer)); return null; }
           return go(answer, made.key);
         });
     }).catch(function () {

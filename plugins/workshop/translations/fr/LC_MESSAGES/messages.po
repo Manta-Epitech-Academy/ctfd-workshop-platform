@@ -483,6 +483,14 @@ msgstr ""
 "Cela crée un compte superviseur local, pas un compte Jump. Pour vous "
 "reconnecter plus tard, allez sur %(link)s."
 
+msgid "This event has not started yet. Come back when it starts."
+msgstr "L'événement n'a pas encore commencé. Reviens quand il commence."
+
+msgid "This event has not started yet. Your code will work from {when}."
+msgstr ""
+"L'événement n'a pas encore commencé. Ton code sera valable à partir du "
+"{when}."
+
 msgid "This link is no longer valid"
 msgstr "Ce lien n'est plus valable"
 

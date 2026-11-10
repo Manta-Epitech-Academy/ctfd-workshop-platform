@@ -28,10 +28,16 @@ untouched. **A code somebody came in on is never deleted**, because that would
 orphan them: the cohort is the code. One that admitted nobody is a typo, and
 that one can go.
 
-**Every refusal is the same answer.** Unknown, retired, not open yet, full:
+**Every refusal is the same answer, bar one.** Unknown, retired, over, full:
 one message and one status, so the door cannot be used to learn which codes
 exist. The reason goes to the log, for the admin who is asked "why does my
 code not work".
+
+The one exception is a code that is **not open yet**: the door says the event
+has not started and when the code opens. A room that arrives ten minutes
+early was otherwise told its code was wrong, and went looking for another
+one. What it gives away is that a code exists before it can be used, and its
+opening time; a code that must stay unknown until then is made later instead.
 
 **The throttle counts wrong codes, not addresses.** A classroom is one
 address, and thirty lycéens behind it are not a prober; and an address is the
@@ -258,7 +264,8 @@ def _braked():
 
 
 def resolve(text):
-    """`(code, None)` for a code that admits people now, else `(None, why)`.
+    """`(code, None)` for a code that admits people now, else `(code, why)`
+    for a real code that is closed and `(None, why)` for everything else.
 
     The order is the throttle's: what costs nothing is refused first, and
     only a text that is no code at all is counted. A real code that is closed
@@ -279,9 +286,7 @@ def resolve(text):
         _bump(_brake_key(), BRAKE_WINDOW)
         return None, "unknown"
     state = state_of(row, _admitted(row.id))
-    if state != "open":
-        return None, state
-    return row, None
+    return row, (None if state == "open" else state)
 
 
 # ---------------------------------------------------------------------------
@@ -359,13 +364,19 @@ def admit(code_id, digest):
 # ---------------------------------------------------------------------------
 
 def refusal(reason, code=None):
-    """The one answer to everything that is not a yes.
+    """The one answer to everything that is not a yes, bar a code that is
+    not open yet (see the module's docstring).
 
-    The reason is logged and never sent. The log line carries the code only
-    when it is a real one: what was typed into the box of a page with no name
-    field is the one free text a lycéen can put a name in, and a log is not
-    where it should end up. No address either: `{ip}` is simply not in the
-    format, which is all core's `log` needs to leave it out.
+    The reason is logged and, that one case aside, never sent. The log line
+    carries the code only when it is a real one: what was typed into the box
+    of a page with no name field is the one free text a lycéen can put a name
+    in, and a log is not where it should end up. No address either: `{ip}` is
+    simply not in the format, which is all core's `log` needs to leave it out.
+
+    For a code that is not open yet the body also carries `opens`, the UTC
+    instant: the door writes it in the reader's own time zone, which only
+    their browser knows. The message here is what a client that ignores
+    `opens` shows.
     """
     if code is not None:
         log("registrations",
@@ -374,6 +385,13 @@ def refusal(reason, code=None):
     else:
         log("registrations", "[{date}] token door: refused ({reason})",
             reason=reason)
+    if reason == "early" and code is not None and code.valid_from is not None:
+        return jsonify({
+            "success": False,
+            "message": _("This event has not started yet. Come back when "
+                         "it starts."),
+            "opens": code.valid_from.isoformat(timespec="seconds") + "Z",
+        }), 403
     return jsonify({
         "success": False,
         "message": _("This code is not valid. Check it or ask your "
@@ -402,8 +420,8 @@ def check_code():
     the next request, once they have said they saved it.
     """
     row, reason = resolve(text_field(request.get_json(silent=True), "code"))
-    if row is None:
-        return refusal(reason)
+    if reason is not None:
+        return refusal(reason, code=row)
     return jsonify({"success": True})
 
 
@@ -424,8 +442,8 @@ def register_account():
     user = account_for(digest)
     if user is None:
         row, reason = resolve(text_field(payload, "code"))
-        if row is None:
-            return refusal(reason)
+        if reason is not None:
+            return refusal(reason, code=row)
         user, reason = admit(row.id, digest)
         if user is None:
             return refusal(reason, code=row)

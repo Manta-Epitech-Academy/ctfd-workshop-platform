@@ -9,6 +9,8 @@
  *
  *   - the one box tells a code from a token, and refuses a mistyped one
  *     without sending anything;
+ *   - a code that is not open yet is answered with when it opens, written in
+ *     the visitor's own time zone;
  *   - a good code shows the personal code once, with a file, a copy button
  *     and a QR code, and makes no account until the box is ticked;
  *   - the same token opens the same account again: typed, pasted with the
@@ -21,7 +23,7 @@
  *   - without a secure context the page says so instead of doing nothing.
  *
  * Needs Playwright and an instance served on https or on localhost (the page
- * needs Web Crypto). It makes one code and one account and deletes both, also
+ * needs Web Crypto). It makes two codes and one account and deletes them, also
  * when a check throws.
  */
 const crypto = require("crypto");
@@ -39,6 +41,7 @@ const SHOTS = process.argv[5] || "";
 
 const RUN = Math.random().toString(36).slice(2, 8).toUpperCase().replace(/[OIL]/g, "X");
 const CODE = `DOOR-${RUN}`;
+const SOON = `SOON-${RUN}`;
 const TOKEN = /^(?:[0-9A-HJKMNP-TV-Z]{4}-){6}[0-9A-HJKMNP-TV-Z]{4}$/;
 const NAME = /^[A-ZÉ][a-zéèêï]+-[A-ZÉ][a-zéèê]+-\d{2,4}$/;
 const DOOR = "/api/v1/workshop/door";
@@ -85,11 +88,11 @@ function check(cond, label) {
   const codesPage = (form) => adminContext.request.post("/admin/workshop/codes", {
     form: { nonce: adminNonce, ...form }, maxRedirects: 0,
   });
-  async function codeRow() {
+  async function codeRow(code = CODE) {
     const html = await (await adminContext.request.get("/admin/workshop/codes")).text();
     const body = html.split("<tbody>")[1].split("</tbody>")[0];
     for (const chunk of body.split("<tr>").slice(1)) {
-      if (!chunk.includes(`<code>${CODE}</code>`)) continue;
+      if (!chunk.includes(`<code>${code}</code>`)) continue;
       const id = chunk.match(/name="id" value="(\d+)"/);
       const count = chunk.match(/<summary>\s*(\d+)/);
       return { id: id && id[1], accounts: count ? Number(count[1]) : 0 };
@@ -107,8 +110,10 @@ function check(cond, label) {
         headers: { "CSRF-Token": adminNonce, "Content-Type": "application/json" },
       });
     }
-    const row = await codeRow();
-    if (row && row.id) await codesPage({ action: "delete", id: row.id });
+    for (const code of [CODE, SOON]) {
+      const row = await codeRow(code);
+      if (row && row.id) await codesPage({ action: "delete", id: row.id });
+    }
   }
 
   const created = await codesPage({ action: "create", code: CODE, campus: `Door ${RUN}` });
@@ -211,6 +216,29 @@ function check(cond, label) {
     await page.waitForSelector("#ws-door-error:not([hidden])");
     check((await error(page)) === invalid && doorCalls() === before + 1, "one request, the one sentence");
     check(await page.locator("[data-ws-door-handout]").isHidden(), "and no personal code");
+
+    console.log("== a code that is not open yet says when it opens ==");
+    const opens = new Date(Date.now() + 3600 * 1000);
+    const later = await codesPage({ action: "create", code: SOON, valid_from: opens.toISOString() });
+    check(later.status() === 302, `${SOON} is created, to open in an hour`);
+    // A visitor on the other side of the world: the time they read is theirs.
+    const far = await visitor({ timezoneId: "Pacific/Auckland" });
+    const early = await far.newPage();
+    await early.goto("/login");
+    await early.fill("#ws-door-code", SOON);
+    await early.click("[data-ws-door-form] [type=submit]");
+    await early.waitForSelector("#ws-door-error:not([hidden])");
+    const flat = (string) => String(string || "").replace(/\s+/g, " ");
+    const written = opens.toLocaleString(await text(early, "locale"),
+      { dateStyle: "long", timeStyle: "short", timeZone: "Pacific/Auckland" });
+    const told = await error(early);
+    check(flat(told) === flat((await text(early, "early")).replace("{when}", written)),
+          `the sentence carries the opening time, in the visitor's zone: ${told}`);
+    check(told !== invalid && !String(told).includes("{"), "and it is not the one refusal sentence");
+    check(await early.locator("[data-ws-door-handout]").isHidden()
+          && (await codeRow(SOON)).accounts === 0, "no personal code, and no account");
+    if (SHOTS) await early.screenshot({ path: path.join(SHOTS, "door-early.png") });
+    await far.close();
 
     console.log("== a good code shows the personal code, once ==");
     await page.fill("#ws-door-code", `  ${CODE.toLowerCase().replace("-", " ")} `);

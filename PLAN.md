@@ -4927,12 +4927,22 @@ again while it is unused, and after that an edit would rewrite a cohort's histor
 
 Both are JSON and carry the session's CSRF nonce, like every write in CTFd.
 
-**Every refusal is one answer**: the same status and the same body, byte for byte, for a code that
-is unknown, retired, early, expired or full, for a banned account, and for a malformed request.
+**Every refusal is one answer, bar one**: the same status and the same body, byte for byte, for a
+code that is unknown, retired, expired or full, for a banned account, and for a malformed request.
 « Ce code n'est pas valable. Vérifie-le ou demande le bon code à ton encadrant. » The door cannot
 be used to learn which codes exist. The reason goes to the `registrations` log, for the admin
-asked "why does my code not work". The log line never carries what was typed (a box on a page
-with no name field is where a lycéen would type a name) and never an address.
+asked "why does my code not work". The log line carries the code when it is a real one, never
+what was typed otherwise (a box on a page with no name field is where a lycéen would type a name)
+and never an address.
+
+**The exception is a code that is not open yet** (decided 2026-11-10, after the first test of a
+code with a window). The room that arrived early read "ce code n'est pas valable" and went
+looking for another code, when the right answer was "wait". The refusal is still a 403, with a
+sentence of its own and `opens`, the UTC instant; the door writes it in the reader's own time
+zone: « L'événement n'a pas encore commencé. Ton code sera valable à partir du 11 novembre 2026 à
+20:44. » What it costs: whoever types such a code learns that it exists and when it opens, before
+it can be used. A code that must stay unknown until the day is made on the day. Too late stays
+the common answer: a closed session has nobody waiting at its door.
 
 ### 59.3 The account
 
@@ -4997,7 +5007,7 @@ The external door's page keeps its own revoke button. That door is retired later
 
 ### 59.7 Checked
 
-`scripts/registration_check.py <base-url> <admin-pass>`, 83 assertions, green on a fresh local
+`scripts/registration_check.py <base-url> <admin-pass>`, 96 assertions, green on a fresh local
 instance holding the Pacman subject. It creates codes, admits accounts on each and reads every
 surface as each cohort; retires, reopens, bans and un-bans; compares every refusal byte for byte;
 sends nine registrations at once to a cap of three; types one typo 350 times (the door stays
@@ -5081,7 +5091,9 @@ registered last week must still be able to come back.
 | anything else | refuses on the page, sends nothing |
 
 - **One sentence for every refusal**, from the page and from the server alike: « Ce code n'est pas
-  valable. Vérifie-le ou demande le bon code à ton encadrant. » (§59.2).
+  valable. Vérifie-le ou demande le bon code à ton encadrant. » (§59.2). The exception is §59.2's:
+  a registration code that is not open yet, for which the page writes the opening time in the
+  reader's own zone.
 - **A token is looked for inside what was pasted**, so the whole text of the file pasted into the
   box works.
 - **What this leaves**: a token cut down to 24 characters or fewer cannot be told from a

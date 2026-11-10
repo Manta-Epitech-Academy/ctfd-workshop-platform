@@ -232,7 +232,9 @@ and no password.
 - **Closed, not deleted**: retired, outside its window, or full. Only a code nobody came in on can
   be deleted. Banning a cohort retires its code and is undone from the same page.
 - **Two JSON requests**, `POST /api/v1/workshop/door/code` and `.../door/register`. The page that
-  sends them is the token door (§60). Every refusal is the same status and body.
+  sends them is the token door (§60). Every refusal is the same status and body, bar a code that
+  is not open yet: that one says the event has not started, and carries `opens` (UTC) for the
+  page to write in the reader's own time zone.
 - **The throttle counts wrong codes, not addresses**, in the cache. What it does not stop is
   written in PLAN.md §59.4: read it before giving a short word as a code.
 

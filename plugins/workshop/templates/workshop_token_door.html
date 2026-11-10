@@ -36,6 +36,8 @@
 <div class="ws-door" data-ws-door{% if authed() %} data-authed{% endif %}
      data-nonce="{{ Session.nonce }}"
      data-invalid="{{ _('This code is not valid. Check it or ask your supervisor for the right one.') }}"
+     data-early="{{ _('This event has not started yet. Your code will work from {when}.') }}"
+     data-locale="{{ get_locale() | replace('_', '-') }}"
      data-no-code="{{ _('No code was found in this file.') }}"
      data-failed="{{ _('Something went wrong. Try again.') }}"
      data-insecure="{{ _('This page needs a secure connection (https). Tell your supervisor.') }}"

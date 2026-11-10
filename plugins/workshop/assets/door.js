@@ -23,6 +23,9 @@
  * sent to be checked; the rest is refused here. Whichever it is, the box
  * writes it in groups of four as it is typed (`group`).
  *
+ * The token is handed out as a PDF made here (`filePdf`, assets/pdf.js), and
+ * read back out of that file as text.
+ *
  * Every sentence comes from the template's data attributes, translated.
  */
 (function () {
@@ -42,8 +45,8 @@
   var INFO_ENCRYPTION = "encryption";
   // Where the encryption key waits for the page that will use it.
   var DB_NAME = "ws-door", DB_STORE = "keys", DB_KEY = "encryption";
-  // A token file is a few lines. Anything much bigger is not one, and is not
-  // read into memory to find that out.
+  // A token file is one page, some 5 KB. Anything much bigger is not one,
+  // and is not read into memory to find that out.
   var FILE_MAX = 65536;
 
   var text = root.dataset;
@@ -441,27 +444,54 @@
     return window.location.origin + window.location.pathname;
   }
 
-  // CRLF: the room's computer is a Windows one as often as not, and its
-  // Notepad used to draw a file with bare LF as a single line.
-  function fileText(token) {
-    return [
-      text.fileWorkshop,
-      text.fileAddress + " " + address(),
-      "",
-      text.fileCode,
-      "",
-      token,
-      "",
-      text.fileBack,
-      text.fileKeep,
-      text.fileLost,
-      "",
-    ].join("\r\n");
+  // The file is a PDF, made here because the token is nowhere else
+  // (assets/pdf.js). Not a text file: that opens in an editor, where one
+  // stray key changes a character of the code and saves it. The token is
+  // written in it as plain text, which is how `readFile` finds it again.
+  function filePdf(token) {
+    var pdf = window.wsPdf();
+    var left = 56, wide = pdf.width - 2 * left, y = pdf.height - 84;
+    // A paragraph from `y` down. Answers how wide its widest line is.
+    function write(sentence, font, size, after) {
+      var widest = 0;
+      pdf.wrap(sentence, font, size, wide).forEach(function (line) {
+        pdf.text(line, left, y, font, size);
+        widest = Math.max(widest, pdf.measure(line, font, size));
+        y -= size * 1.45;
+      });
+      y -= after;
+      return widest;
+    }
+    write(text.fileWorkshop, "bold", 18, 4);
+    // The address is a link: "open the address above" is then one click.
+    var top = y + 11;
+    var across = write(text.fileAddress + " " + address(), "regular", 11, 0);
+    pdf.link(left, y + 11, across, top - y - 11, address());
+    y -= 30;
+    write(text.fileCode, "bold", 13, 2);
+    // Courier: every character is 0.6 of the size wide, so this is centred
+    // to the point.
+    var size = 20, high = 56, foot = y - high + 14;
+    pdf.panel(left, foot, wide, high);
+    pdf.text(token, (pdf.width - token.length * 0.6 * size) / 2,
+             foot + (high - 0.6 * size) / 2, "mono", size);
+    y = foot - 26;
+    var qr = qrOf(token);
+    if (qr) {
+      var side = 150;
+      pdf.cells((pdf.width - side) / 2, y - side, side, qr.getModuleCount(),
+                function (r, c) { return qr.isDark(r, c); });
+      y -= side + 40;
+    }
+    write(text.fileBack, "regular", 11, 8);
+    write(text.fileKeep, "regular", 11, 8);
+    write(text.fileLost, "regular", 11, 0);
+    return pdf.build();
   }
 
   function download() {
     if (!pending) return;
-    var blob = new Blob([fileText(pending.token)], { type: "text/plain;charset=utf-8" });
+    var blob = new Blob([filePdf(pending.token)], { type: "application/pdf" });
     var link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
     link.download = text.fileName;
@@ -495,19 +525,25 @@
 
   // The address of this page with the token as its fragment: a fragment is
   // not sent to the server, so scanning the picture signs the phone in and
-  // the token still never crosses the network. Drawn as SVG through the DOM,
-  // dark on white whatever the theme (see the template).
+  // the token still never crosses the network. Null without the library.
+  function qrOf(token) {
+    if (typeof window.qrcode !== "function") return null;
+    try {
+      var qr = window.qrcode(0, "M");
+      qr.addData(address() + "#" + token);
+      qr.make();
+      return qr;
+    } catch (e) { return null; }
+  }
+
+  // Drawn as SVG through the DOM, dark on white whatever the theme (see the
+  // template).
   function drawQr(token) {
     var figure = root.querySelector("[data-ws-door-qr]");
     var holder = root.querySelector("[data-ws-door-qr-code]");
     holder.textContent = "";
-    if (typeof window.qrcode !== "function") { figure.hidden = true; return; }
-    var qr;
-    try {
-      qr = window.qrcode(0, "M");
-      qr.addData(address() + "#" + token);
-      qr.make();
-    } catch (e) { figure.hidden = true; return; }
+    var qr = qrOf(token);
+    if (!qr) { figure.hidden = true; return; }
     var count = qr.getModuleCount(), quiet = 4, size = count + 2 * quiet;
     var ns = "http://www.w3.org/2000/svg";
     var svg = document.createElementNS(ns, "svg");

@@ -15,9 +15,12 @@
  *     the visitor's own time zone;
  *   - a good code shows the personal code once, with a file, a copy button
  *     and a QR code, and makes no account until the box is ticked;
- *   - the same token opens the same account again: typed, pasted with the
- *     whole file around it, chosen as a file, dropped on the page, carried in
- *     the address's fragment, and from a browser that never saw it;
+ *   - the file is a PDF a reader opens, plain ASCII, with the code written
+ *     once and the same QR code as the page;
+ *   - the same token opens the same account again: typed, pasted with words
+ *     around it, chosen as a file, dropped on the page, from a text file of
+ *     before the PDF, carried in the address's fragment, and from a browser
+ *     that never saw it;
  *   - **the token never leaves the browser**: every request this script's
  *     visitors make is recorded, and none carries it;
  *   - the encryption key waits in IndexedDB, cannot be exported, and is gone
@@ -296,12 +299,53 @@ function check(cond, label) {
       page.click("[data-ws-door-download]"),
     ]);
     const saved = await download.path();
-    fileBody = fs.readFileSync(saved, "utf8");
-    check(download.suggestedFilename() === await text(page, "file-name"),
+    fileBody = fs.readFileSync(saved, "latin1");
+    check(download.suggestedFilename() === await text(page, "file-name")
+          && download.suggestedFilename().endsWith(".pdf"),
           `the file is called ${download.suggestedFilename()}`);
-    check(fileBody.includes(token), "it holds the personal code");
-    check(fileBody.includes(`${BASE}/login`), "and the address to come back to");
-    check(fileBody.includes("\r\n") && !/[^\r]\n/.test(fileBody), "with Windows line ends");
+    check(fileBody.startsWith("%PDF-1.") && fileBody.endsWith("%%EOF\n"), "it is a PDF");
+    // The table at its end says where each object starts. A reader that finds
+    // one elsewhere repairs the file, or refuses it.
+    const table = fileBody.slice(Number((/startxref\n(\d+)\n%%EOF\n$/.exec(fileBody) || [])[1]));
+    const offsets = (table.match(/^\d{10} 00000 n $/gm) || []).map((line) => parseInt(line, 10));
+    check(table.startsWith(`xref\n0 ${offsets.length + 1}\n`) && offsets.length >= 7
+          && offsets.every((at, i) => fileBody.startsWith(`${i + 1} 0 obj\n`, at)),
+          `its table points at its ${offsets.length} objects`);
+    const stream = (/<< \/Length (\d+) >>\nstream\n([\s\S]*)\nendstream/.exec(fileBody) || []);
+    check(!!stream[2] && Number(stream[1]) === stream[2].length, "and the page is as long as it says");
+    // What lets the door read it back with no PDF parser, and lets a person
+    // who opens it in an editor still see the code.
+    check(!/[^\n\x20-\x7e]/.test(fileBody) && fileBody.length < 65536,
+          `plain ASCII, nothing compressed, ${fileBody.length} bytes`);
+    check(fileBody.includes(`(${token}) Tj`), "the personal code is written on the page");
+    const runs = fileBody.toUpperCase()
+      .match(/(^|[^0-9A-Z])((?:[0-9A-Z]{4}[- ]?){6}[0-9A-Z]{4})(?![0-9A-Z])/g) || [];
+    check(runs.length === 1, `and nothing else in the file looks like one (${runs.length})`);
+    check(fileBody.includes(`${BASE}/login) Tj`) && fileBody.includes(`/URI (${BASE}/login)`),
+          "with the address to come back to, as a link");
+    // The QR code on the page: its cells, read out of the drawing, against
+    // the same library run here on the address it should hold.
+    const cells = (/ cm 0 g\n([\s\S]*?)\nf Q/.exec(fileBody) || [])[1] || "";
+    const matrix = await page.evaluate((content) => {
+      const qr = window.qrcode(0, "M");
+      qr.addData(content);
+      qr.make();
+      const n = qr.getModuleCount(), rows = [];
+      for (let r = 0; r < n; r++) {
+        let row = "";
+        for (let c = 0; c < n; c++) row += qr.isDark(r, c) ? "1" : "0";
+        rows.push(row);
+      }
+      return rows;
+    }, `${BASE}/login#${token}`);
+    const printed = matrix.map((row) => row.replace(/1/g, "0").split(""));
+    for (const line of cells.split("\n")) {
+      const [c, y, w, h] = line.split(" ").map(Number);
+      const r = matrix.length - 1 - y;
+      for (let i = c; i < c + w && h === 1 && printed[r]; i++) printed[r][i] = "1";
+    }
+    check(matrix.length > 20 && printed.map((row) => row.join("")).join("\n") === matrix.join("\n"),
+          `and a QR code of ${matrix.length} cells a side that holds the address with the code`);
 
     await page.click("[data-ws-door-copy]");
     await page.waitForFunction(() =>
@@ -390,9 +434,10 @@ function check(cond, label) {
     await comeBack(page, "with no dashes, O for 0 and l for 1");
 
     await signOut(page);
-    await page.fill("#ws-door-code", fileBody.replace(/\r\n/g, " "));
+    // Copied out of the PDF with what is written around it.
+    await page.fill("#ws-door-code", `Adresse : ${BASE}/login Ton code personnel : ${token} Pour revenir`);
     await page.click("[data-ws-door-form] [type=submit]");
-    await comeBack(page, "the whole file pasted in the box");
+    await comeBack(page, "pasted with the words around it");
 
     await signOut(page);
     await page.setInputFiles("[data-ws-door-file]", saved);
@@ -401,13 +446,21 @@ function check(cond, label) {
     await signOut(page);
     await page.evaluate((body) => {
       const data = new DataTransfer();
-      data.items.add(new File([body], "code.txt", { type: "text/plain" }));
+      data.items.add(new File([body], "code.pdf", { type: "application/pdf" }));
       const fire = (type, where) => where.dispatchEvent(
         new DragEvent(type, { dataTransfer: data, bubbles: true, cancelable: true }));
       fire("dragover", document.body);
       fire("drop", document.querySelector(".epi-login-panel") || document.body);
     }, fileBody);
     await comeBack(page, "the file, dropped beside the box");
+
+    // The text file the door handed out before the PDF.
+    await signOut(page);
+    await page.setInputFiles("[data-ws-door-file]", {
+      name: "mon-code-atelier.txt", mimeType: "text/plain",
+      buffer: Buffer.from(`Atelier\r\nAdresse : ${BASE}/login\r\n\r\nTon code personnel :\r\n\r\n    ${token}\r\n`),
+    });
+    await comeBack(page, "a text file from before the PDF");
 
     await signOut(page);
     await page.goto("about:blank");
@@ -490,7 +543,7 @@ function check(cond, label) {
           "and what it registered with is the value Node derives from the code it showed");
     const backs = sent.filter((r) => r.url.endsWith(`${DOOR}/signin`)
       && r.body === JSON.stringify({ signin: signinValue(token) }));
-    check(backs.length >= 7, `every way of coming back sent that same value (${backs.length} times)`);
+    check(backs.length >= 8, `every way of coming back sent that same value (${backs.length} times)`);
 
     console.log("== the token never left the browser ==");
     const bare = token.replace(/-/g, "");

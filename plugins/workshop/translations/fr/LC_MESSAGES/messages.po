@@ -251,8 +251,8 @@ msgstr "Cette étape est mal configurée, préviens l'encadrant"
 msgid "Misconfigured quiz, please report it"
 msgstr "Ce quiz est mal configuré, préviens l'encadrant"
 
-msgid "my-workshop-code.txt"
-msgstr "mon-code-atelier.txt"
+msgid "my-workshop-code.pdf"
+msgstr "mon-code-atelier.pdf"
 
 #, python-format
 msgid "Next part: %(title)s"

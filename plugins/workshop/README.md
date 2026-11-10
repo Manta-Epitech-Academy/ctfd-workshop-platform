@@ -250,15 +250,21 @@ participant side of `/login` (`tokendoor.py`, `templates/workshop_token_door.htm
 
 - **One box** takes the code on the slide and the personal code a participant was given. The
   browser tells them apart (a personal code is 28 characters with a checksum), so a mistyped one
-  is refused on the page and sent nowhere.
+  is refused on the page and sent nowhere. The box writes the dashes itself, every four
+  characters.
 - **The personal code is the account**: 128 random bits made in the browser, shown once as seven
   groups of four with a file to download, a copy button and a QR code. The account is made only
   when the participant has ticked « J'ai noté mon code ». A lost code is a lost account.
+- **The file is a PDF**, `mon-code-atelier.pdf`, written by `assets/pdf.js` in the browser: a text
+  file opens in an editor, where one key changes the code. It is plain ASCII with nothing
+  compressed, so the door reads the code back out of it as text. Keep it that way: compress the
+  page, and no file handed out opens the door any more.
 - **The server never sees it.** The browser derives a sign-in value with HKDF and sends that;
   the server stores its SHA-256. A second derived value is an encryption key that stays in the
   browser's IndexedDB, non-extractable, for saved code later. The salt and the two info strings
   in `door.js` are frozen: changing one locks every existing account out.
-- **Coming back**: type, paste, choose or drop the file, or scan the QR code.
+- **Coming back**: type, paste, choose or drop the file (the PDF, or a text file of before it),
+  or scan the QR code.
   `POST /api/v1/workshop/door/signin`, not throttled.
 - **No settings for these accounts**: no navbar entry, `/settings` redirects, and a write to
   `/api/v1/users/me` is refused, also with the plugin switched off.

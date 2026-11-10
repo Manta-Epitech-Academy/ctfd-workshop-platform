@@ -5122,9 +5122,21 @@ registered last week must still be able to come back.
 When a registration code is good, the page makes the token and shows it **once**, with three ways
 to keep it on one screen:
 
-- **A file**, `mon-code-atelier.txt`: the workshop's name, the address of the door, the token, and
-  three lines on how to come back and why to keep it private. CRLF line ends, because the
-  classroom computer is Windows and Notepad is what opens it.
+- **A file**, `mon-code-atelier.pdf`: one A4 page with the workshop's name, the address of the
+  door as a link, the token in a panel, the same QR code as the screen, and three lines on how to
+  come back and why to keep it private. **A PDF and not a text file** (decided 2026-11-10; it was
+  `mon-code-atelier.txt` for a day): a text file opens in an editor, where one stray key changes a
+  character of the code and saves it, and the pupil finds out when the code is refused. A PDF
+  opens in a reader, prints, and keeps its QR code.
+  - **Made in the browser, by hand** (`assets/pdf.js`, some 200 lines, no library): the token
+    exists nowhere else, and one page of text needs a catalog, a page, a content stream and the
+    three standard fonts every reader has. Nothing is embedded.
+  - **Plain ASCII and nothing compressed.** The token is in the file as the literal text
+    `(XXXX-...-XXXX) Tj`, so the door reads the file back as text with the code it already had,
+    and no PDF parser. Coordinates carry two decimals and the QR code is drawn in small integer
+    cells, so no other run of characters in the file has a token's shape.
+  - A character WinAnsi cannot write (an emoji in a workshop's name) is left out, not shown as a
+    question mark.
 - **A copy button**, for a notes app or a message to oneself.
 - **A QR code** of `https://<instance>/login#<token>`, with the advice to photograph the screen.
   A lycéen's phone is the one thing they leave the room with. The token is in the **fragment**,
@@ -5154,7 +5166,10 @@ code. All five end in one request:
   random ones. There is no list to run against it, so a counter would protect nothing and would be
   one more thing able to shut a room out.
 - **A file is only ever read for a token**, never taken for a registration code, and not above
-  64 KB.
+  64 KB. It is read as text, whatever it is: the PDF of §60.4 holds the token as text, and so do
+  the text files handed out before it, which still open. **A PDF that was saved again by another
+  program** (« Imprimer en PDF ») has its page compressed: the door says it found no code in it,
+  and the code printed on the page can still be typed.
 - The `logins` log gets the generated name. Never the value, never an address.
 - A request the server answers with anything but JSON is core's CSRF page: the tab was open longer
   than the session. The page reloads itself and the participant types again.
@@ -5212,13 +5227,15 @@ On a fresh local instance holding the Pacman subject, with a secure context:
   tries to save a name, an e-mail, a password and a website; downloads core's export of every
   table and searches it for the token and for the sign-in value (only the SHA-256 is there);
   switches the plugin off and back on.
-- `scripts/token_door_browser_check.js <base-url> <admin-pass>`, 80 assertions, in headless
+- `scripts/token_door_browser_check.js <base-url> <admin-pass>`, 86 assertions, in headless
   Chromium. It records every request its visitors make, about 800, and **none carries the token**.
-  It walks the handout (the file's content and line ends, the clipboard, the QR code compared with
-  one drawn by the same library for the same address, the tick box), reads the key back from
-  IndexedDB and checks it is not extractable, and comes back seven ways: typed as shown, in lower
-  case with spaces, without dashes and with `O` and `l`, the whole file pasted, the file chosen,
-  the file dropped, and `/login#<token>`, then again from a browser that never saw it. It checks
+  It walks the handout (the PDF: its cross-reference table, that it is plain ASCII, that the token
+  is written once and nothing else has its shape, the cells of its QR code; then the clipboard,
+  the QR code of the screen compared with one drawn by the same library for the same address, the
+  tick box), reads the key back from IndexedDB and checks it is not extractable, and comes back
+  eight ways: typed as shown, in lower case with spaces, without dashes and with `O` and `l`,
+  pasted with words around it, the PDF chosen, the PDF dropped, a text file of before the PDF, and
+  `/login#<token>`, then again from a browser that never saw it. It checks
   the page at 360 px, and what the page says without a secure context.
 - Both hold the test vector of §60.2.
 - By hand: the instance's three logs hold no token and no sign-in value after both scripts.
@@ -5226,8 +5243,9 @@ On a fresh local instance holding the Pacman subject, with a secure context:
   `external_check`, `audience_check`, `toggle_check`, `reset_check`, `jump_check`.
   `supervisor_check` fails the same two assertions as before (§58.4).
 
-Not checked by a script: a real phone scanning the QR code, and a real Windows Notepad opening the
-file.
+Not checked by a script: a real phone scanning the QR code, on the screen and on the printed
+page, and the PDF opened by the reader of a classroom computer (Edge, Acrobat). Ghostscript and
+MuPDF open it with no warning.
 
 ## 61. The token door is the front door (2026-11-10)
 

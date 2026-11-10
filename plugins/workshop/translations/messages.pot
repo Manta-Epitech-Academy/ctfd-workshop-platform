@@ -234,7 +234,7 @@ msgstr ""
 msgid "Misconfigured quiz, please report it"
 msgstr ""
 
-msgid "my-workshop-code.txt"
+msgid "my-workshop-code.pdf"
 msgstr ""
 
 #, python-format

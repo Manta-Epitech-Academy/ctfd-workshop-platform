@@ -31,7 +31,8 @@
 
   The QR library is loaded here and nowhere else: this is the only page that
   draws one. Without it (tools/build_vendor.sh not run) the script hides the
-  figure and the other two ways still work.
+  figure and the other two ways still work. assets/pdf.js writes the file
+  the download button gives: a PDF, made in the browser.
 #}
 <div class="ws-door" data-ws-door{% if authed() %} data-authed{% endif %}
      data-nonce="{{ Session.nonce }}"
@@ -44,7 +45,7 @@
      data-handout-title="{{ _('Here is your personal code') }}"
      data-handout-sub="{{ _('It is what lets you come back. Nobody can give it back to you: if you lose it, you start over.') }}"
      data-copied="{{ _('Copied!') }}"
-     data-file-name="{{ _('my-workshop-code.txt') }}"
+     data-file-name="{{ _('my-workshop-code.pdf') }}"
      data-file-workshop="{% trans title=workshop_title() %}Workshop: {{ title }}{% endtrans %}"
      data-file-address="{{ _('Address:') }}"
      data-file-code="{{ _('Your personal code:') }}"
@@ -63,8 +64,8 @@
       <div>
         <label class="form-label epi-login-label" for="ws-door-code">{% trans %}Your code{% endtrans %}</label>
         {# Nothing a browser might do to a code: no autofill, no correction,
-           and capitals on a phone keyboard. Long enough to take a whole file
-           pasted in by somebody who opened theirs. #}
+           and capitals on a phone keyboard. Long enough to take a whole
+           text pasted in by somebody who copied theirs out of the file. #}
         <input class="form-control epi-login-input ws-door-input" id="ws-door-code"
                type="text" maxlength="2000" autocomplete="off" autocorrect="off"
                autocapitalize="characters" spellcheck="false"
@@ -82,7 +83,8 @@
       <button type="button" class="ws-door-pick" data-ws-door-pick>
         <i class="fas fa-file-upload" aria-hidden="true"></i>{% trans %}I have a code file{% endtrans %}
       </button>
-      <input type="file" accept=".txt,text/plain" hidden data-ws-door-file>
+      {# A PDF since 2026-11; the text files handed out before still open. #}
+      <input type="file" accept=".pdf,.txt,application/pdf,text/plain" hidden data-ws-door-file>
     </p>
   </div>
 
@@ -128,4 +130,5 @@
 </div>
 
 <script defer src="/plugins/workshop/assets/vendor/qrcode.js"></script>
+<script defer src="/plugins/workshop/assets/pdf.js"></script>
 <script defer src="/plugins/workshop/assets/door.js"></script>

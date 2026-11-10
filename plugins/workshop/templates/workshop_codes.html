@@ -1,0 +1,303 @@
+{% extends "admin/base.html" %}
+
+{#
+  Registration codes (codes.py, PLAN.md §59). Admin-facing, so every string is
+  English like the rest of the platform UI.
+
+  One page for the whole life of a cohort: the code is made here before the
+  session, closed here after it, and its accounts are shut out or let back in
+  here. There is no edit: a code's facts are typed once. A wrong one is
+  deleted and made again while nobody has used it, which costs ten seconds,
+  and after that an edit would be a quiet rewrite of a cohort's history.
+#}
+
+{% block content %}
+<div class="jumbotron">
+  <div class="container">
+    <h1>Registration codes</h1>
+    <p class="lead mb-0">
+      One code per cohort. A participant types it at the door and gets an
+      account with no name and no e-mail.
+    </p>
+  </div>
+</div>
+
+<div class="container">
+  {% if notice == "created" %}
+    <div class="alert alert-success">Code <code>{{ subject }}</code> created.
+      Its state is in the table below.</div>
+  {% elif notice == "retired" %}
+    <div class="alert alert-success"><code>{{ subject }}</code> retired. It
+      admits nobody new; the accounts it already admitted are untouched.</div>
+  {% elif notice == "reopened" %}
+    <div class="alert alert-success"><code>{{ subject }}</code> reopened.</div>
+  {% elif notice == "banned" %}
+    <div class="alert alert-warning">Banned every account on
+      <code>{{ subject }}</code>, and retired the code so they cannot make new
+      ones with it. Both are undone here.</div>
+  {% elif notice == "deleted" %}
+    <div class="alert alert-success"><code>{{ subject }}</code> deleted. Nobody
+      had come in on it.</div>
+  {% elif notice == "unbanned" %}
+    <div class="alert alert-success">Un-banned every account on
+      <code>{{ subject }}</code>. The code is still retired: reopen it if it
+      should admit people again.</div>
+  {% endif %}
+
+  {% for error in errors %}
+    <div class="alert alert-danger">{{ error }}</div>
+  {% endfor %}
+
+  <div class="card mb-4">
+    <div class="card-body">
+      <h2 class="h5 card-title">New code</h2>
+
+      <form method="POST" id="ws-code-form">
+        <input type="hidden" name="nonce" value="{{ Session.nonce }}">
+        <input type="hidden" name="action" value="create">
+
+        <div class="form-row">
+          <div class="form-group col-md-4">
+            <label for="ws-code">Code</label>
+            <input type="text" class="form-control" id="ws-code" name="code"
+                   value="{{ form.get('code', '') }}" maxlength="64"
+                   autocomplete="off" spellcheck="false" required>
+            <small class="form-text text-muted">
+              What goes on the slide. The one proposed is random; a word of
+              your own is easier to say aloud and easier to guess.
+            </small>
+          </div>
+          <div class="form-group col-md-4">
+            <label for="ws-code-campus">Campus</label>
+            <input type="text" class="form-control" id="ws-code-campus"
+                   name="campus" value="{{ form.get('campus', '') }}" maxlength="128">
+          </div>
+          <div class="form-group col-md-4">
+            <label for="ws-code-event">Event</label>
+            <input type="text" class="form-control" id="ws-code-event"
+                   name="event" value="{{ form.get('event', '') }}" maxlength="128">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group col-md-3">
+            <label for="ws-code-date">Event date</label>
+            <input type="date" class="form-control" id="ws-code-date"
+                   name="event_date" value="{{ form.get('event_date', '') }}">
+          </div>
+          <div class="form-group col-md-3">
+            <label for="ws-code-content">Content</label>
+            <input type="text" class="form-control" id="ws-code-content"
+                   name="content" value="{{ form.get('content', '') }}" maxlength="64">
+            <small class="form-text text-muted">The subject of the day.</small>
+          </div>
+          <div class="form-group col-md-2">
+            <label for="ws-code-cap">Cap</label>
+            <input type="number" class="form-control" id="ws-code-cap"
+                   name="cap" min="1" value="{{ form.get('cap', '') }}">
+            <small class="form-text text-muted">Accounts, at most.</small>
+          </div>
+        </div>
+
+        {# One instant, two fields: the box is in the admin's own time zone and
+           the hidden field carries the same instant in UTC, filled on submit
+           by the script below (codes.py `_instant`). #}
+        <div class="form-row">
+          <div class="form-group col-md-3">
+            <label for="ws-code-from">Opens</label>
+            <input type="datetime-local" class="form-control" id="ws-code-from"
+                   name="valid_from_local" value="{{ form.get('valid_from_local', '') }}"
+                   data-ws-utc="valid_from">
+            <input type="hidden" name="valid_from">
+          </div>
+          <div class="form-group col-md-3">
+            <label for="ws-code-until">Closes</label>
+            <input type="datetime-local" class="form-control" id="ws-code-until"
+                   name="valid_until_local" value="{{ form.get('valid_until_local', '') }}"
+                   data-ws-utc="valid_until">
+            <input type="hidden" name="valid_until">
+          </div>
+          <div class="form-group col-md-6">
+            <label class="d-none d-md-block">&nbsp;</label>
+            <small class="form-text text-muted">
+              In your own time zone. Empty means no limit on that side.
+              Everything but the code is optional.
+            </small>
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Create</button>
+      </form>
+    </div>
+  </div>
+
+  <h2 class="h5">Cohorts</h2>
+  <p class="text-muted">
+    Each account keeps the code it came in on, so a cohort can be counted,
+    closed and shut out without touching another. On the scoreboard a
+    participant sees their own cohort only.
+  </p>
+
+  <table class="table table-striped">
+    <thead>
+      <tr>
+        <th>Code</th>
+        <th>Cohort</th>
+        <th>Accounts</th>
+        <th>State</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for code in codes %}
+        {% set users = cohorts.get(code.id, []) %}
+        {% set banned = users and users | selectattr("banned") | list | length == users | length %}
+        {% set state = states[code.id] %}
+        <tr>
+          <td><code>{{ code.code }}</code></td>
+
+          <td>
+            {{ code.label() or "—" }}
+            {% if code.content %}
+              <div class="small text-muted">content: {{ code.content }}</div>
+            {% endif %}
+            {% if code.valid_from or code.valid_until %}
+              <div class="small text-muted">
+                {% if code.valid_from %}
+                  opens <time datetime="{{ code.valid_from.isoformat() }}Z">{{ code.valid_from.strftime("%Y-%m-%d %H:%M") }} UTC</time>
+                {% endif %}
+                {% if code.valid_until %}
+                  closes <time datetime="{{ code.valid_until.isoformat() }}Z">{{ code.valid_until.strftime("%Y-%m-%d %H:%M") }} UTC</time>
+                {% endif %}
+              </div>
+            {% endif %}
+          </td>
+
+          <td>
+            {% if users %}
+              <details>
+                <summary>
+                  {{ users | length }}{% if code.cap %} of {{ code.cap }}{% endif %}
+                  account{{ "s" if users | length > 1 or code.cap }}
+                  {% if banned %}<span class="badge badge-danger">banned</span>{% endif %}
+                </summary>
+                <div class="pt-2">
+                  {% for user in users %}
+                    <a href="/admin/users/{{ user.id }}"
+                       class="badge {{ "badge-danger" if user.banned else "badge-light" }} mr-1">
+                      {{ user.name }}</a>
+                  {% endfor %}
+                </div>
+              </details>
+            {% else %}
+              <span class="text-muted">none yet{% if code.cap %}, {{ code.cap }} at most{% endif %}</span>
+            {% endif %}
+          </td>
+
+          <td>
+            {% if state == "open" %}
+              <span class="badge badge-success">admits people</span>
+            {% elif state == "early" %}
+              <span class="badge badge-info">not open yet</span>
+            {% elif state == "expired" %}
+              <span class="badge badge-secondary">closed by its window</span>
+            {% elif state == "full" %}
+              <span class="badge badge-secondary">full</span>
+            {% else %}
+              <span class="badge badge-secondary">retired</span>
+            {% endif %}
+          </td>
+
+          <td class="text-right">
+            <form method="POST" class="d-inline">
+              <input type="hidden" name="nonce" value="{{ Session.nonce }}">
+              <input type="hidden" name="action" value="{{ "reopen" if code.retired else "retire" }}">
+              <input type="hidden" name="id" value="{{ code.id }}">
+              <button type="submit" class="btn btn-sm btn-outline-secondary">
+                {{ "Reopen" if code.retired else "Retire" }}
+              </button>
+            </form>
+            {% if users %}
+              <form method="POST" class="d-inline"
+                    onsubmit="return confirm({{ (users | length ~ " account(s) on " ~ code.code ~ " will be " ~ ("un-banned." if banned else "banned, and the code retired.")) | tojson | forceescape }});">
+                <input type="hidden" name="nonce" value="{{ Session.nonce }}">
+                <input type="hidden" name="action" value="{{ "unban" if banned else "ban" }}">
+                <input type="hidden" name="id" value="{{ code.id }}">
+                <button type="submit" class="btn btn-sm {{ "btn-outline-success" if banned else "btn-outline-danger" }}">
+                  {{ "Un-ban" if banned else "Ban" }}
+                </button>
+              </form>
+            {% else %}
+              <form method="POST" class="d-inline">
+                <input type="hidden" name="nonce" value="{{ Session.nonce }}">
+                <input type="hidden" name="action" value="delete">
+                <input type="hidden" name="id" value="{{ code.id }}">
+                <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+              </form>
+            {% endif %}
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="5" class="text-muted">No code yet, so nobody can register at the door.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <h2 class="h5">What a code does</h2>
+  <ul>
+    <li><strong>It is typed by hand, so it is compared kindly.</strong> Case,
+      spaces and dashes do not count, and neither does the letter O for a zero
+      or I and L for a one. <code>LILLE-2026</code> and <code>lille 2026</code>
+      are one code.</li>
+    <li><strong>It is the cohort.</strong> Campus, event and date are what the
+      supervision pages call the room; a code with neither event nor date is
+      listed under the code itself.</li>
+    <li><strong>It is closed, not deleted.</strong> Retired by hand, outside
+      its window, or full: it admits nobody new and its accounts keep working.
+      A cap counts every account the code ever made, banned ones included.
+      Only a code nobody came in on can be deleted: the cohort is the code.</li>
+    <li><strong>Ban shuts a cohort out and retires its code.</strong> Banned
+      accounts cannot sign in and keep their progress, and the same button
+      lets them back. Without retiring the code they would simply register
+      again: an account here is nothing but a token. Deleting one account
+      stays under <a href="/admin/users">Users</a>. An account that has since
+      become an admin or a supervisor is skipped.</li>
+  </ul>
+
+  <h2 class="h5">What the door tells a stranger</h2>
+  <ul>
+    <li><strong>One answer for every refusal.</strong> Unknown, retired, not
+      open yet, full: the same message, so the door cannot be used to learn
+      which codes exist. The reason is in the <code>registrations</code> log.</li>
+    <li><strong>Wrong codes are counted, addresses are not.</strong> A text
+      that is not a code stops being looked up after 10 tries in 15 minutes,
+      and 300 wrong codes in one minute close the door to everybody until the
+      minute is over.</li>
+    <li><strong>That does not stop a patient guesser.</strong> A short word is
+      found by a list in time. Use the random code, or give a word a window
+      and a cap, when the instance holds something worth protecting.</li>
+  </ul>
+</div>
+
+<script>
+  // The window is typed in the admin's time zone and stored in UTC: the
+  // browser is the only party that knows which zone that is.
+  (function () {
+    var form = document.getElementById("ws-code-form");
+    form.addEventListener("submit", function () {
+      form.querySelectorAll("[data-ws-utc]").forEach(function (box) {
+        var hidden = form.querySelector('input[name="' + box.dataset.wsUtc + '"]');
+        var when = box.value ? new Date(box.value) : null;
+        hidden.value = when && !isNaN(when) ? when.toISOString() : "";
+      });
+    });
+    document.querySelectorAll("time[datetime]").forEach(function (el) {
+      var when = new Date(el.getAttribute("datetime"));
+      if (!isNaN(when)) {
+        el.textContent = when.toLocaleString(undefined,
+          {dateStyle: "medium", timeStyle: "short"});
+      }
+    });
+  })();
+</script>
+{% endblock %}

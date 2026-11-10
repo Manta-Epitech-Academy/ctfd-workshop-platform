@@ -4867,3 +4867,138 @@ green (`jump_check` with its 140 assertions, the §53 redirects included). `supe
 the same two assertions on both sides (`GET /api/v1/users/1 -> 200`), on an instance whose
 `account_visibility` is private. `scope.py`, `audience.py` and `landing.py` import nothing from
 `jump.py`.
+
+## 59. Registration codes: a cohort without Jump (2026-11-10)
+
+Jump used to say which room an account sat in (§50). Without Jump, a supervisor says it: they
+make a **registration code** before the session and put it on a slide. Every account made with it
+is in that code's cohort. This section is the server half of the new way in (issue #74). The page
+a lycéen sees is §60, and making it the front door is §61.
+
+**A code is the only thing a participant gives.** No name, no e-mail, nothing typed about
+themselves. That is the whole reason for this way in, so every choice below is checked against it.
+
+### 59.1 What a code is
+
+One row of `workshop_registration_code` (`codes.py`), made on `/admin/workshop/codes`:
+
+- **The code**, as it goes on the slide, and the key it is compared by. A code is typed by hand, so
+  the comparison forgives: case, spaces and dashes do not count, and `O` reads as `0`, `I` and `L`
+  as `1`. `LILLE-2026` and `lille 2026` are one code, so two codes that differ only that way cannot
+  both exist. Folded, a code is 6 to 24 letters and digits.
+- **What the cohort is**: campus, event, event date, content. All optional and all free text. They
+  are typed once by the admin instead of by thirty lycéens. The content is pre-filled with the slug
+  of the last sync.
+- **When it admits people**: an optional window (stored in UTC, typed in the admin's own time zone,
+  converted by the browser, which is the only party that knows the zone) and an optional cap on
+  the number of accounts.
+- **The form proposes a random code** (`K7QM-2XHD`, 40 bits, Crockford's alphabet). An admin may
+  type a word instead, and the page says what that costs.
+
+**The code is the cohort.** `codes.py` registers a cohort provider (§58): the audience of an
+account is its code, so two codes do not see each other on the scoreboard, in the users list or
+on a profile, even two codes of one campus. For the supervision pages a campus is what the code
+says (compared without case and outer spaces) and a room is one code, named by its event and
+date, or by the code itself when it has neither.
+
+**A code is closed, not deleted.** Retired by hand, outside its window, or full. A closed code
+admits nobody new and its accounts keep working. A code that has admitted somebody cannot be
+deleted, because that would orphan a cohort; the foreign key refuses it too. A code nobody came in
+on is a typo, and that one can be deleted. There is no edit: a wrong code is deleted and made
+again while it is unused, and after that an edit would rewrite a cohort's history.
+
+### 59.2 The two requests, and the one refusal
+
+- `POST /api/v1/workshop/door/code` with `{code}`: is this a code that admits people now? It
+  creates nothing. The door asks this before it shows a participant their token (§60), so nobody
+  saves a token for an account that could never exist.
+- `POST /api/v1/workshop/door/register` with `{code, signin}`: makes the account and signs the
+  browser in. `signin` is 32 bytes as hex, derived by the browser from the token (§60). Only its
+  SHA-256 is stored. The value is looked up before the code is, so a double press answers the same
+  account, even when the first press took the last place under the cap.
+
+Both are JSON and carry the session's CSRF nonce, like every write in CTFd.
+
+**Every refusal is one answer**: the same status and the same body, byte for byte, for a code that
+is unknown, retired, early, expired or full, for a banned account, and for a malformed request.
+« Ce code n'est pas valable. Vérifie-le ou demande le bon code à ton encadrant. » The door cannot
+be used to learn which codes exist. The reason goes to the `registrations` log, for the admin
+asked "why does my code not work". The log line never carries what was typed (a box on a page
+with no name field is where a lycéen would type a name) and never an address.
+
+### 59.3 The account
+
+- **A generated name**, « Renard-Bleu-42 » (`names.py`): a French animal, a colour, a number. The
+  lists are chosen so no pair needs agreement and none lands badly on a teenager. They are not
+  translated: a name is stored once and read by everybody, so it is data.
+- **A synthetic address** under `.invalid`, 32 random hex characters. CTFd wants the column filled
+  and unique; this can never receive anything and says nothing about anybody.
+- **No password.** Core's own login form refuses an account without one, so the token is the only
+  way in.
+- One row of `workshop_token_account`: the user, the code, the SHA-256 of the sign-in value.
+- **A cap holds under load.** The code's row is locked while its accounts are counted, in a
+  transaction opened for that, so a cap of 30 admits 30 when 40 press together. CTFd's own
+  `num_users` limit is honoured too.
+
+### 59.4 The throttle, and what it does not stop
+
+It counts **wrong codes, not addresses**. A classroom is one address and thirty lycéens are not an
+attacker; and an address is the one thing about a participant this door has no reason to read.
+
+- **Per text**: a text that is not a code stops being looked up after 10 tries in 15 minutes. That
+  is the slide with a typo, read by a whole room. Creating a code clears its counter, since a room
+  may have started typing before the admin pressed Create.
+- **The brake**: 300 wrong codes in one minute, whatever they were, and the door refuses every
+  code, right ones included, until that minute is over.
+- A real code that is closed is not counted. A room typing the right code five minutes early must
+  not lock the door on itself.
+
+What this does **not** stop, said here rather than hidden:
+
+- **A slow guesser.** Under 300 tries a minute nothing slows a list of words down. A short word
+  will be found. The protection is the code itself (the random one has 40 bits), a validity window
+  and a cap. What a guessed code buys is an empty account in that cohort, nothing of anybody else.
+- **Somebody holding a real code making accounts in a loop.** Only a cap, the window or
+  `num_users` stops that. A code on a slide is known to the room, by design.
+- **Somebody closing the door on purpose.** 300 requests a minute keep new registrations out for
+  as long as they are sent. People already signed in are not concerned, and it ends a minute after
+  the requests do. Throttling by address would cure this and bring back the address; an instance
+  that meets it should be put behind its ingress's own rate limit.
+
+Signing in with a token is not throttled at all (§60): the value is 256 bits.
+
+### 59.5 Banning a cohort
+
+The admin page bans every account of a code and lets them back, like the external door's page
+does (§42), through one shared helper (`accounts.ban_accounts`, which skips admins and
+supervisors). **Banning retires the code too**: these accounts are nothing but a token, so with
+the code still open a banned lycéen would be back with a new account before the page reloaded.
+Un-banning does not reopen the code; that is a second, deliberate press.
+
+The external door's page keeps its own revoke button. That door is retired later (#77), not here.
+
+### 59.6 Rejected
+
+- **A campus list** to pick from. It would be a second copy of Jump's list to keep in step, for a
+  label.
+- **Deleting a used code.** The cohort is the code.
+- **A different message per reason** ("this code is full"). Kinder, and an oracle.
+- **Counting tries per address.** See §59.4.
+- **CTFd's own registration code** (`registration_code`). One code per instance, checked by a form
+  that asks for a name, an e-mail and a password.
+
+### 59.7 Checked
+
+`scripts/registration_check.py <base-url> <admin-pass>`, 83 assertions, green on a fresh local
+instance holding the Pacman subject. It creates codes, admits accounts on each and reads every
+surface as each cohort; retires, reopens, bans and un-bans; compares every refusal byte for byte;
+sends nine registrations at once to a cap of three; types one typo 350 times (the door stays
+open), then 300 different wrong codes (the door closes) and waits for it to open again. It deletes
+what it made.
+
+The scripts that were green before are green after, with the same counts: `external_check`,
+`audience_check`, `toggle_check`, `reset_check`, `jump_check`. `supervisor_check` fails the same
+two assertions as before (§58.4).
+
+Not checked by a script: `num_users`, and the admin page's time-zone conversion, which was checked
+by hand in a browser set to Europe/Paris (09:00 typed, 08:00 UTC stored).

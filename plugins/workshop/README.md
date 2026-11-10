@@ -217,6 +217,28 @@ codes and the token door (§59, §60), and Jump (both).
 To add a way in: write its module, subclass the two classes, call the two `register()` from its
 `load_*`, and place that call in `__init__.py` where its precedence belongs.
 
+## Registration codes (PLAN.md §59)
+
+A cohort without Jump. An admin makes a code at `/admin/workshop/codes` and puts it on a slide;
+every account made with it is in that code's cohort. **The code is all a participant gives**: the
+account gets a generated name (`names.py`, « Renard-Bleu-42 »), a random address under `.invalid`
+and no password.
+
+- **A code carries the cohort's facts**: campus, event, date, content, an optional window and an
+  optional cap. It is compared forgivingly (case, spaces, dashes, `O`/`0`, `I`/`L`/`1`).
+- **The code is the cohort**, through a cohort provider (§58): the wall of `audience.py` and the
+  room picker of the supervision pages work with no Jump.
+- **Closed, not deleted**: retired, outside its window, or full. Only a code nobody came in on can
+  be deleted. Banning a cohort retires its code and is undone from the same page.
+- **Two JSON requests**, `POST /api/v1/workshop/door/code` and `.../door/register`. The page that
+  sends them is the token door (§60). Every refusal is the same status and body.
+- **The throttle counts wrong codes, not addresses**, in the cache. What it does not stop is
+  written in PLAN.md §59.4: read it before giving a short word as a code.
+
+Tables: `workshop_registration_code`, `workshop_token_account` (migration `c5d81e4a7f30`).
+`scripts/registration_check.py <base-url> <admin-pass>` walks all of it and puts the instance
+back; it closes the door for up to a minute while it runs.
+
 ## Supervisors (PLAN.md §32)
 
 The people running the room, without the admin panel. CTFd has two user types and no group
@@ -417,6 +439,12 @@ contract shared with the Jump repository; changing either half means changing bo
   supervisor and for an erased Jump talent alike, is `accounts.py`, which does it the way core's
   `DELETE /api/v1/users/<id>` does: the list of tables it clears first is copied from
   `api/v1/users.py` and has to follow it.
+- **`codes.py` is the third piece of authentication code** (PLAN.md §59). It makes a `Users` row
+  with no password and signs it in with `login_user` (through `doors.sign_in`). It leans on three
+  things in core: a JSON write is refused without the session's `CSRF-Token`, an anonymous session
+  has a nonce, and core's own login form refuses an account whose password is NULL. The last one
+  is what keeps a token account closed to anybody without the token: check it after an upgrade
+  (`scripts/registration_check.py` does).
 - **`audience.py` names core endpoints by their Flask endpoint name** (`api.users_user_list`,
   `api.challenges_challenge_solves`, …). flask-restx derives those from the namespace and the
   resource class, so a renamed class upstream silently stops being filtered: after a CTFd upgrade,

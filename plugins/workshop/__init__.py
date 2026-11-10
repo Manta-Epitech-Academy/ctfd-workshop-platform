@@ -37,6 +37,7 @@ from .jumpqueue import load_jump_queue
 from .external_links import load_external_links
 from .staff import load_staff
 from .external import load_external
+from .codes import load_codes
 from .audience import load_audience
 from .scope import load_scope
 from .stats import load_stats
@@ -74,10 +75,10 @@ def load(app):
     # upgrade_plugin below). Registered first so every blueprint below renders
     # through it.
     _load_translations(app)
-    # Creates the plugin's missing tables (quiz, workspace, the two Jump
-    # tables). Idempotent — existing tables are untouched — and kept even
-    # though migrations now exist, because the quiz and workspace tables
-    # predate them and are in no revision.
+    # Creates the plugin's missing tables (quiz, workspace, the Jump tables,
+    # the registration codes). Idempotent — existing tables are untouched —
+    # and kept even though migrations now exist, because the quiz and
+    # workspace tables predate them and are in no revision.
     app.db.create_all()
     # And the ledger, for everything create_all() cannot do. It never issues an
     # ALTER, so the first column any of these tables gains later would surface
@@ -111,6 +112,11 @@ def load(app):
     # (PLAN.md §42). After `load_staff`, whose `account_errors` it reuses.
     load_external(app)
     register_admin_plugin_menu_bar("External access", "/admin/workshop/external")
+    # Registration codes: the cohorts of an instance that runs without Jump
+    # (PLAN.md §59). Here, between the external door and Jump, because the
+    # order the ways in load in is the order an account is claimed in.
+    load_codes(app)
+    register_admin_plugin_menu_bar("Registration codes", "/admin/workshop/codes")
     # Several populations, each seeing only its own: the external cohorts
     # (PLAN.md §43) and the Jump sessions (§50). It names neither: each way
     # in registers a cohort provider as it loads (cohorts.py, §58), and the

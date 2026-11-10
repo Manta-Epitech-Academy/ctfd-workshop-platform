@@ -403,6 +403,11 @@ msgstr "Le glossaire de cette étape est dans la boîte à outils."
 msgid "The workshop is not open yet"
 msgstr "L'atelier n'est pas encore ouvert"
 
+msgid "This code is not valid. Check it or ask your supervisor for the right one."
+msgstr ""
+"Ce code n'est pas valable. Vérifie-le ou demande le bon code à ton "
+"encadrant."
+
 msgid ""
 "This creates a local supervisor account, not a Jump one. To sign in again "
 "later, go to %(link)s."

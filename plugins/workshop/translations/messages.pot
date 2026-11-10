@@ -391,6 +391,9 @@ msgstr ""
 msgid "The workshop is not open yet"
 msgstr ""
 
+msgid "This code is not valid. Check it or ask your supervisor for the right one."
+msgstr ""
+
 msgid ""
 "This creates a local supervisor account, not a Jump one. To sign in again "
 "later, go to %(link)s."

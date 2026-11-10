@@ -556,39 +556,59 @@ def main():
     check("epi-login-credit" in talent and "epi-login-credit" in staff,
           "both doors carry the credit core's hidden footer used to")
     # The header's Login button links to the page it would sit on. Present
-    # on the anonymous front page, so its absence here is the login page's
-    # doing (navbar.html) and not a header that lost it everywhere.
-    front = anon.get(base + "/", timeout=20).text
-    check("epi-cta-on-band" in front
+    # on another anonymous page, so its absence here is the login page's
+    # doing (navbar.html) and not a header that lost it everywhere. Core's
+    # notifications page, which anybody may read: `/` is no longer a page of
+    # its own (PLAN.md §61).
+    other = anon.get(base + "/notifications", timeout=20)
+    check(other.url.endswith("/notifications") and "epi-cta-on-band" in other.text
           and "epi-cta-on-band" not in talent and "epi-cta-on-band" not in staff,
           "the header drops its Login button on the login page, and only there")
 
-    # -- the front door, where Jump is the only way in (landing.py, §53) ---
-    print("== where Jump is the only way in, an anonymous visitor is sent there ==")
+    # -- the front door (landing.py, PLAN.md §61, which takes back §53) ----
+    print("== Jump is a button under the token door, never a redirect ==")
     def lands(path):
         r = anon.get(base + path, timeout=20, allow_redirects=False)
         return r.status_code, r.headers.get("Location", "")
 
-    check(lands("/")[0] == 200 and lands("/login")[0] == 200,
-          "an instance that lets people register keeps its front door")
+    def to_jump(where):
+        return where.startswith(PUBLIC_A) or where.startswith(origin)
+
+    # Every anonymous address a visitor can type or be bounced to. With two
+    # keys, with one, with registration open and closed: §53 sent a visitor
+    # on when registration was closed and there was one Jump to go to, so
+    # that corner is the one that has to be walked.
+    ASKED = ("/", "/login", "/login?next=%2Fworkshop", "/workshop",
+             "/scoreboard", "/notifications", "/logout", "/register", "/admin")
+    for label, configs in (
+            ("two keys, registration open", {}),
+            ("two keys, registration closed",
+             {"registration_visibility": "private"}),
+            ("one key, registration closed",
+             {"workshop_jump_keys": json.dumps({KID_A: keys[KID_A]})}),
+            ("one key, registration open",
+             {"registration_visibility": "public"})):
+        if configs:
+            admin.set_configs(configs)
+        sent = [(path, where) for path in ASKED
+                for where in [lands(path)[1]] if to_jump(where)]
+        check(not sent, f"{label}: no page sends an anonymous visitor to Jump {sent}")
+        status, where = lands("/")
+        check(status == 302 and where.endswith("/login"),
+              f"{label}: / leads to the login page ({status} {where})")
+        r = anon.get(base + "/login", timeout=20, allow_redirects=False)
+        door, button = r.text.find("data-ws-door-form"), r.text.find(f'href="{PUBLIC_A}"')
+        check(r.status_code == 200 and 0 <= door < button,
+              f"{label}: which is drawn, the token door first and the Jump "
+              f"button under it")
     admin.set_configs({"registration_visibility": "private"})
-    status, where = lands("/")
-    check(status == 302 and where.endswith("/login"),
-          f"with two Jumps, / leads to the choice between them ({status} {where})")
-    check(lands("/login")[0] == 200, "which is drawn, not chosen")
-    admin.set_configs({"workshop_jump_keys": json.dumps({KID_A: keys[KID_A]})})
-    for path in ("/", "/login", "/login?next=%2Fworkshop"):
-        status, where = lands(path)
-        check(status == 302 and where == PUBLIC_A,
-              f"with one Jump, {path} goes straight to its public origin "
-              f"({status} {where})")
     staff = anon.get(base + "/login?staff=1", timeout=20, allow_redirects=False)
     check(staff.status_code == 200 and 'name="password"' in staff.text,
           "the staff form stays, for every account a password opens")
     status, where = lands("/admin")
     check(status == 302 and where.endswith("/login?staff=1"),
-          f"a bare /admin goes to the staff form, not to Jump, and with no "
-          f"`next` a supervisor could not follow ({where})")
+          f"a bare /admin goes to the staff form, with no `next` a supervisor "
+          f"could not follow ({where})")
     check(lands("/login?next=/admin/workshop/stats")[0] == 200,
           "and so does an admin page bounced to the login")
     # Every hook reads the switch: guard_routes only covers the plugin's own

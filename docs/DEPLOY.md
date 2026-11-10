@@ -254,7 +254,7 @@ few minutes per runtime:
 tools/build_vendor.sh                          # PyYAML + openpgp.js for the sync page
 python3 tools/provision.py runtimes            # tic80, pacman, v86, miniasm
 python3 tools/provision.py up
-python3 tools/provision.py setup               # wizard + registration code
+python3 tools/provision.py setup               # wizard + settings
 python3 tools/provision.py sync                # import the content
 ```
 
@@ -272,8 +272,13 @@ python3 tools/provision.py secrets
 
 `provision.py setup` writes it from the manifest, so there is nothing extra to
 run: `mode: self_serve` on an instance means its checkpoint steps validate with
-a button and its registration is open, `instructor_led` (the default) means the
-instructor's code and a shared registration code.
+a button, `instructor_led` (the default) means the instructor's code.
+
+**Either way nobody can come in until a registration code exists.** `setup`
+closes core's registration form in both modes; the way in is the token door
+(PLAN.md §60, §61), and its codes are made on `/admin/workshop/codes`, one per
+cohort, with a campus, a date and an event (§59). A self-serve instance takes
+one too: a private code, given to whoever should get in.
 
 To change it on a **running** instance, use `/admin/workshop/settings` rather
 than re-provisioning. Nothing is re-imported, no solve moves, and the codes stay
@@ -290,9 +295,9 @@ curl -s -H "Authorization: Token <admin token>" -H 'Content-Type: application/js
 An instance that has never had the key set reads as `instructor_led`, which is
 what every instance deployed before 2026-08-25 in fact was.
 
-**Registration follows the mode at provisioning only.** Flipping the setting
-does not open or close registration — that would be a surprising way to open the
-doors on a running instance. Change it in Config → Registration.
+**Registration does not follow the mode.** Flipping the setting does not open
+or close anything: the registration codes of `/admin/workshop/codes` admit
+people in both modes (PLAN.md §61).
 
 
 ## 6c. Syncing content from the admin panel
@@ -710,8 +715,8 @@ sync page — the example overlay carries it.
   no XP arrive. Set the key's **Server address** on `/admin/workshop/jump` to
   Jump's Service, `http://jump-sk-service.jump-prod.svc.cluster.local:3030`
   for `jump-prod` (`jump-dev` for the dev Jump), and leave **Origin** on the
-  public address: it is what the front door and the login page send a talent
-  to (PLAN.md §52, §53).
+  public address: it is what the login page's Jump button sends a talent
+  to (PLAN.md §52, §61).
 - **A plugin change needs a container restart.** `plugins/workshop/` is bind
   mounted, but Python imports it once at boot. `docker restart ctfd-<name>-ctfd-1`.
 - **Any change made to the database behind CTFd's back needs a cache flush.**
@@ -731,9 +736,9 @@ sync page — the example overlay carries it.
   asked for, not shown and not sent to any client — they are what makes
   switching the instance back to instructor-led work. Do not delete them
   because "self-serve does not need codes".
-- **The mode is not what opens registration.** `provision.py setup` derives one
-  from the other, but the runtime toggle only changes how a step is validated.
-  An instance flipped to self-serve keeps whatever registration it had.
+- **The mode is not what opens registration.** It only changes how a step is
+  validated. A self-serve instance is entered with a registration code like
+  any other (PLAN.md §61): no code on `/admin/workshop/codes`, no way in.
 - **The codes an instance actually accepts are on the instance.**
   `/admin/workshop/answers` lists every step's answer as that instance will
   take it, plus how far each participant has got. That is the sheet to open in

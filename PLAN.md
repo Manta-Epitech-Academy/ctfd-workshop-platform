@@ -2128,6 +2128,9 @@ nothing. The box label is platform copy, so it is English ("In short") over Fren
 
 ### 25.8 Registration follows the mode
 
+*Reversed by §61 (2026-11-10): a self-serve instance takes a registration code too, a private one,
+and registration no longer follows the mode.*
+
 **Resolved with the user 2026-08-25: self-serve needs no registration code.** A code exists to keep an
 instance on the open internet from filling with strangers, which is the correct goal for a session and
 the wrong one for a workshop meant to be found. So: `instructor_led` keeps `registration_code`;
@@ -4551,6 +4554,9 @@ its server address, and key B with the sink as its origin and no server address:
 
 ## 53. The front door belongs to Jump (2026-10-14)
 
+*Taken back by §61 (2026-11-10): no page sends a visitor to Jump any more. What §53.2 says about
+the doors a password opens still holds.*
+
 Where Jump is the way in, a talent who reached an instance by its address (a URL a campus shared, a
 bookmark, a session that expired) used to read two pages before the activity: the instance's index,
 which restated what the activity is, and the talent door of `/login`, whose one button sent them to
@@ -4848,7 +4854,7 @@ template fragment, the line under the title, the label of the link back from the
 - `login.html` includes the fragment of every open door. `login_is_staff()` moved here from
   `jump.py`, unchanged.
 - `takeover` exists only to carry §53 through this refactor: Jump's door answers with Jump's
-  address when Jump is the only way in. §61 removes it.
+  address when Jump is the only way in. §61 removes it. *(Removed, with §53's rule.)*
 - The external door is **not** a `Door`. Its address is half its secret (§42), so nothing
   participant-facing may point at it.
 
@@ -5199,3 +5205,131 @@ On a fresh local instance holding the Pacman subject, with a secure context:
 
 Not checked by a script: a real phone scanning the QR code, and a real Windows Notepad opening the
 file.
+
+## 61. The token door is the front door (2026-11-10)
+
+§60 drew the token door on the participant side of `/login`. This section makes that page the
+front of the instance, and takes back two earlier decisions that stood in its way: §53, which sent
+an anonymous visitor to Jump, and §25.8, which opened a self-serve instance to anybody.
+(Issue #76.)
+
+### 61.1 The rule
+
+**An anonymous GET on `/` is answered with a redirect to `/login`**, whenever the plugin is switched
+on (`landing.py`, `anonymous_to_door`). Nothing else is read: not the mode, not core's registration
+setting, not whether a Jump key is configured. `/login` opens on the participant side, and the
+first thing on it is the token door, which is always open (§60).
+
+The index page is skipped on purpose. It had nothing to say to somebody who is not in yet that the
+door's own panel does not say, and it was one more page between a lycéen and the box they came to
+type a code in. Its document is still read: it is the Intro of the workshop page, once signed in.
+
+Signed in, `/` goes to the workshop as before (`root_to_workshop`, unchanged). Switched off (§39),
+`/` is core's index again and `/login` is core's form: every hook reads the switch.
+
+### 61.2 Jump is a button, never a redirect
+
+§53 is taken back. `jump_is_the_way_in()`, `talent_door()` and `Door.takeover` are gone, and with
+them the only code that answered a request with another site's address before anybody clicked.
+
+- A configured Jump key draws its button on the login page, under the token door, after a ruled
+  "ou" (`workshop_jump_door.html`, one button per key as before). That is all it does to an
+  anonymous visitor.
+- A talent who arrives from Jump through `/jump/enter` is signed in without seeing any of this.
+  Nothing changes for them.
+- A talent who arrives by the instance's address reads the token door first and finds Jump's
+  button under it. §53 existed to spare them that page. With Jump paused, the page they were
+  spared is the only one that works.
+
+**Why not keep the redirect for an instance that has a Jump key?** Because the reason to redirect
+was "Jump is the only way in", and that is never true again: the token door is open on every
+instance. And because a redirect to a site that is down is a dead end that the instance cannot see
+and cannot explain.
+
+When the Jump code moves to its own plugin (#86), this is what it brings with it: a door that
+registers itself and is drawn. It has no hook to take the front page with.
+
+### 61.3 Self-serve takes a private code
+
+§25.8 said a self-serve instance sets registration public with no code, because it is "meant to be
+found". That is reversed.
+
+- **The way in is the same in both modes**: a registration code typed on the token door. The mode
+  now only says how a checkpoint step is validated (§25.3).
+- **A self-serve code is a private code**: made on `/admin/workshop/codes` like any other, with no
+  closing date if the instance is meant to stay up, and given to whoever should get in. It is still
+  a cohort (§59): the people who came in with it are together on the scoreboard and on the
+  supervision pages.
+- **No code, no way in.** An instance on which nobody made a code admits nobody. That is the
+  right failure for a site whose admin password is the only thing an attacker has to find.
+
+Why the reversal: an open instance needs a form anybody can fill, and the only form core has asks
+for a name, an e-mail address and a password. The point of §59 and §60 is an instance that holds
+none of the three. A code costs the organiser one line on a slide or in a message.
+
+**Core's own registration form is closed by configuration, not by this plugin.**
+`tools/provision.py setup` writes `registration_visibility: private` and empties core's
+`registration_code` in both modes, at the wizard and again on every re-run, so an instance set up
+before this section is closed by the next `setup`. The k8s overlay already presets `private`.
+`registration:` is gone from `deploy/instances.yaml`, and an entry that still carries it stops
+`provision.py` with a sentence saying why. Provisioning makes no registration code: a code names a
+campus, a date and an event, and that is a session's business, not a deploy's. `setup` ends by
+printing where to make one.
+
+### 61.4 What a password opens is where it was
+
+§53.2 still holds, word for word: the staff form at `/login?staff=1` and every case
+`login_is_staff()` opens it on, a bare `/admin` sent to the staff form with no `next`, the
+supervisor join, the external join, `/jump/enter`.
+
+Two of §53.3's costs are gone:
+
+- **Logging out lands on the token door**, on the instance, not on Jump.
+- **A session that expired on `/workshop` stays on the instance**: it is sent to
+  `/login?next=/workshop`, the token door. The door does not read `next`: once in, a participant
+  goes to the workshop page (`after_entry()`, §59), the only page a participant's deep link
+  leads to. The staff form still honours `next`, as core does.
+
+Two stay, in a milder form. A password account that is not staff (a supervisor, an external
+participant) still has no box of its own on the participant side: its way back is the "Staff
+sign-in" link at the bottom of that page, one click, where §53 left it no link at all.
+
+### 61.5 Rejected
+
+- **Keeping `/` as a page, with a button to the door.** One more page and one more click, for a
+  text the door's panel already carries.
+- **Drawing the token door on `/` itself.** Two addresses for one page, and core re-renders
+  `login.html` at `/login` after a failed staff sign-in anyway.
+- **Keeping the redirect to Jump behind a setting.** A setting nobody would switch on while Jump
+  is paused, and a second front door to keep tested.
+- **Closing core's `/register` from the plugin** (a hook answering 404 whatever the setting). It
+  would make the plugin override a core setting an admin can see and change, and the external door
+  (§43, retired later by #77) is a second form that asks for a name anyway. Until #77, "no name on
+  this instance" is a matter of configuration: core registration private, no external code set.
+- **Provisioning a default registration code.** A code with no campus, no date and no event is
+  the shared code of §25.8 again, and it would be the same on every instance.
+
+### 61.6 Checked
+
+On a fresh local instance holding the Pacman subject:
+
+- `scripts/front_door_check.py <base-url> <admin-pass>`, 49 assertions. In both modes, with
+  core's registration closed and open: `/` answers 302 to `/login`, that page is the token door
+  with no name, no e-mail and no password on it, and the door takes a registration code. In
+  self-serve mode an account is refused without a code, made with one, sent from `/` to the
+  workshop, lands on the door when it logs out and is opened again by its token from another
+  browser. Then with one Jump key and registration closed, the corner §53 redirected in: fourteen
+  anonymous addresses are asked, none answers with a redirect off the instance, each followed to
+  its end stays on the instance, and the login page draws the Jump button under the token door
+  with no refresh in it. Then the staff form, a bare `/admin`, a wrong password, the supervisor
+  join. Then the plugin switched off and on.
+- `scripts/jump_check.py`: its §53 section is rewritten to the same rule (two keys and one key,
+  registration open and closed: no page sends an anonymous visitor to Jump, `/` leads to the login
+  page, the token door comes first). 146 assertions, green.
+- The scripts that were green before are green after: `registration_check`, `token_door_check`,
+  `token_door_browser_check.js`, `external_check`, `audience_check`, `toggle_check`,
+  `reset_check`. `supervisor_check` fails the same two assertions as before (§58.4).
+
+Not checked: `tools/provision.py setup` against a compose deploy. The local instances of this work
+are k3s ones, set up by `PRESET_CONFIGS` as on the cluster, so the provisioning change is read and
+linted, not run.

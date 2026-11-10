@@ -202,9 +202,9 @@ on the participant side, `/login?staff=1` on core's form. The participant side i
 door (PLAN.md §60), one box and one button, then the "Continuer avec Jump" button where a Jump key
 is configured. The first door names the page: the title is its "Entre ton code", not "Connexion".
 `login_is_staff()` (`doors.py`) also opens the staff door when the participant one would be wrong:
-a failed attempt being re-rendered, an admin page in `next`. Where Jump is the only way
-in and there is one Jump to go to, the participant side is never drawn: `landing.py` sends the
-visitor straight on (PLAN.md §53). The form column copies
+a failed attempt being re-rendered, an admin page in `next`. An anonymous visitor to `/`
+lands on the participant side (`landing.py`, PLAN.md §61), so this page is the first thing a
+participant sees, and no door ever sends them to another site by itself. The form column copies
 `jump`'s login rather than the platform's defaults: small uppercase muted labels, 3rem fields, a
 3rem bold call to action (`.btn.epi-login-btn`, geometry only, colour from `.btn-primary`), no
 required-field `*`. The header's own Login CTA is dropped on this page, which it would link to.

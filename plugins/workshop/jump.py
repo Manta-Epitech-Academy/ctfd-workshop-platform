@@ -57,7 +57,7 @@ what keeps a dev talent off a production scoreboard when one instance serves
 
 **Two parties reach Jump, and not at the same address** (PLAN.md §52).
 `origin` is Jump's public address: the one a talent's browser is sent to from
-this instance's front door (`talent_door()`) and its login page, and the one
+this instance's login page (the Jump button), and the one
 the declaration calls are printed with, since an admin runs those from their
 own machine. `server_origin` is where this server posts progress and asks
 about erasures, when it can reach Jump more directly than through the public
@@ -143,8 +143,6 @@ from sqlalchemy.exc import IntegrityError
 from CTFd.cache import cache
 from CTFd.models import Users, db
 from CTFd.utils import get_config, set_config
-from CTFd.utils.config.integrations import mlc_registration
-from CTFd.utils.config.visibility import registration_visible
 from CTFd.utils.decorators import admins_only
 from CTFd.utils.logging import log
 from CTFd.utils.user import get_ip
@@ -441,44 +439,6 @@ def jump_enabled():
     """Is there a configured way in? Read by login.html."""
     return (workshop_enabled() and bool(jump_keys())
             and bool(instance_slug()))
-
-
-def jump_is_the_way_in():
-    """Is Jump the only way a participant gets into this instance? (§53)
-
-    It is when a Jump door is configured and the instance offers no
-    registration of its own. Then the front door (`/`) and the talent door of
-    `/login` have nothing to offer a participant that Jump does not do better,
-    since the copy that presents an activity lives on Jump, and landing.py
-    sends an anonymous visitor straight on.
-
-    Read off the configuration the instance already has rather than off a
-    setting of its own: an instance that lets people register (a self-serve
-    one, an instructor-led one with a code) serves participants who never
-    went through Jump, and its front door is theirs.
-
-    Registration is core's form or Major League Cyber's, asked separately
-    because core's `registration_visible()` is false for `"mlc"`: an MLC
-    instance's participants sign in from the login page and its error
-    messages are flashed there, so it keeps it.
-    """
-    return jump_enabled() and not (registration_visible() or mlc_registration())
-
-
-def talent_door():
-    """The Jump an anonymous talent is sent to, or None when there are several.
-
-    With one key, its public `origin`, never `server_origin()`: this address is
-    followed by a browser. With several, the instance really does serve
-    several Jumps and choosing one would send the others' talents to the wrong
-    door (the reason login.html draws a button per key), so the talent door is
-    drawn as the choice it is.
-    """
-    keys = jump_keys()
-    if len(keys) != 1:
-        return None
-    (key,) = keys.values()
-    return key["origin"]
 
 
 def derived_key(secret, purpose):
@@ -1116,6 +1076,9 @@ class JumpDoor(Door):
     A talent is not supposed to reach that page at all: they arrive on
     `/jump/enter` already signed in. The ones who do are the ones who
     bookmarked the URL or were sent it, and the button is their way back.
+
+    A button and nothing more: this instance never sends a visitor to Jump
+    by itself (PLAN.md §61, which takes back §53).
     """
     name = "jump"
     template = "workshop_jump_door.html"
@@ -1124,17 +1087,6 @@ class JumpDoor(Door):
 
     def open(self):
         return jump_enabled()
-
-    def takeover(self, front):
-        """Where Jump is the only way in, an anonymous visitor is sent to it
-        (§53): from `/` and from the participant side, straight to the one
-        Jump this instance answers to, or, when it answers to several, from
-        `/` to the login page, which is then the choice between them."""
-        if not jump_is_the_way_in():
-            return None
-        if front:
-            return talent_door() or url_for("auth.login")
-        return talent_door()
 
 
 def load_jump(app):

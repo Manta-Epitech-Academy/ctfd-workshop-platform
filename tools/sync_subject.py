@@ -97,8 +97,8 @@ class CTFdAdmin:
         return m.group(1)
 
     def _login(self, user, password):
-        # The staff form: the bare /login can send an anonymous visitor on to
-        # Jump, where there is no nonce to read (PLAN.md §53).
+        # The staff form: the bare /login is the participants' door, which
+        # has no password box (PLAN.md §61).
         nonce = self._nonce("/login?staff=1")
         self.s.post(self.base + "/login", data={
             "name": user, "password": password, "nonce": nonce, "_submit": "Submit"})

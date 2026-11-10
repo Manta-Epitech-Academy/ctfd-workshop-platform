@@ -128,7 +128,8 @@ switch.
 provisioning and flippable at `/admin/workshop/settings`. It decides one thing: whether a
 `checkpoint` step asks for the code an instructor reads out, or offers a button because there
 is nobody to ask. `mode.py` is the only reader; `quiz.py` consults it at submit time and
-`page.py` at render time, so a flip needs no re-sync and moves no solve.
+`page.py` at render time, so a flip needs no re-sync and moves no solve. It does not decide who
+may come in: both modes are entered with a registration code (PLAN.md §61).
 
 The code is stored on the challenge either way and is never serialized to a client, which is
 what makes the flip reversible. `checkpoint.py` carries the two admin-only routes the importer
@@ -265,6 +266,24 @@ participant side of `/login` (`tokendoor.py`, `templates/workshop_token_door.htm
 No table of its own. `scripts/token_door_check.py <base-url> <admin-pass>` holds the server's
 half and `scripts/token_door_browser_check.js <base-url> <admin-pass>` the page's (Playwright).
 
+## The front door (PLAN.md §61)
+
+An anonymous visitor to `/` is sent to `/login`, whose participant side is the token door
+(`landing.py`, `anonymous_to_door`). The mode, core's registration setting and Jump's keys
+change nothing about it.
+
+- **No page sends a visitor to another site.** A configured Jump key draws a button under the
+  token door and that is all: the redirect of §53 is gone, with `Door.takeover`.
+- **Self-serve takes a code too**, a private one made on `/admin/workshop/codes`. An instance
+  with no code admits nobody.
+- **Core's own `/register` is closed by configuration**: `tools/provision.py setup` writes
+  `registration_visibility: private` and empties core's `registration_code` in both modes, and
+  the k8s overlay presets the same. The plugin does not override the setting.
+- **Staff are where they were**: `/login?staff=1`, a bare `/admin` sent to it, the supervisor and
+  external joins.
+
+`scripts/front_door_check.py <base-url> <admin-pass>`.
+
 ## Supervisors (PLAN.md §32)
 
 The people running the room, without the admin panel. CTFd has two user types and no group
@@ -334,7 +353,8 @@ answer, not a permission, and is not skipped. `scripts/skip_code_check.py`.
 
 ## The way in from Jump (PLAN.md §31)
 
-Jump is the only door into a workshop instance. `jump.py` verifies a short HMAC-signed ticket at
+Jump is one door into a workshop instance, and not the front one any more (PLAN.md §61): on the
+login page it is a button under the token door. `jump.py` verifies a short HMAC-signed ticket at
 `GET /jump/enter?t=…`, creates the account on first arrival with **no password** (so CTFd's own
 local sign-in refuses it), and opens the session. `jumpqueue.py` overrides `QuizChallenge.solve()`
 to queue the solve in `workshop_jump_event` and a background drainer posts a signed progress

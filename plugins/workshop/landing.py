@@ -15,21 +15,22 @@ board stays exactly where it was and keeps working; it is simply no longer the
 first thing a participant sees. Nothing is lost by skipping the index either:
 its document is the Intro section of the workshop page.
 
-An anonymous visitor is sent wherever an open door says (doors.py
-`takeover`, PLAN.md §58). This module does not know which doors exist. The
-one that answers today is Jump's, whenever Jump is the only way a participant
-gets in (jump.py `JumpDoor`, §53): from `/` and from the participant side of
-the login page, straight to the one Jump this instance answers to, or, when
-it answers to several, from `/` to the login page, which is then the choice
-between them. The copy that presents an activity and the sign-in both live on
-Jump, so a page here that restated the first or offered the second would be
-one more page between a talent and the activity. An instance that lets people
-register keeps its front door: it is theirs.
+An anonymous visitor to `/` is sent to the participant side of the login
+page, which is the doors (doors.py, PLAN.md §58), the token door first
+(tokendoor.py, §60). That page is the instance's front door (§61): the index
+has nothing to say to somebody who is not in yet that the door's own panel
+does not, and it is one more page between a participant and the box they came
+to type a code in.
 
-What stays is every door a password opens: the staff form (`/login?staff=1`),
-the supervisor and external joins, and `/admin`, which is sent to the staff
-form rather than on to Jump. Admins, mentors and the emergency local accounts
-sign in there.
+**Nothing here sends a visitor to another site.** Where Jump was the only way
+in, this module used to send an anonymous visitor straight on to it (§53).
+That is gone (§61): a door is something drawn on the login page, and Jump's is
+a button there.
+
+What a password opens is where it was: the staff form (`/login?staff=1`), the
+supervisor and external joins, and `/admin`, which is sent to the staff form
+rather than to the participant side. Admins, mentors and the emergency local
+accounts sign in there.
 
 Each hook reads the switch itself: `guard_routes` (toggle.py) only covers the
 plugin's blueprints, and switched off, CTFd is CTFd again (§39).
@@ -39,7 +40,6 @@ from flask import redirect, request, url_for
 from CTFd.models import Challenges
 from CTFd.utils.user import authed
 
-from .doors import login_is_staff, takeover
 from .toggle import workshop_enabled
 
 # Endpoints whose default post-authentication redirect we retarget.
@@ -66,17 +66,12 @@ def load_landing(app):
     @app.before_request
     def anonymous_to_door():
         # Cheapest tests first: this runs on every request.
-        if request.method != "GET" or authed():
+        if request.method != "GET" or request.path != "/" or authed():
             return None
-        front = request.path == "/"
-        if not front and request.endpoint != "auth.login":
+        # Switched off, `/` is CTFd's own front door again (toggle.py, §39).
+        if not workshop_enabled():
             return None
-        # The staff form, a failed attempt or an admin `next` stay here.
-        if not front and login_is_staff():
-            return None
-        # `open_doors()`, inside, reads the switch.
-        target = takeover(front)
-        return redirect(target) if target else None
+        return redirect(url_for("auth.login"))
 
     @app.before_request
     def admin_to_staff_door():

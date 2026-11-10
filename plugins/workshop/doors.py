@@ -7,8 +7,13 @@ anonymous visitor. A second way in would have meant a second special case in
 each (PLAN.md §58).
 
 So a way in registers a `Door` here, and the page draws whatever doors are
-open. landing.py and login.html read only this module; they do not know what
-Jump is.
+open. login.html reads only this module; it does not know what Jump is.
+
+**A door is drawn, never followed.** A door used to be able to answer for the
+whole page and send an anonymous visitor somewhere else (Jump's rule, §53).
+That is gone (§61): the participant side of `/login` is the instance's front
+door, the token door is always on it, and no door sends anybody off the
+instance without a click.
 
 A door is not a route. The route that actually signs somebody in stays in the
 door's own module (`/jump/enter` in jump.py), and so does everything it
@@ -53,15 +58,6 @@ class Door:
         """Is there anything to draw right now?"""
         return False
 
-    def takeover(self, front):
-        """Where to send an anonymous visitor instead of drawing a page.
-
-        `front` is true for `/` and false for the participant side of
-        `/login`. None, the default, draws the page. Only a door that is the
-        instance's one way in has a reason to answer (Jump's rule, §53).
-        """
-        return None
-
 
 def register(door):
     """Add a door, or replace the one of the same name (see cohorts.py)."""
@@ -74,15 +70,6 @@ def open_doors():
     if not workshop_enabled():
         return []
     return [door for door in _DOORS.values() if door.open()]
-
-
-def takeover(front):
-    """The first open door's answer to `Door.takeover`, or None."""
-    for door in open_doors():
-        target = door.takeover(front)
-        if target:
-            return target
-    return None
 
 
 def login_is_staff():

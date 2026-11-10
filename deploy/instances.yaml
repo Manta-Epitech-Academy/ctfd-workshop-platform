@@ -42,8 +42,8 @@ defaults:
   # The key id is what a ticket carries, and the key below — never the
   # ticket — says where this instance reports progress back to, so nobody can
   # redirect its callbacks. `origin` is Jump's public address, the one a
-  # talent's browser is sent to from the front door and the login page; with
-  # both keys, the login page is where the talent picks (PLAN.md §53). An
+  # talent's browser is sent to by the Jump button of the login page, one
+  # button per key (PLAN.md §61). An
   # instance that reaches
   # Jump more directly than its talents do (on the cluster, through Jump's
   # Service) also sets `server_origin`, and posts there instead (PLAN.md §52).
@@ -71,10 +71,11 @@ defaults:
 # which commit it took so drift is visible. Add `source_ref:` to follow a tag or
 # a branch other than `main`.
 #
-# `registration` is derived from the mode and is not set here: an instructor-led
-# instance gets the shared code (it is a session, not a public site), a
-# self-serve one is open. Set `registration: code|open` on an instance to
-# override that for a case neither shape fits.
+# Registration is not set here (PLAN.md §61). Every instance, instructor-led or
+# self-serve, is entered through the token door with a registration code, and
+# a code is made on the instance's /admin/workshop/codes with its campus, date
+# and event (§59). `provision.py setup` closes core's own registration form in
+# both modes.
 
 # `jump_slug` is the name Jump knows this instance by (the ticket's audience),
 # and defaults to the instance's `name`. It names the host only, so it stays
@@ -127,7 +128,8 @@ instances:
 
   # ---------------------------------------------------------------------
   # The same five workshops in self-serve mode (PLAN.md §25.9): validated by
-  # a button instead of an instructor code, open registration, no session.
+  # a button instead of an instructor code, no session. Still entered with a
+  # registration code, a private one handed to whoever should get in (§61).
   # One instance, one mode, so a second mode is a second instance — the five
   # above keep their codes and their cohorts.
   # ---------------------------------------------------------------------

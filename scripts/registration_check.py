@@ -171,6 +171,14 @@ def utc(delta_hours):
     return when.strftime("%Y-%m-%dT%H:%M:%S.000Z")
 
 
+# A window of two days for the event date to sit in, and one that opens half
+# an hour after midnight for an admin in Paris: the UTC instant is still on
+# the day before, and the day that counts is the one they typed.
+WINDOW = {"valid_from": "2027-03-10T08:00:00.000Z",
+          "valid_until": "2027-03-11T18:00:00.000Z"}
+NIGHT = {"valid_from": "2027-03-09T23:30:00.000Z",
+         "valid_from_local": "2027-03-10T00:30"}
+
 CODE_A = f"Lille-{RUN}"
 CODE_B = f"PARIS-{RUN}"
 CODE_C = f"LILLE2-{RUN}"
@@ -204,9 +212,30 @@ for label, form in (
         ("a cap of zero", {"code": f"CAP0-{RUN}", "cap": "0"}),
         ("a date that is not one", {"code": f"DATE-{RUN}", "event_date": "demain"}),
         ("a window that closes before it opens",
-         {"code": f"WIN-{RUN}", "valid_from": utc(2), "valid_until": utc(1)})):
+         {"code": f"WIN-{RUN}", "valid_from": utc(2), "valid_until": utc(1)}),
+        ("an event date before the day the code opens",
+         {"code": f"DAY1-{RUN}", "event_date": "2027-03-09", **WINDOW}),
+        ("an event date after the day the code closes",
+         {"code": f"DAY2-{RUN}", "event_date": "2027-03-12", **WINDOW}),
+        ("an event date before an opening with no closing",
+         {"code": f"DAY3-{RUN}", "event_date": "2027-03-09",
+          "valid_from": WINDOW["valid_from"]}),
+        ("an event date after a closing with no opening",
+         {"code": f"DAY4-{RUN}", "event_date": "2027-03-12",
+          "valid_until": WINDOW["valid_until"]}),
+        ("an event date that is the UTC day and not the admin's own",
+         {"code": f"DAY5-{RUN}", "event_date": "2027-03-09", **NIGHT})):
     check(create(**form) == 400, f"refused: {label}")
 check(len(rows()) == len(table), "and none of those made a code")
+for label, form in (
+        ("the day the code opens", {"event_date": "2027-03-10", **WINDOW}),
+        ("the day the code closes", {"event_date": "2027-03-11", **WINDOW}),
+        ("any day after an opening with no closing",
+         {"event_date": "2027-06-01", "valid_from": WINDOW["valid_from"]}),
+        ("the admin's own day, when UTC is still on the day before",
+         {"event_date": "2027-03-10", **NIGHT})):
+    code = f"OK{len(made_codes)}-{RUN}"
+    check(create(code, **form) == 302, f"accepted as an event date: {label}")
 
 # ---------------------------------------------------------------------------
 print("\n== the door answers a code, and only one way when it is a no ==")

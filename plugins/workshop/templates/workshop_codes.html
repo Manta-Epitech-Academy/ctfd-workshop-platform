@@ -84,6 +84,9 @@
             <label for="ws-code-date">Event date</label>
             <input type="date" class="form-control" id="ws-code-date"
                    name="event_date" value="{{ form.get('event_date', '') }}">
+            <small class="form-text text-muted">
+              A day the code is open, when it has a window.
+            </small>
           </div>
           <div class="form-group col-md-3">
             <label for="ws-code-content">Content</label>
@@ -291,6 +294,19 @@
         hidden.value = when && !isNaN(when) ? when.toISOString() : "";
       });
     });
+    // The event date is a day inside the window (codes.py `_create` is what
+    // enforces it): the picker greys the other days out, and the browser
+    // refuses a typed one before the form leaves.
+    var day = document.getElementById("ws-code-date");
+    var from = document.getElementById("ws-code-from");
+    var until = document.getElementById("ws-code-until");
+    function bound() {
+      day.min = from.value.slice(0, 10);
+      day.max = until.value.slice(0, 10);
+    }
+    from.addEventListener("input", bound);
+    until.addEventListener("input", bound);
+    bound();
     document.querySelectorAll("time[datetime]").forEach(function (el) {
       var when = new Date(el.getAttribute("datetime"));
       if (!isNaN(when)) {

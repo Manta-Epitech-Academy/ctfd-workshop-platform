@@ -483,6 +483,20 @@ def _instant(form, field):
     return None, True
 
 
+def _day(form, field, instant):
+    """The calendar day of an instant of the form, as the admin sees it.
+
+    The box is read first: it is the day they typed, in their own zone. The
+    UTC instant is the fallback, right to within a day, for a form posted by
+    something that is not the page.
+    """
+    raw = (form.get(field + "_local") or "").strip()
+    try:
+        return datetime.fromisoformat(raw).date() if raw else instant.date()
+    except ValueError:
+        return instant.date()
+
+
 def _create(form):
     """Create a code from the form. Returns `(code, errors)`."""
     errors = []
@@ -509,6 +523,17 @@ def _create(form):
         errors.append("The validity window is not a date and a time.")
     elif valid_from and valid_until and valid_until <= valid_from:
         errors.append("The code would close before it opens.")
+    elif event_date is not None:
+        # The date is a label, and a label that contradicts the window is a
+        # typo in one of the two: either the room finds the door closed on
+        # the day written on the cohort, or the cohort is filed under a day
+        # nobody could come in. A side with no bound is not checked.
+        if valid_from and event_date < _day(form, "valid_from", valid_from):
+            errors.append("The event date is before the day the code opens. "
+                          "Change the date or the validity window.")
+        elif valid_until and event_date > _day(form, "valid_until", valid_until):
+            errors.append("The event date is after the day the code closes. "
+                          "Change the date or the validity window.")
 
     cap = None
     raw = (form.get("cap") or "").strip()

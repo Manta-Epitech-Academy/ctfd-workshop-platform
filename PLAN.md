@@ -4894,7 +4894,9 @@ One row of `workshop_registration_code` (`codes.py`), made on `/admin/workshop/c
   both exist. Folded, a code is 6 to 24 letters and digits.
 - **What the cohort is**: campus, event, event date, content. All optional and all free text. They
   are typed once by the admin instead of by thirty lycéens. The content is pre-filled with the slug
-  of the last sync.
+  of the last sync. The event date is a day the code is open: when the code has a window, a date
+  before the day it opens or after the day it closes is refused, by the form's date picker and by
+  the server, since one of the two is then a typo. Days are the admin's own, like the window.
 - **When it admits people**: an optional window (stored in UTC, typed in the admin's own time zone,
   converted by the browser, which is the only party that knows the zone) and an optional cap on
   the number of accounts.

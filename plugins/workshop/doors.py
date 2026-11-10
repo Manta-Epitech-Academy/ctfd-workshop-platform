@@ -17,8 +17,17 @@ door is open, and the piece of page that leads to it.
 
 The external door (external.py, §42) is deliberately not one: its address is
 half its secret, and nothing participant-facing may point at it.
+
+What every door needs once it has decided who somebody is lives here too:
+`sign_in`, and `workshop_is_open` for the page to send them to afterwards.
 """
-from flask import request
+import hmac
+
+from flask import request, session
+
+from CTFd.utils import get_config
+from CTFd.utils.security import signing
+from CTFd.utils.security.auth import login_user
 
 from .toggle import workshop_enabled
 
@@ -103,6 +112,56 @@ def login_is_staff():
             or request.method == "POST"
             or "staff" in request.args
             or (request.args.get("next") or "").startswith("/admin"))
+
+
+def holds(user):
+    """Is this browser already signed in as `user`?
+
+    The two fields `get_current_user()` checks (CTFd/utils/user/__init__.py),
+    so "yes" here is exactly "CTFd would serve this request as `user`". The
+    hash is how a password change ends every other session, and a session it
+    ended is not one to keep: that browser is signed in from scratch.
+    """
+    return (session.get("id") == user.id
+            and hmac.compare_digest(session.get("hash") or "",
+                                    signing.hmac(user.password)))
+
+
+def sign_in(user):
+    """Open a session as `user`, unless this browser already holds one.
+
+    Returns whether a new session was opened. A door is walked through more
+    than once (Jump's link is clicked again, a token is pasted again), usually
+    with the workshop still open in another tab. Signing in again would change
+    nothing about who this is, but `login_user` writes a new CSRF nonce, and
+    every page already open still sends the old one: CTFd refuses each of its
+    submissions with a 403 before grading (issue #64).
+
+    Otherwise the local sign-in path (CTFd/auth.py `login`), not the OAuth
+    one, which skips the regeneration and leaves the pre-login session id
+    valid.
+    """
+    if holds(user):
+        return False
+    session.regenerate()
+    login_user(user)
+    return True
+
+
+def workshop_is_open():
+    """Can a participant actually open `/workshop` right now?
+
+    Two instance states make it a raw error rather than a page:
+    `challenge_visibility == "admins"`, and a CTF window that is closed or has
+    not opened yet. Both are the operator's doing and both are temporary, so
+    whoever just came in gets a sentence in their own language instead of a
+    403 they cannot act on.
+    """
+    from CTFd.utils.dates import ctftime
+
+    if str(get_config("challenge_visibility") or "private") == "admins":
+        return False
+    return bool(ctftime())
 
 
 def load_doors(app):

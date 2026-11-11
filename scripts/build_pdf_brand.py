@@ -16,6 +16,11 @@ does not use. The monospace keeps only what a personal code is made of. Each
 comes with the numbers its PDF font descriptor needs and the advance width of
 every character, which pdf.js uses to wrap and centre text.
 
+The certificate (assets/certificate.js, PLAN.md §62) is set in the same faces
+plus one the card has no use for, the light weight of the text face. That one
+goes in a file of its own, assets/pdf-brand-light.json, so the door's page does
+not download it.
+
 Run it again when a font or the logo changes, and commit the result:
 
     pip install fonttools brotli
@@ -39,6 +44,7 @@ from fontTools.varLib import instancer
 
 ASSETS = pathlib.Path(__file__).resolve().parent.parent / "plugins" / "workshop" / "assets"
 OUT = ASSETS / "pdf-brand.json"
+LIGHT = ASSETS / "pdf-brand-light.json"
 
 # WinAnsi (Windows-1252) leaves five codes undefined.
 WINANSI = {}
@@ -57,6 +63,10 @@ FONTS = {
     "regular": ("ibm-plex-sans-latin-wght-normal.woff2", 400, "IBMPlexSans", None),
     "bold": ("ibm-plex-sans-latin-wght-normal.woff2", 600, "IBMPlexSans-SemiBold", None),
     "mono": ("space-mono-latin-700-normal.woff2", None, "SpaceMono-Bold", CODE_CHARACTERS),
+}
+# What only the certificate writes in, kept out of the file above.
+EXTRA = {
+    "light": ("ibm-plex-sans-latin-wght-normal.woff2", 300, "IBMPlexSans-Light", None),
 }
 
 
@@ -79,7 +89,7 @@ def cut(font, characters):
 
 
 def build_font(role, index):
-    file, weight, name, kept = FONTS[role]
+    file, weight, name, kept = FONTS.get(role) or EXTRA[role]
     font = TTFont(ASSETS / "fonts" / file)
     if weight is not None:
         font = instancer.instantiateVariableFont(font, {"wght": weight})
@@ -154,11 +164,17 @@ def main():
         "logo": build_logo(),
     }
     OUT.write_text(json.dumps(brand, separators=(",", ":"), sort_keys=True) + "\n")
-    for role, font in brand["fonts"].items():
+    # The index goes on from the first file's: a subset's name is unique.
+    light = {"fonts": {role: build_font(role, len(FONTS) + i)
+                       for i, role in enumerate(EXTRA)}}
+    LIGHT.write_text(json.dumps(light, separators=(",", ":"), sort_keys=True) + "\n")
+    for role, font in list(brand["fonts"].items()) + list(light["fonts"].items()):
         print("%-8s %-28s %6d bytes" % (role, font["name"], font["bytes"]))
     print("logo     %sx%s, %d segments" % (
         brand["logo"]["width"], brand["logo"]["height"], len(brand["logo"]["ops"])))
-    print("%s: %d bytes" % (OUT.relative_to(ASSETS.parent.parent.parent), OUT.stat().st_size))
+    for path in (OUT, LIGHT):
+        print("%s: %d bytes" % (path.relative_to(ASSETS.parent.parent.parent),
+                                path.stat().st_size))
 
 
 if __name__ == "__main__":

@@ -1,4 +1,5 @@
-/* A one-page PDF, written by hand (door.js is its one caller; PLAN.md §60.4).
+/* A one-page PDF, written by hand (PLAN.md §60.4). Two callers: door.js for
+ * the personal code, certificate.js for the certificate (§62).
  *
  * The token door hands the personal code out as a file, and the file has to
  * be made in the browser, because the code exists nowhere else. A PDF and not
@@ -28,6 +29,7 @@
  * and its bytes one unbroken run.
  *
  *     var pdf = window.wsPdf(brand);    // or wsPdf() for the standard fonts
+ *     var wide = window.wsPdf(brand, { width: 842, height: 595 });   // A4 on its side
  *     pdf.box(56, 700, 200, 40, { fill: "#013afb", radius: 8 });
  *     pdf.text("Bonjour", 64, 715, "bold", 18, "#ffffff");
  *     var bytes = pdf.build();          // a string, one character per byte
@@ -36,6 +38,7 @@
  * "#rrggbb"; text is black when none is given.
  */
 (function () {
+  // A4 upright, unless the caller asks for another page.
   var WIDTH = 595, HEIGHT = 842;
   // A font by its role: the name in the page's resources, then what stands in
   // for it when no brand is given, as a PostScript name and a row of WIDTHS.
@@ -44,7 +47,10 @@
     bold: ["F2", "Helvetica-Bold", "bold"],
     mono: ["F3", "Courier-Bold", null],
     display: ["F4", "Helvetica-Bold", "bold"],
+    // Only the certificate writes in it, so it is in the file only when used.
+    light: ["F5", "Helvetica", "regular"],
   };
+  var OPTIONAL = { light: true };
   // Advance widths of characters 32 to 126, in thousandths of the font size
   // (the Adobe core font metrics). Courier is 600 throughout.
   var WIDTHS = {
@@ -123,8 +129,10 @@
 
   // `brand` is assets/pdf-brand.json once parsed, or nothing: the page is
   // then set in the standard fonts and carries no wordmark.
-  window.wsPdf = function (brand) {
-    var ops = [], links = [];
+  // `page` is `{ width, height }` in points, for a page that is not A4 upright.
+  window.wsPdf = function (brand, page) {
+    var ops = [], links = [], used = {};
+    var wide = (page && page.width) || WIDTH, high = (page && page.height) || HEIGHT;
     var embedded = (brand && brand.fonts) || {};
     var mark = brand && brand.logo;
 
@@ -190,16 +198,25 @@
     }
 
     return {
-      width: WIDTH,
-      height: HEIGHT,
+      width: wide,
+      height: high,
       measure: measure,
       wrap: wrap,
 
-      // One line of text, its baseline starting at (x, y).
-      text: function (string, x, y, font, size, color, spacing) {
-        ops.push("BT " + paint(color, "rg") + " /" + FONTS[font][0] + " " + n(size) + " Tf "
-                 + n(spacing || 0) + " Tc " + n(x) + " " + n(y) + " Td "
-                 + literal(string) + " Tj ET");
+      // One line of text, its baseline starting at (x, y). `look` is for the
+      // two things a typeface file does not give: `slant`, which leans an
+      // upright font (0.2 is an italic's angle), and `hidden`, which puts the
+      // text in the file without drawing it. A program reading the file finds
+      // it, and so does copy and paste.
+      text: function (string, x, y, font, size, color, spacing, look) {
+        used[font] = true;
+        var place = look && look.slant
+          ? "1 0 " + n(look.slant) + " 1 " + n(x) + " " + n(y) + " Tm "
+          : n(x) + " " + n(y) + " Td ";
+        ops.push((look && look.hidden ? "q 3 Tr " : "")
+                 + "BT " + paint(color, "rg") + " /" + FONTS[font][0] + " " + n(size) + " Tf "
+                 + n(spacing || 0) + " Tc " + place + literal(string) + " Tj ET"
+                 + (look && look.hidden ? " Q" : ""));
       },
 
       // A rectangle, (x, y) its bottom left corner. `look` is its fill, its
@@ -264,7 +281,9 @@
       // The file. Every character is one byte.
       build: function () {
         var content = ops.join("\n");
-        var roles = Object.keys(FONTS);
+        var roles = Object.keys(FONTS).filter(function (role) {
+          return !OPTIONAL[role] || used[role];
+        });
         // Objects 1 to 4 are the catalogue, the page tree, the page and its
         // content. Then the fonts, an embedded one with the two objects it
         // needs right after it, then the links.
@@ -300,7 +319,7 @@
         });
         objects[0] = "<< /Type /Catalog /Pages 2 0 R >>";
         objects[1] = "<< /Type /Pages /Kids [3 0 R] /Count 1 >>";
-        objects[2] = "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 " + WIDTH + " " + HEIGHT + "]"
+        objects[2] = "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 " + wide + " " + high + "]"
           + " /Resources << /Font << " + fonts.join(" ") + " >> >>"
           + " /Contents 4 0 R /Annots [" + annots.join(" ") + "] >>";
         var out = "%PDF-1.4\n", offsets = [];

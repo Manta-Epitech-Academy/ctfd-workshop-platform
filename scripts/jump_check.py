@@ -28,11 +28,12 @@ straight and never goes through the form.
 Shaped like scripts/workshop_check.py — positional arguments, `check(cond,
 label)`, `ALL GREEN` or `FAILURES: [...]`, non-zero exit on any failure.
 
-**It puts the instance back.** The key allowlist and the slug are saved and
-restored, and every account it creates is deleted, because the instance this is
-pointed at is usually the one a demo runs on. Interrupt it and the same cleanup
-still runs; kill -9 it and you are left with two config keys to clear and a
-handful of `*.jumpcheck.jump.invalid` accounts to delete.
+**It puts the instance back.** The key allowlist, the slug, the content, the
+registration setting and the supervisor code are saved and restored, and every
+account it creates is deleted, because the instance this is pointed at is
+usually the one a demo runs on. Interrupt it and the same cleanup still runs;
+kill -9 it and you are left with those config keys to put back and a handful of
+`*.jumpcheck.jump.invalid` accounts to delete.
 
 Two things it cannot do over CTFd's own API, both of which the plugin exposes
 on admin-only endpoints because it runs inside CTFd and has the database:
@@ -492,6 +493,8 @@ def main():
     saved = {"workshop_jump_keys": admin.config("workshop_jump_keys") or "",
              "workshop_jump_instance": admin.config("workshop_jump_instance") or "",
              "workshop_content": admin.config("workshop_content") or "",
+             "workshop_supervisor_code":
+                 admin.config("workshop_supervisor_code") or "",
              "registration_visibility":
                  admin.config("registration_visibility") or "public"}
     created = []
@@ -805,6 +808,23 @@ def main():
     check('data-ws-address="&lt;address of this page&gt;"' in page
           and "&#34;baseUrl&#34;: &#34;&lt;address of this page&gt;&#34;" in page,
           "the instance call leaves the address to the browser")
+    # The supervisor code rides on the instance call (PLAN.md §58), and an
+    # instance with none sends null, which clears Jump's copy. The instance's
+    # own code is in `saved`, so `restore()` puts it back however this ends.
+    admin.set_configs({"workshop_supervisor_code": ""})
+    page = admin.session.get(base + "/admin/workshop/jump", timeout=30).text
+    check(page.count("&#34;supervisorCode&#34;: null") == 2,
+          "with no supervisor code, each instance call clears Jump's")
+    admin.set_configs({"workshop_supervisor_code": f"CODE-{RUN}"})
+    page = admin.session.get(base + "/admin/workshop/jump", timeout=30).text
+    check(page.count(f"&#34;supervisorCode&#34;: &#34;CODE-{RUN}&#34;") == 2,
+          "and with one, each instance call carries it")
+    # The code is changed on the settings page, so that is where the admin
+    # must read that Jump keeps a copy until the call is run again.
+    page = admin.session.get(base + "/admin/workshop/settings", timeout=30).text
+    check("Jump's staff catalogue shows this code too" in page
+          and 'href="/admin/workshop/jump"' in page,
+          "the settings page says where Jump learns a new code")
     # Behind the cluster's tunnel the Host is another name than the one talents
     # use, so nothing in the calls may be built from it. The cookie is passed by
     # hand: requests picks cookies by the Host header when one is set, and would

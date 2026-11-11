@@ -220,7 +220,9 @@ function tool(name, args) {
           && Object.keys(c).sort().join() === "done,slug,title,total,xp", "and nothing else");
     const data = (await (await context.request.get(API)).json()).data;
     if (french) {
-      check(data.sentence.includes("1 étape sur") && data.sentence.includes(`Epitech ${CAMPUS}`),
+      // The translation ties some words together with no-break spaces.
+      const said = data.sentence.replace(/\u00a0/g, " ");
+      check(said.includes("1 étape sur") && said.includes(`Epitech ${CAMPUS}`),
             `the sentence: ${data.sentence}`);
     }
 

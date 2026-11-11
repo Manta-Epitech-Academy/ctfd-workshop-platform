@@ -278,6 +278,30 @@ participant side of `/login` (`tokendoor.py`, `templates/workshop_token_door.htm
 No table of its own. `scripts/token_door_check.py <base-url> <admin-pass>` holds the server's
 half and `scripts/token_door_browser_check.js <base-url> <admin-pass>` the page's (Playwright).
 
+## The certificate (PLAN.md §62)
+
+A token account downloads what it did here as a PDF, "Télécharger mon certificat", from the band
+of the workshop pages (`templates/workshop_certificate.html`, in both `workshop_index.html` and
+`workshop_page.html`). Nothing is sent anywhere and nothing is stored.
+
+- **`certificate.py` decides and signs**, `assets/certificate.js` draws with `assets/pdf.js`.
+  `GET /api/v1/workshop/certificate` answers the sentences, translated, and the signed text: a
+  compact JWS, Ed25519, whose payload is the account's name, the instance's address, the XP and
+  the steps done out of the total, and the campus, date and event of its registration code.
+- **The key is a deploy secret**, `WORKSHOP_CERTIFICATE_KEY` (a 32-byte seed in base64, or a PEM
+  private key), the same on every instance. Make one with
+  `python -c "import os,base64;print(base64.b64encode(os.urandom(32)).decode())"`. Without it an
+  instance makes its own and keeps it in the `workshop_certificate_key` config.
+- **The public key is at `/api/v1/workshop/certificate/key`**, a JWK set, open to anybody.
+- **Only for an account made at the token door**, and only once a step is done: 403 and 409
+  otherwise, and the button is not drawn, or is hidden.
+- **The signed text is in the file twice**: in the QR code and as a line of undrawn text, found
+  with `eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]{86}`.
+- **The light typeface** is `assets/pdf-brand-light.json`, built with the rest by
+  `scripts/build_pdf_brand.py`.
+
+No table. `scripts/certificate_check.js <base-url> <admin-pass>` holds it (Playwright).
+
 ## The front door (PLAN.md §61)
 
 An anonymous visitor to `/` is sent to `/login`, whose participant side is the token door

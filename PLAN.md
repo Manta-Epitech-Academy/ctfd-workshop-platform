@@ -5422,3 +5422,117 @@ Not checked: `tools/provision.py setup` against a compose deploy. The local inst
 are k3s ones, set up by `PRESET_CONFIGS` as on the cluster, so the provisioning change is read and
 linted, not run. Not checked either: a phone scanning the QR code, and the door from outside this
 machine.
+
+## 62. The certificate: progress leaves in the participant's hands (2026-11-11)
+
+Issue #84. An account made at the token door (§60) has no name and no e-mail, so nothing outside
+the instance knows what `Renard-Vert-42` did on it. Events are close and the progress made at
+them must not be lost. The answer is not an export to anywhere: it is a **certificate**, the one
+Epitech already hands out after a workshop, under the name the platform chose.
+
+### 62.1 What it is
+
+A button on the workshop pages, "Télécharger mon certificat", and a one-page PDF: the
+"Certificat de participation" of Epitech's Coding Club, redrawn. A4 on its side, the blue frame,
+the wordmark, the title over its green line, the name in blue capitals, one sentence, the footer.
+
+> RENARD-VERT-42 se voit, ce jour, attribuer ce certificat. A participé à l'atelier « IA du
+> fantôme de Pac-Man » le 14 novembre 2026 au sein d'Epitech Lille, et a obtenu 2000 XP en
+> validant 12 étapes sur 15.
+
+The date and the campus are the registration code's (§59) and each is left out when the code
+does not say it. The sentence may change; it is four msgids and a plural in `certificate.py`.
+
+Where the original has the campus' signatures, this one has what signs it here: a QR code and
+"Signé numériquement par <address>", over a serial number.
+
+By default the platform holds nothing personal. The certificate is the same facts under a
+pseudonym, in a file the participant chose to download. It becomes personal data only where and
+when its holder hands it over with their name, which is not here.
+
+### 62.2 The signed text
+
+The server decides every fact and signs them as a JWS in compact form, Ed25519
+(`"alg":"EdDSA"`). The payload:
+
+| Field | What |
+|---|---|
+| `v` | 1 |
+| `iss` | the instance's address |
+| `sub` | the account's name on it |
+| `iat` | when it was signed, in seconds |
+| `jti` | a random serial, 16 hex characters |
+| `contents` | `[{slug, title, xp, done, total}]`, one entry today |
+| `event` | `{name, campus, date}`, each only when the code says it |
+
+Counts only: not the list of steps. `xp`, `done` and `total` are `progress.py`'s, the numbers the
+page shows. `contents` is a list so that the contents an instance served before (#73) can be
+added without a new format.
+
+The text is in the PDF twice: in the QR code, and as one line of text that is not drawn. A
+program finds it by reading the file as text:
+`eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]{86}`.
+
+### 62.3 The key
+
+One Ed25519 key signs for every instance, so one public key checks every certificate. It is a
+deploy secret, `WORKSHOP_CERTIFICATE_KEY` in the environment: the 32-byte seed in base64, or a
+PEM private key. An instance deployed without it makes its own and keeps it in its config, so a
+test instance still works; its certificates check against that instance's key only.
+
+The public half is served to anybody as a JWK set at `/api/v1/workshop/certificate/key`. The
+`kid` in a certificate's header is the first 16 characters of the key's RFC 7638 thumbprint.
+
+### 62.4 Who draws what
+
+`certificate.py` answers JSON at `/api/v1/workshop/certificate`: the signed text and every
+sentence, translated. `assets/certificate.js` draws the page with `assets/pdf.js`, the writer of
+§60.4, which gained a page size, a light weight (`assets/pdf-brand-light.json`, built by
+`scripts/build_pdf_brand.py`, fetched by this page only), slanted text for the italics the
+plugin vendors no file for, and text that is in the file without being drawn. No PDF library in
+the image, no headless browser beside it.
+
+The button is in the band of both workshop pages (`templates/workshop_certificate.html`), since a
+one-document subject never shows the index. It is offered only to an account made at the token
+door: any other account's name was typed by a person, and this must not be the file a real name
+lands in. It stays hidden until a first step is done, and shows when the counter moves.
+
+### 62.5 Downloading again, and who may claim it
+
+Nothing is stored: no serial, no count. Downloading again is always possible and gives a newer
+certificate of the same account. The rules belong to whoever takes the file in:
+
+- `iss` and `sub` together name one account. `iat` orders its certificates.
+- Taking in a newer certificate over an older one of the same account, by the same person, is
+  accepted and replaces it.
+- A second person claiming an account somebody already claimed is refused.
+
+### 62.6 Rejected
+
+- **Naming where the file may go.** The button, the file and the page name no other platform.
+  A certificate is what it says it is; what reads it later is that reader's business.
+- **Drawing the PDF on the server.** A PDF library or a headless browser in the image, for one
+  page the browser already knows how to write.
+- **The campus' signatures.** They are images of people's signatures, put there by a campus for
+  an event its staff attended. Nobody signs here; a key does.
+- **The list of steps in the payload.** Counts are what a certificate says. The list is longer
+  than a QR code holds and tells more about the person than is needed.
+- **One key per instance.** Whoever checks certificates would need every instance's key, and
+  instances come and go.
+- **Storing what was issued.** It would be a table about people's downloads, to enforce a rule
+  that can only be enforced where a name is attached.
+
+### 62.7 Checked
+
+`scripts/certificate_check.js <base-url> <admin-pass>` (Playwright), 39 assertions on a local
+instance holding the Pacman subject. The key is public and named after its thumbprint. An admin
+gets no button and no certificate, a new account gets the button hidden and is refused until a
+step is done, and the button shows when the counter moves. The file is ASCII, one page, read by
+Ghostscript and MuPDF without a word, set in the platform's faces. The signed text read back from
+the file verifies with the published key and says the account, the address, the XP and the steps
+as the platform counts them. More XP, another name or another key's signature all fail. A second
+download is later, under another serial, and is still made when the brand file is out of reach.
+
+Not checked by the script: the QR code, read by hand from a render of the page (OpenCV, at 200
+dpi and above). Not checked at all: a phone reading it from paper, and the look beside a
+certificate printed by the original, compared by eye only.

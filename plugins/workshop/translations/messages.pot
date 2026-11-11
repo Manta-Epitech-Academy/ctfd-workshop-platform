@@ -63,6 +63,23 @@ msgstr ""
 msgid "Bonus"
 msgstr ""
 
+msgid "Certificate no. %(serial)s"
+msgstr ""
+
+#, python-format
+msgid ""
+"and earned %(points)s XP by completing %(num)s step out of %(total)s."
+msgid_plural ""
+"and earned %(points)s XP by completing %(num)s steps out of %(total)s."
+msgstr[0] ""
+msgstr[1] ""
+
+msgid "Certificate of participation"
+msgstr ""
+
+msgid "certificate-%(name)s.pdf"
+msgstr ""
+
 msgid "Challenges"
 msgstr ""
 
@@ -106,12 +123,18 @@ msgstr ""
 msgid "Could not save that — try again."
 msgstr ""
 
+msgid "Digitally signed by %(address)s"
+msgstr ""
+
 msgid "Do not leave this file on the classroom computer."
 msgstr ""
 
 msgid ""
 "Don't have a supervisor account yet? You can create one with the "
 "supervisor code."
+msgstr ""
+
+msgid "Download my certificate"
 msgstr ""
 
 msgid "Download the file"
@@ -193,6 +216,15 @@ msgstr ""
 msgid "Introduction"
 msgstr ""
 
+msgid "is hereby awarded this certificate"
+msgstr ""
+
+msgid "Issued in %(campus)s, on %(date)s"
+msgstr ""
+
+msgid "Issued on %(date)s"
+msgstr ""
+
 msgid ""
 "It is what lets you come back. Nobody can give it back to you: if you "
 "lose it, you start over."
@@ -248,6 +280,9 @@ msgid "No longer part of the subject"
 msgstr ""
 
 msgid "Nobody checks this for you: mark the step done once your work is finished."
+msgstr ""
+
+msgid "Non-profit association (French law of 1901)"
 msgstr ""
 
 msgid "Not available yet."
@@ -503,6 +538,18 @@ msgid "Toggle theme"
 msgstr ""
 
 msgid "Token"
+msgstr ""
+
+msgid "took part in the workshop “%(title)s” at Epitech %(campus)s,"
+msgstr ""
+
+msgid "took part in the workshop “%(title)s” on %(date)s at Epitech %(campus)s,"
+msgstr ""
+
+msgid "took part in the workshop “%(title)s” on %(date)s,"
+msgstr ""
+
+msgid "took part in the workshop “%(title)s”,"
 msgstr ""
 
 msgid "Toolbox"

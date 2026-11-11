@@ -67,6 +67,25 @@ msgstr "Retour à l'atelier"
 msgid "Bonus"
 msgstr "Bonus"
 
+msgid "Certificate no. %(serial)s"
+msgstr "Certificat n° %(serial)s"
+
+#, python-format
+msgid ""
+"and earned %(points)s XP by completing %(num)s step out of %(total)s."
+msgid_plural ""
+"and earned %(points)s XP by completing %(num)s steps out of %(total)s."
+msgstr[0] ""
+"et a obtenu %(points)s XP en validant %(num)s étape sur %(total)s."
+msgstr[1] ""
+"et a obtenu %(points)s XP en validant %(num)s étapes sur %(total)s."
+
+msgid "Certificate of participation"
+msgstr "Certificat de participation"
+
+msgid "certificate-%(name)s.pdf"
+msgstr "certificat-%(name)s.pdf"
+
 msgid "Challenges"
 msgstr ""
 
@@ -110,6 +129,9 @@ msgstr "Le serveur ne répond pas. Réessaie."
 msgid "Could not save that — try again."
 msgstr "Impossible d'enregistrer. Réessaie."
 
+msgid "Digitally signed by %(address)s"
+msgstr "Signé numériquement par %(address)s"
+
 msgid "Do not leave this file on the classroom computer."
 msgstr "Ne laisse pas ce fichier sur l'ordinateur de la salle."
 
@@ -119,6 +141,9 @@ msgid ""
 msgstr ""
 "Vous n'avez pas encore de compte encadrant ? Vous pouvez en créer un avec "
 "le code superviseur."
+
+msgid "Download my certificate"
+msgstr "Télécharger mon certificat"
 
 msgid "Download the file"
 msgstr "Télécharger le fichier"
@@ -206,6 +231,15 @@ msgstr "Pas encore"
 msgid "Introduction"
 msgstr "Introduction"
 
+msgid "is hereby awarded this certificate"
+msgstr "se voit, ce jour, attribuer ce certificat"
+
+msgid "Issued in %(campus)s, on %(date)s"
+msgstr "Fait à %(campus)s, le %(date)s"
+
+msgid "Issued on %(date)s"
+msgstr "Fait le %(date)s"
+
 msgid ""
 "It is what lets you come back. Nobody can give it back to you: if you "
 "lose it, you start over."
@@ -266,6 +300,9 @@ msgstr "Ne fait plus partie du sujet"
 
 msgid "Nobody checks this for you: mark the step done once your work is finished."
 msgstr "Personne ne vérifie à ta place : coche l'étape quand ton travail est fini."
+
+msgid "Non-profit association (French law of 1901)"
+msgstr "Association à but non lucratif (loi 1901)"
 
 msgid "Not available yet."
 msgstr "Pas encore accessible."
@@ -536,6 +573,20 @@ msgstr ""
 
 msgid "Token"
 msgstr "Jeton"
+
+msgid "took part in the workshop “%(title)s” at Epitech %(campus)s,"
+msgstr "a participé à l'atelier « %(title)s » au sein d'Epitech %(campus)s,"
+
+msgid "took part in the workshop “%(title)s” on %(date)s at Epitech %(campus)s,"
+msgstr ""
+"a participé à l'atelier « %(title)s » le %(date)s au sein d'Epitech "
+"%(campus)s,"
+
+msgid "took part in the workshop “%(title)s” on %(date)s,"
+msgstr "a participé à l'atelier « %(title)s » le %(date)s,"
+
+msgid "took part in the workshop “%(title)s”,"
+msgstr "a participé à l'atelier « %(title)s »,"
 
 msgid "Toolbox"
 msgstr "Boîte à outils"

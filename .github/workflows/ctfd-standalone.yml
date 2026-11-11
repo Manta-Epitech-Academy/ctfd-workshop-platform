@@ -93,6 +93,8 @@ jobs:
             for f in tokendoor.py codes.py doors.py assets/door.js assets/pdf.js \
                      assets/pdf-brand.json assets/vendor/qrcode.js \
                      templates/workshop_token_door.html \
+                     certificate.py assets/certificate.js assets/pdf-brand-light.json \
+                     templates/workshop_certificate.html \
                      translations/fr/LC_MESSAGES/messages.mo; do
               test -s "$f" || { echo "missing: $f"; exit 1; }
             done

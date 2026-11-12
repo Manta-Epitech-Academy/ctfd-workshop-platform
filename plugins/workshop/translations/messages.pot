@@ -234,9 +234,6 @@ msgstr ""
 msgid "is hereby awarded this certificate"
 msgstr ""
 
-msgid "Issued in %(campus)s, on %(date)s"
-msgstr ""
-
 msgid "Issued on %(date)s"
 msgstr ""
 
@@ -298,9 +295,6 @@ msgid "No longer part of the subject"
 msgstr ""
 
 msgid "Nobody checks this for you: mark the step done once your work is finished."
-msgstr ""
-
-msgid "Non-profit association (French law of 1901)"
 msgstr ""
 
 msgid "Not available yet."

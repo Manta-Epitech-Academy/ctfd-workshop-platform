@@ -249,9 +249,6 @@ msgstr "Introduction"
 msgid "is hereby awarded this certificate"
 msgstr "se voit, ce jour, attribuer ce certificat"
 
-msgid "Issued in %(campus)s, on %(date)s"
-msgstr "Fait à %(campus)s, le %(date)s"
-
 msgid "Issued on %(date)s"
 msgstr "Fait le %(date)s"
 
@@ -318,9 +315,6 @@ msgstr "Ne fait plus partie du sujet"
 
 msgid "Nobody checks this for you: mark the step done once your work is finished."
 msgstr "Personne ne vérifie à ta place : coche l'étape quand ton travail est fini."
-
-msgid "Non-profit association (French law of 1901)"
-msgstr "Association à but non lucratif (loi 1901)"
 
 msgid "Not available yet."
 msgstr "Pas encore accessible."

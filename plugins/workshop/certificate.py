@@ -250,9 +250,7 @@ def certificate():
         "heading": _("Certificate of participation"),
         "attribution": _("is hereby awarded this certificate"),
         "sentence": _sentence(title, day, campus, points, done, total),
-        "association": _("Non-profit association (French law of 1901)"),
-        "place": (_("Issued in %(campus)s, on %(date)s", campus=campus, date=today)
-                  if campus else _("Issued on %(date)s", date=today)),
+        "place": _("Issued on %(date)s", date=today),
         "proof": _("Digitally signed by %(address)s",
                    address=re.sub(r"^https?://", "", address)),
         "serial": _("Certificate no. %(serial)s", serial="-".join(re.findall("....", payload["jti"]))),

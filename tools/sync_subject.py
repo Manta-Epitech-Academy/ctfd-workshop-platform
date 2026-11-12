@@ -730,6 +730,63 @@ def hide_strangers(ctfd, keep_slugs):
     return hidden
 
 
+# The admin-only Topic that names the content a step was last synced under.
+# Not `ws:`-prefixed on purpose: `existing_by_slug` and `hide_strangers` read
+# `ws:<subject>:<slug>` and must not take this one for a step's slug.
+CONTENT_TOPIC = "ws-content:"
+
+
+def current_content(ctfd):
+    """The content this instance serves, as the last sync recorded it."""
+    value = (ctfd.api("GET", "/configs/workshop_content") or {}).get("value")
+    return str(value).strip() if value else None
+
+
+def record_content(ctfd, content, previous):
+    """Write on each step the content it belongs to (PLAN.md §66).
+
+    `workshop_content` names one content for the whole instance, the current
+    one. After a rotation the old steps are hidden with their solves, and
+    nothing said any more which content those solves were earned on. So each
+    step carries it, as a second admin-only Topic, `ws-content:<slug>`:
+
+      a visible step   is part of what was just synced: it carries `content`,
+                       in place of whatever it carried before;
+      a hidden step    keeps what it carries. One that carries nothing was
+                       synced before this existed: it gets `previous`, the
+                       content the instance served until this sync.
+
+    Called last, once the sync has hidden what it drops, and with `previous`
+    read before `write_instance_config` replaced it. Returns how many steps
+    were written.
+    """
+    written = 0
+    for ch in ctfd.api("GET", "/challenges?view=admin") or []:
+        topics = ctfd.api("GET", f"/challenges/{ch['id']}/topics") or []
+        if not any(t["value"].startswith("ws:") for t in topics):
+            continue                       # not a workshop row: not ours to touch
+        carried = [t for t in topics if t["value"].startswith(CONTENT_TOPIC)]
+        # The list carries no `state`; the row does.
+        hidden = (ctfd.api("GET", f"/challenges/{ch['id']}") or {}).get("state") == "hidden"
+        if hidden:
+            wanted = None if carried else previous
+        else:
+            wanted = content
+        if not wanted:
+            continue
+        value = CONTENT_TOPIC + wanted
+        if [t["value"] for t in carried] == [value]:
+            continue
+        for t in carried:
+            ctfd.api("DELETE", f"/topics?type=challenge&target_id={t['id']}")
+        ctfd.api("POST", "/topics", json={
+            "value": value, "challenge_id": ch["id"], "type": "challenge"})
+        written += 1
+    if written:
+        print(f"content: {written} step(s) now say which content they belong to")
+    return written
+
+
 def sync(subject_dir, url, admin_user, admin_pass, codes_path=None, *,
          ctfd=None, position_base=0, gate_on=None, standalone=True,
          intro_on_index=None):
@@ -1209,6 +1266,7 @@ def sync(subject_dir, url, admin_user, admin_pass, codes_path=None, *,
         **cover,
     }
     if standalone:
+        previous = current_content(ctfd)
         write_instance_config(ctfd, documents_cfg, optional_ids, free_ids, final,
                               subjects_cfg={subject.slug: subject_cfg},
                               intro_step=intro_id if on_index else None,
@@ -1216,6 +1274,7 @@ def sync(subject_dir, url, admin_user, admin_pass, codes_path=None, *,
         # This subject is the whole instance now: whatever another source
         # left behind goes out of sight.
         hide_strangers(ctfd, {subject.slug})
+        record_content(ctfd, subject.slug, previous)
     if optional_ids:
         print(f"optional: {len(optional_ids)} step(s) excluded from the counters")
     if free_ids:

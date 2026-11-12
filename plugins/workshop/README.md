@@ -381,6 +381,13 @@ image ships 45.
 The job runs in a thread, which is a greenlet under the gevent worker, so an import neither
 blocks the instance nor deadlocks when it calls the instance's own API.
 
+**Each step says which content it belongs to** (PLAN.md §66). A sync ends by writing a second
+admin-only Topic on every step, `ws-content:<content slug>`: the content just synced on the
+visible steps, and on a step it hides, the content the instance served until then. A rotation
+keeps the old steps' solves, and this is what still says where they were earned once
+`workshop_content` names the new content. An instance synced before this needs one re-sync.
+`scripts/content_slug_check.py` reads the result.
+
 ## Starting the subject again, as an admin (PLAN.md §47)
 
 An admin tests a subject by doing it. The account menu carries **Reset my progress** for admins:

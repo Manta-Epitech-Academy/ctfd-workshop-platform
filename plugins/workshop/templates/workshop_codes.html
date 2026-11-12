@@ -35,13 +35,16 @@
     <div class="alert alert-warning">Banned every account on
       <code>{{ subject }}</code>, and retired the code so they cannot make new
       ones with it. Both are undone here.</div>
+  {% elif notice == "banned-external" %}
+    <div class="alert alert-warning">Banned every account on
+      <code>{{ subject }}</code>. Undone here.</div>
   {% elif notice == "deleted" %}
     <div class="alert alert-success"><code>{{ subject }}</code> deleted. Nobody
       had come in on it.</div>
   {% elif notice == "unbanned" %}
     <div class="alert alert-success">Un-banned every account on
-      <code>{{ subject }}</code>. The code is still retired: reopen it if it
-      should admit people again.</div>
+      <code>{{ subject }}</code>. A registration code stays retired: reopen
+      it if it should admit people again.</div>
   {% endif %}
 
   {% for error in errors %}
@@ -248,6 +251,62 @@
       {% endfor %}
     </tbody>
   </table>
+
+  {# Drawn only where the retired door was used (external.py, PLAN.md §64):
+     an instance that never opened it sees nothing of it. #}
+  {% if external %}
+    <h2 class="h5">Accounts from the retired external door</h2>
+    <p class="text-muted">
+      <code>/external/join</code> is gone and its codes admit nobody. The
+      accounts it made keep working, with their password, and each still
+      carries its code in the custom field <strong>External code</strong>. A
+      cohort is shut out or let back in here.
+    </p>
+
+    <table class="table table-striped" id="ws-external-cohorts">
+      <thead>
+        <tr>
+          <th>External code</th>
+          <th>Accounts</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for code, users in external.items() %}
+          {% set banned = users | selectattr("banned") | list | length == users | length %}
+          <tr>
+            <td><code>{{ code }}</code></td>
+            <td>
+              <details>
+                <summary>
+                  {{ users | length }} account{{ "s" if users | length > 1 }}
+                  {% if banned %}<span class="badge badge-danger">banned</span>{% endif %}
+                </summary>
+                <div class="pt-2">
+                  {% for user in users %}
+                    <a href="/admin/users/{{ user.id }}"
+                       class="badge {{ "badge-danger" if user.banned else "badge-light" }} mr-1">
+                      {{ user.name }}</a>
+                  {% endfor %}
+                </div>
+              </details>
+            </td>
+            <td class="text-right">
+              <form method="POST" class="d-inline"
+                    onsubmit="return confirm({{ (users | length ~ " account(s) on " ~ code ~ " will be " ~ ("un-banned." if banned else "banned.")) | tojson | forceescape }});">
+                <input type="hidden" name="nonce" value="{{ Session.nonce }}">
+                <input type="hidden" name="action" value="{{ "unban-external" if banned else "ban-external" }}">
+                <input type="hidden" name="code" value="{{ code }}">
+                <button type="submit" class="btn btn-sm {{ "btn-outline-success" if banned else "btn-outline-danger" }}">
+                  {{ "Un-ban" if banned else "Ban" }}
+                </button>
+              </form>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% endif %}
 
   <h2 class="h5">What a code does</h2>
   <ul>

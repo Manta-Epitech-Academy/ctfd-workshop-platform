@@ -5576,3 +5576,58 @@ download is later, under another serial, and is still made when the brand file i
 Not checked by the script: the QR code, read by hand from a render of the page (OpenCV, at 200
 dpi and above). Not checked at all: a phone reading it from paper, and the look beside a
 certificate printed by the original, compared by eye only.
+
+## 64. The external door is retired (2026-11-12)
+
+Issue #77. The external door (§42) was the way in for a group that did not come through Jump:
+a hidden address, a code, and an account made from a name, an e-mail and a password. The
+registration codes and the token door (§60, §61) admit the same groups, on the login page, and
+store none of the three. Two doors for one job is one too many, and the one that asks for an
+e-mail is the one to lose.
+
+### 64.1 What is removed
+
+- the route `/external/join` and its form;
+- the admin page `/admin/workshop/external` and its entry in the Workshop menu: switching the
+  door on, adding and retiring its codes;
+- the throttle that went with the route, and its log line, which wrote an e-mail and an address;
+- `scripts/external_check.py`.
+
+The two settings, `workshop_external_codes` and `workshop_external_enabled`, are left in the
+`config` table. Nothing reads them. Deleting them would need a migration that does nothing else.
+
+### 64.2 What stays
+
+- **The accounts.** They are ordinary participants with a password. They sign in at
+  `/login?staff=1`, since the participant side of the login page has no box for a password (§62).
+- **The custom field `External code`.** It is core's data, so it would stay whatever this plugin
+  did. Nothing writes it any more.
+- **The cohort.** `external.py` is now sixty lines: the cohort provider that reads the field
+  (§59), and the list of accounts by code. An account that carries a code is still walled from
+  every other cohort (§43), and the provider still loads first, so precedence is what it was.
+- **Shutting a cohort out.** `/admin/workshop/codes` draws these cohorts under the registration
+  codes, with the one action that still means something: ban, and un-ban. The section is drawn
+  only when such accounts exist, so an instance that never opened the door sees nothing of it.
+  A registration code is named by its id in that page's form and an external cohort by its code,
+  a text, so they are two actions (`ban-external`, `unban-external`) and not one with two
+  meanings. Banning retires nothing here: there is no code left to register with.
+
+### 64.3 Rejected
+
+- **Moving the accounts to registration codes.** A token account has no password and a secret
+  only its browser holds (§61). These have a password and no token. Turning one into the other
+  means inventing a token nobody was given.
+- **Deleting `external.py` and the field.** The wall between cohorts would fall for every
+  account the door made, on the day of the upgrade and without a word.
+- **Keeping the admin page for its cohort list.** A menu entry called "External access" on a
+  platform with no external access.
+
+### 64.4 Checked
+
+`scripts/audience_check.py <base-url> <admin-pass>`, 43 assertions on a local instance. It makes
+the door's accounts the way an old instance holds them (a password, and the field), since the
+door cannot make them any more. The wall holds as before on the scoreboard, the users list and
+the profiles. `/external/join` and the old admin page are 404, asking makes no account, an
+account of the door signs in. Banning one cohort from the codes page bans it alone, ends its
+session, and is undone from the same page; a participant cannot post the action.
+`scripts/admin_menu_check.js` now counts nine entries and opens "Registration codes".

@@ -1,7 +1,8 @@
 """Several populations on one instance, each seeing only its own.
 
 A participant who came through Jump and a participant who came through
-`/external/join` (external.py, §42) are in the same room and on the same
+another door (a registration code, §60, or the external door while it
+existed, §42 and §64) are in the same room and on the same
 instance, but they are not in the same cohort: a visiting group's names and
 scores have no business on the scoreboard the Jump talents read, and the
 reverse is just as true. Nor are two Jump sessions the same cohort (§50): an
@@ -10,7 +11,9 @@ last spring is not the room a talent is sitting in today.
 
 **The audience of an account is, in this order:**
 
-  * the external code it carries, `("code", "RUN-EVENT-0929")`;
+  * the external code it carries, `("code", "RUN-EVENT-0929")`, for an
+    account the retired external door made;
+  * else the registration code it came in on, `("cohort", 7)` (codes.py);
   * else the Jump session its link was filed under, `("session", 12)`
     (jump.py `file_session`);
   * else `DEFAULT`, for everybody else: an admin creating an account by hand,

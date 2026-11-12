@@ -20,8 +20,8 @@ door's own module (`/jump/enter` in jump.py), and so does everything it
 stores. What is registered is only what the login page needs: whether the
 door is open, and the piece of page that leads to it.
 
-The external door (external.py, §42) is deliberately not one: its address is
-half its secret, and nothing participant-facing may point at it.
+The external door (§42) never was one: its address was half its secret. It
+is retired (§64), and external.py keeps only the cohorts of its accounts.
 
 What every door needs once it has decided who somebody is lives here too:
 `sign_in`, and `workshop_is_open` for the page to send them to afterwards.

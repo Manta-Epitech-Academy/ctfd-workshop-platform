@@ -47,7 +47,7 @@ FENCED_REGIONS = ("resume", "toolbox", "glossary")
 # rendered page at all. `ws:scene {...}` (§3.8b) is a mapping, but one the
 # page reads, not metadata on a heading: same treatment, parsed on its own by
 # `find_scene_markers`.
-MARKS = ("cue", "doit", "scene")
+MARKS = ("cue", "doit", "scene", "anim")
 WS_COMMENT = re.compile(
     r"<!--\s*ws:(?!(?:%s)\b)(.*?)-->" % "|".join(FENCED_REGIONS + MARKS),
     re.DOTALL)
@@ -69,6 +69,13 @@ SCENE_DEFAULT_FEATURES = ("orbit", "zoom", "pan", "reset")
 SCENE_AXES = ("x", "y", "z")
 SCENE_KEEP = ("below", "above")
 SCENE_SIZE_WARN = 4 * 1024 * 1024
+# An animation with controls (convention §3.8d): a marker on the line after
+# the animated image it replaces on the platform, naming a video and, when
+# there is one, a WebVTT file of chapters — `<!-- ws:anim {src: img/x.webm,
+# chapters: img/x.vtt} -->`.
+ANIM_MD = re.compile(r"<!--\s*ws:anim\s+(\{.*?\})\s*-->", re.S)
+ANIM_VIDEO = (".webm", ".mp4")
+ANIM_SIZE_WARN = 8 * 1024 * 1024
 # An attachment (convention §3.8c): an ordinary link to a file of the repo,
 # `[Télécharge le kit](fichiers/kit.zip)` or `<a href="fichiers/kit.zip">`.
 # The lookbehind keeps images out; a link to another document (`.md`) or to
@@ -162,6 +169,7 @@ class Document:
     trailing_title: str = ""
     cover: dict = field(default_factory=dict)     # §3.2b, {} when undeclared
     scenes: list = field(default_factory=list)    # scene markers, parsed (§3.8b)
+    anims: list = field(default_factory=list)     # anim markers, parsed (§3.8d)
 
 
 @dataclass
@@ -183,7 +191,7 @@ class Asset:
     path: Path
     documents: list = field(default_factory=list)   # docs that reference it
     key: str = ""
-    kind: str = "image"                             # image | scene (§3.8b) | file (§3.8c)
+    kind: str = "image"                             # image | scene (§3.8b) | file (§3.8c) | video, chapters (§3.8d)
 
     def __post_init__(self):
         if not self.key:
@@ -234,6 +242,10 @@ class Subject:
     @property
     def attachments(self):
         return [a for a in self.assets if a.kind == "file"]
+
+    @property
+    def anims(self):
+        return [an for d in self.documents for an in d.anims]
 
 
 class ParseError(Exception):
@@ -343,6 +355,31 @@ def find_scene_markers(text):
     return out
 
 
+def find_anim_markers(text):
+    """Every `ws:anim` marker of a document: (raw match, data or None, error)."""
+    out = []
+    for m in ANIM_MD.finditer(_strip_fences(text)):
+        try:
+            data = yaml.safe_load(m.group(1))
+            if not isinstance(data, dict):
+                raise ValueError("not a mapping")
+            out.append((m, data, None))
+        except (yaml.YAMLError, ValueError) as e:
+            out.append((m, None, str(e).split("\n")[0]))
+    return out
+
+
+def find_anim_refs(text):
+    """[(ref, kind)] of the files an anim marker names: the video, and its chapters when any."""
+    refs = []
+    for _, data, _ in find_anim_markers(text):
+        for key, kind in (("src", "video"), ("chapters", "chapters")):
+            ref = str((data or {}).get(key) or "").strip()
+            if ref and _is_local_asset(ref) and (ref, kind) not in refs:
+                refs.append((ref, kind))
+    return refs
+
+
 def find_scene_refs(text):
     """Repo-relative scene files referenced by a document's markers, in order."""
     refs = []
@@ -434,17 +471,19 @@ def rewrite_asset_refs(md, mapping):
     for pattern in (LINK_MD, LINK_HTML):
         md = pattern.sub(sub, md)
 
-    # The scene file, named by `src:` inside the marker's mapping. Only that
-    # value is touched, so the author's other keys stay exactly as written.
-    src_key = re.compile(r"(\bsrc\s*:\s*)([^,}\s]+)")
+    # The scene file, named by `src:` inside the marker's mapping, and an
+    # animation's `src:` and `chapters:`. Only those values are touched, so
+    # the author's other keys stay exactly as written.
+    file_key = re.compile(r"(\b(?:src|chapters)\s*:\s*)([^,}\s]+)")
 
-    def sub_scene(m):
-        def sub_src(k):
+    def sub_marker(m):
+        def sub_value(k):
             target = mapping.get(k.group(2).strip())
             return k.group(1) + target if target else k.group(0)
-        return src_key.sub(sub_src, m.group(0), count=1)
+        return file_key.sub(sub_value, m.group(0))
 
-    return SCENE_MD.sub(sub_scene, md)
+    md = SCENE_MD.sub(sub_marker, md)
+    return ANIM_MD.sub(sub_marker, md)
 
 
 def _split_sections(text, where):
@@ -678,6 +717,13 @@ def parse_subject(subject_dir):
                                   kind="file"))
             asset.documents.append(doc_path)
         scenes = [data for _, data, _ in find_scene_markers(text) if data]
+        # An animation's video and chapters (§3.8d), uploaded like a scene.
+        for ref, kind in find_anim_refs(text):
+            asset = collect(Asset(ref=ref,
+                                  path=(subject_dir / doc_path).parent / ref,
+                                  kind=kind))
+            asset.documents.append(doc_path)
+        anims = [data for _, data, _ in find_anim_markers(text) if data]
 
         sections = _split_sections(text, where)
 
@@ -697,7 +743,7 @@ def parse_subject(subject_dir):
                           documents=[doc_path],
                           key=cover_asset_key(ref, doc_path)))
         doc = Document(path=doc_path, title=doc_title, body_md="",
-                       cover=doc_cover, scenes=scenes)
+                       cover=doc_cover, scenes=scenes, anims=anims)
         page_parts = []          # doc body with ws markup stripped
         context_parts = []       # prose accumulated since the last exercise
         trailing_parts = []      # same prose, real headings — becomes a page if
@@ -1000,6 +1046,51 @@ def _toolbox_warnings(subject_dir, subject):
     return warnings
 
 
+def _anim_checks(subject_dir, subject):
+    """(problems, warnings) for every `ws:anim` marker (convention §3.8d).
+
+    Like a scene, an animation stands in for an animated image, which is what
+    GitHub and a browser without the player show, so the marker must follow
+    one. The video is a `.webm` or `.mp4`; the chapters, when named, a WebVTT
+    file (its header is checked: a wrong file is silent in a browser).
+    """
+    problems, warnings = [], []
+    for doc in subject.documents:
+        text = (Path(subject_dir) / doc.path).read_text(encoding="utf-8")
+        scannable = _strip_fences(text)
+        for m, data, error in find_anim_markers(text):
+            where = f"{doc.path}: anim"
+            if error:
+                problems.append(f"{where} marker does not parse: {error}")
+                continue
+            src = str(data.get("src") or "").strip()
+            if not src:
+                problems.append(f"{where} marker has no `src`")
+                continue
+            where = f"{doc.path}: anim {src!r}"
+            before = [l for l in scannable[:m.start()].split("\n") if l.strip()]
+            if not before or not (IMAGE_MD.search(before[-1]) or IMAGE_HTML.search(before[-1])):
+                problems.append(f"{where}: the marker must directly follow the animated image it "
+                                f"replaces (the image is the fallback, §3.8d)")
+            if not src.lower().endswith(ANIM_VIDEO):
+                problems.append(f"{where}: the video is a `.webm` or `.mp4` file")
+            path = (Path(subject_dir) / doc.path).parent / src
+            if path.is_file() and path.stat().st_size > ANIM_SIZE_WARN:
+                warnings.append(f"{where}: {path.stat().st_size / 1e6:.1f} MB. Every participant "
+                                f"downloads it; a lower crf or a shorter scene?")
+            chapters = str(data.get("chapters") or "").strip()
+            if chapters:
+                cpath = (Path(subject_dir) / doc.path).parent / chapters
+                if not chapters.lower().endswith(".vtt"):
+                    problems.append(f"{where}: `chapters` is a WebVTT `.vtt` file")
+                elif cpath.is_file() and not cpath.read_text(encoding="utf-8", errors="ignore").startswith("WEBVTT"):
+                    problems.append(f"{where}: {chapters!r} does not start with `WEBVTT`")
+            unknown = sorted(set(data) - {"src", "chapters"})
+            if unknown:
+                warnings.append(f"{where}: unknown key(s) {', '.join(unknown)}, ignored")
+    return problems, warnings
+
+
 def _attachment_checks(subject):
     """Warnings for attachments (§3.8c): a big file, which every participant downloads."""
     warnings = []
@@ -1102,6 +1193,7 @@ def lint_all(subject_dir):
     return problems, (_cover_warnings(subject) + _toolbox_warnings(subject_dir, subject)
                       + _codes_warnings(load_checkpoint_codes(subject_dir))
                       + _scene_checks(subject_dir, subject)[1]
+                      + _anim_checks(subject_dir, subject)[1]
                       + _attachment_checks(subject)
                       + _flags_warnings(subject_dir, subject))
 
@@ -1186,6 +1278,7 @@ def _lint_problems(subject_dir):
         if not a.exists:
             problems.append(f"{a.documents[0]}: {a.kind} {a.ref!r} does not exist")
     problems.extend(_scene_checks(subject_dir, subject)[0])
+    problems.extend(_anim_checks(subject_dir, subject)[0])
     for q in subject.quizzes:
         if q.id not in answers:
             problems.append(f"quiz {q.id!r}: no entry in quiz_answers.yaml")

@@ -154,6 +154,8 @@ def load(app):
     import mimetypes
     mimetypes.add_type("image/webp", ".webp")
     mimetypes.add_type("model/gltf-binary", ".glb")
+    mimetypes.add_type("video/webm", ".webm")
+    mimetypes.add_type("text/vtt", ".vtt")
     register_admin_plugin_menu_bar("Answers", "/admin/workshop/answers")
     # The two pages a supervisor gets in place of core's Statistics and
     # Submissions (§32): the same questions asked of a workshop rather than a
@@ -225,6 +227,9 @@ def load(app):
     # for a viewer when it scrolls into view — see assets/scene.js. Global for
     # the same reason as zoom.js; three.js itself is imported on demand.
     register_plugin_script(url="/plugins/workshop/assets/scene.js")
+    # An animation with controls (convention §3.8d): swaps a marked animated
+    # image for a video player with chapters — see assets/anim.js.
+    register_plugin_script(url="/plugins/workshop/assets/anim.js")
     # Branching next-challenge button + the Parcours path graph — see
     # assets/graph.js, backed by GET /api/v1/workshop/graph.
     register_plugin_script(url="/plugins/workshop/assets/graph.js")

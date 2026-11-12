@@ -4,14 +4,14 @@
 participant side, which used to be Jump's button and nothing else. The page
 asked `jump.py` what to draw, and landing.py asked it where to send an
 anonymous visitor. A second way in would have meant a second special case in
-each (PLAN.md §58).
+each (PLAN.md §59).
 
 So a way in registers a `Door` here, and the page draws whatever doors are
 open. login.html reads only this module; it does not know what Jump is.
 
 **A door is drawn, never followed.** A door used to be able to answer for the
 whole page and send an anonymous visitor somewhere else (Jump's rule, §53).
-That is gone (§61): the participant side of `/login` is the instance's front
+That is gone (§62): the participant side of `/login` is the instance's front
 door, the token door is always on it, and no door sends anybody off the
 instance without a click.
 

@@ -198,12 +198,12 @@ time the login side moved.
 staff, each ending on `LoginFooter.svelte`'s link to the other. Here both are one page, because the
 form posts to core's `auth.login` and core re-renders `login.html` after a failure: `/login` opens
 on the participant side, `/login?staff=1` on core's form. The participant side is the doors
-(`doors.py`, PLAN.md §58), one under the other with a ruled "ou" between them: first the token
-door (PLAN.md §60), one box and one button, then the "Continuer avec Jump" button where a Jump key
+(`doors.py`, PLAN.md §59), one under the other with a ruled "ou" between them: first the token
+door (PLAN.md §61), one box and one button, then the "Continuer avec Jump" button where a Jump key
 is configured. The first door names the page: the title is its "Entre ton code", not "Connexion".
 `login_is_staff()` (`doors.py`) also opens the staff door when the participant one would be wrong:
 a failed attempt being re-rendered, an admin page in `next`. An anonymous visitor to `/`
-lands on the participant side (`landing.py`, PLAN.md §61), so this page is the first thing a
+lands on the participant side (`landing.py`, PLAN.md §62), so this page is the first thing a
 participant sees, and no door ever sends them to another site by itself. The form column copies
 `jump`'s login rather than the platform's defaults: small uppercase muted labels, 3rem fields, a
 3rem bold call to action (`.btn.epi-login-btn`, geometry only, colour from `.btn-primary`), no

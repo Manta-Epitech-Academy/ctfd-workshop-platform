@@ -1,9 +1,9 @@
 """The certificate: what a participant did here, signed, under the name nobody typed.
 
-An account made at the token door has no name and no e-mail (PLAN.md §59, §60),
+An account made at the token door has no name and no e-mail (PLAN.md §60, §61),
 so nothing outside this instance knows what « Renard-Vert-42 » did on it. The
 certificate is how that leaves, and it leaves in the participant's hands: a
-button on the workshop pages, a PDF, and nothing sent anywhere (§62).
+button on the workshop pages, a PDF, and nothing sent anywhere (§63).
 
 The PDF says what a certificate says, to a person: who, which workshop, when,
 where, how far. It also carries the same facts as one line of **signed text**,

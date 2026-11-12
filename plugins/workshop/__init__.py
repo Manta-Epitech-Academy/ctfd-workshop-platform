@@ -98,7 +98,7 @@ def load(app):
     load_toggle(app)
     register_admin_plugin_menu_bar("Workshop plugin", "/admin/workshop/plugin")
     # The login page's two sides, and the list of ways in it draws (PLAN.md
-    # §58). Before every door, which registers itself as it loads.
+    # §59). Before every door, which registers itself as it loads.
     load_doors(app)
     # A link out of the workshop (the Lua manual from a toolbox, say) opens in
     # a new tab, so coming back does not cost the runtime pane and the scroll
@@ -115,17 +115,17 @@ def load(app):
     load_external(app)
     register_admin_plugin_menu_bar("External access", "/admin/workshop/external")
     # Registration codes: the cohorts of an instance that runs without Jump
-    # (PLAN.md §59). Here, between the external door and Jump, because the
+    # (PLAN.md §60). Here, between the external door and Jump, because the
     # order the ways in load in is the order an account is claimed in.
     load_codes(app)
     register_admin_plugin_menu_bar("Registration codes", "/admin/workshop/codes")
     # The door those codes are typed at, and the way back in for an account
-    # made there (PLAN.md §60). Before `load_jump`: doors are drawn in the
+    # made there (PLAN.md §61). Before `load_jump`: doors are drawn in the
     # order they register, and this one is the front of the login page.
     load_tokendoor(app)
     # Several populations, each seeing only its own: the external cohorts
     # (PLAN.md §43) and the Jump sessions (§50). It names neither: each way
-    # in registers a cohort provider as it loads (cohorts.py, §58), and the
+    # in registers a cohort provider as it loads (cohorts.py, §59), and the
     # order they load in is the order an account is claimed in.
     load_audience(app)
     load_graph(app)  # GET /api/v1/workshop/graph — challenge DAG for the user
@@ -136,7 +136,7 @@ def load(app):
     # the challenge board stays reachable at /challenges — see landing.py.
     load_landing(app)
     # What a token account did here, as a signed PDF it downloads (PLAN.md
-    # §62). After `load_page`, whose title it prints.
+    # §63). After `load_page`, whose title it prints.
     load_certificate(app)
     # The Epitech/Jump app shell, replacing core's dark fixed-top navbar. It is
     # what carries the "Workshop" nav entry: this used to be deliberately absent

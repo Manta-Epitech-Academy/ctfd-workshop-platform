@@ -352,7 +352,7 @@ def _set_banned(code, banned):
 
 
 class ExternalCohorts(CohortProvider):
-    """A cohort is a code: every account that came in on it (§43, §58).
+    """A cohort is a code: every account that came in on it (§43, §59).
 
     No campus and no session: the supervision pages' picker (scope.py) is
     about rooms, and a code says nothing of where its group sat. These

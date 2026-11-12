@@ -16,15 +16,15 @@ first thing a participant sees. Nothing is lost by skipping the index either:
 its document is the Intro section of the workshop page.
 
 An anonymous visitor to `/` is sent to the participant side of the login
-page, which is the doors (doors.py, PLAN.md §58), the token door first
-(tokendoor.py, §60). That page is the instance's front door (§61): the index
+page, which is the doors (doors.py, PLAN.md §59), the token door first
+(tokendoor.py, §61). That page is the instance's front door (§62): the index
 has nothing to say to somebody who is not in yet that the door's own panel
 does not, and it is one more page between a participant and the box they came
 to type a code in.
 
 **Nothing here sends a visitor to another site.** Where Jump was the only way
 in, this module used to send an anonymous visitor straight on to it (§53).
-That is gone (§61): a door is something drawn on the login page, and Jump's is
+That is gone (§62): a door is something drawn on the login page, and Jump's is
 a button there.
 
 What a password opens is where it was: the staff form (`/login?staff=1`), the

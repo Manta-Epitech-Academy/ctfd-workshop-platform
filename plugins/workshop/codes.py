@@ -3,18 +3,18 @@
 A workshop needs to know which room an account sat in, and Jump used to say
 (§50). With Jump paused, a supervisor says instead: they create a
 **registration code** before the session, put it on a slide, and every account
-made with it belongs to that code's cohort (PLAN.md §59).
+made with it belongs to that code's cohort (PLAN.md §60).
 
 A code is the only thing a participant gives. No name, no e-mail: the account
 gets a generated name (names.py) and a synthetic address nothing is sent to.
 What says who the account belongs to is a secret their own browser makes
-(tokendoor.py, §60), and this module only ever sees the value derived from it.
+(tokendoor.py, §61), and this module only ever sees the value derived from it.
 
 **A code carries the cohort's facts**, typed once by the admin rather than by
 thirty lycéens: campus, event, date, and the content of the day. All optional.
 The code itself is the cohort key, so the wall between cohorts (audience.py)
 and the room picker of the supervision pages (scope.py) work with no Jump at
-all: this module registers a cohort provider like the other ways in (§58).
+all: this module registers a cohort provider like the other ways in (§59).
 
 **A code is typed by hand from a slide**, so it is compared forgivingly:
 case, spaces and dashes do not count, and the letters that look like digits
@@ -52,7 +52,7 @@ both in the cache:
     door refuses every code, right ones included, until the minute is over.
     That is somebody running a list.
 
-What this does not stop is said in PLAN.md §59.4 rather than hidden: a slow
+What this does not stop is said in PLAN.md §60.4 rather than hidden: a slow
 guesser, and a holder of a real code making accounts in a loop. The answers to
 those are a code long enough not to be guessed, a cap, and a validity window.
 """
@@ -158,7 +158,7 @@ class TokenAccount(db.Model):
     """An account made at the token door: its cohort, and how it signs in.
 
     `signin_hash` is the SHA-256 of the value the browser derives from the
-    token (§60). The token itself never reaches the server, and neither that
+    token (§61). The token itself never reaches the server, and neither that
     value nor the token can be worked back from this column.
 
     Keyed on the user like `WorkshopStaff`: one row per account, gone with it.
@@ -673,7 +673,7 @@ def manage():
 # ---------------------------------------------------------------------------
 
 class CodeCohorts(CohortProvider):
-    """A room is a code, a campus is what its code says (§58, §59).
+    """A room is a code, a campus is what its code says (§59, §60).
 
     The campus is free text, so two codes are in the same campus when they
     say so the same way give or take case and outer spaces. Its ref starts

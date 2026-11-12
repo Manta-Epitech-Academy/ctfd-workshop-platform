@@ -559,13 +559,13 @@ def main():
     # on another anonymous page, so its absence here is the login page's
     # doing (navbar.html) and not a header that lost it everywhere. Core's
     # notifications page, which anybody may read: `/` is no longer a page of
-    # its own (PLAN.md §61).
+    # its own (PLAN.md §62).
     other = anon.get(base + "/notifications", timeout=20)
     check(other.url.endswith("/notifications") and "epi-cta-on-band" in other.text
           and "epi-cta-on-band" not in talent and "epi-cta-on-band" not in staff,
           "the header drops its Login button on the login page, and only there")
 
-    # -- the front door (landing.py, PLAN.md §61, which takes back §53) ----
+    # -- the front door (landing.py, PLAN.md §62, which takes back §53) ----
     print("== Jump is a button under the token door, never a redirect ==")
     def lands(path):
         r = anon.get(base + path, timeout=20, allow_redirects=False)

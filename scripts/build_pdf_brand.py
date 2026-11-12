@@ -2,7 +2,7 @@
 """Build plugins/workshop/assets/pdf-brand.json: the brand, as a PDF takes it.
 
 The token door hands the personal code out as a PDF written in the browser
-(assets/pdf.js, PLAN.md §60.4). For that page to look like the platform it
+(assets/pdf.js, PLAN.md §61.4). For that page to look like the platform it
 needs the platform's three typefaces and the wordmark, and a PDF takes neither
 a woff2 nor an SVG. This script derives both from the files the plugin already
 vendors, so there is still one source for each:
@@ -16,7 +16,7 @@ does not use. The monospace keeps only what a personal code is made of. Each
 comes with the numbers its PDF font descriptor needs and the advance width of
 every character, which pdf.js uses to wrap and centre text.
 
-The certificate (assets/certificate.js, PLAN.md §62) is set in the same faces
+The certificate (assets/certificate.js, PLAN.md §63) is set in the same faces
 plus one the card has no use for, the light weight of the text face. That one
 goes in a file of its own, assets/pdf-brand-light.json, so the door's page does
 not download it.

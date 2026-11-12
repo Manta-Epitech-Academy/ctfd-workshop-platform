@@ -22,7 +22,7 @@
 #                                       theme already uses — see below for why a
 #                                       second copy is the right answer.
 #                                       qrcode-generator, for the token door's
-#                                       handout screen (PLAN.md §60.4).
+#                                       handout screen (PLAN.md §61.4).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PY_DIR="$ROOT/plugins/workshop/vendor"

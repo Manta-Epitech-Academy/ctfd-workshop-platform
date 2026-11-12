@@ -13,7 +13,7 @@ hidden account, the §32 rule) and, when a scope is set, only accounts filed
 under it. `per_challenge` is the per-step count the three reports share. The
 pages cannot disagree about who is in the room because none of them decides.
 
-**Campuses and sessions come from the cohort providers** (cohorts.py, §58),
+**Campuses and sessions come from the cohort providers** (cohorts.py, §59),
 and this module names none of them. A campus is a `ref`, the provider's own
 text, opaque here and unique across providers; Jump's is `<kid>/<campus>`
 (jump.py `JumpCohorts`), because one instance can serve a development and a
@@ -84,7 +84,7 @@ def _checked(ref, session_id):
 def _stored():
     """`(ref, session_id)` as the Flask session holds it.
 
-    A session written before §58 holds `[kid, campus, session_id]`, the two
+    A session written before §59 holds `[kid, campus, session_id]`, the two
     halves of Jump's ref apart. It is read as what it meant, so a supervisor
     signed in across the upgrade keeps their room.
     """

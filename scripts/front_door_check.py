@@ -4,7 +4,7 @@
     python3 scripts/front_door_check.py <base-url> <admin-pass>
 
 The plugin has no test suite, so this script **is** this feature's test suite
-(PLAN.md §42, §61). It holds the instance to this:
+(PLAN.md §42, §62). It holds the instance to this:
 
   * an anonymous visitor to `/` lands on the login page, and that page is the
     token door: in instructor-led mode and in self-serve mode, with core's

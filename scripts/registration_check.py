@@ -4,7 +4,7 @@
     python3 scripts/registration_check.py <base-url> <admin-pass>
 
 The plugin has no test suite, so this script **is** this feature's test suite
-(PLAN.md §42, §59). What it holds the door to:
+(PLAN.md §42, §60). What it holds the door to:
 
   * a code is all a participant gives: the account has a generated name, an
     address under `.invalid`, and no password core's own form would accept;

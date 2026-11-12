@@ -18,7 +18,7 @@ last spring is not the room a talent is sitting in today.
     before tickets named a session, until its next entry files it.
 
 Neither of the first two is named in this module. Each way in registers a
-cohort provider (cohorts.py, §58) and the key is `(provider name, value)`
+cohort provider (cohorts.py, §59) and the key is `(provider name, value)`
 of the first provider that has filed the account, in registration order,
 which is the order above.
 

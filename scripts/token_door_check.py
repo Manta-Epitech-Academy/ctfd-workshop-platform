@@ -4,7 +4,7 @@
     python3 scripts/token_door_check.py <base-url> <admin-pass>
 
 The plugin has no test suite, so this script **is** this feature's test suite
-(PLAN.md §42, §60), for the half the server holds. The other half is the
+(PLAN.md §42, §61), for the half the server holds. The other half is the
 page, and scripts/token_door_browser_check.js holds that one: the token is
 made in the browser and never leaves it, so only a browser can show it.
 

@@ -1,10 +1,10 @@
 """The token door: one box, a code in, and a secret only the browser knows.
 
 A participant who arrives without Jump types the code on the slide
-(codes.py, PLAN.md §59) and is given a **token**: 128 random bits, written as
+(codes.py, PLAN.md §60) and is given a **token**: 128 random bits, written as
 28 letters and digits. The token is the account. There is no name, no e-mail
 and no password, so there is nothing else to sign in with, and nobody can
-give a lost one back (§60).
+give a lost one back (§61).
 
 **The server never sees the token.** The browser makes it
 (assets/door.js) and derives two values from it with HKDF:

@@ -98,7 +98,7 @@ class CTFdAdmin:
 
     def _login(self, user, password):
         # The staff form: the bare /login is the participants' door, which
-        # has no password box (PLAN.md §61).
+        # has no password box (PLAN.md §62).
         nonce = self._nonce("/login?staff=1")
         self.s.post(self.base + "/login", data={
             "name": user, "password": password, "nonce": nonce, "_submit": "Submit"})

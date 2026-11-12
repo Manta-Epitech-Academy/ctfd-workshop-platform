@@ -15,7 +15,7 @@ Latin subset only (covers French diacritics — the workshop content's language)
 `../pdf-brand.json` holds the same three families again, as TrueType subsets a PDF can embed
 (Anton, IBM Plex Sans at weights 400 and 600, Space Mono 700 cut down to capitals, digits and
 the dash). `scripts/build_pdf_brand.py` derives them from the files above; the token door embeds
-them in the PDF it hands out (PLAN.md §60.4). Same licence.
+them in the PDF it hands out (PLAN.md §61.4). Same licence.
 
 All three: **SIL Open Font License, Version 1.1.**
 

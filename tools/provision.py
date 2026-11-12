@@ -79,13 +79,13 @@ def load_manifest():
         if inst["mode"] not in ("instructor_led", "self_serve"):
             sys.exit(f"{inst['name']}: unknown mode {inst['mode']!r}")
         # Registration is not a setting of the manifest any more (PLAN.md
-        # §61): every instance, whatever its mode, is entered through the
+        # §62): every instance, whatever its mode, is entered through the
         # token door with a registration code made on /admin/workshop/codes.
         # Said out loud rather than ignored, so nobody believes an instance
         # is open because its manifest entry says so.
         if "registration" in inst:
             sys.exit(f"{inst['name']}: `registration:` is gone from the "
-                     "manifest (PLAN.md §61). Registration codes are made on "
+                     "manifest (PLAN.md §62). Registration codes are made on "
                      "/admin/workshop/codes, in both modes.")
         # Whether talents see a scoreboard at all (PLAN.md §50.1): off, Jump's
         # XP is the only score they read. Per instance like `mode`, since a
@@ -395,14 +395,14 @@ def cmd_setup(manifest, sec, args):
             print(f"  wizard done — {name!r}, admin password in deploy/secrets.yaml")
 
         # Settings the wizard has no field for, and the ones a re-run has to
-        # put back on an instance set up before PLAN.md §61.
+        # put back on an instance set up before PLAN.md §62.
         configs = {
             # Core's own registration form is closed in both modes: it asks
             # for a name, an e-mail address and a password, and the way in is
-            # the token door, which asks for none of them (§60, §61). Its
+            # the token door, which asks for none of them (§61, §62). Its
             # shared code goes with it; the empty string is what clears one
             # already set. A registration code is a row made on
-            # /admin/workshop/codes, with its campus, date and event (§59):
+            # /admin/workshop/codes, with its campus, date and event (§60):
             # that is a session's business, not a deploy's, so none is made
             # here.
             "registration_visibility": "private",

@@ -1,6 +1,6 @@
 """A display name nobody typed: « Renard-Bleu-42 ».
 
-An account made at the token door (codes.py, PLAN.md §59) carries no personal
+An account made at the token door (codes.py, PLAN.md §60) carries no personal
 data, and a name box is where a lycéen types their own. So the platform picks
 the name, and nothing lets the account change it.
 

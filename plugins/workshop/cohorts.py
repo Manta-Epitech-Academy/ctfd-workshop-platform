@@ -1,7 +1,7 @@
 """Who is in which cohort: one registry, asked by everything that separates people.
 
 Two parts of this plugin need to know which room an account belongs to, and
-neither should know where rooms come from (PLAN.md §58):
+neither should know where rooms come from (PLAN.md §59):
 
   * audience.py, the wall between cohorts on the scoreboard and the user
     pages (§43, §50);

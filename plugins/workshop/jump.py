@@ -1001,7 +1001,7 @@ def requeue(event):
 
 
 # --------------------------------------------------------------------------
-# What Jump hands the rest of the plugin (cohorts.py, doors.py, PLAN.md §58)
+# What Jump hands the rest of the plugin (cohorts.py, doors.py, PLAN.md §59)
 # --------------------------------------------------------------------------
 
 class JumpCohorts(CohortProvider):
@@ -1078,7 +1078,7 @@ class JumpDoor(Door):
     bookmarked the URL or were sent it, and the button is their way back.
 
     A button and nothing more: this instance never sends a visitor to Jump
-    by itself (PLAN.md §61, which takes back §53).
+    by itself (PLAN.md §62, which takes back §53).
     """
     name = "jump"
     template = "workshop_jump_door.html"

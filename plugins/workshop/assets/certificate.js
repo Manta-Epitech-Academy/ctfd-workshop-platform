@@ -1,4 +1,4 @@
-/* The certificate, drawn here (certificate.py decides what it says; PLAN.md §62).
+/* The certificate, drawn here (certificate.py decides what it says; PLAN.md §63).
  *
  * The button asks the server for the facts, the sentences and the signed
  * text, then this draws one page with assets/pdf.js and hands it over as a

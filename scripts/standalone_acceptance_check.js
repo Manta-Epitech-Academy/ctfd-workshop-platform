@@ -1,4 +1,4 @@
-/* A standalone instance, end to end, in a real browser (PLAN.md §61).
+/* A standalone instance, end to end, in a real browser (PLAN.md §62).
  *
  *     node scripts/standalone_acceptance_check.js <base-url> <admin-pass> \
  *          [runtime-id|none] [path-to-playwright] [screenshot-dir]

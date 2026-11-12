@@ -1,5 +1,5 @@
 /* The token door (templates/workshop_token_door.html, tokendoor.py,
- * PLAN.md §60).
+ * PLAN.md §61).
  *
  * A participant's account is a token: 128 random bits made here, in this
  * browser, and never sent anywhere. Two values are derived from it with

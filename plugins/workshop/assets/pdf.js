@@ -1,5 +1,5 @@
-/* A one-page PDF, written by hand (PLAN.md §60.4). Two callers: door.js for
- * the personal code, certificate.js for the certificate (§62).
+/* A one-page PDF, written by hand (PLAN.md §61.4). Two callers: door.js for
+ * the personal code, certificate.js for the certificate (§63).
  *
  * The token door hands the personal code out as a file, and the file has to
  * be made in the browser, because the code exists nowhere else. A PDF and not

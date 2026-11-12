@@ -1434,7 +1434,7 @@ main:has(> .epi-login) {
   border-top: 1px solid var(--bs-border-color);
 }
 
-/* The token door (workshop_token_door.html, door.js, PLAN.md §60). It reuses
+/* The token door (workshop_token_door.html, door.js, PLAN.md §61). It reuses
    the login's fields and button; what is here is what a code needs that a
    name and a password do not. */
 

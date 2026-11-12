@@ -1,5 +1,5 @@
 # Builds the `ctfd-standalone` image: CTFd with this branch's workshop plugin,
-# the way in that needs no Jump (PLAN.md §58 to §61, issue #70).
+# the way in that needs no Jump (PLAN.md §59 to §62, issue #70).
 #
 # It is a test image, and its name says so. Production runs
 # `ghcr.io/manta-epitech-academy/ctfd-custom`, which is built by the

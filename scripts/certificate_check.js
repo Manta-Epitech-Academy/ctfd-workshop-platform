@@ -1,4 +1,4 @@
-/* The certificate, in a real browser (PLAN.md §62).
+/* The certificate, in a real browser (PLAN.md §63).
  *
  *     node scripts/certificate_check.js <base-url> <admin-pass> \
  *          [path-to-playwright] [out-dir]

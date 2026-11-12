@@ -1,4 +1,4 @@
-/* The token door in a real browser (PLAN.md §60).
+/* The token door in a real browser (PLAN.md §61).
  *
  *     node scripts/token_door_browser_check.js <base-url> <admin-pass> \
  *          [path-to-playwright] [screenshot-dir]

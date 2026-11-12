@@ -4,7 +4,7 @@ Revision ID: c5d81e4a7f30
 Revises: 8b3e6f1d9a24
 Create Date: 2026-11-10
 
-The way in that needs no Jump (PLAN.md §59): `workshop_registration_code`
+The way in that needs no Jump (PLAN.md §60): `workshop_registration_code`
 holds one row per code, which is one cohort, and `workshop_token_account`
 says which code an account came in on and what it signs in with.
 

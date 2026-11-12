@@ -2128,7 +2128,7 @@ nothing. The box label is platform copy, so it is English ("In short") over Fren
 
 ### 25.8 Registration follows the mode
 
-*Reversed by §61 (2026-11-10): a self-serve instance takes a registration code too, a private one,
+*Reversed by §62 (2026-11-10): a self-serve instance takes a registration code too, a private one,
 and registration no longer follows the mode.*
 
 **Resolved with the user 2026-08-25: self-serve needs no registration code.** A code exists to keep an
@@ -4554,7 +4554,7 @@ its server address, and key B with the sink as its origin and no server address:
 
 ## 53. The front door belongs to Jump (2026-10-14)
 
-*Taken back by §61 (2026-11-10): no page sends a visitor to Jump any more. What §53.2 says about
+*Taken back by §62 (2026-11-10): no page sends a visitor to Jump any more. What §53.2 says about
 the doors a password opens still holds.*
 
 Where Jump is the way in, a talent who reached an instance by its address (a URL a campus shared, a
@@ -4803,10 +4803,10 @@ callback reporting `points: 13`. With `points_for_user` made to return 0, the ch
 line and nowhere else. On an instance holding three `ack` steps worth 25, 10 and 0, `/workshop`
 renders the badges "25 XP" and "10 XP" in French and in English, and none on the step worth 0.
 
-## 58. Two registries: who is in which cohort, and the ways in (2026-11-10)
+## 59. Two registries: who is in which cohort, and the ways in (2026-11-10)
 
 Jump is paused for a time nobody can give, and workshops still have to run. The plan is a way in
-that needs no Jump and no personal data (§59 to §61, issues #70 to #86), and later the Jump code
+that needs no Jump and no personal data (§60 to §62, issues #70 to #86), and later the Jump code
 moving to a plugin of its own. Both need the same thing first: the rest of this plugin must stop
 knowing what Jump is.
 
@@ -4823,7 +4823,7 @@ A second way in would have been a second special case in each. This section adds
 points and plugs Jump and the external door into them. **Behaviour does not change**: this is a
 refactor, and the existing check scripts are its test.
 
-### 58.1 The cohort provider (`cohorts.py`)
+### 59.1 The cohort provider (`cohorts.py`)
 
 A way in that files accounts into rooms registers a `CohortProvider`. It answers four questions:
 
@@ -4845,7 +4845,7 @@ A way in that files accounts into rooms registers a `CohortProvider`. It answers
 - The external door registers a provider with memberships only. Its cohorts have no campus, so
   they were never in the picker, and still are not.
 
-### 58.2 The entry door (`doors.py`)
+### 59.2 The entry door (`doors.py`)
 
 A way in that wants a place on the participant side of `/login` registers a `Door`: a name, a
 template fragment, the line under the title, the label of the link back from the staff form,
@@ -4854,18 +4854,18 @@ template fragment, the line under the title, the label of the link back from the
 - `login.html` includes the fragment of every open door. `login_is_staff()` moved here from
   `jump.py`, unchanged.
 - `takeover` exists only to carry §53 through this refactor: Jump's door answers with Jump's
-  address when Jump is the only way in. §61 removes it. *(Removed, with §53's rule.)*
+  address when Jump is the only way in. §62 removes it. *(Removed, with §53's rule.)*
 - The external door is **not** a `Door`. Its address is half its secret (§42), so nothing
   participant-facing may point at it.
 
-### 58.3 Rejected
+### 59.3 Rejected
 
 - **A Flask signal or a generic event bus.** Two readers and two questions each: a class with four
   methods says more, and a typo in a signal name fails silently.
 - **Moving Jump out in the same change.** The repository for it does not exist yet, and a move plus
   a refactor cannot be checked against "nothing changed".
 
-### 58.4 Checked
+### 59.4 Checked
 
 On a fresh local instance holding the Pacman subject, before and after the change, the same
 results: `external_check`, `audience_check`, `toggle_check`, `reset_check` and `jump_check` all
@@ -4874,17 +4874,17 @@ the same two assertions on both sides (`GET /api/v1/users/1 -> 200`), on an inst
 `account_visibility` is private. `scope.py`, `audience.py` and `landing.py` import nothing from
 `jump.py`.
 
-## 59. Registration codes: a cohort without Jump (2026-11-10)
+## 60. Registration codes: a cohort without Jump (2026-11-10)
 
 Jump used to say which room an account sat in (§50). Without Jump, a supervisor says it: they
 make a **registration code** before the session and put it on a slide. Every account made with it
 is in that code's cohort. This section is the server half of the new way in (issue #74). The page
-a lycéen sees is §60, and making it the front door is §61.
+a lycéen sees is §61, and making it the front door is §62.
 
 **A code is the only thing a participant gives.** No name, no e-mail, nothing typed about
 themselves. That is the whole reason for this way in, so every choice below is checked against it.
 
-### 59.1 What a code is
+### 60.1 What a code is
 
 One row of `workshop_registration_code` (`codes.py`), made on `/admin/workshop/codes`:
 
@@ -4903,7 +4903,7 @@ One row of `workshop_registration_code` (`codes.py`), made on `/admin/workshop/c
 - **The form proposes a random code** (`K7QM-2XHD`, 40 bits, Crockford's alphabet). An admin may
   type a word instead, and the page says what that costs.
 
-**The code is the cohort.** `codes.py` registers a cohort provider (§58): the audience of an
+**The code is the cohort.** `codes.py` registers a cohort provider (§59): the audience of an
 account is its code, so two codes do not see each other on the scoreboard, in the users list or
 on a profile, even two codes of one campus. For the supervision pages a campus is what the code
 says (compared without case and outer spaces) and a room is one code, named by its event and
@@ -4915,13 +4915,13 @@ deleted, because that would orphan a cohort; the foreign key refuses it too. A c
 on is a typo, and that one can be deleted. There is no edit: a wrong code is deleted and made
 again while it is unused, and after that an edit would rewrite a cohort's history.
 
-### 59.2 The two requests, and the one refusal
+### 60.2 The two requests, and the one refusal
 
 - `POST /api/v1/workshop/door/code` with `{code}`: is this a code that admits people now? It
-  creates nothing. The door asks this before it shows a participant their token (§60), so nobody
+  creates nothing. The door asks this before it shows a participant their token (§61), so nobody
   saves a token for an account that could never exist.
 - `POST /api/v1/workshop/door/register` with `{code, signin}`: makes the account and signs the
-  browser in. `signin` is 32 bytes as hex, derived by the browser from the token (§60). Only its
+  browser in. `signin` is 32 bytes as hex, derived by the browser from the token (§61). Only its
   SHA-256 is stored. The value is looked up before the code is, so a double press answers the same
   account, even when the first press took the last place under the cap.
 
@@ -4944,7 +4944,7 @@ zone: « L'événement n'a pas encore commencé. Ton code sera valable à partir
 it can be used. A code that must stay unknown until the day is made on the day. Too late stays
 the common answer: a closed session has nobody waiting at its door.
 
-### 59.3 The account
+### 60.3 The account
 
 - **A generated name**, « Renard-Bleu-42 » (`names.py`): a French animal, a colour, a number. The
   lists are chosen so no pair needs agreement and none lands badly on a teenager. They are not
@@ -4958,7 +4958,7 @@ the common answer: a closed session has nobody waiting at its door.
   transaction opened for that, so a cap of 30 admits 30 when 40 press together. CTFd's own
   `num_users` limit is honoured too.
 
-### 59.4 The throttle, and what it does not stop
+### 60.4 The throttle, and what it does not stop
 
 It counts **wrong codes, not addresses**. A classroom is one address and thirty lycéens are not an
 attacker; and an address is the one thing about a participant this door has no reason to read.
@@ -4983,9 +4983,9 @@ What this does **not** stop, said here rather than hidden:
   the requests do. Throttling by address would cure this and bring back the address; an instance
   that meets it should be put behind its ingress's own rate limit.
 
-Signing in with a token is not throttled at all (§60): the value is 256 bits.
+Signing in with a token is not throttled at all (§61): the value is 256 bits.
 
-### 59.5 Banning a cohort
+### 60.5 Banning a cohort
 
 The admin page bans every account of a code and lets them back, like the external door's page
 does (§42), through one shared helper (`accounts.ban_accounts`, which skips admins and
@@ -4995,17 +4995,17 @@ Un-banning does not reopen the code; that is a second, deliberate press.
 
 The external door's page keeps its own revoke button. That door is retired later (#77), not here.
 
-### 59.6 Rejected
+### 60.6 Rejected
 
 - **A campus list** to pick from. It would be a second copy of Jump's list to keep in step, for a
   label.
 - **Deleting a used code.** The cohort is the code.
 - **A different message per reason** ("this code is full"). Kinder, and an oracle.
-- **Counting tries per address.** See §59.4.
+- **Counting tries per address.** See §60.4.
 - **CTFd's own registration code** (`registration_code`). One code per instance, checked by a form
   that asks for a name, an e-mail and a password.
 
-### 59.7 Checked
+### 60.7 Checked
 
 `scripts/registration_check.py <base-url> <admin-pass>`, 96 assertions, green on a fresh local
 instance holding the Pacman subject. It creates codes, admits accounts on each and reads every
@@ -5016,14 +5016,14 @@ what it made.
 
 The scripts that were green before are green after, with the same counts: `external_check`,
 `audience_check`, `toggle_check`, `reset_check`, `jump_check`. `supervisor_check` fails the same
-two assertions as before (§58.4).
+two assertions as before (§59.4).
 
 Not checked by a script: `num_users`, and the admin page's time-zone conversion, which was checked
 by hand in a browser set to Europe/Paris (09:00 typed, 08:00 UTC stored).
 
-## 60. The token door: one box, and a secret only the browser holds (2026-11-10)
+## 61. The token door: one box, and a secret only the browser holds (2026-11-10)
 
-§59 is the server's half of the way in without Jump. This is the page (issue #75): what a lycéen
+§60 is the server's half of the way in without Jump. This is the page (issue #75): what a lycéen
 sees on `/login`, what they are handed, and how they come back. The files are `tokendoor.py`,
 `templates/workshop_token_door.html` and `assets/door.js`.
 
@@ -5032,7 +5032,7 @@ calls the token. The token is the account. There is no name, no e-mail and no pa
 is nothing else to sign in with, and **a lost token is a lost account**: the participant starts
 over. The page says so in the sentence under its title, at the moment it hands the token out.
 
-### 60.1 The token
+### 61.1 The token
 
 - **128 random bits**, from the browser's `crypto.getRandomValues`. Not words: a token made of
   dictionary words is a token somebody can guess.
@@ -5040,11 +5040,11 @@ over. The page says so in the sentence under its title, at the moment it hands t
   26 are the 128 bits in Crockford's base 32 (no `I`, `L`, `O`, `U`). The last two are a
   **checksum**, the first ten bits of the SHA-256 of the 16 bytes.
 - **Read forgivingly**: case, spaces and dashes do not count, `O` is read as `0`, `I` and `L` as
-  `1`. The same folding as a registration code (§59.1).
-- **The checksum is what makes one box possible** (§60.3). A token copied by hand with one wrong
+  `1`. The same folding as a registration code (§60.1).
+- **The checksum is what makes one box possible** (§61.3). A token copied by hand with one wrong
   character is caught on the page, without asking the server anything.
 
-### 60.2 Two values from one token
+### 61.2 Two values from one token
 
 **The server never sees the token.** The browser derives two values from it with HKDF-SHA-256
 (Web Crypto), salt `ctfd-workshop-token-door-v1`:
@@ -5074,7 +5074,7 @@ is deleted when the door is shown to a browser nobody is signed in on, which is 
 computer shows the next pupil after a sign-out. Somebody signed in who opens `/login` anyway keeps
 theirs.
 
-### 60.3 One box
+### 61.3 One box
 
 The participant side of `/login` is one text box, « Ton code », and a button. It takes the code
 on the slide and it takes a token, and **the participant does not have to know there are two
@@ -5091,7 +5091,7 @@ registered last week must still be able to come back.
 | anything else | refuses on the page, sends nothing |
 
 - **One sentence for every refusal**, from the page and from the server alike: « Ce code n'est pas
-  valable. Vérifie-le ou demande le bon code à ton encadrant. » (§59.2). The exception is §59.2's:
+  valable. Vérifie-le ou demande le bon code à ton encadrant. » (§60.2). The exception is §60.2's:
   a registration code that is not open yet, for which the page writes the opening time in the
   reader's own zone.
 - **The box writes the dashes** (decided 2026-11-10, after the first testers typed 28 characters
@@ -5101,14 +5101,14 @@ registered last week must still be able to come back.
   touched (letters, digits, dashes, spaces, 28 characters at most), so a sentence pasted with the
   token in it stays as it came. **The box cannot know which code is being typed**, so the one on
   the slide is grouped too: `LILLE-2026` appears as `LILL-E202-6`. It is still accepted, because
-  dashes never count (§59.1), and the codes page tells the admin to write a code in fours on the
+  dashes never count (§60.1), and the codes page tells the admin to write a code in fours on the
   slide. The random ones it proposes already are.
 - **A token is looked for inside what was pasted**, so the whole text of the file pasted into the
   box works.
 - **What this leaves**: a token cut down to 24 characters or fewer cannot be told from a
   registration code, and is sent as one. The server finds no such code and refuses. It does not
-  store or log what was typed (§59.2); what stays is a hashed counter key in the cache for 15
-  minutes (§59.4). 24 characters of a token are 120 of its 128 bits, so this is the one way a
+  store or log what was typed (§60.2); what stays is a hashed counter key in the cache for 15
+  minutes (§60.4). 24 characters of a token are 120 of its 128 bits, so this is the one way a
   token can mostly reach the server, and it takes a participant pasting a broken one.
 - **The page needs JavaScript and a secure context** (https, or localhost): Web Crypto exists
   nowhere else. Without the first a `<noscript>` line says so. Without the second the page says
@@ -5117,7 +5117,7 @@ registered last week must still be able to come back.
 - **No sentence lives in the script.** Everything `door.js` says is in the template's `data-*`,
   through the catalogue.
 
-### 60.4 The handout
+### 61.4 The handout
 
 When a registration code is good, the page makes the token and shows it **once**, with three ways
 to keep it on one screen:
@@ -5167,7 +5167,7 @@ to keep it on one screen:
 
 **The account is made when « Continuer » is pressed**, and the button is disabled until
 « J'ai noté mon code » is ticked. Before that press nothing exists on the server: `/door/code`
-creates nothing (§59.2). So nobody owns an account whose token they were never shown, and closing
+creates nothing (§60.2). So nobody owns an account whose token they were never shown, and closing
 the tab on the handout leaves no orphan. A code that filled up between the two requests sends the
 participant back to the box with the one sentence.
 
@@ -5176,18 +5176,18 @@ The QR code is drawn by `qrcode-generator` 1.4.4 (MIT), fetched and checksum-pin
 SVG, black on white whatever the theme: a phone camera wants contrast. Without the library the
 figure is hidden and the two other ways still work.
 
-### 60.5 Coming back
+### 61.5 Coming back
 
 Type the token, paste it, choose the file, drop the file anywhere on the page, or scan the QR
 code. All five end in one request:
 
 - `POST /api/v1/workshop/door/signin` with `{signin}`. It answers `{next, name}` and signs the
-  browser in, or answers §59.2's one refusal: unknown value, malformed request, banned account.
-- **Not throttled, and it does not feed §59.4's brake.** The value is 256 bits derived from 128
+  browser in, or answers §60.2's one refusal: unknown value, malformed request, banned account.
+- **Not throttled, and it does not feed §60.4's brake.** The value is 256 bits derived from 128
   random ones. There is no list to run against it, so a counter would protect nothing and would be
   one more thing able to shut a room out.
 - **A file is only ever read for a token**, never taken for a registration code, and not above
-  256 KB. It is read as text, whatever it is: the PDF of §60.4 holds the token as text, and so do
+  256 KB. It is read as text, whatever it is: the PDF of §61.4 holds the token as text, and so do
   the text files handed out before it, which still open. **A PDF that was saved again by another
   program** (« Imprimer en PDF ») has its page compressed: the door says it found no code in it,
   and the code printed on the page can still be typed.
@@ -5195,7 +5195,7 @@ code. All five end in one request:
 - A request the server answers with anything but JSON is core's CSRF page: the tab was open longer
   than the session. The page reloads itself and the participant types again.
 
-### 60.6 An account with no name cannot type one
+### 61.6 An account with no name cannot type one
 
 Core's settings page is a name box, an e-mail box and a password box. The first two are where a
 lycéen would type who they are, into an account whose point is to hold nothing of the kind. The
@@ -5210,7 +5210,7 @@ third would give the account a second way in that nobody was told about.
 - An admin can still rename an account from the admin panel. That is staff typing, not the
   participant.
 
-### 60.7 What this does not protect
+### 61.7 What this does not protect
 
 - **A classroom computer that keeps the file.** The warning is a sentence. Whoever opens the
   Downloads folder next is that account. What they find there is workshop progress, nothing about
@@ -5221,7 +5221,7 @@ third would give the account a second way in that nobody was told about.
 - **A token is not revocable by its owner.** There is nothing to prove ownership with except the
   token. An admin can ban the account.
 
-### 60.8 Rejected
+### 61.8 Rejected
 
 - **A token made of words** (`tigre-lune-sable-4821`). Easy to copy, and guessable.
 - **Sending the token and hashing it on the server.** It works, and it means trusting the server,
@@ -5235,9 +5235,9 @@ third would give the account a second way in that nobody was told about.
 - **Making the account before showing the token.** A closed tab would leave an account nobody can
   open.
 - **A "forgot my code" path.** It needs something to recognise a person by, and there is nothing.
-- **Throttling sign-in.** See §60.5.
+- **Throttling sign-in.** See §61.5.
 
-### 60.9 Checked
+### 61.9 Checked
 
 On a fresh local instance holding the Pacman subject, with a secure context:
 
@@ -5260,30 +5260,30 @@ On a fresh local instance holding the Pacman subject, with a secure context:
   pasted with words around it, the PDF chosen, the PDF dropped, a text file of before the PDF, and
   `/login#<token>`, then again from a browser that never saw it. It checks
   the page at 360 px, and what the page says without a secure context.
-- Both hold the test vector of §60.2.
+- Both hold the test vector of §61.2.
 - By hand: the instance's three logs hold no token and no sign-in value after both scripts.
 - The scripts that were green before are green after, with the same counts: `registration_check`,
   `external_check`, `audience_check`, `toggle_check`, `reset_check`, `jump_check`.
-  `supervisor_check` fails the same two assertions as before (§58.4).
+  `supervisor_check` fails the same two assertions as before (§59.4).
 
 Not checked by a script: a real phone scanning the QR code, on the screen and on the printed
 page, and the PDF opened by the reader of a classroom computer (Edge, Acrobat). Ghostscript and
 MuPDF open it with no warning, embedded fonts included. The card's look is checked by eye, on a
 render: nothing in a script says whether it is handsome.
 
-## 61. The token door is the front door (2026-11-10)
+## 62. The token door is the front door (2026-11-10)
 
-§60 drew the token door on the participant side of `/login`. This section makes that page the
+§61 drew the token door on the participant side of `/login`. This section makes that page the
 front of the instance, and takes back two earlier decisions that stood in its way: §53, which sent
 an anonymous visitor to Jump, and §25.8, which opened a self-serve instance to anybody.
 (Issue #76.)
 
-### 61.1 The rule
+### 62.1 The rule
 
 **An anonymous GET on `/` is answered with a redirect to `/login`**, whenever the plugin is switched
 on (`landing.py`, `anonymous_to_door`). Nothing else is read: not the mode, not core's registration
 setting, not whether a Jump key is configured. `/login` opens on the participant side, and the
-first thing on it is the token door, which is always open (§60).
+first thing on it is the token door, which is always open (§61).
 
 The index page is skipped on purpose. It had nothing to say to somebody who is not in yet that the
 door's own panel does not say, and it was one more page between a lycéen and the box they came to
@@ -5292,7 +5292,7 @@ type a code in. Its document is still read: it is the Intro of the workshop page
 Signed in, `/` goes to the workshop as before (`root_to_workshop`, unchanged). Switched off (§39),
 `/` is core's index again and `/login` is core's form: every hook reads the switch.
 
-### 61.2 Jump is a button, never a redirect
+### 62.2 Jump is a button, never a redirect
 
 §53 is taken back. `jump_is_the_way_in()`, `talent_door()` and `Door.takeover` are gone, and with
 them the only code that answered a request with another site's address before anybody clicked.
@@ -5314,7 +5314,7 @@ and cannot explain.
 When the Jump code moves to its own plugin (#86), this is what it brings with it: a door that
 registers itself and is drawn. It has no hook to take the front page with.
 
-### 61.3 Self-serve takes a private code
+### 62.3 Self-serve takes a private code
 
 §25.8 said a self-serve instance sets registration public with no code, because it is "meant to be
 found". That is reversed.
@@ -5323,13 +5323,13 @@ found". That is reversed.
   now only says how a checkpoint step is validated (§25.3).
 - **A self-serve code is a private code**: made on `/admin/workshop/codes` like any other, with no
   closing date if the instance is meant to stay up, and given to whoever should get in. It is still
-  a cohort (§59): the people who came in with it are together on the scoreboard and on the
+  a cohort (§60): the people who came in with it are together on the scoreboard and on the
   supervision pages.
 - **No code, no way in.** An instance on which nobody made a code admits nobody. That is the
   right failure for a site whose admin password is the only thing an attacker has to find.
 
 Why the reversal: an open instance needs a form anybody can fill, and the only form core has asks
-for a name, an e-mail address and a password. The point of §59 and §60 is an instance that holds
+for a name, an e-mail address and a password. The point of §60 and §61 is an instance that holds
 none of the three. A code costs the organiser one line on a slide or in a message.
 
 **Core's own registration form is closed by configuration, not by this plugin.**
@@ -5341,7 +5341,7 @@ before this section is closed by the next `setup`. The k8s overlay already prese
 campus, a date and an event, and that is a session's business, not a deploy's. `setup` ends by
 printing where to make one.
 
-### 61.4 What a password opens is where it was
+### 62.4 What a password opens is where it was
 
 §53.2 still holds, word for word: the staff form at `/login?staff=1` and every case
 `login_is_staff()` opens it on, a bare `/admin` sent to the staff form with no `next`, the
@@ -5352,14 +5352,14 @@ Two of §53.3's costs are gone:
 - **Logging out lands on the token door**, on the instance, not on Jump.
 - **A session that expired on `/workshop` stays on the instance**: it is sent to
   `/login?next=/workshop`, the token door. The door does not read `next`: once in, a participant
-  goes to the workshop page (`after_entry()`, §59), the only page a participant's deep link
+  goes to the workshop page (`after_entry()`, §60), the only page a participant's deep link
   leads to. The staff form still honours `next`, as core does.
 
 Two stay, in a milder form. A password account that is not staff (a supervisor, an external
 participant) still has no box of its own on the participant side: its way back is the "Staff
 sign-in" link at the bottom of that page, one click, where §53 left it no link at all.
 
-### 61.5 Rejected
+### 62.5 Rejected
 
 - **Keeping `/` as a page, with a button to the door.** One more page and one more click, for a
   text the door's panel already carries.
@@ -5374,7 +5374,7 @@ sign-in" link at the bottom of that page, one click, where §53 left it no link 
 - **Provisioning a default registration code.** A code with no campus, no date and no event is
   the shared code of §25.8 again, and it would be the same on every instance.
 
-### 61.6 Checked
+### 62.6 Checked
 
 On a fresh local instance holding the Pacman subject:
 
@@ -5393,7 +5393,7 @@ On a fresh local instance holding the Pacman subject:
   page, the token door comes first). 146 assertions, green.
 - The scripts that were green before are green after: `registration_check`, `token_door_check`,
   `token_door_browser_check.js`, `external_check`, `audience_check`, `toggle_check`,
-  `reset_check`. `supervisor_check` fails the same two assertions as before (§58.4).
+  `reset_check`. `supervisor_check` fails the same two assertions as before (§59.4).
 
 Then on a local k3s cluster running the `ctfd-standalone` image CI built from this branch, one
 namespace per instance (CTFd, MariaDB, Redis), TLS ended in front and Traefik behind, the runtimes
@@ -5416,21 +5416,21 @@ on their own route, as on the cluster:
   assertions. On the scratch instance, where registration is not preset, the same script fails
   on `/register` and on nothing else, which is the assertion doing its work.
 - Behind the two proxies CTFd records the visitor's own address, and an `X-Forwarded-For` the
-  visitor sends is dropped by the front proxy. The throttle of §59.4 counts on both.
+  visitor sends is dropped by the front proxy. The throttle of §60.4 counts on both.
 
 Not checked: `tools/provision.py setup` against a compose deploy. The local instances of this work
 are k3s ones, set up by `PRESET_CONFIGS` as on the cluster, so the provisioning change is read and
 linted, not run. Not checked either: a phone scanning the QR code, and the door from outside this
 machine.
 
-## 62. The certificate: progress leaves in the participant's hands (2026-11-11)
+## 63. The certificate: progress leaves in the participant's hands (2026-11-11)
 
-Issue #84. An account made at the token door (§60) has no name and no e-mail, so nothing outside
+Issue #84. An account made at the token door (§61) has no name and no e-mail, so nothing outside
 the instance knows what `Renard-Vert-42` did on it. Events are close and the progress made at
 them must not be lost. The answer is not an export to anywhere: it is a **certificate**, the one
 Epitech already hands out after a workshop, under the name the platform chose.
 
-### 62.1 What it is
+### 63.1 What it is
 
 A button on the workshop pages, "Télécharger mon certificat", and a one-page PDF: the
 "Certificat de participation" of Epitech's Coding Club, redrawn. A4 on its side, the blue frame,
@@ -5440,7 +5440,7 @@ the wordmark, the title over its green line, the name in blue capitals, one sent
 > fantôme de Pac-Man » le 14 novembre 2026 au sein d'Epitech Lille, et a obtenu 2000 XP en
 > validant 12 étapes sur 15.
 
-The date and the campus are the registration code's (§59) and each is left out when the code
+The date and the campus are the registration code's (§60) and each is left out when the code
 does not say it. The sentence may change; it is four msgids and a plural in `certificate.py`.
 
 Where the original has the campus' signatures, this one has what signs it here: a QR code and
@@ -5450,7 +5450,7 @@ By default the platform holds nothing personal. The certificate is the same fact
 pseudonym, in a file the participant chose to download. It becomes personal data only where and
 when its holder hands it over with their name, which is not here.
 
-### 62.2 The signed text
+### 63.2 The signed text
 
 The server decides every fact and signs them as a JWS in compact form, Ed25519
 (`"alg":"EdDSA"`). The payload:
@@ -5473,7 +5473,7 @@ The text is in the PDF twice: in the QR code, and as one line of text that is no
 program finds it by reading the file as text:
 `eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]{86}`.
 
-### 62.3 The key
+### 63.3 The key
 
 One Ed25519 key signs for every instance, so one public key checks every certificate. It is a
 deploy secret, `WORKSHOP_CERTIFICATE_KEY` in the environment: the 32-byte seed in base64, or a
@@ -5483,11 +5483,11 @@ test instance still works; its certificates check against that instance's key on
 The public half is served to anybody as a JWK set at `/api/v1/workshop/certificate/key`. The
 `kid` in a certificate's header is the first 16 characters of the key's RFC 7638 thumbprint.
 
-### 62.4 Who draws what
+### 63.4 Who draws what
 
 `certificate.py` answers JSON at `/api/v1/workshop/certificate`: the signed text and every
 sentence, translated. `assets/certificate.js` draws the page with `assets/pdf.js`, the writer of
-§60.4, which gained a page size, a light weight (`assets/pdf-brand-light.json`, built by
+§61.4, which gained a page size, a light weight (`assets/pdf-brand-light.json`, built by
 `scripts/build_pdf_brand.py`, fetched by this page only), slanted text for the italics the
 plugin vendors no file for, and text that is in the file without being drawn. No PDF library in
 the image, no headless browser beside it.
@@ -5497,7 +5497,7 @@ one-document subject never shows the index. It is offered only to an account mad
 door: any other account's name was typed by a person, and this must not be the file a real name
 lands in. It stays hidden until a first step is done, and shows when the counter moves.
 
-### 62.5 Downloading again, and who may claim it
+### 63.5 Downloading again, and who may claim it
 
 Nothing is stored: no serial, no count. Downloading again is always possible and gives a newer
 certificate of the same account. The rules belong to whoever takes the file in:
@@ -5507,7 +5507,7 @@ certificate of the same account. The rules belong to whoever takes the file in:
   accepted and replaces it.
 - A second person claiming an account somebody already claimed is refused.
 
-### 62.6 Rejected
+### 63.6 Rejected
 
 - **Naming where the file may go.** The button, the file and the page name no other platform.
   A certificate is what it says it is; what reads it later is that reader's business.
@@ -5522,7 +5522,7 @@ certificate of the same account. The rules belong to whoever takes the file in:
 - **Storing what was issued.** It would be a table about people's downloads, to enforce a rule
   that can only be enforced where a name is attached.
 
-### 62.7 Checked
+### 63.7 Checked
 
 `scripts/certificate_check.js <base-url> <admin-pass>` (Playwright), 39 assertions on a local
 instance holding the Pacman subject. The key is public and named after its thumbprint. An admin

@@ -276,8 +276,8 @@ a button, `instructor_led` (the default) means the instructor's code.
 
 **Either way nobody can come in until a registration code exists.** `setup`
 closes core's registration form in both modes; the way in is the token door
-(PLAN.md §60, §61), and its codes are made on `/admin/workshop/codes`, one per
-cohort, with a campus, a date and an event (§59). A self-serve instance takes
+(PLAN.md §61, §62), and its codes are made on `/admin/workshop/codes`, one per
+cohort, with a campus, a date and an event (§60). A self-serve instance takes
 one too: a private code, given to whoever should get in.
 
 To change it on a **running** instance, use `/admin/workshop/settings` rather
@@ -297,7 +297,7 @@ what every instance deployed before 2026-08-25 in fact was.
 
 **Registration does not follow the mode.** Flipping the setting does not open
 or close anything: the registration codes of `/admin/workshop/codes` admit
-people in both modes (PLAN.md §61).
+people in both modes (PLAN.md §62).
 
 
 ## 6c. Syncing content from the admin panel
@@ -704,7 +704,7 @@ sync page — the example overlay carries it.
 
 `.github/workflows/ctfd-standalone.yml` builds
 `ghcr.io/manta-epitech-academy/ctfd-standalone` from the branch that carries the
-way in without Jump (PLAN.md §58 to §61). It is ctfd-custom's own Dockerfile at
+way in without Jump (PLAN.md §59 to §62). It is ctfd-custom's own Dockerfile at
 a pinned commit, with this repository's `plugins/` and `tools/` in place of the
 submodule, so it differs from production's image by this branch and by nothing
 else. Two tags per build: the branch name with `/` turned into `-`, and
@@ -736,7 +736,7 @@ in.
   Jump's Service, `http://jump-sk-service.jump-prod.svc.cluster.local:3030`
   for `jump-prod` (`jump-dev` for the dev Jump), and leave **Origin** on the
   public address: it is what the login page's Jump button sends a talent
-  to (PLAN.md §52, §61).
+  to (PLAN.md §52, §62).
 - **A plugin change needs a container restart.** `plugins/workshop/` is bind
   mounted, but Python imports it once at boot. `docker restart ctfd-<name>-ctfd-1`.
 - **Any change made to the database behind CTFd's back needs a cache flush.**
@@ -758,7 +758,7 @@ in.
   because "self-serve does not need codes".
 - **The mode is not what opens registration.** It only changes how a step is
   validated. A self-serve instance is entered with a registration code like
-  any other (PLAN.md §61): no code on `/admin/workshop/codes`, no way in.
+  any other (PLAN.md §62): no code on `/admin/workshop/codes`, no way in.
 - **The codes an instance actually accepts are on the instance.**
   `/admin/workshop/answers` lists every step's answer as that instance will
   take it, plus how far each participant has got. That is the sheet to open in

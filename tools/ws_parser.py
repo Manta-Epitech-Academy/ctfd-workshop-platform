@@ -1068,7 +1068,7 @@ def _anim_checks(subject_dir, subject):
                 problems.append(f"{where} marker has no `src`")
                 continue
             where = f"{doc.path}: anim {src!r}"
-            before = [l for l in scannable[:m.start()].split("\n") if l.strip()]
+            before = _lines_before(scannable, m.start())
             if not before or not (IMAGE_MD.search(before[-1]) or IMAGE_HTML.search(before[-1])):
                 problems.append(f"{where}: the marker must directly follow the animated image it "
                                 f"replaces (the image is the fallback, §3.8d)")
@@ -1102,6 +1102,18 @@ def _attachment_checks(subject):
     return warnings
 
 
+def _lines_before(text, pos):
+    """The non-empty lines above the line holding `pos` (a marker's start).
+
+    The marker's own line is left out even when something precedes the marker
+    on it — the `> ` of a blockquote, typically — so that "the line above" is
+    the image's line, inside a toolbox as anywhere else.
+    """
+    cut = text.rfind("\n", 0, pos)
+    head = text[:cut] if cut >= 0 else ""
+    return [l for l in head.split("\n") if l.strip() and l.strip() != ">"]
+
+
 def _scene_checks(subject_dir, subject):
     """(problems, warnings) for every `ws:scene` marker (convention §3.8b).
 
@@ -1125,7 +1137,7 @@ def _scene_checks(subject_dir, subject):
                 problems.append(f"{where} marker has no `src`")
                 continue
             where = f"{doc.path}: scene {src!r}"
-            before = [l for l in scannable[:m.start()].split("\n") if l.strip()]
+            before = _lines_before(scannable, m.start())
             if not before or not (IMAGE_MD.search(before[-1]) or IMAGE_HTML.search(before[-1])):
                 problems.append(f"{where}: the marker must directly follow the image it "
                                 f"replaces (the still is the fallback, §3.8b)")

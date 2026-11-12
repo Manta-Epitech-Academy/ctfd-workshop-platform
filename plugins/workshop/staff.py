@@ -82,7 +82,16 @@ class WorkshopStaff(db.Model):
 # ---------------------------------------------------------------------------
 
 def supervisor_code():
-    return (get_config(CODE_KEY) or "").strip()
+    """The code `/supervisor/join` asks for, or empty when joining is closed.
+
+    `str()` is not decoration, for the reason `instance_slug()` gives in
+    jump.py: `get_config` turns an all-digit value into an `int` and
+    "true"/"false" into a `bool` (CTFd/utils/__init__.py `_get_config`). A
+    code like `246810` would raise on `.strip()`, and the login page asks
+    whether joining is open on every render, so it would go down with it.
+    """
+    raw = get_config(CODE_KEY)
+    return str(raw).strip() if raw not in (None, "") else ""
 
 
 def joining_open():
@@ -243,6 +252,10 @@ def delete_supervisor(user_id):
 # The way in
 # ---------------------------------------------------------------------------
 
+# Jump links here from its staff catalogue, beside the code the declaration
+# call carries (jump.py `jump_declarations`, PLAN.md §58), and writes this path
+# in its `supervisorJoinUrl`: moving it breaks that link with nothing here to
+# say so.
 @workshop_staff.route("/supervisor/join", methods=["GET", "POST"])
 # Per subject (IP, in practice): the code is the secret and this is the only
 # place it can be tried. Twenty, not core's fifty, and not fewer: a staff room

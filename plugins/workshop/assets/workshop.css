@@ -1871,7 +1871,7 @@ main > .container > .row > .col-md-12 > h3.text-muted:only-child::after,
   border-radius: 0; background: #14161b;
 }
 .ws-anim-figure:fullscreen .ws-anim-poster, .ws-anim-large .ws-anim-poster { position: absolute; max-height: 100%; width: auto; }
-.ws-anim-figure:fullscreen .ws-anim-video, .ws-anim-large .ws-anim-video { position: static; width: auto; height: auto; max-width: 100%; max-height: 100%; }
+.ws-anim-figure:fullscreen .ws-anim-video, .ws-anim-large .ws-anim-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
 .ws-anim-figure:fullscreen .ws-anim-bar, .ws-anim-large .ws-anim-bar { border-radius: 0; flex: 0 0 auto; }
 .ws-anim-figure:fullscreen .ws-anim-line, .ws-anim-large .ws-anim-line,
 .ws-anim-figure:fullscreen .ws-anim-caption, .ws-anim-large .ws-anim-caption { color: #9aa1ad; flex: 0 0 auto; }

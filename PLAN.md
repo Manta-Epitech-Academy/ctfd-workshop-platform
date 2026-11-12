@@ -5486,6 +5486,10 @@ does not say it. The sentence may change; it is four msgids and a plural in `cer
 Where the original has the campus' signatures, this one has what signs it here: a QR code and
 "Signé numériquement par <address>", over a serial number.
 
+The footer says one thing: the day the file was made, « Fait le 14 novembre 2026 ». Not the
+city, which the sentence already says when the code does, and not the line about the
+association that the original carries.
+
 By default the platform holds nothing personal. The certificate is the same facts under a
 pseudonym, in a file the participant chose to download. It becomes personal data only where and
 when its holder hands it over with their name, which is not here.

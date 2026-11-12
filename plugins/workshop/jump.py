@@ -778,7 +778,7 @@ def _refused(reason, status=403):
     answer anyway: what they need is the one action that works, which is to
     start again from Jump.
     """
-    log("logins", "[{date}] {ip} - jump ticket refused: " + reason.replace("{", "{{").replace("}", "}}"))
+    log("logins", "[{date}] jump ticket refused: " + reason.replace("{", "{{").replace("}", "}}"))
     return _notice(
         _("This link is no longer valid"),
         _("Go back to Jump and click the activity again to get a new one."),
@@ -825,9 +825,9 @@ def enter():
     # usually with the workshop still open in another tab: `sign_in` keeps a
     # session this browser already holds (doors.py, issue #64).
     if sign_in(user):
-        log("logins", "[{date}] {ip} - {name} entered from Jump", name=user.name)
+        log("logins", "[{date}] {name} entered from Jump", name=user.name)
     else:
-        log("logins", "[{date}] {ip} - {name} came back from Jump, session kept",
+        log("logins", "[{date}] {name} came back from Jump, session kept",
             name=user.name)
 
     if not workshop_is_open():

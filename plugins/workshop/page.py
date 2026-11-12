@@ -277,7 +277,10 @@ def _quiz_given(challenge, user, solved):
     row = rows.order_by(Submissions.id.desc()).first()
     if row is None or not row.provided:
         return []
-    return [[p.strip().upper() for p in part.split(",") if p.strip()]
+    # A part that starts with a tilde is not an answer: it is the distance
+    # kept in place of a typed one (PLAN.md §65), and there is nothing to tick.
+    return [[p.strip().upper() for p in part.split(",")
+             if p.strip() and not p.strip().startswith("~")]
             for part in str(row.provided).split("|")]
 
 

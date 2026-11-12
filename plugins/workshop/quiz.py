@@ -58,7 +58,7 @@ from CTFd.exceptions.challenges import (
     ChallengeCreateException,
     ChallengeUpdateException,
 )
-from CTFd.models import Challenges, Ratings, db
+from CTFd.models import Challenges, Fails, Ratelimiteds, Ratings, db
 from CTFd.plugins.challenges import BaseChallenge
 from CTFd.utils.user import get_current_user, is_admin
 
@@ -233,6 +233,139 @@ def _quizset_wrong(answers, submission):
     return wrong
 
 
+# --- what is kept of a wrong answer (PLAN.md §65) ---------------------------
+
+# Kinds whose submission is a choice among options the page offered. Nothing
+# of the participant is in it, and "which wrong option" is what improves a
+# question, so it is kept as given.
+CHOICE_KINDS = ("single", "multiple", "match")
+# What a choice looks like: option letters, or pairs of them, between commas.
+# The page sends nothing else, but the API takes any string, and a text sent
+# to a multiple-choice step is still a text.
+_CHOICE = re.compile(r"^\s*[A-Za-z]{1,2}(?:\s*[-:]\s*[A-Za-z]{1,2})?\s*$")
+# Longer than any answer a step expects; bounds the work of one comparison.
+_DISTANCE_CAP = 200
+_REGEX_SPECIAL = set(".*+?[]{}()|^$\\")
+
+
+def _distance(a, b):
+    """Levenshtein distance: insertions, deletions and substitutions."""
+    a, b = a[:_DISTANCE_CAP], b[:_DISTANCE_CAP]
+    row = list(range(len(b) + 1))
+    for i, ca in enumerate(a, start=1):
+        previous, row[0] = row[0], i
+        for j, cb in enumerate(b, start=1):
+            previous, row[j] = row[j], min(
+                row[j] + 1, row[j - 1] + 1, previous + (ca != cb))
+    return row[-1]
+
+
+def _literals(pattern):
+    """The plain texts a pattern accepts, when it is plain text in disguise.
+
+    A freeform answer is a regex, and almost always an anchored word or a few
+    of them: `^ritchie$`, `^(ken|dennis)$`. Those have a text to measure a
+    distance to. A pattern that is really a regex (digits, any character) has none, and
+    yields nothing.
+    """
+    text = str(pattern)
+    if text.startswith("^"):
+        text = text[1:]
+    if text.endswith("$") and not text.endswith("\\$"):
+        text = text[:-1]
+    if text.startswith("(?:") and text.endswith(")"):
+        text = text[3:-1]
+    elif text.startswith("(") and text.endswith(")"):
+        text = text[1:-1]
+    found = []
+    for choice in text.split("|"):
+        plain, escaped = [], False
+        for char in choice:
+            if escaped:
+                if char.isalnum():
+                    # A class or an assertion (digit, word, boundary), not a
+                    # character.
+                    return []
+                plain.append(char)
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char in _REGEX_SPECIAL:
+                return []
+            else:
+                plain.append(char)
+        if escaped:
+            return []
+        found.append("".join(plain))
+    return found
+
+
+def _how_far(text, accepted, case_sensitive=False):
+    """`~3`: how far a wrong text is from the nearest accepted one.
+
+    Compared the way the answer is matched: surrounding spaces off, and case
+    ignored unless the step says otherwise. `~?` when there is no accepted
+    text to compare with. The tilde is what tells a distance from an answer
+    on the staff's page.
+    """
+    text = text.strip()
+    accepted = [a.strip() for a in accepted if a is not None]
+    if not case_sensitive:
+        text = text.lower()
+        accepted = [a.lower() for a in accepted]
+    if not accepted:
+        return "~?"
+    return "~%d" % min(_distance(text, a) for a in accepted)
+
+
+def _freeform_kept(answers, submission):
+    if isinstance(answers, dict):
+        patterns = answers.get("patterns", [])
+        case_sensitive = bool(answers.get("case_sensitive", False))
+    else:
+        patterns = answers if isinstance(answers, list) else [answers]
+        case_sensitive = False
+    accepted = [text for p in patterns or [] if p for text in _literals(p)]
+    return _how_far(submission, accepted, case_sensitive)
+
+
+def _choice_kept(submission):
+    parts = [part for part in submission.split(",") if part.strip()]
+    if all(_CHOICE.match(part) for part in parts):
+        return submission
+    return "~?"
+
+
+def kept_of_wrong(challenge, submission):
+    """What a wrong submission leaves in the database.
+
+    A choice stays a choice. Anything the participant typed becomes its
+    distance to the right answer: enough to tell a typo from a guess, and
+    nothing of what a lyceen may have written in a text box.
+    """
+    kind = challenge.quiz_type
+    answers = challenge.quiz_answers
+    if kind in CHOICE_KINDS:
+        return _choice_kept(submission)
+    if kind == "checkpoint":
+        code = _checkpoint_code(answers)
+        return _how_far(submission, [code] if code else [])
+    if kind == "freeform":
+        return _freeform_kept(answers, submission)
+    if kind == "quizset":
+        questions = answers.get("questions") if isinstance(answers, dict) else answers
+        parts = submission.split("|")
+        if not questions or len(parts) != len(questions):
+            return "~?"
+        return "|".join(
+            _choice_kept(part) if question.get("kind", "single") in CHOICE_KINDS
+            else _freeform_kept(question, part)
+            for question, part in zip(questions, parts))
+    # ack, info, rating, or a kind this does not know: nothing to compare
+    # with, and no reason to keep the text.
+    return "~?"
+
+
 GRADERS = {
     "single": _grade_single,
     "multiple": _grade_multiple,
@@ -324,6 +457,37 @@ class QuizChallenge(BaseChallenge):
             enqueue_solve(user.id, challenge.id)
         except Exception:  # noqa: BLE001
             db.session.rollback()
+
+    @classmethod
+    def _keep_wrong(cls, model, user, team, challenge, request):
+        """Core's `fail`, with what is kept in place of what was typed."""
+        challenge = QuizChallengeModel.query.filter_by(id=challenge.id).first()
+        data = request.form or request.get_json()
+        submission = str(data.get("submission", "")).strip()
+        try:
+            kept = kept_of_wrong(challenge, submission)
+        except (AttributeError, TypeError):
+            # A malformed answer sheet. Not the moment to raise: the attempt
+            # is already graded, and the text is still not kept.
+            kept = "~?"
+        db.session.add(model(
+            user_id=user.id,
+            team_id=team.id if team else None,
+            challenge_id=challenge.id,
+            provided=kept,
+        ))
+        db.session.commit()
+
+    @classmethod
+    def fail(cls, user, team, challenge, request):
+        """A wrong answer is recorded without its text (PLAN.md §65)."""
+        cls._keep_wrong(Fails, user, team, challenge, request)
+
+    @classmethod
+    def ratelimited(cls, user, team, challenge, request):
+        """Same for an attempt refused for coming too fast: core stores it
+        ungraded, so it is kept as a wrong one would be."""
+        cls._keep_wrong(Ratelimiteds, user, team, challenge, request)
 
     @classmethod
     def attempt(cls, challenge, request):

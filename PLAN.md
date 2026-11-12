@@ -5631,3 +5631,84 @@ the profiles. `/external/join` and the old admin page are 404, asking makes no a
 account of the door signs in. Banning one cohort from the codes page bans it alone, ends its
 session, and is undone from the same page; a participant cannot post the action.
 `scripts/admin_menu_check.js` now counts nine entries and opens "Registration codes".
+
+## 65. No address kept, no wrong answer kept (2026-11-12)
+
+Issues #79 and #80. A participant of the token door gave no name (§61). Two things CTFd keeps
+about them by default say more than the workshop needs: the IP address, written on every
+submission, on every tracking row and in most log lines, and the text of every answer, wrong
+ones included. A lycéen types anything in a text box.
+
+All of it is in the plugin (`privacy.py`, `quiz.py`). CTFd is not edited.
+
+### 65.1 The address
+
+- **Rows.** A `before_insert` listener on `Submissions` and on `Tracking`, propagated to their
+  subclasses, sets `ip` to NULL. Issue #79 asked for an override of the quiz type's `solve()` and
+  `fail()`; the listener does the same for every challenge type and for the row core writes
+  when a challenge is opened, and cannot be forgotten by the next method somebody overrides.
+- **The tracker.** Core's `before_request` tracker finds its row by address and inserts one when
+  there is none. With the address gone from the row and not from the lookup, that is a new row
+  on every request. So `get_ip` is rebound **in that one module** (`CTFd.utils.initialization`)
+  to a function that returns nothing. The tracker then keeps one row per account and moves its
+  date, which is all the plugin's "last seen" needs.
+- **Logs.** `get_ip` is rebound the same way in `CTFd.utils.logging`: the `{ip}` of any format
+  prints `-`. The plugin's own formats no longer ask for it either (`jump.py`, `staff.py`).
+- **Already stored.** Migration `e2a94b6d1c73` sets `submissions.ip` and `tracking.ip` to NULL.
+  Rows stay. It cannot be undone.
+- **Left alone.** `CTFd.utils.user.get_ip` itself: core's `ratelimit` decorator and the Jump
+  door's throttle key a cache entry on the address, for a minute or an hour, and that is what
+  an address is for.
+
+Side effects, accepted: the "IP addresses" list of an account in the admin panel is empty, the
+count of addresses in core's statistics is meaningless, and searching users by IP finds nobody.
+
+**Not covered:** gunicorn's access log (`ACCESS_LOG`, on in `docker-compose.yml`) and the log
+of whatever proxy is in front. Behind a proxy gunicorn sees the proxy; the proxy's own log
+belongs to the deployment and is not in this repository.
+
+### 65.2 The wrong answer
+
+For the quiz type, `fail()` and `ratelimited()` are overridden to store, in `provided`:
+
+| Step | What is kept of a wrong answer |
+|---|---|
+| free text (`freeform`) | `~N`, the Levenshtein distance to the nearest accepted answer |
+| instructor's code (`checkpoint`) | `~N`, the distance to the code |
+| choice (`single`, `multiple`, `match`) | the choice, as sent |
+| set of questions (`quizset`) | each question by its own rule, joined by `\|` |
+| anything else | `~?` |
+
+- **Same normalisation as the match**: surrounding spaces off, case ignored unless the step is
+  `case_sensitive`. Several accepted answers: the smallest distance.
+- **A freeform answer is a regex.** Almost always an anchored word or a few (`^ritchie$`,
+  `^(ken|dennis)$`), and those are read as the texts they are. A pattern that is really a regex
+  has no text to be far from: `~?`.
+- **A choice is kept only if it looks like one** (option letters, pairs, commas). The page sends
+  nothing else, but the API takes any string.
+- **The tilde** is what tells a distance from an answer, on the staff's submissions page (which
+  now says so) and for `page.py`, which re-ticks a participant's last choices and skips it.
+- **The log.** Core logs `submitted <text> on <id>` for every attempt, right or wrong. A filter
+  on the `submissions` logger replaces the text by `-`.
+
+A right answer is still stored as given: it is the answer sheet's content, not the
+participant's. Old rows are untouched (out of scope in #80).
+
+**Still stored until §66 (#81):** the comment of a rating step, in core's `ratings` table and
+in the `provided` of its solve.
+
+### 65.3 Rejected
+
+- **Dropping the columns.** They are core's.
+- **Rebinding `get_ip` everywhere.** The rate limits need it.
+- **A hash of the wrong answer.** Short answers are guessable from their hash, and a hash says
+  less than a distance about what went wrong.
+
+### 65.4 Checked
+
+`scripts/privacy_check.py <base-url> <admin-pass> [log-folder]`, 31 assertions on a local
+instance with its log folder. One participant, four steps made for the run: browsing, wrong and
+right answers of each kind, the rate limit. No submission has an address, the account's address
+list is empty, typed wrong answers are `~N`, choices are kept, a text sent to a choice step is
+`~?`, and what the run added to `submissions.log` and `logins.log` has neither an address nor
+any submitted text. It fails if core's tracker or log line changes shape.

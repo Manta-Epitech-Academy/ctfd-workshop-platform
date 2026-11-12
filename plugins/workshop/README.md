@@ -301,8 +301,8 @@ participant side of `/login` (`tokendoor.py`, `templates/workshop_token_door.htm
   `brotli`) and commit the result. Without that file the PDF falls back to the standard fonts.
 - **The server never sees it.** The browser derives a sign-in value with HKDF and sends that;
   the server stores its SHA-256. A second derived value is an encryption key that stays in the
-  browser's IndexedDB, non-extractable, for saved code later. The salt and the two info strings
-  in `door.js` are frozen: changing one locks every existing account out.
+  browser's IndexedDB, non-extractable: saved code is encrypted with it (next section). The
+  salt and the two info strings, now in `assets/token.js`, are frozen: changing one locks every existing account out.
 - **Coming back**: type, paste, choose or drop the file (the PDF, or a text file of before it),
   or scan the QR code.
   `POST /api/v1/workshop/door/signin`, not throttled.
@@ -313,6 +313,34 @@ participant side of `/login` (`tokendoor.py`, `templates/workshop_token_door.htm
 
 No table of its own. `scripts/token_door_check.py <base-url> <admin-pass>` holds the server's
 half and `scripts/token_door_browser_check.js <base-url> <admin-pass>` the page's (Playwright).
+
+## Saved code is encrypted in the browser (PLAN.md §68)
+
+An account made at the token door never sends its work in clear. `assets/runtime.js` encrypts
+the runtime's keys before they leave the page, and `workspace.py` stores one opaque string.
+
+- **Envelope.** A random data key encrypts the work (AES-GCM, Web Crypto). The data key is
+  stored next to it, wrapped by the token's encryption key. What is stored is
+  `v1.<wrapped data key>.<encrypted work>`, in the same `data` column as before: an object is
+  work in clear, a string is sealed work. No migration.
+- **The server can only cap the size** (413 over it). It refuses work in clear from a token
+  account, and a sealed string from an account with no token (staff, an account from Jump),
+  which saves in clear as before.
+- **`seal`** in the workspace's answer is the first 16 characters of the account's stored
+  sign-in digest. The browser derives the same 16 characters from a token, so it knows whether
+  the key it holds, or a code somebody types, is this account's, without asking the server.
+- **A browser that lost the key** while the session stayed asks for the personal code in the
+  pane, before the runtime boots (`templates/workshop_runtime_lock.html`): « Entre ton code
+  pour retrouver ton travail. » The code is checked on the page and sent nowhere.
+  « Continuer sans sauvegarder » boots the runtime, saves nothing, and the pane keeps saying so.
+- **The browser's own copy stays in clear** in `localStorage`: that is what the runtime reads.
+- **`assets/token.js`** holds what the door and the pane share: the token's alphabet and
+  checksum, the HKDF derivation, the key's place in IndexedDB. Load it before `door.js` and
+  before `runtime.js`.
+- **Needs https or localhost**, like the door.
+
+`scripts/sealed_workspace_check.js <base-url> <admin-pass> [path-to-playwright] [pane|window]`
+holds it (Playwright, needs a synced subject with a runtime).
 
 ## The certificate (PLAN.md §63)
 
@@ -591,6 +619,9 @@ contract shared with the Jump repository; changing either half means changing bo
   none. `scripts/token_door_check.py` catches it. The door's template also reads `Session.nonce`
   and the `authed` jinja global, and `door.js` relies on core answering a JSON write that has a
   stale nonce with an HTML page (it reloads on anything that is not JSON).
+- **Sealed work touches nothing of core** (PLAN.md §68): `workspace.py` reads the plugin's own
+  `TokenAccount.signin_hash`, and the rest is Web Crypto in the browser. The only thing borrowed
+  from core is `window.init.csrfNonce` and `window.init.userId`, as before.
 - **`audience.py` names core endpoints by their Flask endpoint name** (`api.users_user_list`,
   `api.challenges_challenge_solves`, …). flask-restx derives those from the namespace and the
   resource class, so a renamed class upstream silently stops being filtered: after a CTFd upgrade,

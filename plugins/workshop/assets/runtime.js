@@ -217,6 +217,8 @@
   var lastPrint = null, lastSaved = 0, saving = false, giveUp = false;
   var stale = false;         // the server refused a save: this page's session
                              // has moved on, and only a reload gets it back
+  var unsaved = false;       // the work is sealed and this browser has no key:
+                             // the participant chose to carry on without one
 
   function ls(name) {
     try { return localStorage.getItem(name); } catch (e) { return null; }
@@ -291,9 +293,204 @@
     lsSet(LS_LOCAL, String(serverAt || Date.now()));
   }
 
+  /* ---------- sealed work (PLAN.md §68) ----------
+   *
+   * An account made at the token door never sends its work in clear. The
+   * snapshot says so (`seal`), and what goes to the server is then one opaque
+   * string, an envelope:
+   *
+   *     v1.<data key, wrapped>.<the keys, encrypted>
+   *
+   * The data key is random, made here at the first save and kept for the
+   * life of the row. It is wrapped by the key derived from the token, which
+   * the door left in IndexedDB (assets/token.js) and which cannot be
+   * exported. Two keys rather than one so that the work can later be opened
+   * to a supervisor by wrapping the same data key a second time (#85),
+   * without touching the work or the token.
+   *
+   * Both layers are AES-GCM with a fresh 96-bit IV, written before the
+   * ciphertext. The browser's own `localStorage` stays in clear: the runtime
+   * reads it, and §16's wipe is what protects it on a shared machine.
+   *
+   * No key on this browser (its site data was cleared and the session was
+   * not) is not an error: the pane asks for the personal code, checks it
+   * against the account without sending it, and only then boots.
+   */
+  var AAD_KEY = "ws-workspace-v1:key";
+  var AAD_DATA = "ws-workspace-v1:data";
+  var seal = null;           // null: this account's work travels in clear
+  var skipped = false;       // asked once, and said no: not asked again
+
+  function b64(bytes) {
+    var text = "";
+    for (var i = 0; i < bytes.length; i += 0x8000) {
+      text += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    }
+    return btoa(text).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  }
+
+  function unb64(text) {
+    var raw = atob(text.replace(/-/g, "+").replace(/_/g, "/"));
+    var bytes = new Uint8Array(raw.length);
+    for (var i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
+    return bytes;
+  }
+
+  function box(key, plain, aad) {
+    var iv = crypto.getRandomValues(new Uint8Array(12));
+    return crypto.subtle.encrypt(
+      { name: "AES-GCM", iv: iv, additionalData: window.wsToken.utf8(aad) }, key, plain
+    ).then(function (sealed) {
+      var out = new Uint8Array(12 + sealed.byteLength);
+      out.set(iv);
+      out.set(new Uint8Array(sealed), 12);
+      return out;
+    });
+  }
+
+  function unbox(key, bytes, aad) {
+    return crypto.subtle.decrypt(
+      { name: "AES-GCM", iv: bytes.subarray(0, 12), additionalData: window.wsToken.utf8(aad) },
+      key, bytes.subarray(12));
+  }
+
+  function dataKeyFrom(raw) {
+    return crypto.subtle.importKey("raw", raw, "AES-GCM", false, ["encrypt", "decrypt"]);
+  }
+
+  // The data key of a new row. One promise, so that the poll and a save
+  // asking at the same moment end up with the same key.
+  function dataKey() {
+    if (!seal.making) {
+      var raw = crypto.getRandomValues(new Uint8Array(32));
+      seal.making = Promise.all([dataKeyFrom(raw), box(seal.kek, raw, AAD_KEY)])
+        .then(function (made) {
+          raw.fill(0);
+          return { key: made[0], wrapped: b64(made[1]) };
+        });
+    }
+    return seal.making;
+  }
+
+  // An envelope to the keys it holds. Rejects when it is not ours to open.
+  function openEnvelope(text) {
+    var parts = String(text).split(".");
+    if (parts.length !== 3 || parts[0] !== "v1") return Promise.reject(new Error("envelope"));
+    return unbox(seal.kek, unb64(parts[1]), AAD_KEY).then(dataKeyFrom).then(function (key) {
+      // The same data key from now on: a save rewraps nothing.
+      seal.making = Promise.resolve({ key: key, wrapped: parts[1] });
+      return unbox(key, unb64(parts[2]), AAD_DATA);
+    }).then(function (plain) {
+      var keys = JSON.parse(new TextDecoder().decode(plain));
+      if (!keys || typeof keys !== "object" || Array.isArray(keys)) throw new Error("keys");
+      return keys;
+    });
+  }
+
+  // The request body for this state of the keys, sealed. The last one is
+  // kept: closing the page cannot wait for an encryption, so `flush` sends
+  // what the poll already sealed.
+  function sealUp(print) {
+    if (seal.cache && seal.cache.print === print) return Promise.resolve(seal.cache.body);
+    return dataKey().then(function (data) {
+      return box(data.key, window.wsToken.utf8(print), AAD_DATA).then(function (bytes) {
+        var body = JSON.stringify(
+          { runtime: cfg.id, sealed: "v1." + data.wrapped + "." + b64(bytes) });
+        seal.cache = { print: print, body: body };
+        return body;
+      });
+    });
+  }
+
+  // Ask for the personal code, in the pane, before the runtime boots.
+  // Resolves to the token's key, or to null for "continue without saving".
+  function askToken() {
+    var form = pane.querySelector(".ws-runtime-lock");
+    if (!form || skipped) return Promise.resolve(null);
+    var field = form.querySelector(".ws-runtime-lock-code");
+    var error = form.querySelector(".ws-runtime-lock-error");
+    var skip = form.querySelector(".ws-runtime-lock-skip");
+    var busy = false;
+    form.hidden = false;
+    return new Promise(function (resolve) {
+      function done(key) {
+        form.hidden = true;
+        form.removeEventListener("submit", onSubmit);
+        skip.removeEventListener("click", onSkip);
+        field.value = "";
+        resolve(key);
+      }
+      function wrong() {
+        error.textContent = form.dataset.labelWrong || "";
+        error.hidden = false;
+        field.focus();
+      }
+      function onSubmit(event) {
+        event.preventDefault();
+        if (busy) return;
+        busy = true;
+        error.hidden = true;
+        window.wsToken.findToken(field.value).then(function (found) {
+          if (!found.bytes) return wrong();
+          return window.wsToken.derive(found.bytes).then(function (made) {
+            // Somebody else's code opens nothing here, and is kept nowhere.
+            if (made.owner !== seal.owner) return wrong();
+            // Kept for the next page. A browser that cannot keep it asks again.
+            return window.wsToken.keep(made).then(function () { done(made.key); });
+          });
+        }).catch(wrong).then(function () { busy = false; });
+      }
+      function onSkip() {
+        skipped = true;
+        done(null);
+      }
+      form.addEventListener("submit", onSubmit);
+      skip.addEventListener("click", onSkip);
+    });
+  }
+
+  // The snapshot as `reconcile` wants it: its keys readable. For an account
+  // that does not seal, that is the snapshot as it came.
+  function unlock(snapshot) {
+    if (!snapshot || !snapshot.seal) {
+      seal = null;
+      return Promise.resolve(snapshot);
+    }
+    seal = { owner: snapshot.seal, kek: null, making: null, cache: null };
+    var able = window.wsToken && window.crypto && crypto.subtle;
+    var kept = able ? window.wsToken.kept() : Promise.resolve({});
+    return kept.then(function (found) {
+      if (found.key && found.owner === seal.owner) return found.key;
+      return able ? askToken() : null;
+    }).then(function (kek) {
+      if (!kek) {
+        // Nothing can be opened and nothing will be saved. The work on this
+        // machine is still handed to the runtime, and the pane says so.
+        unsaved = true;
+        giveUp = true;
+        if (snapshot.sealed) snapshot.keys = {};
+        note(pane.dataset.labelUnsaved || "");
+        return snapshot;
+      }
+      seal.kek = kek;
+      if (!snapshot.sealed) return snapshot;
+      return openEnvelope(snapshot.sealed).then(function (keys) {
+        snapshot.keys = keys;
+        return snapshot;
+      }, function (e) {
+        // The right key and an envelope it does not open: what the server
+        // holds is damaged, and the next save replaces it.
+        console.warn("workshop: the saved work could not be opened", e);
+        seal.making = null;
+        snapshot.keys = {};
+        return snapshot;
+      });
+    });
+  }
+
   function restore() {
     if (restoreDone) return restoreDone;
-    restoreDone = (snapshotPromise || fetchSnapshot()).then(function (snapshot) {
+    restoreDone = (snapshotPromise || fetchSnapshot()).then(unlock).then(function (snapshot) {
       try { reconcile(snapshot); } catch (e) {
         console.warn("workshop: could not restore your work in progress", e);
       }
@@ -309,9 +506,22 @@
     // bucket would race each other for no gain.
     if (!ownsFrame()) return;
     if (!restored || giveUp || saving || !watched.length) return;
-    var keys = collect(watched);
+    var keys = collect(watched), print = JSON.stringify(keys);
     saving = true;
     lastSaved = Date.now();
+    if (!seal) {
+      send(JSON.stringify({ runtime: cfg.id, keys: keys }), print, keepalive);
+    } else if (seal.cache && seal.cache.print === print) {
+      // Already sealed by the poll: sent at once, which is what lets a page
+      // that is closing save.
+      send(seal.cache.body, print, keepalive);
+    } else {
+      sealUp(print).then(function (body) { send(body, print, keepalive); },
+                         function () { saving = false; });
+    }
+  }
+
+  function send(body, print, keepalive) {
     fetch(WS_API, {
       method: "POST",
       credentials: "same-origin",
@@ -320,7 +530,7 @@
         "Content-Type": "application/json",
         "CSRF-Token": (window.init && window.init.csrfNonce) || "",
       },
-      body: JSON.stringify({ runtime: cfg.id, keys: keys }),
+      body: body,
     }).then(function (r) {
       saving = false;
       if (r.status === 413) {
@@ -341,7 +551,7 @@
         return;
       }
       if (!r.ok) return;              // transient: the next tick tries again
-      lastPrint = JSON.stringify(keys);
+      lastPrint = print;
       lsSet(LS_OWNER, owner());
       lsSet(LS_LOCAL, String(Date.now()));
     }).catch(function () { saving = false; });
@@ -355,6 +565,8 @@
       var print = JSON.stringify(collect(watched));
       if (print === lastPrint) return;
       lsSet(LS_LOCAL, String(Date.now()));
+      // Sealed ahead of the save, so that `flush` has it ready.
+      if (seal && !giveUp) sealUp(print).catch(function () {});
       if (Date.now() - lastSaved >= MIN_SAVE_MS) save(false);
     }, POLL_MS);
 
@@ -554,6 +766,9 @@
     // (shutting it saves), so that clear used to erase it before anybody read
     // it, and the pane went on not saving in silence.
     if (stale) text = pane.dataset.labelStale || "";
+    // Not being saved at all is the next thing worth saying, whenever
+    // nothing else is being said.
+    else if (unsaved && !text) text = pane.dataset.labelUnsaved || "";
     el.textContent = text || "";
     el.hidden = !text;
   }

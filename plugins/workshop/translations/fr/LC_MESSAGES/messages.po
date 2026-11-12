@@ -105,6 +105,9 @@ msgstr "Continuer avec Jump"
 msgid "Continue with Jump (%(label)s)"
 msgstr "Continuer avec Jump (%(label)s)"
 
+msgid "Continue without saving"
+msgstr "Continuer sans sauvegarder"
+
 msgid "Copied!"
 msgstr "Copié !"
 
@@ -151,6 +154,9 @@ msgstr ""
 msgid "Enter your code"
 msgstr "Entre ton code"
 
+msgid "Enter your code to get your work back."
+msgstr "Entre ton code pour retrouver ton travail."
+
 msgid "Everything the workshop has given you so far, in one place."
 msgstr "Tout ce que l'atelier t'a donné jusqu'ici, au même endroit."
 
@@ -172,6 +178,9 @@ msgstr ""
 "Pour les personnes qui encadrent la salle. Vous verrez les réponses, où "
 "en est chacun, ce qui a été soumis et les retours, et vous n'apparaîtrez "
 "pas parmi les participants."
+
+msgid "Get my work back"
+msgstr "Retrouver mon travail"
 
 msgid "Give my opinion"
 msgstr "Donner mon avis"
@@ -531,6 +540,9 @@ msgstr ""
 "L'événement n'a pas encore commencé. Ton code sera valable à partir du "
 "{when}."
 
+msgid "This is not your personal code. Check it and try again."
+msgstr "Ce n'est pas ton code personnel. Vérifie-le et réessaie."
+
 msgid "This link is no longer valid"
 msgstr "Ce lien n'est plus valable"
 
@@ -719,3 +731,13 @@ msgstr "Ce que %(subject)s t'a donné jusqu'ici, au même endroit."
 
 msgid "Show every subject"
 msgstr "Voir tous les sujets"
+
+msgid ""
+"Your work is not being saved. Reload the page and enter your code to save"
+" it."
+msgstr ""
+"Ton travail n'est pas sauvegardé. Recharge la page et entre ton code pour"
+" le sauvegarder."
+
+msgid "Your work is saved encrypted. Only your personal code can open it."
+msgstr "Ton travail est enregistré chiffré. Seul ton code personnel peut l'ouvrir."

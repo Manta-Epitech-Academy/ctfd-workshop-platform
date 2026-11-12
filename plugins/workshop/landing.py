@@ -28,7 +28,7 @@ That is gone (§62): a door is something drawn on the login page, and Jump's is
 a button there.
 
 What a password opens is where it was: the staff form (`/login?staff=1`), the
-supervisor and external joins, and `/admin`, which is sent to the staff form
+supervisor join, and `/admin`, which is sent to the staff form
 rather than to the participant side. Admins, mentors and the emergency local
 accounts sign in there.
 

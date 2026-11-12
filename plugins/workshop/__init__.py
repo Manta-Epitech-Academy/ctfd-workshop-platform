@@ -110,12 +110,12 @@ def load(app):
     # Before the pages, because they import it; it registers /supervisor/join
     # and the management POST on the settings page.
     load_staff(app)
-    # A second way in, at an address nothing links to, with a code of its own
-    # (PLAN.md §42). After `load_staff`, whose `account_errors` it reuses.
+    # The external door is retired (PLAN.md §64). What loads is the cohorts
+    # of the accounts it made, first as they always were: an account that
+    # carries an external code is claimed by it.
     load_external(app)
-    register_admin_plugin_menu_bar("External access", "/admin/workshop/external")
     # Registration codes: the cohorts of an instance that runs without Jump
-    # (PLAN.md §60). Here, between the external door and Jump, because the
+    # (PLAN.md §60). Here, between the retired external door's cohorts and Jump, because the
     # order the ways in load in is the order an account is claimed in.
     load_codes(app)
     register_admin_plugin_menu_bar("Registration codes", "/admin/workshop/codes")

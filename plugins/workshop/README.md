@@ -137,35 +137,28 @@ needs: reading the codes back (`quiz_answers` is excluded from every read schema
 converting a pre-§25 instance in place — `standard` challenge plus a `Flags` row becomes a
 checkpoint challenge, same id, same solves.
 
-## The other way in (PLAN.md §42)
+## The external door, retired (PLAN.md §42, §64)
 
-`/external/join` is a second door for participants who do not arrive through Jump: a partner
-school, a visiting group, a room where the usual way in is not available on the day. It is
-independent of CTFd's `registration_visibility` in both directions.
+`/external/join` was a hidden second door: a code, then an account made from a name, an e-mail
+and a password. It is gone, with its admin page and its two settings. The token door admits the
+same groups from a registration code and asks for none of the three (§60, §61).
 
-**It is hidden, by requirement.** Nothing participant-facing links to it or names it. Switched
-off, with no code, or after ten wrong codes from one address, it answers **404** rather than a
-closed page, so an instance not using it looks like one that never heard of it. The throttle is
-written out in `external.py` rather than taken from `@ratelimit`, which is a no-op on this fork
-(`357509b2`).
+What is left, in `external.py`:
 
-**Several codes are live at once**, because several groups are — `RUN-EVENT-0929` and
-`PAR-LYCEE-1234` on the same afternoon. Each account keeps the code it came in on, in the CTFd
-custom field **External code**, so a cohort can be counted, listed and revoked without touching
-another. Retiring a code stops it admitting anybody new and leaves its accounts alone.
+- **The accounts it made keep working.** They have a password, so they sign in at
+  `/login?staff=1`.
+- **Each still carries its code** in the CTFd custom field **External code**. Nothing writes that
+  field any more; it is core's data and stays in `/admin/users` and in an export.
+- **The code is still the cohort**: such an account sees its own cohort only (next section), and
+  `/admin/workshop/codes` lists these cohorts under the registration codes, with one button to
+  ban a cohort or let it back in. The list is drawn only on an instance that has such accounts.
 
-**The accounts are ordinary participants**: no role row, no permissions, on the scoreboard like
-anybody else. *Revoke* bans a cohort and is undone from the same page; deleting one account stays
-under `/admin/users`, where the confirmation names the person. Admins and supervisors are skipped
-by the bulk action.
-
-Everything is decided at `/admin/workshop/external`, `admins_only`, which is also the only place
-the route is named. `scripts/external_check.py <base-url> <admin-pass>` walks all of it and puts
+`scripts/audience_check.py <base-url> <admin-pass>` covers the wall and the retirement, and puts
 the instance back.
 
 ## Several audiences on one instance (PLAN.md §43, §50)
 
-A participant who came through Jump and one who came through `/external/join` are in the same
+A participant who came through Jump and one who came through another door are in the same
 room and not in the same cohort, and neither are two Jump sessions: an instance serves several
 events over its life, and last spring's Coding Club is not today's room. **The audience of an account is the
 external code it carries, else the Jump session its link was filed under, else the default** (an
@@ -212,7 +205,7 @@ one or both of:
 - **`doors.py`**: a `Door` is a fragment on the participant side of `/login`, drawn while
   `open()` says so.
 
-Registered today: the external door (cohorts only, its address is a secret), the registration
+Registered today: the retired external door (the cohorts of its accounts only), the registration
 codes and the token door (§60, §61), and Jump (both).
 
 To add a way in: write its module, subclass the two classes, call the two `register()` from its
@@ -315,8 +308,8 @@ change nothing about it.
 - **Core's own `/register` is closed by configuration**: `tools/provision.py setup` writes
   `registration_visibility: private` and empties core's `registration_code` in both modes, and
   the k8s overlay presets the same. The plugin does not override the setting.
-- **Staff are where they were**: `/login?staff=1`, a bare `/admin` sent to it, the supervisor and
-  external joins.
+- **Staff are where they were**: `/login?staff=1`, a bare `/admin` sent to it, the supervisor
+  join.
 
 `scripts/front_door_check.py <base-url> <admin-pass>` switches the settings both ways, so it
 belongs on a scratch instance. `scripts/standalone_acceptance_check.js <base-url> <admin-pass>

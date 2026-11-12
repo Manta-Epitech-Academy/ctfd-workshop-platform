@@ -20,7 +20,7 @@ The plugin has no test suite, so this script **is** this feature's test suite
   * the throttle counts wrong codes: one typo read by a whole room does not
     close the door, a list of 300 does, and the door opens again by itself.
 
-Shaped like scripts/external_check.py: positional arguments, `check(cond,
+Shaped like scripts/supervisor_check.py: positional arguments, `check(cond,
 label)`, `ALL GREEN` or `FAILURES: [...]`, non-zero exit on any failure.
 
 **It puts the instance back**: every account it makes is deleted, then every

@@ -42,9 +42,6 @@ msgstr ""
 msgid "Answer"
 msgstr ""
 
-msgid "Anything to add? (optional)"
-msgstr ""
-
 msgid "Are you a student?"
 msgstr ""
 
@@ -163,6 +160,9 @@ msgid ""
 "participants."
 msgstr ""
 
+msgid "Give my opinion"
+msgstr ""
+
 msgid "Glossary"
 msgstr ""
 
@@ -170,6 +170,9 @@ msgid "Go back to Jump and click the activity again to get a new one."
 msgstr ""
 
 msgid "Good"
+msgstr ""
+
+msgid "Great"
 msgstr ""
 
 msgid "Here is your personal code"
@@ -190,6 +193,9 @@ msgid "How was this part?"
 msgstr ""
 
 msgid "How was this workshop?"
+msgstr ""
+
+msgid "I did not understand what to do"
 msgstr ""
 
 msgid "I have a code file"
@@ -223,6 +229,9 @@ msgid "Issued in %(campus)s, on %(date)s"
 msgstr ""
 
 msgid "Issued on %(date)s"
+msgstr ""
+
+msgid "It does not work"
 msgstr ""
 
 msgid ""
@@ -286,9 +295,6 @@ msgid "Non-profit association (French law of 1901)"
 msgstr ""
 
 msgid "Not available yet."
-msgstr ""
-
-msgid "Not good"
 msgstr ""
 
 msgid "Not started"
@@ -356,16 +362,13 @@ msgstr ""
 msgid "Pick a shorter password"
 msgstr ""
 
+msgid "Pick at least one first"
+msgstr ""
+
 msgid "Pick or type an answer first."
 msgstr ""
 
-msgid "Pick 👍 or 👎 first"
-msgstr ""
-
 msgid "Please enter a valid email address"
-msgstr ""
-
-msgid "Poor"
 msgstr ""
 
 msgid "Powered by CTFd"
@@ -375,9 +378,6 @@ msgid "Preview"
 msgstr ""
 
 msgid "Profile"
-msgstr ""
-
-msgid "Rate this step"
 msgstr ""
 
 msgid "Read"
@@ -395,10 +395,10 @@ msgstr ""
 msgid "Review"
 msgstr ""
 
-msgid "Save"
+msgid "Scoreboard"
 msgstr ""
 
-msgid "Scoreboard"
+msgid "Send"
 msgstr ""
 
 msgid "Send feedback"
@@ -465,9 +465,6 @@ msgstr ""
 msgid "Thanks for the feedback!"
 msgstr ""
 
-msgid "Thanks!"
-msgstr ""
-
 msgid "That email has already been used"
 msgstr ""
 
@@ -480,10 +477,16 @@ msgstr ""
 msgid "The code you were given by whoever set this instance up."
 msgstr ""
 
+msgid "The explanation is not clear"
+msgstr ""
+
 msgid "The glossary for this step is in the toolbox."
 msgstr ""
 
 msgid "The workshop is not open yet"
+msgstr ""
+
+msgid "There is a mistake in the instructions"
 msgstr ""
 
 msgid "This code is not valid. Check it or ask your supervisor for the right one."
@@ -540,6 +543,12 @@ msgstr ""
 msgid "Token"
 msgstr ""
 
+msgid "Too easy"
+msgstr ""
+
+msgid "Too hard"
+msgstr ""
+
 msgid "took part in the workshop “%(title)s” at Epitech %(campus)s,"
 msgstr ""
 
@@ -586,9 +595,6 @@ msgid ""
 msgstr ""
 
 msgid "When your work is finished, ask the instructor for the validation code."
-msgstr ""
-
-msgid "Why? (optional)"
 msgstr ""
 
 msgid "Workshop"

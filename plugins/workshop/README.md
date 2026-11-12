@@ -180,6 +180,25 @@ nothing to compare with. The staff's submissions page explains the notation.
 `scripts/privacy_check.py <base-url> <admin-pass> [log-folder]` covers both and puts the
 instance back.
 
+## Feedback: a fixed list, counted (PLAN.md §67)
+
+`choices.py`. A participant picks from a fixed list of eight choices (`CHOICES`), several if
+they want; there is nothing to type. Two ways in: the closing step of a part, where the list is
+the submission, and one muted line on every other solved step
+(`POST /api/v1/workshop/feedback/<challenge id>`).
+
+What is kept is a count per cohort, content, step, subject version and choice
+(`workshop_step_feedback`), with no account and no date. So an answer is sent once and cannot be
+changed: `workshop_feedback_given` remembers that an account answered a step, not what it
+picked, and the closing step's solve stores `-`. Admins and hidden accounts complete the step
+and are not counted. `feedback.py` reports the counts; its CSV has one line per step, cohort
+and version.
+
+Core's own rating endpoint is refused to anyone but an admin, since it takes a written review.
+Core's `ratings` table is left as it is and no longer read.
+
+`scripts/feedback_check.py <base-url> <admin-pass>` covers it. It leaves its count rows behind.
+
 ## Several audiences on one instance (PLAN.md §43, §50)
 
 A participant who came through Jump and one who came through another door are in the same
@@ -392,7 +411,7 @@ keeps the old steps' solves, and this is what still says where they were earned 
 
 An admin tests a subject by doing it. The account menu carries **Reset my progress** for admins:
 `POST /api/v1/workshop/progress/reset` deletes the signed-in admin's own solves, attempts, hint
-unlocks, awards and ratings, then clears the caches the page reads solves through. The account is
+unlocks, awards, old ratings and feedback markers, then clears the caches the page reads solves through. The account is
 the session's and there is no user id to pass, so it cannot be aimed at a participant. The work in
 progress saved for the runtime is erased too, in both places it lives: the server row, and the
 browser's localStorage, which `reset.js` clears before the page reloads. `reset.py`, `assets/reset.js`, `scripts/reset_check.py`.
@@ -506,6 +525,11 @@ contract shared with the Jump repository; changing either half means changing bo
   (`log()`). Both must still look the name up at module level. Its log filter expects core's
   line `submitted <text> on <id> with kpm`. `scripts/privacy_check.py` fails when any of the
   three moved: run it after a CTFd upgrade.
+- **`choices.py` refuses one core route** (PLAN.md §67): a `before_request` matches
+  `PUT /api/v1/challenges/<id>/ratings` by its path and answers 403 to a non-admin. If core moves
+  or renames that route, a written review can be stored again: `scripts/feedback_check.py` fails
+  when it does. `quiz.py` also rewrites the `provided` of a closing step's solve through
+  `Submissions`, and counts on `BaseChallenge.solve` having committed the row by then.
 - **The runtime pop-out renders its own page, not `base.html`** (`templates/workshop_runtime.html`,
   PLAN.md §30). It carries one frame and one bar, so inheriting the shell only to hide a header, a
   hero and a footer would be more markup rather than less. It therefore restates three things

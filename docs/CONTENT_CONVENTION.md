@@ -895,28 +895,24 @@ side pages.
   step, so a participant cannot start without passing through it. Typed `ack` rather than given a
   "dumb" static flag on purpose: a flag would have to be embedded in the page for the button to
   send it, which reads like a leak and invites copy-paste.
-- **Outro — kind `rating`:** the text, then *how was this workshop?* (👍/👎 plus an optional
-  sentence). Asking for a bare acknowledgement at the end would be busywork; a satisfaction rating
-  is the one thing worth collecting there. It is gated by the last exercise. **The rating is the
-  submission**: grading it is what stores the feedback, so the step is solved at the moment the
-  feedback lands and not a millisecond earlier. Submitting nothing, or something that carries no
-  rating, leaves the step unsolved.
+- **Outro — kind `rating`:** the text, then *how was this workshop?* and the platform's fixed
+  list of choices (« Super », « Bien », « Trop dur »...), several allowed, nothing to type.
+  Asking for a bare acknowledgement at the end would be busywork; this is the one thing worth
+  collecting there. It is gated by the last exercise. **The list is the submission**: the step
+  is solved at the moment the feedback lands and not a millisecond earlier. Submitting nothing,
+  or anything that is not on the list, leaves the step unsolved.
 
 Neither is worth points. But both **count towards the progress bar**: a workshop sits at
 "14 / 15" until the rating is given, and people do not abandon a bar that close to full — which
-is how the feedback actually gets collected. (A `rating` step therefore has to stay completable
-even when the `challenge_ratings` config is `disabled`; it falls back to a plain acknowledgement
-button, or the bar could never reach 100%.)
+is how the feedback actually gets collected. (A `rating` step therefore stays completable
+even when the `challenge_ratings` config is `disabled`: that switch only removes the list from
+the other steps.)
 
-**Ratings live in CTFd's own table**, reached two ways. `PUT /api/v1/challenges/<id>/ratings`
-stores 👍/👎 (`+1`/`-1`) plus an optional review, one per user per challenge — but it only accepts a
-rating for a **solved** challenge, so the closing step cannot use it: going through that endpoint
-would mean solving first, i.e. hitting 100% and only then, maybe, leaving feedback. The closing
-step therefore writes the same `Ratings` row from its own grading (`plugins/workshop/quiz.py`).
-Already-solved steps use the endpoint, which is exactly what it is for. Every solved step also carries a rating
-inline, kept deliberately quiet: one muted line — "Rate this step 👍 👎" — inside the completed
-note, never a dialog. It rates the *content*, and is what feeds content-quality feedback per
-exercise, so the wording stays about the step rather than about the reader's experience. Setting the `challenge_ratings` config to `disabled` removes all of it.
+**The list is the platform's, not the subject's** (`plugins/workshop/choices.py`, PLAN.md §67).
+A subject cannot add a choice or a comment box. What is picked is counted per cohort, content,
+step and subject version, with no account on the count, so an answer is sent once and cannot be
+changed. Every other solved step carries the same list, kept deliberately quiet: one muted line,
+« Donner mon avis », inside the completed note, never a dialog.
 
 
 ```

@@ -35,6 +35,7 @@ from CTFd.models import Awards, Ratings, Solves, Submissions, Unlocks, db
 from CTFd.utils.decorators import admins_only
 from CTFd.utils.user import get_current_user
 
+from .choices import FeedbackGiven
 from .workspace import WorkspaceState
 
 workshop_reset = Blueprint("workshop_reset", __name__)
@@ -51,6 +52,10 @@ def reset():
                         ("hints", Unlocks), ("awards", Awards), ("ratings", Ratings)):
         removed[name] = model.query.filter_by(user_id=user.id).delete(
             synchronize_session=False)
+    # That the list was sent, so it can be sent again. An admin's answers
+    # were never counted (choices.py), so there is no count to take back.
+    removed["feedback"] = FeedbackGiven.query.filter_by(user_id=user.id).delete(
+        synchronize_session=False)
     # The key names, not the values: the browser needs to know what to remove
     # from its own storage, and has no use for the code it is about to erase.
     runtime_keys = set()

@@ -297,23 +297,27 @@ def main():
     check(attempt(s, intro_id, "read") == "already_solved",
           "the intro cannot be acknowledged twice")
 
-    print("== Ratings (CTFd's own table, two paths in) ==")
-    def rate(cid, value, review=""):
-        return s.put(BASE + f"/api/v1/challenges/{cid}/ratings",
-                     headers={"CSRF-Token": s.nonce, "Content-Type": "application/json"},
-                     json={"value": value, "review": review})
-    check(rate(outro_id, 1).status_code == 403,
-          "CTFd refuses a rating for an unsolved challenge (so the outro cannot use it)")
-    check(rate(intro_id, 1, "clear").status_code == 200,
-          "a solved step can be rated")
-    detail = api(s, "GET", f"/challenges/{intro_id}").json()["data"]
-    check(detail.get("rating", {}).get("value") == 1, "the rating is stored and read back")
+    print("== Feedback: a fixed list, nothing typed (PLAN.md §67) ==")
+    headers = {"CSRF-Token": s.nonce, "Content-Type": "application/json"}
+    check(s.put(BASE + f"/api/v1/challenges/{intro_id}/ratings", headers=headers,
+                json={"value": 1, "review": "clear"}).status_code == 403,
+          "CTFd's own rating, which takes a written review, is refused")
+
+    def opinion(cid, picked):
+        return s.post(BASE + f"/api/v1/workshop/feedback/{cid}", headers=headers,
+                      json={"choices": picked}).status_code
     body = s.get(BASE + f"/api/v1/workshop/step/{intro_id}").json()["data"]["html"]
-    check("ws-rating" in body and "Note cette étape" in body,
-          "a solved step offers the quiet inline rating")
-    check('class="form-control form-control-sm ws-rating-review"' in body
-          and "hidden" in body.split("ws-rating-review")[1][:120],
-          "its reason box ships hidden — revealed by the rating itself")
+    check('class="ws-opinion"' in body and 'data-choice="too_hard"' in body
+          and "<textarea" not in body and 'type="text"' not in body,
+          "a solved step offers the list, folded, with nothing to type in")
+    check(opinion(outro_id, ["good"]) in (400, 403),
+          "the list cannot be sent for a step that is not solved")
+    check(opinion(intro_id, ["lovely"]) == 400, "a choice that is not on the list is refused")
+    check(opinion(intro_id, ["good", "too_easy"]) == 200, "several choices are sent at once")
+    check(opinion(intro_id, ["great"]) == 409, "and only once per step")
+    body = s.get(BASE + f"/api/v1/workshop/step/{intro_id}").json()["data"]["html"]
+    check('class="ws-opinion"' not in body and "ws-choices-thanks" in body,
+          "the step then thanks instead of asking again")
 
     detail = api(s, "GET", f"/challenges/{first}").json()["data"]
     check("padx=45" in detail["description"] and "btn(2)" in detail["description"],
@@ -782,27 +786,21 @@ def main():
 
     check(counter() == "14/15", "everything done but the feedback: the bar stops at 14/15")
     check(attempt(s, outro_id, "") == "incorrect",
-          "an empty rating does not solve the closing step")
+          "an empty answer does not solve the closing step")
     check(attempt(s, outro_id, "lovely") == "incorrect",
-          "a submission that carries no rating does not solve it either")
-    # A bare value is valid JSON that is not an object. It used to reach
-    # `.get` on an int and 500 the worker, which no browser ever did but any
-    # script does.
-    check(attempt(s, outro_id, "0") == "incorrect",
-          "a bare out-of-range value is refused, not a server error")
+          "words that are not on the list do not solve it either")
+    check(attempt(s, outro_id, "good,lovely") == "incorrect",
+          "nor does a real choice with free text beside it")
+    # The thumbs sent JSON. It is refused now, and must not be a server error.
+    check(attempt(s, outro_id, json.dumps({"value": 1, "review": "clear"})) == "incorrect",
+          "the old thumbs-and-comment answer is refused")
     check(counter() == "14/15", "still 14/15 — 100% is unreachable without feedback")
-    check(attempt(s, outro_id, json.dumps({"value": 1, "review": "clear and well paced"}))
-          == "correct", "the rating itself solves the step")
+    check(attempt(s, outro_id, "good,too_hard") == "correct",
+          "any choice of the list solves the step")
     check(counter() == "15/15", "and only then does the workshop read 100%")
-    detail = api(s, "GET", f"/challenges/{outro_id}").json()["data"]
-    check(detail["rating"]["value"] == 1
-          and detail["rating"]["review"] == "clear and well paced",
-          "the feedback landed in CTFd's own ratings table, comment included")
-    # Someone who rates first and thinks of the reason afterwards must be able
-    # to add it: the comment box stays, pre-filled, once the step is done.
     body = s.get(BASE + f"/api/v1/workshop/step/{outro_id}").json()["data"]["html"]
-    check('value="clear and well paced"' in body and "ws-rating-save" in body,
-          "the given rating comes back editable, comment and all")
+    check("ws-choices-thanks" in body and "data-choice=" not in body,
+          "the closing step then thanks, and the answer cannot be changed")
 
     print("== The brand band, the cover, and the state glyphs ==")
     # The band is one surface from the header down to the page title, so it has

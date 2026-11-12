@@ -46,9 +46,6 @@ msgstr ""
 msgid "Answer"
 msgstr "Réponse"
 
-msgid "Anything to add? (optional)"
-msgstr "Un mot à ajouter ? (facultatif)"
-
 msgid "Are you a student?"
 msgstr "Tu es élève ?"
 
@@ -176,6 +173,9 @@ msgstr ""
 "en est chacun, ce qui a été soumis et les retours, et vous n'apparaîtrez "
 "pas parmi les participants."
 
+msgid "Give my opinion"
+msgstr "Donner mon avis"
+
 msgid "Glossary"
 msgstr "Glossaire"
 
@@ -186,6 +186,9 @@ msgstr ""
 
 msgid "Good"
 msgstr "Bien"
+
+msgid "Great"
+msgstr "Super"
 
 msgid "Here is your personal code"
 msgstr "Voici ton code personnel"
@@ -206,6 +209,9 @@ msgstr "Cette partie t'a plu ?"
 
 msgid "How was this workshop?"
 msgstr "Cet atelier t'a plu ?"
+
+msgid "I did not understand what to do"
+msgstr "J'ai pas compris ce qu'il fallait faire"
 
 msgid "I have a code file"
 msgstr "J'ai un fichier de code"
@@ -239,6 +245,9 @@ msgstr "Fait à %(campus)s, le %(date)s"
 
 msgid "Issued on %(date)s"
 msgstr "Fait le %(date)s"
+
+msgid "It does not work"
+msgstr "Ça ne marche pas"
 
 msgid ""
 "It is what lets you come back. Nobody can give it back to you: if you "
@@ -307,9 +316,6 @@ msgstr "Association à but non lucratif (loi 1901)"
 msgid "Not available yet."
 msgstr "Pas encore accessible."
 
-msgid "Not good"
-msgstr "Pas terrible"
-
 msgid "Not started"
 msgstr "Pas commencé"
 
@@ -377,17 +383,14 @@ msgstr "Choisis un nom d'utilisateur plus long"
 msgid "Pick a shorter password"
 msgstr "Choisis un mot de passe plus court"
 
+msgid "Pick at least one first"
+msgstr "Choisis au moins une réponse"
+
 msgid "Pick or type an answer first."
 msgstr "Choisis ou écris une réponse d'abord."
 
-msgid "Pick 👍 or 👎 first"
-msgstr "Choisis 👍 ou 👎 d'abord"
-
 msgid "Please enter a valid email address"
 msgstr "Entre une adresse e-mail valide"
-
-msgid "Poor"
-msgstr "Pas terrible"
 
 msgid "Powered by CTFd"
 msgstr ""
@@ -397,9 +400,6 @@ msgstr "Jeter un oeil"
 
 msgid "Profile"
 msgstr ""
-
-msgid "Rate this step"
-msgstr "Note cette étape"
 
 msgid "Read"
 msgstr "Lire"
@@ -416,11 +416,11 @@ msgstr "Réinitialiser ta propre progression ? Tes étapes validées, tes essais
 msgid "Review"
 msgstr "Revoir"
 
-msgid "Save"
-msgstr "Enregistrer"
-
 msgid "Scoreboard"
 msgstr ""
+
+msgid "Send"
+msgstr "Envoyer"
 
 msgid "Send feedback"
 msgstr "Envoyer"
@@ -487,9 +487,6 @@ msgstr ""
 msgid "Thanks for the feedback!"
 msgstr "Merci pour ton retour !"
 
-msgid "Thanks!"
-msgstr "Merci !"
-
 msgid "That email has already been used"
 msgstr "Cette adresse e-mail est déjà utilisée"
 
@@ -502,11 +499,17 @@ msgstr "Ce nom d'utilisateur est déjà pris"
 msgid "The code you were given by whoever set this instance up."
 msgstr "Le code que vous a donné la personne qui a mis en place cette instance."
 
+msgid "The explanation is not clear"
+msgstr "L'explication n'est pas claire"
+
 msgid "The glossary for this step is in the toolbox."
 msgstr "Le glossaire de cette étape est dans la boîte à outils."
 
 msgid "The workshop is not open yet"
 msgstr "L'atelier n'est pas encore ouvert"
+
+msgid "There is a mistake in the instructions"
+msgstr "Il y a une erreur dans l'énoncé"
 
 msgid "This code is not valid. Check it or ask your supervisor for the right one."
 msgstr ""
@@ -574,6 +577,12 @@ msgstr ""
 msgid "Token"
 msgstr "Jeton"
 
+msgid "Too easy"
+msgstr "Trop facile"
+
+msgid "Too hard"
+msgstr "Trop dur"
+
 msgid "took part in the workshop “%(title)s” at Epitech %(campus)s,"
 msgstr "a participé à l'atelier « %(title)s » au sein d'Epitech %(campus)s,"
 
@@ -625,9 +634,6 @@ msgstr ""
 
 msgid "When your work is finished, ask the instructor for the validation code."
 msgstr "Quand ton travail est fini, demande le code de validation à l'encadrant."
-
-msgid "Why? (optional)"
-msgstr "Pourquoi ? (facultatif)"
 
 msgid "Workshop"
 msgstr "Atelier"

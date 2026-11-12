@@ -1858,6 +1858,23 @@ main > .container > .row > .col-md-12 > h3.text-muted:only-child::after,
 .ws-anim-time { font-variant-numeric: tabular-nums; font-size: .8rem; color: #9aa1ad; white-space: nowrap; }
 .ws-anim-line { padding: .2rem .6rem 0; font-size: .85rem; color: var(--bs-secondary-color, #6c757d); min-height: 1.2rem; }
 .ws-anim-caption { margin-top: .4rem; font-size: .9rem; text-align: center; color: var(--bs-secondary-color, #6c757d); }
+/* Full screen (the ⛶ button, or F): the figure fills the screen, the video
+   keeps its ratio, the bar stays under it. `.ws-anim-large` is the fallback
+   where the Fullscreen API is missing: pinned over the page instead. */
+.ws-anim-figure:fullscreen, .ws-anim-figure.ws-anim-large {
+  display: flex; flex-direction: column; justify-content: center;
+  margin: 0; padding: 1rem; background: #14161b;
+}
+.ws-anim-figure.ws-anim-large { position: fixed; inset: 0; z-index: 2000; max-width: none; }
+.ws-anim-figure:fullscreen .ws-anim-stage, .ws-anim-large .ws-anim-stage {
+  flex: 1 1 auto; min-height: 0; display: flex; align-items: center; justify-content: center;
+  border-radius: 0; background: #14161b;
+}
+.ws-anim-figure:fullscreen .ws-anim-poster, .ws-anim-large .ws-anim-poster { position: absolute; max-height: 100%; width: auto; }
+.ws-anim-figure:fullscreen .ws-anim-video, .ws-anim-large .ws-anim-video { position: static; width: auto; height: auto; max-width: 100%; max-height: 100%; }
+.ws-anim-figure:fullscreen .ws-anim-bar, .ws-anim-large .ws-anim-bar { border-radius: 0; flex: 0 0 auto; }
+.ws-anim-figure:fullscreen .ws-anim-line, .ws-anim-large .ws-anim-line,
+.ws-anim-figure:fullscreen .ws-anim-caption, .ws-anim-large .ws-anim-caption { color: #9aa1ad; flex: 0 0 auto; }
 
 /* ---- Attachments (§3.8c): a link to a synced file, as a download card.
    Inline-flex, so the card sits in a sentence or stands on its own line. ---- */

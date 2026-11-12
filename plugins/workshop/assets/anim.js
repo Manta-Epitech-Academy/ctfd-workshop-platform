@@ -104,11 +104,15 @@
     progress.appendChild(ticks);
     var chapter = el("span", "ws-anim-chapter", "");
     var time = el("span", "ws-anim-time", "0:00");
+    var btnFull = el("button", "ws-anim-btn ws-anim-full", "⛶");
+    btnFull.type = "button";
+    btnFull.title = "Plein écran (F)";
     bar.appendChild(btnPlay);
     bar.appendChild(btnPrev);
     bar.appendChild(btnNext);
     bar.appendChild(progress);
     bar.appendChild(time);
+    bar.appendChild(btnFull);
     var line2 = el("div", "ws-anim-line");
     line2.appendChild(chapter);
 
@@ -161,6 +165,24 @@
       refresh();
     }
 
+    // Full screen: the figure itself, so the bar and its chapters come along.
+    // Where the API is missing (iPhone), the figure is pinned over the page.
+    var canFullscreen = !!(figure.requestFullscreen || figure.webkitRequestFullscreen);
+    function isLarge() {
+      return document.fullscreenElement === figure || figure.classList.contains("ws-anim-large");
+    }
+    function labelFull() {
+      btnFull.textContent = isLarge() ? "✕" : "⛶";
+      btnFull.title = isLarge() ? "Quitter le plein écran (F, Échap)" : "Plein écran (F)";
+    }
+    function toggleFull() {
+      if (document.fullscreenElement === figure) { document.exitFullscreen(); return; }
+      if (figure.classList.contains("ws-anim-large")) { figure.classList.remove("ws-anim-large"); labelFull(); return; }
+      var req = canFullscreen ? (figure.requestFullscreen || figure.webkitRequestFullscreen).call(figure) : Promise.reject();
+      Promise.resolve(req).catch(function () { figure.classList.add("ws-anim-large"); labelFull(); });
+    }
+    btnFull.addEventListener("click", toggleFull);
+    document.addEventListener("fullscreenchange", labelFull);
     btnPlay.addEventListener("click", toggle);
     btnPrev.addEventListener("click", function () { jump(-1); });
     btnNext.addEventListener("click", function () { jump(1); });
@@ -173,6 +195,8 @@
       if (ev.key === " ") { ev.preventDefault(); toggle(); }
       else if (ev.key === "ArrowLeft") { ev.preventDefault(); jump(-1); }
       else if (ev.key === "ArrowRight") { ev.preventDefault(); jump(1); }
+      else if (ev.key === "f" || ev.key === "F") { ev.preventDefault(); toggleFull(); }
+      else if (ev.key === "Escape" && figure.classList.contains("ws-anim-large")) { figure.classList.remove("ws-anim-large"); labelFull(); }
     });
     figure.tabIndex = 0;
     video.addEventListener("timeupdate", refresh);

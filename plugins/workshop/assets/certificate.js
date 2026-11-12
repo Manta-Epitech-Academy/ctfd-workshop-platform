@@ -118,10 +118,9 @@
     pdf.box((pdf.width - 110 * PX) / 2, down(212), 110 * PX, 5 * PX,
             { fill: INK.green, radius: 2.5 * PX });
 
-    // The footer, from the bottom: a rule, and a line of two halves.
+    // The footer, from the bottom: a rule, and the day on the right.
     var left = 96, right = PAGE.wide - 96;
     pdf.box(left * PX, down(724), (right - left) * PX, 0.01, { stroke: INK.rule, line: PX });
-    pdf.text(data.association, left * PX, down(751), "regular", 11 * PX, INK.faint);
     var place = pdf.measure(data.place, "regular", 11 * PX);
     pdf.text(data.place, right * PX - place - 2, down(751), "regular", 11 * PX, INK.faint, 0,
              { slant: 0.2 });

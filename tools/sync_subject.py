@@ -490,9 +490,11 @@ def upload_assets(ctfd, subject):
             uploaded += 1
         mapping[asset.key] = f"/files/{location}"
     if subject.assets:
-        kinds = ", ".join(f"{n} {k}" for k, n in (("images", len(subject.images)),
-                                                  ("scenes", len(subject.assets) - len(subject.images) - len(subject.attachments)),
-                                                  ("files", len(subject.attachments))) if n)
+        counts = {}
+        for a in subject.assets:
+            counts[a.kind] = counts.get(a.kind, 0) + 1
+        names = {"image": "images", "scene": "scenes", "file": "files", "video": "videos", "chapters": "chapter files"}
+        kinds = ", ".join(f"{n} {names.get(k, k)}" for k, n in counts.items())
         print(f"assets: {len(subject.assets)} referenced ({kinds}), {uploaded} uploaded, "
               f"{len(subject.assets) - uploaded} already present")
     return mapping

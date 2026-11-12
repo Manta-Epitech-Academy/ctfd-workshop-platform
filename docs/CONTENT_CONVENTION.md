@@ -80,6 +80,7 @@ my-subject/
 ├── img/…                # images, referenced by relative path — never hotlinked (§3.8)
 ├── scenes/…             # 3D scenes standing in for stills, glTF binaries (§3.8b)
 ├── fichiers/…           # files to download, linked from the prose (§3.8c)
+├── anim/…               # manim scenes, the sources of the animations in img/ (§3.8d)
 ├── README.md            # GENERATED — never edited by hand
 └── .github/workflows/verify-content.yaml   # calls the reusable CI
 ```
@@ -766,6 +767,44 @@ into a card either, since the platform cannot know what it is.
 download beside the images and scenes.
 
 > Added 2026-11-05.
+
+### 3.8d Animations with controls — a video in place of an animated image
+
+An animated image (a WebP or a GIF, §3.8) explains an idea that moves: a formula built one
+term at a time, a loop walking a grid. Inline it plays on its own and cannot be paused or
+rewound, and a reader who missed the second state has to wait for the loop. So a subject may
+give the platform a **video of the same frames, with chapters**: the author keeps the animated
+image, and under it an invisible marker:
+
+```markdown
+![La vague, terme par terme : ÷ 8 l'élargit, × 4 la grandit, + 20 la monte.](img/etape4b-vague.webp)
+<!-- ws:anim {src: img/etape4b-vague.webm, chapters: img/etape4b-vague.vtt} -->
+```
+
+**The image is the fallback, and the marker replaces it.** On GitHub, in any other renderer,
+and when the video cannot load, the reader sees the animated image. On the platform the image
+gives way to a player: play/pause, a progress bar with a tick at each chapter, and ‹ › buttons
+that jump to the previous or next state; space and the arrow keys do the same. The `alt` of the
+image is the caption. The marker goes on the line right after its image, and nowhere else.
+
+| Key | Meaning |
+|---|---|
+| `src` | the video, `.webm` (VP9) or `.mp4`, a path relative to the document. Required. |
+| `chapters` | a WebVTT file: one cue per state, its text is the state's name, shown under the bar. Optional; without it ‹ › move by five seconds. |
+
+**Where they come from.** The capture skill's `anim` command renders a manim scene to the
+animated image and, in the same run, to the video and the chapters: every `self.next_section("…")`
+in the scene is a chapter. Keep the scene's source in the subject repo (`anim/`), so a change
+in the text means re-rendering, not redrawing.
+
+**What the importer does.** `parse_subject` collects the video and the chapters as assets
+(kinds `video` and `chapters`); `sync_subject.py` uploads them like images and rewrites both
+keys in every body it sends. **What the linter checks.** Refused: a marker that does not parse,
+has no `src`, does not follow an image, names a missing file, a video that is not `.webm` or
+`.mp4`, chapters that are not a `.vtt` or do not start with `WEBVTT`. Advice: a video above 8 MB,
+an unknown key.
+
+> Added 2026-11-12.
 
 ### 3.9 What is generated (never hand-written)
 

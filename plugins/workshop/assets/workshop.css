@@ -1857,6 +1857,56 @@ main > .container > .row > .col-md-12 > h3.text-muted:only-child::after,
   .ws-scene-canvas, .ws-scene-hint { transition: none; }
 }
 
+/* ---- Animations with controls (§3.8d): a video of the animated image, under
+   our own bar — play, ‹ ›, a progress bar ticked at each chapter. ---- */
+.ws-anim-figure { margin: 1rem auto; max-width: 100%; outline: none; }
+.ws-anim-stage { position: relative; background: #14161b; border-radius: var(--bs-border-radius-lg, 1rem) var(--bs-border-radius-lg, 1rem) 0 0; overflow: hidden; }
+.ws-anim-stage .ws-anim-poster { display: block; width: 100%; height: auto; }
+.ws-anim-video { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: pointer; opacity: 0; }
+.ws-anim-ready .ws-anim-video { opacity: 1; }
+.ws-anim-ready .ws-anim-poster { visibility: hidden; }
+.ws-anim-failed .ws-anim-video, .ws-anim-failed .ws-anim-bar, .ws-anim-failed .ws-anim-line { display: none; }
+.ws-anim-failed .ws-anim-poster { visibility: visible; }
+.ws-anim-bar {
+  display: flex; align-items: center; gap: .4rem;
+  padding: .4rem .6rem;
+  background: var(--epi-grey-900, #1b1d23);
+  color: #e6e8ec;
+  border-radius: 0 0 var(--bs-border-radius-lg, 1rem) var(--bs-border-radius-lg, 1rem);
+}
+.ws-anim-btn {
+  min-width: 2rem; height: 2rem; padding: 0 .5rem;
+  border: 1px solid #30343e; border-radius: .5rem;
+  background: #23262e; color: inherit; font-size: 1rem; line-height: 1; cursor: pointer;
+}
+.ws-anim-btn:hover, .ws-anim-btn:focus-visible { border-color: #9aa1ad; }
+.ws-anim-play { font-size: .9rem; }
+.ws-anim-progress { position: relative; flex: 1; height: 1.1rem; cursor: pointer; }
+.ws-anim-progress::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 4px; margin-top: -2px; background: #30343e; border-radius: 2px; }
+.ws-anim-fill { position: absolute; left: 0; top: 50%; height: 4px; margin-top: -2px; background: var(--epi-tech, #9fd3ff); border-radius: 2px; pointer-events: none; }
+.ws-anim-ticks { position: absolute; inset: 0; pointer-events: none; }
+.ws-anim-tick { position: absolute; top: 50%; width: 2px; height: 12px; margin: -6px 0 0 -1px; background: #e6e8ec; opacity: .8; }
+.ws-anim-time { font-variant-numeric: tabular-nums; font-size: .8rem; color: #9aa1ad; white-space: nowrap; }
+.ws-anim-line { padding: .2rem .6rem 0; font-size: .85rem; color: var(--bs-secondary-color, #6c757d); min-height: 1.2rem; }
+.ws-anim-caption { margin-top: .4rem; font-size: .9rem; text-align: center; color: var(--bs-secondary-color, #6c757d); }
+/* Full screen (the ⛶ button, or F): the figure fills the screen, the video
+   keeps its ratio, the bar stays under it. `.ws-anim-large` is the fallback
+   where the Fullscreen API is missing: pinned over the page instead. */
+.ws-anim-figure:fullscreen, .ws-anim-figure.ws-anim-large {
+  display: flex; flex-direction: column; justify-content: center;
+  margin: 0; padding: 1rem; background: #14161b;
+}
+.ws-anim-figure.ws-anim-large { position: fixed; inset: 0; z-index: 2000; max-width: none; }
+.ws-anim-figure:fullscreen .ws-anim-stage, .ws-anim-large .ws-anim-stage {
+  flex: 1 1 auto; min-height: 0; display: flex; align-items: center; justify-content: center;
+  border-radius: 0; background: #14161b;
+}
+.ws-anim-figure:fullscreen .ws-anim-poster, .ws-anim-large .ws-anim-poster { position: absolute; max-height: 100%; width: auto; }
+.ws-anim-figure:fullscreen .ws-anim-video, .ws-anim-large .ws-anim-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.ws-anim-figure:fullscreen .ws-anim-bar, .ws-anim-large .ws-anim-bar { border-radius: 0; flex: 0 0 auto; }
+.ws-anim-figure:fullscreen .ws-anim-line, .ws-anim-large .ws-anim-line,
+.ws-anim-figure:fullscreen .ws-anim-caption, .ws-anim-large .ws-anim-caption { color: #9aa1ad; flex: 0 0 auto; }
+
 /* ---- Attachments (§3.8c): a link to a synced file, as a download card.
    Inline-flex, so the card sits in a sentence or stands on its own line. ---- */
 .ws-attachment {

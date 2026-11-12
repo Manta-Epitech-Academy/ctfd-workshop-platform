@@ -24,6 +24,7 @@ from .landing import load_landing
 from .page import load_page
 from .runtime import load_runtime
 from .workspace import load_workspace
+from .choices import load_choices
 from .feedback import load_feedback
 from .answers import load_answers
 from .mode import load_mode
@@ -163,6 +164,7 @@ def load(app):
     # Two rating populations land in CTFd's own table and nothing surfaced them
     # (PLAN.md §17). The report sits in the admin menu bar, where an instructor
     # already looks, rather than on a URL somebody has to be told about.
+    load_choices(app)
     load_feedback(app)
     register_admin_plugin_menu_bar("Feedback", "/admin/workshop/feedback")
     # Every step's answer, and how far each participant got (PLAN.md §23). The

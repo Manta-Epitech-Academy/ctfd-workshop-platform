@@ -15,18 +15,15 @@ Four graded kinds, plus three that are graded by something other than an answer:
         "dumb" flag would have to be embedded in the page for the button to
         send it, which reads like a leak and invites copy-paste.
   info  a closing note. No control at all, and it counts for nothing.
-  rating the closing step of a subject: how did the workshop go? **The rating
-        IS the submission** — grading it stores the rating, so the step is
-        solved at the exact moment the feedback lands, never before. It counts
-        in the progress bar like any other step, so the workshop reads 14/15
-        until it is rated; reaching 100% without leaving feedback is
-        impossible, which is the whole point.
-        (CTFd's own `PUT /challenges/<id>/ratings` cannot do this: it refuses
-        a rating for an unsolved challenge, so going through it would mean
-        solving first — reaching 100% and only then, maybe, recording an
-        opinion. We write the same `Ratings` row from here instead, so the
-        data lands in CTFd's native table either way.)
-        Submission: `{"value": 1|-1, "review": "…"}`, or a bare "1"/"-1".
+  rating the closing step of a part: how did it go? **The answer IS the
+        submission**: one choice or more from the platform's fixed list
+        (choices.py, PLAN.md §67), so the step is solved at the exact moment
+        the feedback lands, never before. It counts in the progress bar like
+        any other step, so the workshop reads 14/15 until it is answered;
+        reaching 100% without leaving feedback is impossible, which is the
+        whole point.
+        The choices are counted, not kept: the solve's `provided` is `-`.
+        Submission: the keys, comma-separated: `good,too_hard`.
 
 Four kinds, all auto-graded server-side in attempt():
   single    one correct letter            submission "B"
@@ -58,10 +55,11 @@ from CTFd.exceptions.challenges import (
     ChallengeCreateException,
     ChallengeUpdateException,
 )
-from CTFd.models import Challenges, Fails, Ratelimiteds, Ratings, db
+from CTFd.models import Challenges, Fails, Ratelimiteds, Submissions, db
 from CTFd.plugins.challenges import BaseChallenge
 from CTFd.utils.user import get_current_user, is_admin
 
+from . import choices
 from .jumpqueue import enqueue_solve
 from .mode import is_self_serve
 
@@ -118,45 +116,16 @@ def _grade_freeform(answers, submission):
     return any(re.search(p, text, flags) for p in patterns)
 
 
-def _store_rating(challenge, submission):
-    """Persist the feedback carried by the submission; solving is its effect.
+def _grade_rating(submission):
+    """The closing step: any choice of the list completes it (PLAN.md §67).
 
-    Written straight into CTFd's own `Ratings` table so the data lives where
-    every other rating lives — the API's "must be solved first" rule is a
-    property of that endpoint, not of the model, and obeying it here would
-    invert the order we need.
+    Nothing is stored from here. `QuizChallenge.solve` counts the choices
+    once the solve is in, so an answer is counted exactly when it completes
+    the step.
     """
-    value, review = None, ""
-    text = (submission or "").strip()
-    try:
-        payload = json.loads(text)
-    except (TypeError, ValueError):
-        payload = None
-    if isinstance(payload, dict):
-        # What the UI sends: the thumb plus an optional written reason.
-        value = payload.get("value")
-        review = (payload.get("review") or "")[:2000]
-    else:
-        # Anything else is read as the thumb alone. `json.loads("1")` returns an
-        # int, not a dict, so a bare value has to be handled here or it reaches
-        # `.get` and 500s — which is what a script posting "1" used to get.
-        value = text
-    try:
-        value = int(value)
-    except (TypeError, ValueError):
-        value = None
-    if value not in (1, -1):
-        # No rating, no solve — this is what keeps the progress bar honest.
-        return False, _("Pick 👍 or 👎 first")
-
-    user = get_current_user()
-    rating = Ratings.query.filter_by(user_id=user.id, challenge_id=challenge.id).first()
-    if rating:
-        rating.value, rating.review = value, review
-    else:
-        db.session.add(Ratings(user_id=user.id, challenge_id=challenge.id,
-                               value=value, review=review))
-    db.session.commit()
+    if choices.parse(submission) is None:
+        # No choice, no solve: this is what keeps the progress bar honest.
+        return False, _("Pick at least one first")
     return True, _("Thanks for the feedback!")
 
 
@@ -453,10 +422,32 @@ class QuizChallenge(BaseChallenge):
         work, which is not a trade this feature is allowed to make.
         """
         super().solve(user, team, challenge, request)
+        cls._count_rating(user, challenge, request)
         try:
             enqueue_solve(user.id, challenge.id)
         except Exception:  # noqa: BLE001
             db.session.rollback()
+
+    @staticmethod
+    def _count_rating(user, challenge, request):
+        """A closing step's solve counts its choices and does not keep them.
+
+        Core stores the submission on the solve, next to the account. The
+        choices go to the counts instead (choices.py), which name nobody.
+        """
+        row = QuizChallengeModel.query.filter_by(id=challenge.id).first()
+        if row is None or row.quiz_type != "rating":
+            return
+        data = request.form or request.get_json()
+        keys = choices.parse(str(data.get("submission", "")))
+        # On `submissions`, where the column is: a solve is a joined row and
+        # an UPDATE through `Solves` would span both tables.
+        Submissions.query.filter_by(
+            user_id=user.id, challenge_id=challenge.id, type="correct").update(
+            {"provided": "-"}, synchronize_session=False)
+        if keys:
+            choices.record(user, challenge.id, keys)
+        db.session.commit()
 
     @classmethod
     def _keep_wrong(cls, model, user, team, challenge, request):
@@ -501,7 +492,7 @@ class QuizChallenge(BaseChallenge):
             # Pressing the button IS the completion — there is nothing to grade.
             return True, _("Noted")
         if challenge.quiz_type == "rating":
-            return _store_rating(challenge, submission)
+            return _grade_rating(submission)
         if challenge.quiz_type == "info":
             return False, _("This step is just something to read")
         grader = GRADERS.get(challenge.quiz_type)

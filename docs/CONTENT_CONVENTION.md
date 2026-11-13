@@ -677,7 +677,7 @@ does not know the marker shows the still and nothing else.
 **Naming the axes in the prose.** The viewer draws the axes in fixed colours, x red, y green,
 z blue, the same as the runtime's arrows. A subject that talks in coordinates writes each bare
 axis letter as `<var>x</var>`, `<var>y</var>`, `<var>z</var>`, the HTML element for a variable:
-GitHub shows an italic letter, and the platform a bold chip in the axis's colour, like `<kbd>`.
+GitHub shows an italic letter, and the platform a bold letter in the axis's colour.
 Only the three bare letters get a colour; a `<var>` holding anything else is left alone. Code
 spans and code blocks stay as they are, the colour is for prose.
 

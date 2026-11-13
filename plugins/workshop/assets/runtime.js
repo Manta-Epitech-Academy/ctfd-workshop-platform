@@ -510,18 +510,18 @@
     saving = true;
     lastSaved = Date.now();
     if (!seal) {
-      send(JSON.stringify({ runtime: cfg.id, keys: keys }), print, keepalive);
+      upload(JSON.stringify({ runtime: cfg.id, keys: keys }), print, keepalive);
     } else if (seal.cache && seal.cache.print === print) {
       // Already sealed by the poll: sent at once, which is what lets a page
       // that is closing save.
-      send(seal.cache.body, print, keepalive);
+      upload(seal.cache.body, print, keepalive);
     } else {
-      sealUp(print).then(function (body) { send(body, print, keepalive); },
+      sealUp(print).then(function (body) { upload(body, print, keepalive); },
                          function () { saving = false; });
     }
   }
 
-  function send(body, print, keepalive) {
+  function upload(body, print, keepalive) {
     fetch(WS_API, {
       method: "POST",
       credentials: "same-origin",

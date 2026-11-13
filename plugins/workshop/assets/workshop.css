@@ -1964,3 +1964,22 @@ main > .container > .row > .col-md-12 > h3.text-muted:only-child::after,
 @media (max-width: 480px) {
   .ws-attachment-action { display: none; }
 }
+
+/* The world's axes named in the prose (axes.py, convention §3.8b): a chip
+   like <kbd>, in the colour the 3D viewer and the runtime give the axis —
+   x red, y green, z blue (scene-viewer.js) — bold, with dark ink so it reads
+   on both themes. The colours never vary by theme, like the arrows. */
+.ws-axis {
+  font-family: var(--bs-font-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+  font-style: normal;
+  font-weight: 700;
+  font-size: .875em;
+  line-height: 1.2;
+  padding: .05em .35em;
+  border-radius: .25rem;
+  color: #0b0e1a;
+  white-space: nowrap;
+}
+.ws-axis-x { background: #ff5555; }
+.ws-axis-y { background: #55dd55; }
+.ws-axis-z { background: #5599ff; }

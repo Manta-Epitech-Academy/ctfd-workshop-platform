@@ -59,6 +59,22 @@ function el(tag, className, text) {
   return e;
 }
 
+/** A floating letter naming an axis, in the axis's colour (as the runtime). */
+function axisLetter(text, color) {
+  const c = document.createElement("canvas");
+  c.width = c.height = 64;
+  const ctx = c.getContext("2d");
+  ctx.font = "bold 48px system-ui, sans-serif";
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.lineWidth = 8; ctx.strokeStyle = "rgba(0,0,0,0.6)";
+  ctx.strokeText(text, 32, 34);
+  ctx.fillStyle = "#" + color.toString(16).padStart(6, "0");
+  ctx.fillText(text, 32, 34);
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthTest: false }));
+  sprite.renderOrder = 10;
+  return sprite;
+}
+
 export function createViewer(stage, canvas, spec, gltf) {
   const features = new Set(spec.features || ["orbit", "zoom", "pan", "reset"]);
   // preserveDrawingBuffer: rendering is on demand, so the last frame has to
@@ -94,6 +110,11 @@ export function createViewer(stage, canvas, spec, gltf) {
   const bbox = new THREE.Box3();
   for (const n of mainNodes) bbox.expandByObject(n);
   if (bbox.isEmpty()) bbox.set(new THREE.Vector3(0, 0, 0), new THREE.Vector3(1, 1, 1));
+  // With the axes shown, the floor and the frame reach the origin they start
+  // from, as the runtime's grid does: a lone block at (64, 10, 64) then floats
+  // over the same floor the participant saw in the pane, instead of over a
+  // one-block grid with the arrows nowhere in sight.
+  if (spec.show_axis === true) bbox.expandByPoint(new THREE.Vector3(0, 0, 0));
   const size = bbox.getSize(new THREE.Vector3()), center = bbox.getCenter(new THREE.Vector3());
   const span = Math.max(size.x, size.z) || 1;
 
@@ -106,6 +127,27 @@ export function createViewer(stage, canvas, spec, gltf) {
     new THREE.LineBasicMaterial({ color: 0x335577, transparent: true, opacity: 0.25 }));
   frame.position.copy(center);
   scene.add(frame);
+
+  // The world's axes, drawn the way the runtime's pane draws them from its
+  // corner (0, 0, 0): x red, y green, z blue, a letter at each tip, visible
+  // through the blocks. Opt-in with `show_axis: true`, for a subject whose
+  // steps talk in coordinates and whose files keep the runtime's origin.
+  const axes = [];
+  if (spec.show_axis === true) {
+    const len = Math.max(8, span * 0.16);
+    const dirs = [["x", 0xff5555, [1, 0, 0]], ["y", 0x55dd55, [0, 1, 0]], ["z", 0x5599ff, [0, 0, 1]]];
+    for (const [name, color, dir] of dirs) {
+      const arrow = new THREE.ArrowHelper(new THREE.Vector3(...dir), new THREE.Vector3(0, 0, 0),
+                                          len, color, len * 0.15, len * 0.08);
+      arrow.line.material.depthTest = false; arrow.cone.material.depthTest = false;
+      arrow.line.renderOrder = 10; arrow.cone.renderOrder = 10;
+      const letter = axisLetter(name, color);
+      letter.position.set(dir[0], dir[1], dir[2]).multiplyScalar(len * 1.15);
+      letter.scale.set(len * 0.25, len * 0.25, 1);
+      scene.add(arrow, letter);
+      axes.push(arrow, letter);
+    }
+  }
 
   // Lights for a file that is lit (PBR materials). Unlit materials ignore them.
   scene.add(new THREE.HemisphereLight(0xffffff, 0x667788, 1.2));
@@ -324,6 +366,7 @@ export function createViewer(stage, canvas, spec, gltf) {
 
   const viewer = {
     features,
+    showAxis: axes.length > 0,
     reset: () => { goHome(); if (slider) setCutPercent(0); },
     get cut() { return cutPct; },
     setCut: setCutPercent,
@@ -342,6 +385,11 @@ export function createViewer(stage, canvas, spec, gltf) {
       tools.remove(); pads.remove(); enlarge.remove();
       scene.remove(root);
       grid.geometry.dispose(); frame.geometry.dispose();
+      for (const a of axes) {
+        scene.remove(a);
+        if (a.isSprite) { a.material.map.dispose(); a.material.dispose(); }
+        else { a.line.material.dispose(); a.cone.material.dispose(); }
+      }
       renderer.dispose();
       renderer.forceContextLoss();
     },

@@ -30,7 +30,7 @@ _SCENE = re.compile(r"(?:<p>\s*)?<!--\s*ws:scene\s+(\{.*?\})\s*-->(?:\s*</p>)?",
 
 # The viewer's knobs, and nothing else: a key the page does not know is dropped
 # here rather than forwarded, so content cannot smuggle anything into the DOM.
-_KEYS = ("src", "features", "cut", "camera")
+_KEYS = ("src", "features", "cut", "camera", "show_axis")
 
 
 def _mapping(text):

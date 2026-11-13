@@ -1172,6 +1172,8 @@ def _scene_checks(subject_dir, subject):
                     problems.append(f"{where}: `cut.at`, when given, is an integer")
                 if cut.get("keep", "below") not in SCENE_KEEP:
                     problems.append(f"{where}: `cut.keep` is `below` (default) or `above`")
+            if "show_axis" in data and not isinstance(data["show_axis"], bool):
+                problems.append(f"{where}: `show_axis` is `true` or `false`")
             cam = data.get("camera")
             if cam is not None:
                 ok = isinstance(cam, dict) and all(

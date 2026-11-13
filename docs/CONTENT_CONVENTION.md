@@ -674,6 +674,13 @@ does not know the marker shows the still and nothing else.
 | `camera` | `{from: [x, y, z], to: [x, y, z]}`, in the file's own units: where the viewer looks from, and at, before the participant moves. Use the still's camera, so the two match. | framed from the scene's bounding box, from its corner |
 | `show_axis` | `true` draws the three axes from the file's origin, the way the runtime's pane does from its corner (0, 0, 0): x red, y green, z blue, a letter at each tip, visible through the blocks. For a subject whose steps talk in coordinates. | `false` |
 
+**Naming the axes in the prose.** The viewer draws the axes in fixed colours, x red, y green,
+z blue, the same as the runtime's arrows. A subject that talks in coordinates writes each bare
+axis letter as `<var>x</var>`, `<var>y</var>`, `<var>z</var>`, the HTML element for a variable:
+GitHub shows an italic letter, and the platform a bold chip in the axis's colour, like `<kbd>`.
+Only the three bare letters get a colour; a `<var>` holding anything else is left alone. Code
+spans and code blocks stay as they are, the colour is for prose.
+
 **The file is a glTF 2.0 binary, one `.glb`** — the Khronos open standard, which every 3D tool
 and viewer reads, and which is not tied to voxels: a scene that is not blocks at all goes
 through the same marker and the same viewer. One file, with its textures inside; a `.gltf`

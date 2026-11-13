@@ -89,8 +89,23 @@ def split_region(html, open_tag, close_tag, placeholder=""):
     return "\n".join(found).strip(), rest.strip()
 
 
+# A tool's title and its text are two lines of one quoted paragraph, which
+# CommonMark joins with a space: « 🧰 **random(a, b)** random(1, 6) donne… ».
+# The title gets its own line here, in the rendering, so the author writes the
+# natural thing and GitHub's flat rendering is the only one that runs them on.
+_TITLE_LINE = re.compile(r"(<blockquote>\s*<p>(?:(?!</p>).)*?<strong>(?:(?!</p>).)*?</strong>)\n", re.S)
+
+
+def break_after_titles(region_html):
+    """A line break after the bold title that opens each tool's first paragraph."""
+    if not region_html:
+        return region_html
+    return _TITLE_LINE.sub(r"\1<br>\n", region_html)
+
+
 def split_toolbox(html, placeholder=""):
-    return split_region(html, TOOLBOX_OPEN, TOOLBOX_CLOSE, placeholder)
+    region, rest = split_region(html, TOOLBOX_OPEN, TOOLBOX_CLOSE, placeholder)
+    return break_after_titles(region), rest
 
 
 def split_glossary(html, placeholder=""):

@@ -246,6 +246,22 @@ Tout type de fichier convient ; la phrase autour n'est pas touchée. Un lien ver
 autre document `.md`, vers une ancre ou vers un site reste un lien. Le vérificateur refuse un
 fichier manquant et signale un fichier de plus de 20 Mo, que chaque participant télécharge.
 
+### Les animations avec des commandes
+
+Une image animée (WebP ou GIF) explique une idée qui bouge : une formule qui se construit
+terme par terme. Sur la plateforme, elle peut devenir une **vidéo avec des chapitres** : lecture
+et pause, une barre de progression, et deux flèches ‹ › qui sautent d'un état à l'autre. On
+garde l'image animée, et on ajoute un marqueur juste en dessous :
+
+```markdown
+![La vague, terme par terme.](img/etape4b-vague.webp)
+<!-- ws:anim {src: img/etape4b-vague.webm, chapters: img/etape4b-vague.vtt} -->
+```
+
+L'image reste ce que voient GitHub et un navigateur sans la vidéo. Les trois fichiers sortent
+d'un même rendu manim (la commande `anim` du skill de capture) ; chaque `self.next_section("…")`
+de la scène devient un chapitre. Rangez la scène dans `anim/`.
+
 ### L'intro et la fin
 
 Le premier document (`entrypoint`) devient la première étape, avec un bouton "j'ai lu". Le texte

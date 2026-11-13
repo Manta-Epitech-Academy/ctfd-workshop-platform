@@ -5094,8 +5094,8 @@ over. The page says so in the sentence under its title, at the moment it hands t
   signs nobody in.
 - info `encryption`: an AES-GCM 256 key that never leaves the browser. It is imported as
   non-extractable and kept in IndexedDB (`ws-door` / `keys` / `encryption`), where a later page
-  can use it and no script can read it out. **Nothing uses it yet.** It is there for saved code
-  (#82), and it is derived now because a token cannot be asked for again later.
+  can use it and no script can read it out. It was derived before anything used it, because a
+  token cannot be asked for again later; since §68 saved code is encrypted with it.
 
 Knowing the sign-in value gives neither the token nor the key: HKDF does not run backwards, and
 its two outputs are independent.
@@ -5893,3 +5893,129 @@ filed under steps that no longer exist and no page reads them.
 from this checkout, see CLAUDE.md).
 
 **Rollout:** migration `f3b7c9d2a815` (two new tables, runs at start-up). No re-sync.
+
+## 68. Saved code is encrypted in the browser (2026-11-12)
+
+Issue #82. Work in progress (§16) is free text, and it was stored in clear. A participant can
+type anything in an editor, a name included. So for an account made at the token door (§61)
+the work is encrypted before it leaves the browser, with a key the server has never seen.
+
+### 68.1 The envelope
+
+- A **data key**, 32 random bytes, encrypts the work: AES-GCM over `JSON.stringify(keys)`, the
+  same object the clear path sends.
+- The data key is stored **wrapped** by the token's encryption key (§61.2), AES-GCM again.
+- What goes to the server is one string:
+
+      v1.<base64url(iv + wrapped data key)>.<base64url(iv + encrypted work)>
+
+  with a fresh 12-byte iv on each part, and the additional data `ws-workspace-v1:key` and
+  `ws-workspace-v1:data`, so one part cannot be passed off as the other.
+- The data key is made at the first save and **reused** after: the browser takes it from the
+  envelope it opened. Only the second part changes from save to save.
+
+Why two keys when one would do today: sharing code with a supervisor (#85) will wrap the same
+data key a second time, for the supervisor's key. Nothing already stored has to be encrypted
+again for that.
+
+### 68.2 What the server does
+
+`workspace.py`, same table, same column, **no migration**: `data` holds an object for work in
+clear and a string for sealed work.
+
+| Account | `keys` (clear) | `sealed` |
+|---|---|---|
+| made at the token door | refused, 400 | stored; 413 over the cap |
+| any other (staff, Jump) | stored, as before | refused, 400 |
+
+- **The server can only cap the size.** It cannot count keys or check their type any more.
+  The cap is the clear cap (512 KB) grown by base64, plus 1 KB for the wrapped key and framing.
+- **A token account is refused the clear shape**, so no page, old or buggy, can write readable
+  work for it.
+- `GET` answers `{runtime, keys, sealed, seal, updated}`. `seal` is null for an account that
+  does not seal.
+- `reset.py` (§47) deletes the row as before. It used to read the row's key names to tell the
+  browser what to clear; a sealed row names none, and the browser's own list of keys
+  (`ws-workspace-keys`) covers it.
+
+### 68.3 Whose key: `seal`
+
+The browser has to know whether the key it holds is this account's: a shared PC keeps a key
+in IndexedDB, and a code typed in the prompt may be a neighbour's. Asking the server would
+mean sending something derived from a typed token to an endpoint, one more thing to throttle.
+
+Instead: `seal` is the **first 16 characters of the account's stored sign-in digest**
+(`signin_hash`, the SHA-256 of the sign-in value). The browser can compute the same 16
+characters from any token (`derive` in `assets/token.js` returns them as `owner`) and keeps
+them in IndexedDB next to the key. A match is checked on the page; nothing is sent.
+
+It tells the signed-in account 64 bits of a digest of a value it already knows. It does not
+help anybody else: it is only answered to the account's own session.
+
+### 68.4 The page
+
+`assets/runtime.js`, between the snapshot and the reconcile of §16.2, **before the frame
+boots** (a runtime reads its storage once, at boot):
+
+1. `seal` is null: the clear path, unchanged.
+2. The key in IndexedDB carries the same `owner`: open the envelope, go on. This is every
+   normal visit, and a visit on a new machine too, since the door leaves the key when the
+   token is typed.
+3. No key, or another account's: the pane shows a prompt instead of the runtime
+   (`templates/workshop_runtime_lock.html`): « Entre ton code pour retrouver ton travail. »
+   A mistyped code (checksum) and a code that is not this account's are refused on the page.
+   The right one puts the key back in IndexedDB and the runtime boots with the work.
+4. « Continuer sans sauvegarder »: the runtime boots with what this browser holds, nothing is
+   saved, and the pane keeps a note saying so until the page is reloaded. A workshop must not
+   stop on a lost sheet of paper in the middle of a session; the account itself is still lost
+   at the next sign-in (§61).
+
+- **The browser's `localStorage` copy stays in clear.** It is what the runtime reads, and it
+  never left the machine anyway.
+- **Closing the page.** Encryption is asynchronous and a closing page cannot wait. So the 5 s
+  poll encrypts each change as it sees it, and the closing save sends the envelope already
+  made. Edits of the last few seconds can miss the server; they are still in the browser, and
+  §16.2 lets the local copy win at the next visit on that machine.
+- **An envelope the right key does not open** (damaged, or written by hand) does not stop the
+  runtime: the server's copy counts as empty and the next save replaces it.
+- **A clear row of a token account** (written before this change) is read once and replaced by
+  a sealed one at the next save.
+- **`assets/token.js`** is new: the alphabet, the checksum, the derivation and the IndexedDB
+  store moved out of `door.js`, which the pane cannot load whole. The constants are the same
+  bytes; `scripts/token_door_browser_check.js` still checks the derivation against its vector.
+
+### 68.5 Not in scope
+
+- **Accounts with no token** (Jump, the retired external door, staff). They have no key to
+  encrypt with and save in clear as before. What happens to them is decided when production
+  comes back; running instances are not touched.
+- **Rows already stored.** Not converted, not deleted.
+- **Sharing with a supervisor** (#85).
+- **Changing the token.** There is no such thing (§61): a lost token is a lost account, and
+  its sealed work stays unreadable.
+
+### 68.6 Rejected
+
+- **A check endpoint for the typed code.** See §68.3.
+- **Encrypting with the token's key directly.** Sharing would then mean giving that key away,
+  or encrypting everything again.
+- **Keeping the data key in its own column.** One string keeps the upsert a single write, and
+  the two parts cannot drift apart.
+- **Encrypting the `localStorage` copy.** The runtime reads it, and the runtimes are not ours
+  to change (§14).
+- **Blocking the runtime until the code is typed.** See point 4 above.
+
+### 68.7 Checked
+
+`scripts/sealed_workspace_check.js <base-url> <admin-pass> [path-to-playwright] [pane|window]`,
+35 assertions, in the pane and in the popped-out window: the stored string holds nothing
+readable and no save carries the text or a key name; the server's refusals; the same token on
+a second machine; the prompt after a lost key, with a mistyped code and somebody else's code
+refused and nothing sent; « continuer sans sauvegarder »; a damaged envelope; an account with
+a password, in clear as before.
+
+It ran on a local instance whose runtime dist was a stand-in page (an editor host and the real
+adapter), not the real runtime. The save path does not depend on the runtime, which is the
+point of §16, but the real one was not exercised here.
+
+**Rollout:** no migration, no re-sync.

@@ -99,6 +99,9 @@ msgstr ""
 msgid "Continue with Jump (%(label)s)"
 msgstr ""
 
+msgid "Continue without saving"
+msgstr ""
+
 msgid "Copied!"
 msgstr ""
 
@@ -143,6 +146,9 @@ msgstr ""
 msgid "Enter your code"
 msgstr ""
 
+msgid "Enter your code to get your work back."
+msgstr ""
+
 msgid "Everything the workshop has given you so far, in one place."
 msgstr ""
 
@@ -158,6 +164,9 @@ msgid ""
 "For the people running the room. You will see the answers, who is where, "
 "what was submitted and the feedback — and you will not appear among the "
 "participants."
+msgstr ""
+
+msgid "Get my work back"
 msgstr ""
 
 msgid "Give my opinion"
@@ -497,6 +506,9 @@ msgstr ""
 msgid "This event has not started yet. Your code will work from {when}."
 msgstr ""
 
+msgid "This is not your personal code. Check it and try again."
+msgstr ""
+
 msgid "This link is no longer valid"
 msgstr ""
 
@@ -655,4 +667,12 @@ msgid "What %(subject)s has given you so far, in one place."
 msgstr ""
 
 msgid "Show every subject"
+msgstr ""
+
+msgid ""
+"Your work is not being saved. Reload the page and enter your code to save"
+" it."
+msgstr ""
+
+msgid "Your work is saved encrypted. Only your personal code can open it."
 msgstr ""

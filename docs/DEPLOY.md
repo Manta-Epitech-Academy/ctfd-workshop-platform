@@ -702,17 +702,22 @@ sync page — the example overlay carries it.
 
 ## The `ctfd-standalone` test image
 
-`.github/workflows/ctfd-standalone.yml` builds
-`ghcr.io/manta-epitech-academy/ctfd-standalone` from the branch that carries the
-way in without Jump (PLAN.md §59 to §62). It is ctfd-custom's own Dockerfile at
-a pinned commit, with this repository's `plugins/` and `tools/` in place of the
-submodule, so it differs from production's image by this branch and by nothing
-else. Two tags per build: the branch name with `/` turned into `-`, and
-`sha-<short commit>`. Its OCI title is `ctfd-standalone`.
+The `standalone` branch of ctfd-custom builds
+`ghcr.io/manta-epitech-academy/ctfd-standalone`, beside production's image and
+with the same workflow (`ghcr-publish.yml`). The branch is `master` with two
+differences: its `workshop_platform` submodule points at the branch of this
+repository that carries the way in without Jump (PLAN.md §59 to §68), and its
+copy of the workflow names the image. Two tags per build: `latest` and
+`sha-<short commit of ctfd-custom>`.
 
-It is not a deploy. Nothing on the cluster pulls that name, the workflow never
-writes to ctfd-custom, and production keeps running `ctfd-custom:latest` until
-somebody bumps the submodule there, which stays the only way to deploy.
+It is not a deploy. Nothing on the cluster pulls that name, the cluster is
+restarted by a build of `master` only, and production keeps running
+`ctfd-custom:latest`. A new standalone version is a submodule bump on the
+`standalone` branch; merge `master` into it now and then so it follows CTFd.
+
+This repository built the image itself until 2026-11-12, from
+`.github/workflows/ctfd-standalone.yml`. That workflow is gone, so the image
+has one builder.
 
 To run it, use it as the image of any instance overlay, with no Jump key
 configured and core registration closed

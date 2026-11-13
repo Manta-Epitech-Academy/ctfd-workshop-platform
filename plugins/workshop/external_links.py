@@ -22,7 +22,9 @@ same-host URL (the runtime, an uploaded file), and any other scheme, because
 """
 import re
 
+from .anim import place_anims
 from .attachments import place_attachments
+from .axes import place_axes
 from .scene import place_scenes
 from urllib.parse import urlsplit
 
@@ -105,8 +107,10 @@ def load_external_links(app):
     def build_markdown(md, sanitize=False):
         # Every rendered surface passes here, so this is also where a scene
         # marker becomes its anchor (scene.py, convention §3.8b) and a link
-        # to an uploaded file becomes a download card (attachments.py, §3.8c).
-        return place_attachments(place_scenes(open_externally(original(md, sanitize=sanitize))))
+        # to an uploaded file becomes a download card (attachments.py, §3.8c),
+        # and an animation marker its player's anchor (anim.py, §3.8d), and
+        # a bare axis letter in <var> its colour (axes.py, §3.8b).
+        return place_axes(place_attachments(place_anims(place_scenes(open_externally(original(md, sanitize=sanitize))))))
 
     build_markdown._workshop_external_links = True
     pages.build_markdown = build_markdown

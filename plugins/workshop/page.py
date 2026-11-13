@@ -155,7 +155,9 @@ def _lead(challenge):
     after it routinely says "reuse the code above". Hiding it leaves a heading
     with nothing under it and an exercise referring to something invisible.
     """
-    return markup(_split_context(challenge.html)[0])
+    # place_cues: the lead is where a part says « ouvre le runtime », and the
+    # launcher it points at is on this very page (cue.py).
+    return markup(_split_context(place_cues(challenge.html))[0])
 
 
 # What the control under a step is, and what the line beside it says. Both

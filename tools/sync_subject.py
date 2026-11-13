@@ -740,7 +740,12 @@ CONTENT_TOPIC = "ws-content:"
 
 def current_content(ctfd):
     """The content this instance serves, as the last sync recorded it."""
-    value = (ctfd.api("GET", "/configs/workshop_content") or {}).get("value")
+    try:
+        value = (ctfd.api("GET", "/configs/workshop_content") or {}).get("value")
+    except RuntimeError:
+        # Never set: the first sync of a fresh instance. Same 404 as the
+        # token secret.
+        return None
     return str(value).strip() if value else None
 
 

@@ -78,11 +78,15 @@ def load_manifest():
         inst["mode"] = inst.get("mode") or defaults.get("mode") or "instructor_led"
         if inst["mode"] not in ("instructor_led", "self_serve"):
             sys.exit(f"{inst['name']}: unknown mode {inst['mode']!r}")
-        # A code is what keeps a session instance on the open internet from
-        # filling with strangers; a self-serve instance is meant to be found,
-        # so it has none. Overridable per instance for the odd case.
-        inst["registration"] = inst.get("registration") or (
-            "open" if inst["mode"] == "self_serve" else "code")
+        # Registration is not a setting of the manifest any more (PLAN.md
+        # §62): every instance, whatever its mode, is entered through the
+        # token door with a registration code made on /admin/workshop/codes.
+        # Said out loud rather than ignored, so nobody believes an instance
+        # is open because its manifest entry says so.
+        if "registration" in inst:
+            sys.exit(f"{inst['name']}: `registration:` is gone from the "
+                     "manifest (PLAN.md §62). Registration codes are made on "
+                     "/admin/workshop/codes, in both modes.")
         # Whether talents see a scoreboard at all (PLAN.md §50.1): off, Jump's
         # XP is the only score they read. Per instance like `mode`, since a
         # flagship instance and a campus one can want different answers.
@@ -166,10 +170,6 @@ def load_secrets(manifest, create=True):
     data.setdefault("instances", {})
     before = json.dumps(data, sort_keys=True)
 
-    # One code for every instance: the audience is told one thing, and this
-    # deploy is a demonstration rather than five separate cohorts.
-    data.setdefault("registration_code", _words())
-
     # One secret per Jump environment, shared by every instance that
     # environment can send talents to — a Jump deployment has a single
     # WORKSHOP_TICKET_SECRET, so a per-instance secret would be eleven values
@@ -206,13 +206,6 @@ def load_secrets(manifest, create=True):
         SECRETS.chmod(0o600)
         print(f"secrets: wrote {rel(SECRETS)}")
     return data
-
-
-def _words():
-    """A registration code a teenager can retype off a slide without errors."""
-    alphabet = "abcdefghijkmnpqrstuvwxyz23456789"   # no l/o/0/1
-    return "-".join("".join(pysecrets.choice(alphabet) for _ in range(4))
-                    for _ in range(3))
 
 
 def content_meta(inst):
@@ -390,7 +383,7 @@ def cmd_setup(manifest, sec, args):
                 "challenge_visibility": "private",
                 "account_visibility": "public",
                 "score_visibility": "public",
-                "registration_visibility": "public",
+                "registration_visibility": "private",
                 "verify_emails": str(defaults.get("verify_emails", False)).lower(),
                 "ctf_theme": "core",
                 "theme_color": "", "start": "", "end": "",
@@ -401,14 +394,19 @@ def cmd_setup(manifest, sec, args):
                 sys.exit(f"  wizard failed: HTTP {r.status_code}")
             print(f"  wizard done — {name!r}, admin password in deploy/secrets.yaml")
 
-        # Settings the wizard has no field for. The registration code is what
-        # keeps an instance on the open internet from filling with strangers,
-        # so it matters that this step runs, not just that the wizard did.
-        # A self-serve instance is meant to be found, so it carries none — and
-        # the empty string is what clears one already set (PLAN.md §25.8).
-        coded = inst["registration"] == "code"
+        # Settings the wizard has no field for, and the ones a re-run has to
+        # put back on an instance set up before PLAN.md §62.
         configs = {
-            "registration_code": sec["registration_code"] if coded else "",
+            # Core's own registration form is closed in both modes: it asks
+            # for a name, an e-mail address and a password, and the way in is
+            # the token door, which asks for none of them (§61, §62). Its
+            # shared code goes with it; the empty string is what clears one
+            # already set. A registration code is a row made on
+            # /admin/workshop/codes, with its campus, date and event (§60):
+            # that is a session's business, not a deploy's, so none is made
+            # here.
+            "registration_visibility": "private",
+            "registration_code": "",
             # No default_locale: the plugin seeds French once, on every
             # instance however it was deployed (PLAN.md §42). Writing it here
             # would reset an admin's language choice on every `setup`.
@@ -441,13 +439,14 @@ def cmd_setup(manifest, sec, args):
                      "Content-Type": "application/json"})
         if r.status_code != 200:
             sys.exit(f"  settings failed: HTTP {r.status_code} {r.text[:200]}")
-        print(f"  settings applied — {inst['mode']}, registration "
-              + (f"code {sec['registration_code']!r}" if coded else "open")
+        print(f"  settings applied — {inst['mode']}, core registration closed"
               + (f", sync from {inst['source']}@{inst['source_ref']}"
                  if inst["source"] else ""))
         if inst["jump"]:
             print(f"  jump: slug {inst['jump_slug']!r}, keys "
                   + ", ".join(sorted(inst["jump"])))
+        print(f"  nobody can come in yet: make a registration code on "
+              f"{url}/admin/workshop/codes")
 
 
 # --------------------------------------------------------------------------
@@ -545,7 +544,8 @@ def cmd_sync(manifest, sec, args):
 # --------------------------------------------------------------------------
 
 def cmd_secrets(manifest, sec, args):
-    print(f"registration code (all instances): {sec['registration_code']}\n")
+    print("registration codes are not kept here: each instance lists its own "
+          "on /admin/workshop/codes\n")
     for inst in select(manifest, args.instances):
         s = sec["instances"][inst["name"]]
         print(f"{inst['name']}  https://{inst['host']}/")

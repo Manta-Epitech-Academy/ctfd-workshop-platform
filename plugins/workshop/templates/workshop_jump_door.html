@@ -1,0 +1,30 @@
+{#
+  Jump's door on the participant side of the login page (jump.py `JumpDoor`,
+  included by login.html through doors.py).
+
+  The handover, made visible. A talent is not supposed to reach this page at
+  all: they arrive on /jump/enter already signed in. The ones who do are the
+  ones who bookmarked the URL or were sent it, and a form they have no
+  credentials for is a dead end. This is the way out.
+
+  A button, never a redirect (PLAN.md §62, which takes back §53): nothing on
+  this instance sends a visitor to Jump unless they pressed this. It is drawn
+  under the token door, which is always there.
+
+  One button per configured key, labelled only when there are several: with
+  two, this instance really does serve two Jump environments and picking one
+  silently would send half the talents to the wrong door.
+
+  `key.origin`, never the key's server address: this link is followed by the
+  talent's browser, and only the public address resolves there.
+#}
+{% set keys = jump_keys() %}
+{% for kid, key in keys.items() %}
+  <a class="btn btn-primary epi-login-btn w-100" href="{{ key.origin }}">
+    {%- if keys|length > 1 -%}
+      {% trans label=key.label %}Continue with Jump ({{ label }}){% endtrans %}
+    {%- else -%}
+      {% trans %}Continue with Jump{% endtrans %}
+    {%- endif -%}
+  </a>
+{% endfor %}

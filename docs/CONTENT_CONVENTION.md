@@ -526,7 +526,7 @@ What changes with it, in full:
 |---|---|---|
 | a `checkpoint` step | asks for the code the instructor reads out | one button, self-validated |
 | the note under the control | "ask the instructor for the validation code" | "nobody checks this for you" |
-| registration (at provisioning) | a shared code | open |
+| registration | a code per cohort | a private code |
 | the review flow of §3.5 | applies | nothing to review |
 
 What does **not**: the order of the steps, what gates what, points, hints, the short version of

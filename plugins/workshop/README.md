@@ -128,7 +128,8 @@ switch.
 provisioning and flippable at `/admin/workshop/settings`. It decides one thing: whether a
 `checkpoint` step asks for the code an instructor reads out, or offers a button because there
 is nobody to ask. `mode.py` is the only reader; `quiz.py` consults it at submit time and
-`page.py` at render time, so a flip needs no re-sync and moves no solve.
+`page.py` at render time, so a flip needs no re-sync and moves no solve. It does not decide who
+may come in: both modes are entered with a registration code (PLAN.md §62).
 
 The code is stored on the challenge either way and is never serialized to a client, which is
 what makes the flip reversible. `checkpoint.py` carries the two admin-only routes the importer
@@ -199,6 +200,130 @@ CTFd's own view on its own query, so no markup moves and no template is overridd
 `scripts/audience_check.py <base-url> <admin-pass>` builds three accounts in three cohorts, gives
 each a score, and asks every surface as each of them.
 
+## Two registries the ways in plug into (PLAN.md §59)
+
+Nothing outside a way in's own module knows it exists. A way in registers itself, as it loads, in
+one or both of:
+
+- **`cohorts.py`**: a `CohortProvider` says which room each of its accounts is in
+  (`memberships()`, read by `audience.py`) and how the supervision pages pick one (`groups()`,
+  `rooms()`, `members()`, read by `scope.py`). Registration order is precedence, so the order of
+  the `load_*` calls in `__init__.py` matters and is commented there.
+- **`doors.py`**: a `Door` is a fragment on the participant side of `/login`, drawn while
+  `open()` says so.
+
+Registered today: the external door (cohorts only, its address is a secret), the registration
+codes and the token door (§60, §61), and Jump (both).
+
+To add a way in: write its module, subclass the two classes, call the two `register()` from its
+`load_*`, and place that call in `__init__.py` where its precedence belongs.
+
+## Registration codes (PLAN.md §60)
+
+A cohort without Jump. An admin makes a code at `/admin/workshop/codes` and puts it on a slide;
+every account made with it is in that code's cohort. **The code is all a participant gives**: the
+account gets a generated name (`names.py`, « Renard-Bleu-42 »), a random address under `.invalid`
+and no password.
+
+- **A code carries the cohort's facts**: campus, event, date, content, an optional window and an
+  optional cap. It is compared forgivingly (case, spaces, dashes, `O`/`0`, `I`/`L`/`1`).
+- **The code is the cohort**, through a cohort provider (§59): the wall of `audience.py` and the
+  room picker of the supervision pages work with no Jump.
+- **Closed, not deleted**: retired, outside its window, or full. Only a code nobody came in on can
+  be deleted. Banning a cohort retires its code and is undone from the same page.
+- **Two JSON requests**, `POST /api/v1/workshop/door/code` and `.../door/register`. The page that
+  sends them is the token door (§61). Every refusal is the same status and body, bar a code that
+  is not open yet: that one says the event has not started, and carries `opens` (UTC) for the
+  page to write in the reader's own time zone.
+- **The throttle counts wrong codes, not addresses**, in the cache. What it does not stop is
+  written in PLAN.md §60.4: read it before giving a short word as a code.
+
+Tables: `workshop_registration_code`, `workshop_token_account` (migration `c5d81e4a7f30`).
+`scripts/registration_check.py <base-url> <admin-pass>` walks all of it and puts the instance
+back; it closes the door for up to a minute while it runs.
+
+## The token door (PLAN.md §61)
+
+The page the registration codes are typed on, and the way back in. It is the first door on the
+participant side of `/login` (`tokendoor.py`, `templates/workshop_token_door.html`,
+`assets/door.js`), and it is always open.
+
+- **One box** takes the code on the slide and the personal code a participant was given. The
+  browser tells them apart (a personal code is 28 characters with a checksum), so a mistyped one
+  is refused on the page and sent nowhere. The box writes the dashes itself, every four
+  characters.
+- **The personal code is the account**: 128 random bits made in the browser, shown once as seven
+  groups of four with a file to download, a copy button and a QR code. The account is made only
+  when the participant has ticked « J'ai noté mon code ». A lost code is a lost account.
+- **The file is a PDF**, `mon-code-atelier.pdf`, written by `assets/pdf.js` in the browser: a text
+  file opens in an editor, where one key changes the code. It is plain ASCII with nothing
+  compressed, so the door reads the code back out of it as text. Keep it that way: compress the
+  page, and no file handed out opens the door any more.
+- **The page holds a card**, a bank card's size, in the platform's look: `drawCard` in `door.js`.
+  Its typefaces and the wordmark come from `assets/pdf-brand.json`, which is generated: after
+  changing a font or the logo, run `python scripts/build_pdf_brand.py` (needs `fonttools` and
+  `brotli`) and commit the result. Without that file the PDF falls back to the standard fonts.
+- **The server never sees it.** The browser derives a sign-in value with HKDF and sends that;
+  the server stores its SHA-256. A second derived value is an encryption key that stays in the
+  browser's IndexedDB, non-extractable, for saved code later. The salt and the two info strings
+  in `door.js` are frozen: changing one locks every existing account out.
+- **Coming back**: type, paste, choose or drop the file (the PDF, or a text file of before it),
+  or scan the QR code.
+  `POST /api/v1/workshop/door/signin`, not throttled.
+- **No settings for these accounts**: no navbar entry, `/settings` redirects, and a write to
+  `/api/v1/users/me` is refused, also with the plugin switched off.
+- **Needs https (or localhost) and JavaScript.** Without a secure context the page says so and
+  disables the box.
+
+No table of its own. `scripts/token_door_check.py <base-url> <admin-pass>` holds the server's
+half and `scripts/token_door_browser_check.js <base-url> <admin-pass>` the page's (Playwright).
+
+## The certificate (PLAN.md §63)
+
+A token account downloads what it did here as a PDF, "Télécharger mon certificat", from the band
+of the workshop pages (`templates/workshop_certificate.html`, in both `workshop_index.html` and
+`workshop_page.html`). Nothing is sent anywhere and nothing is stored.
+
+- **`certificate.py` decides and signs**, `assets/certificate.js` draws with `assets/pdf.js`.
+  `GET /api/v1/workshop/certificate` answers the sentences, translated, and the signed text: a
+  compact JWS, Ed25519, whose payload is the account's name, the instance's address, the XP and
+  the steps done out of the total, and the campus, date and event of its registration code.
+- **The key is a deploy secret**, `WORKSHOP_CERTIFICATE_KEY` (a 32-byte seed in base64, or a PEM
+  private key), the same on every instance. Make one with
+  `python -c "import os,base64;print(base64.b64encode(os.urandom(32)).decode())"`. Without it an
+  instance makes its own and keeps it in the `workshop_certificate_key` config.
+- **The public key is at `/api/v1/workshop/certificate/key`**, a JWK set, open to anybody.
+- **Only for an account made at the token door**, and only once a step is done: 403 and 409
+  otherwise, and the button is not drawn, or is hidden.
+- **The signed text is in the file twice**: in the QR code and as a line of undrawn text, found
+  with `eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]{86}`.
+- **The light typeface** is `assets/pdf-brand-light.json`, built with the rest by
+  `scripts/build_pdf_brand.py`.
+
+No table. `scripts/certificate_check.js <base-url> <admin-pass>` holds it (Playwright).
+
+## The front door (PLAN.md §62)
+
+An anonymous visitor to `/` is sent to `/login`, whose participant side is the token door
+(`landing.py`, `anonymous_to_door`). The mode, core's registration setting and Jump's keys
+change nothing about it.
+
+- **No page sends a visitor to another site.** A configured Jump key draws a button under the
+  token door and that is all: the redirect of §53 is gone, with `Door.takeover`.
+- **Self-serve takes a code too**, a private one made on `/admin/workshop/codes`. An instance
+  with no code admits nobody.
+- **Core's own `/register` is closed by configuration**: `tools/provision.py setup` writes
+  `registration_visibility: private` and empties core's `registration_code` in both modes, and
+  the k8s overlay presets the same. The plugin does not override the setting.
+- **Staff are where they were**: `/login?staff=1`, a bare `/admin` sent to it, the supervisor and
+  external joins.
+
+`scripts/front_door_check.py <base-url> <admin-pass>` switches the settings both ways, so it
+belongs on a scratch instance. `scripts/standalone_acceptance_check.js <base-url> <admin-pass>
+[runtime-id|none]` (Playwright) changes no setting: it walks an instance about to be used, from
+the door to a step, the runtime, the way back in and what an export holds, and removes the two
+codes and two accounts it made.
+
 ## Supervisors (PLAN.md §32)
 
 The people running the room, without the admin panel. CTFd has two user types and no group
@@ -268,7 +393,8 @@ answer, not a permission, and is not skipped. `scripts/skip_code_check.py`.
 
 ## The way in from Jump (PLAN.md §31)
 
-Jump is the only door into a workshop instance. `jump.py` verifies a short HMAC-signed ticket at
+Jump is one door into a workshop instance, and not the front one any more (PLAN.md §62): on the
+login page it is a button under the token door. `jump.py` verifies a short HMAC-signed ticket at
 `GET /jump/enter?t=…`, creates the account on first arrival with **no password** (so CTFd's own
 local sign-in refuses it), and opens the session. `jumpqueue.py` overrides `QuizChallenge.solve()`
 to queue the solve in `workshop_jump_event` and a background drainer posts a signed progress
@@ -342,10 +468,10 @@ contract shared with the Jump repository; changing either half means changing bo
   - `page.html` — that `views.static_html` still passes `title` alongside `content`.
   - `login.html` — `Forms.auth.LoginForm()`, `components/errors.html` and the `integrations.mlc()`
     branch. The form is core's field for field; only the layout around it is ours, so an upstream
-    change to authentication does not have to be mirrored. It also carries the **"Continue with
-    Jump" button**, on a talent door of its own: `login_is_staff()` (`jump.py`) picks between that
-    door and the staff form (and where Jump is the only way in, with one Jump to go to,
-    `landing.py` sends a visitor on before the door is drawn, PLAN.md §53), and the MLC branch stays inside the staff door, byte for byte what
+    change to authentication does not have to be mirrored. Its participant side is
+    the **doors** (`doors.py`, PLAN.md §59): each way in registers a fragment, and
+    `login_is_staff()` (`doors.py`) picks between that side and the staff form. The MLC branch
+    stays inside the staff door, byte for byte what
     core renders, so an upstream change to it is a straight re-copy. The page also leans on core
     re-rendering `login.html` itself after a failed POST (that is how the error lands on the staff
     door) and on core's footer being `body > .footer`, which `epitech-theme.css` hides on the pages
@@ -368,9 +494,9 @@ contract shared with the Jump repository; changing either half means changing bo
   `get_translations` merges every directory in it. If a CTFd upgrade changes either of those two
   behaviours, the plugin's strings fall back to English rather than breaking — but check it.
 - **`assets/vendor/` is a build artifact**, not committed: `tools/build_vendor.sh` fetches
-  openpgp.js, canvas-confetti and lolight at pinned versions with their sha256 verified. Without it
-  the sync page cannot decrypt answers, the workshop page draws no confetti, and code injected
-  after a solve stays monochrome.
+  openpgp.js, canvas-confetti, lolight and qrcode-generator at pinned versions with their sha256
+  verified. Without it the sync page cannot decrypt answers, the workshop page draws no confetti,
+  code injected after a solve stays monochrome, and the token door's handout has no QR code.
 - **The plugin carries a second copy of lolight on purpose.** The core theme highlights `pre code`
   once on `DOMContentLoaded` and does not expose the library, so every step body the workshop page
   fetches after a solve would arrive unhighlighted. Pin it to whatever
@@ -399,6 +525,19 @@ contract shared with the Jump repository; changing either half means changing bo
   supervisor and for an erased Jump talent alike, is `accounts.py`, which does it the way core's
   `DELETE /api/v1/users/<id>` does: the list of tables it clears first is copied from
   `api/v1/users.py` and has to follow it.
+- **`codes.py` is the third piece of authentication code** (PLAN.md §60). It makes a `Users` row
+  with no password and signs it in with `login_user` (through `doors.sign_in`). It leans on three
+  things in core: a JSON write is refused without the session's `CSRF-Token`, an anonymous session
+  has a nonce, and core's own login form refuses an account whose password is NULL. The last one
+  is what keeps a token account closed to anybody without the token: check it after an upgrade
+  (`scripts/registration_check.py` does).
+- **`tokendoor.py` names two core endpoints** (PLAN.md §61.6): `views.settings` and
+  `api.users_user_private`, the settings page and the request it saves with. A token account is
+  kept off both by a `before_request` hook. If upstream renames either, the hook stops matching
+  and nothing fails: a participant could then type a name into an account that is meant to hold
+  none. `scripts/token_door_check.py` catches it. The door's template also reads `Session.nonce`
+  and the `authed` jinja global, and `door.js` relies on core answering a JSON write that has a
+  stale nonce with an HTML page (it reloads on anything that is not JSON).
 - **`audience.py` names core endpoints by their Flask endpoint name** (`api.users_user_list`,
   `api.challenges_challenge_solves`, …). flask-restx derives those from the namespace and the
   resource class, so a renamed class upstream silently stops being filtered: after a CTFd upgrade,

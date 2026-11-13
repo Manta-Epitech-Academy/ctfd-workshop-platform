@@ -197,14 +197,28 @@ time the login side moved.
 **`/login` is two doors, as on `jump`.** `jump` has `/login` for talents and `/staff/login` for
 staff, each ending on `LoginFooter.svelte`'s link to the other. Here both are one page, because the
 form posts to core's `auth.login` and core re-renders `login.html` after a failure: `/login` opens
-on the talent door (the "Continuer avec Jump" button alone), `/login?staff=1` on core's form.
-`login_is_staff()` (`jump.py`) also opens the staff door when the talent one would be wrong: no Jump
-configured, a failed attempt being re-rendered, an admin page in `next`. Where Jump is the only way
-in and there is one Jump to go to, the talent door is never drawn: `landing.py` sends the visitor
-straight on (PLAN.md §53). The form column copies
+on the participant side, `/login?staff=1` on core's form. The participant side is the doors
+(`doors.py`, PLAN.md §59), one under the other with a ruled "ou" between them: first the token
+door (PLAN.md §61), one box and one button, then the "Continuer avec Jump" button where a Jump key
+is configured. The first door names the page: the title is its "Entre ton code", not "Connexion".
+`login_is_staff()` (`doors.py`) also opens the staff door when the participant one would be wrong:
+a failed attempt being re-rendered, an admin page in `next`. An anonymous visitor to `/`
+lands on the participant side (`landing.py`, PLAN.md §62), so this page is the first thing a
+participant sees, and no door ever sends them to another site by itself. The form column copies
 `jump`'s login rather than the platform's defaults: small uppercase muted labels, 3rem fields, a
 3rem bold call to action (`.btn.epi-login-btn`, geometry only, colour from `.btn-primary`), no
 required-field `*`. The header's own Login CTA is dropped on this page, which it would link to.
+
+**The token door's handout is the one screen that has to be photographed.** After a good code
+the same column shows the personal code (`.ws-door-token`: Space Mono, bold, seven groups of four
+that wrap between groups and never inside one, balanced four and three), two equal actions
+(`.btn.ws-door-act`, outlined, so the call to action stays the one filled button), one warning
+(`.ws-door-warning`, the `--bs-warning` tint through `color-mix`, as the pills do), and a QR code
+that is **black on white in both themes**: a phone camera reads contrast, and some refuse a
+light-on-dark code. While the handout is up the title and the sentence under it change, and
+everything else on the participant side is hidden (`.ws-door-handing`): the other doors and the
+staff link are not what this screen is about. The code box itself is Space Mono and upper-case
+(`.ws-door-input`), because what goes in it is copied character by character.
 
 **Core's footer is hidden on the pages built on that layout, and only there.** The panel runs the
 full height of the viewport, and a strip of page background under it cut the screen in two. Its

@@ -1,0 +1,135 @@
+{#
+  The token door on the participant side of the login page (tokendoor.py
+  `TokenDoor`, included by login.html through doors.py; PLAN.md §61).
+
+  One box. What is typed in it is either the code on the slide, which makes
+  an account, or the personal code somebody was given the first time, which
+  opens theirs again. The page tells them apart; the participant does not
+  have to know there are two kinds.
+
+  Two states, and assets/door.js moves between them:
+
+    entry     the box, and the file control for somebody who kept their code
+              as a file. Drawn by the server, so the page says something
+              before the script runs.
+    handout   shown once, between "this code admits you" and "your account
+              exists": the personal code, three ways to keep it, and a box
+              to tick. The account is made only when Continue is pressed, so
+              nobody owns an account whose code they were never shown.
+
+  Everything the script says is here, in `data-*`, already translated. The
+  script holds no sentence of its own: a string in a .js file never reaches
+  the catalogue (CLAUDE.md, "Platform strings").
+
+  The nonce is the anonymous session's. The three requests this page makes
+  are JSON, and core checks `CSRF-Token` on those whether or not anybody is
+  signed in (CTFd/utils/initialization, `csrf`).
+
+  `data-authed` is set when somebody is already signed in on this browser and
+  opened the page anyway: the script then leaves their encryption key where it
+  is, and clears it for everybody else.
+
+  The QR library is loaded here and nowhere else: this is the only page that
+  draws one. Without it (tools/build_vendor.sh not run) the script hides the
+  figure and the other two ways still work. assets/pdf.js writes the file
+  the download button gives: a PDF, made in the browser.
+#}
+<div class="ws-door" data-ws-door{% if authed() %} data-authed{% endif %}
+     data-nonce="{{ Session.nonce }}"
+     data-invalid="{{ _('This code is not valid. Check it or ask your supervisor for the right one.') }}"
+     data-early="{{ _('This event has not started yet. Your code will work from {when}.') }}"
+     data-locale="{{ get_locale() | replace('_', '-') }}"
+     data-no-code="{{ _('No code was found in this file.') }}"
+     data-failed="{{ _('Something went wrong. Try again.') }}"
+     data-insecure="{{ _('This page needs a secure connection (https). Tell your supervisor.') }}"
+     data-handout-title="{{ _('Here is your personal code') }}"
+     data-handout-sub="{{ _('It is what lets you come back. Nobody can give it back to you: if you lose it, you start over.') }}"
+     data-copied="{{ _('Copied!') }}"
+     data-file-name="{{ _('my-workshop-code.pdf') }}"
+     data-file-brand="/plugins/workshop/assets/pdf-brand.json"
+     data-file-title="{{ workshop_title() }}"
+     data-file-address="{{ _('Address') }}"
+     data-file-code="{{ _('Your personal code') }}"
+     data-file-back="{{ _('To come back: open the address above, then drop this file on the page or type the code.') }}"
+     data-file-keep="{{ _('Keep this file to yourself: anyone who has this code can come in as you.') }}"
+     data-file-lost="{{ _('If you lose it, nobody can give it back to you.') }}">
+
+  <noscript>
+    <p class="alert alert-warning">{% trans %}This page needs JavaScript.{% endtrans %}</p>
+  </noscript>
+
+  <div data-ws-door-entry>
+    {# `novalidate`: an empty box gets the page's own sentence, in the page's
+       own place, not the browser's bubble in the browser's language. #}
+    <form class="epi-login-fields" data-ws-door-form novalidate>
+      <div>
+        <label class="form-label epi-login-label" for="ws-door-code">{% trans %}Your code{% endtrans %}</label>
+        {# Nothing a browser might do to a code: no autofill, no correction,
+           and capitals on a phone keyboard. Long enough to take a whole
+           text pasted in by somebody who copied theirs out of the file. #}
+        <input class="form-control epi-login-input ws-door-input" id="ws-door-code"
+               type="text" maxlength="2000" autocomplete="off" autocorrect="off"
+               autocapitalize="characters" spellcheck="false"
+               aria-describedby="ws-door-error">
+      </div>
+
+      <p class="ws-door-error" id="ws-door-error" role="alert" hidden></p>
+
+      <button type="submit" class="btn btn-primary epi-login-btn w-100">
+        {% trans %}Continue{% endtrans %}
+      </button>
+    </form>
+
+    <p class="ws-door-file">
+      <button type="button" class="ws-door-pick" data-ws-door-pick>
+        <i class="fas fa-file-upload" aria-hidden="true"></i>{% trans %}I have a code file{% endtrans %}
+      </button>
+      {# A PDF since 2026-11; the text files handed out before still open. #}
+      <input type="file" accept=".pdf,.txt,application/pdf,text/plain" hidden data-ws-door-file>
+    </p>
+  </div>
+
+  <div class="ws-door-handout" data-ws-door-handout hidden>
+    {# Seven groups of four, filled by the script. The groups are spans so
+       the code wraps between two of them and never inside one. #}
+    <p class="ws-door-token" data-ws-door-token></p>
+
+    <div class="ws-door-actions">
+      <button type="button" class="btn ws-door-act" data-ws-door-download>
+        <i class="fas fa-download" aria-hidden="true"></i>{% trans %}Download the file{% endtrans %}
+      </button>
+      <button type="button" class="btn ws-door-act" data-ws-door-copy>
+        <i class="fas fa-copy" aria-hidden="true"></i><span data-ws-door-copy-label>{% trans %}Copy{% endtrans %}</span>
+      </button>
+    </div>
+
+    <p class="ws-door-warning">
+      <i class="fas fa-exclamation-triangle" aria-hidden="true"></i>
+      {% trans %}Do not leave this file on the classroom computer.{% endtrans %}
+    </p>
+
+    {# Dark on white whatever the theme: a phone camera reads contrast, and a
+       dark theme's light-on-dark code is the one some of them refuse. #}
+    <figure class="ws-door-qr" data-ws-door-qr hidden>
+      <div class="ws-door-qr-code" data-ws-door-qr-code></div>
+      <figcaption>
+        {% trans %}Or take a picture of this screen with your phone: scanning the QR code brings you back here.{% endtrans %}
+      </figcaption>
+    </figure>
+
+    <label class="ws-door-saved">
+      <input class="form-check-input" type="checkbox" data-ws-door-saved>
+      <span>{% trans %}I have saved my code{% endtrans %}</span>
+    </label>
+
+    <p class="ws-door-error" role="alert" hidden data-ws-door-handout-error></p>
+
+    <button type="button" class="btn btn-primary epi-login-btn w-100" data-ws-door-enter disabled>
+      {% trans %}Continue{% endtrans %}
+    </button>
+  </div>
+</div>
+
+<script defer src="/plugins/workshop/assets/vendor/qrcode.js"></script>
+<script defer src="/plugins/workshop/assets/pdf.js"></script>
+<script defer src="/plugins/workshop/assets/door.js"></script>

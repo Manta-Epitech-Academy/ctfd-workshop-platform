@@ -21,6 +21,8 @@
 #                                       lolight, the syntax highlighter the core
 #                                       theme already uses — see below for why a
 #                                       second copy is the right answer.
+#                                       qrcode-generator, for the token door's
+#                                       handout screen (PLAN.md §61.4).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PY_DIR="$ROOT/plugins/workshop/vendor"
@@ -67,6 +69,14 @@ BGUTILS_SHA256="c25b7930e570e9ec56173cd3b866ec8d2e10016630db3937efb439daf1cedbf6
 LOLIGHT_VERSION="1.4.1"
 LOLIGHT_URL="https://unpkg.com/lolight@${LOLIGHT_VERSION}/dist/lolight.min.js"
 LOLIGHT_SHA256="29ca09f5cd831f7e60bd73a7a4f6e911b7dcaadada97f6d0ba8d653fe4c24a2a"
+
+# The QR code a participant scans to carry their token to a phone
+# (assets/door.js). Drawn in the browser: the token is never sent anywhere,
+# so no service can be asked for the picture. 56 KB unminified, the only build
+# the package ships; UMD, global `qrcode`. Loaded on the login page only.
+QRCODE_VERSION="1.4.4"
+QRCODE_URL="https://unpkg.com/qrcode-generator@${QRCODE_VERSION}/qrcode.js"
+QRCODE_SHA256="18ae399f81182bc9de916e9c77b195df20cc58d6f2d55a62b085a299f1bf1780"
 
 # The image's interpreter, from CTFd/Dockerfile's base. If a CTFd upgrade moves
 # it, this is the line to change — a wheel built for the wrong tag imports as
@@ -146,6 +156,21 @@ if [[ -n "$force" || ! -f "$JS_DIR/lolight.min.js" ]]; then
   mv "$JS_DIR/lolight.min.js.part" "$JS_DIR/lolight.min.js"
 else
   echo "vendor: lolight already there (--force to redo)"
+fi
+
+if [[ -n "$force" || ! -f "$JS_DIR/qrcode.js" ]]; then
+  mkdir -p "$JS_DIR"
+  echo "vendor: qrcode-generator $QRCODE_VERSION"
+  curl -fsSL -o "$JS_DIR/qrcode.js.part" "$QRCODE_URL"
+  got="$(sha256sum "$JS_DIR/qrcode.js.part" | cut -d' ' -f1)"
+  if [[ "$got" != "$QRCODE_SHA256" ]]; then
+    rm -f "$JS_DIR/qrcode.js.part"
+    echo "qrcode-generator sha256 mismatch: expected $QRCODE_SHA256, got $got" >&2
+    exit 1
+  fi
+  mv "$JS_DIR/qrcode.js.part" "$JS_DIR/qrcode.js"
+else
+  echo "vendor: qrcode-generator already there (--force to redo)"
 fi
 
 if [[ -n "$force" || ! -f "$JS_DIR/three.module.min.js" ]]; then

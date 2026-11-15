@@ -120,11 +120,11 @@
             {{ "disabled" if not source.repo }}>Sync now</button>
     <span class="ws-sync-status text-muted ml-2" role="status" aria-live="polite"></span>
 
-    {# Shown only when the fetched content carries encrypted answers. The
+    {# Shown only when the fetched content carries encrypted answers or notes. The
        passphrase is used here, in this browser, and posted nowhere. #}
     <div class="ws-sync-unlock mt-3" hidden>
       <div class="alert alert-info mb-2">
-        This subject keeps its answers encrypted. The passphrase is used in your browser
+        This subject keeps its answers or supervisor notes encrypted. The passphrase is used in your browser
         to open them and is never sent to the server.
       </div>
       <div class="form-inline">

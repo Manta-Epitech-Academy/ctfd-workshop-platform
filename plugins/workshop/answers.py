@@ -35,6 +35,7 @@ from CTFd.utils import get_config
 from flask_babel import lazy_gettext as _l
 
 from .mode import LABELS as MODE_NAMES, current_mode, is_self_serve
+from .notes import notes_html
 from .page import _documents, _validation_modes
 from .progress import counts as _counts
 from .progress import optional_ids as _optional_ids
@@ -444,6 +445,8 @@ def collect():
     token_ids = _token_ids()
     solvers = per_challenge(Solves, scope)
     optional = _optional_ids()
+    # The subject's note for the supervisor (§69), hidden until asked for.
+    supervisor_notes = notes_html()
 
     parts = []
     for title, members in group_for_sheet(challenges, _documents()):
@@ -451,6 +454,7 @@ def collect():
         for challenge in members:
             row = _row(challenge, flags.get(challenge.id, []), modes, token_ids, solvers)
             row["optional"] = challenge.id in optional
+            row["supervisor_note"] = supervisor_notes.get(challenge.id)
             rows.append(row)
         parts.append({"title": title, "rows": rows})
 

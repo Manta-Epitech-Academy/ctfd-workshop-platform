@@ -6019,3 +6019,42 @@ adapter), not the real runtime. The save path does not depend on the runtime, wh
 point of §16, but the real one was not exercised here.
 
 **Rollout:** no migration, no re-sync.
+
+## 69. Supervisor notes (2026-11-15)
+
+A subject can carry a note per step for the supervisor: what to check first when a participant
+is stuck there. The format is the subject's own markdown (convention §3.5c).
+
+### 69.1 Decisions
+
+- **One file per subject**, `supervisor_notes.md`, committed encrypted as
+  `supervisor_notes.md.gpg` with the subject's passphrase. Each note opens with
+  `<!-- ws:note <step id> -->`. Keyed by id, not by title, so rewording a step keeps its note.
+- **Shown on the answer sheet only**, behind a « Show note » button, closed by default. The
+  « Hide answers » switch of a projected screen blurs an open note like the answers. Nothing
+  changes on the participant pages.
+- **Text and code only.** The linter refuses images, scenes, animations and linked files in a
+  note, because anything uploaded is served to whoever has its URL.
+- **Optional.** A subject without the file is unchanged.
+
+### 69.2 How it works
+
+- `tools/ws_parser.py` reads and checks the file (`split_supervisor_notes`,
+  `load_supervisor_notes`, `_notes_checks`). An unknown id, a question inside a step, a second
+  note for one step, an empty note and an upload are lint problems, so they stop a sync. The
+  same parser is in workshop-content-tools, so subject CI gives the same answer.
+- `plugins/workshop/source.py` offers `supervisor_notes.md.gpg` to the sync page with the
+  `*.yaml.gpg` files: decrypted in the admin's browser, the passphrase never sent.
+- `tools/sync_subject.py` posts the notes to `POST /api/v1/workshop/notes` (admin-only) with
+  every challenge id of the subject. Those steps' notes are replaced, so a removed note goes
+  away and another subject's notes are untouched. A sync with only the `.gpg` does not call it.
+- `plugins/workshop/notes.py` keeps them in `workshop_supervisor_note`: one row per challenge,
+  deleted with it (migration `9d4e2b7c6a10`). Never in a description, a hint or a topic, which
+  all have participant routes. Rendered with CTFd's own `build_markdown(..., sanitize=True)`.
+- `scripts/supervisor_notes_check.py` is the test: linter cases on a fixture, then the import
+  and the sheet on a fresh instance.
+
+### 69.3 Not in scope
+
+- The notes in the answer sheet's CSV.
+- A note on the introduction or on a closing step: they have no id.

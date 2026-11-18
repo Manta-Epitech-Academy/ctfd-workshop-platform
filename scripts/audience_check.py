@@ -4,20 +4,30 @@
     python3 scripts/audience_check.py <base-url> <admin-pass>
 
 The plugin has no test suite, so this script **is** this feature's test suite
-(PLAN.md §43). It builds three accounts — one ordinary participant standing in
-for somebody who came through Jump, and one in each of two external cohorts —
-gives each a solve so they have a score worth hiding, and then asks every
-surface that lists or serves an account, as each of them in turn.
+(PLAN.md §43), and the one for what is left of the external door (§64). It
+builds three accounts: one ordinary participant standing in for somebody who
+came through Jump, and one in each of two cohorts of the retired external
+door. Each gets a score worth hiding, and then every surface that lists or
+serves an account is asked, as each of them in turn.
+
+The external door is gone, so its two accounts are made the way an instance
+that used it holds them: an account with a password, carrying its code in
+the custom field `External code`. That is all the door ever wrote.
 
 The interesting assertions are the negative ones. A feature that hides things
 passes a careless test by hiding everything, so each surface is checked twice:
 the other cohort is **absent**, and the reader's own cohort is **present**.
 
-Shaped like scripts/supervisor_check.py — positional arguments, `check(cond,
+Then the retirement itself: the door's two addresses answer 404, its accounts
+still sign in, and a cohort is shut out and let back in from the registration
+codes' page without touching the other.
+
+Shaped like scripts/supervisor_check.py: positional arguments, `check(cond,
 label)`, `ALL GREEN` or `FAILURES: [...]`, non-zero exit on any failure.
 
-**It puts the instance back**: every account, code and solve it makes is
-removed at exit, including on an exception or a Ctrl-C.
+**It puts the instance back**: every account and award it makes is removed at
+exit, and the custom field too when this run is what made it, including on an
+exception or a Ctrl-C.
 """
 import atexit
 import re
@@ -31,7 +41,8 @@ if len(sys.argv) < 3:
 BASE = sys.argv[1].rstrip("/")
 ADMIN_PASS = sys.argv[2]
 RUN = uuid.uuid4().hex[:6]
-PAGE = "/admin/workshop/external"
+PAGE = "/admin/workshop/codes"
+FIELD_NAME = "External code"
 CODE_A = f"AUD-A-{RUN}"
 CODE_B = f"AUD-B-{RUN}"
 fails = []
@@ -68,9 +79,16 @@ def post(**data):
     return admin.post(BASE + PAGE, timeout=20, data={"nonce": TOKEN, **data})
 
 
-start = admin.get(BASE + PAGE, timeout=20).text
-was_on = bool(re.search(r'id="ws-ext-on"[^>]*\bchecked', start))
-made, codes_added, awards = [], [], []
+fields = api("GET", "/configs/fields?type=user").json().get("data") or []
+field = next((f for f in fields if f["name"] == FIELD_NAME), None)
+made_field = field is None
+if made_field:
+    field = api("POST", "/configs/fields", json={
+        "name": FIELD_NAME, "type": "user", "field_type": "text",
+        "description": "probe", "required": False, "public": False,
+        "editable": False}).json()["data"]
+FIELD = field["id"]
+made, awards = [], []
 
 
 def restore():
@@ -78,57 +96,40 @@ def restore():
         api("DELETE", f"/awards/{a}")
     for uid in made:
         api("DELETE", f"/users/{uid}")
-    for code in codes_added:
-        post(action="remove", code=code)
-    post(action="switch", **({"enabled": "on"} if was_on else {}))
+    if made_field:
+        api("DELETE", f"/configs/fields/{FIELD}")
 
 
 atexit.register(restore)
 
-post(action="switch", enabled="on")
-for code in (CODE_A, CODE_B):
-    post(action="add", code=code)
-    codes_added.append(code)
 
-
-def make(name, password, code=None):
-    """An account, through the door when a code is given, by the admin API when
-    not — which is how a Jump account looks to everything here: no code."""
-    if code:
-        s = requests.Session()
-        n = nonce(s, "/external/join")
-        if n is None:
-            sys.exit("the external door is not answering; is the throttle full?")
-        s.post(BASE + "/external/join", timeout=20,
-               data={"nonce": n, "code": code, "name": name,
-                     "email": f"{name}@example.invalid", "password": password})
-    else:
-        api("POST", "/users", json={"name": name, "email": f"{name}@example.invalid",
-                                    "password": password, "type": "user",
-                                    "verified": True})
-    row = next((u for u in (api("GET", f"/users?view=admin&q={name}&field=name")
-                            .json().get("data") or []) if u["name"] == name), None)
-    if row is None:
-        # Almost always the throttle: `external_check.py` fills it on purpose,
-        # so running the two back to back inside fifteen minutes leaves this
-        # address locked out of the door. Say that instead of "could not
-        # create", which sent one run looking for a bug that was not there.
-        shut = requests.get(BASE + "/external/join", timeout=20).status_code == 404
-        sys.exit(f"could not create {name}"
-                 + (" — the external door is answering 404 for this address. "
-                    "The throttle is probably full from an earlier run; wait "
-                    "fifteen minutes or run from another address." if shut else ""))
-    made.append(row["id"])
-    # A score, so there is something worth hiding on the scoreboard.
-    r = api("POST", "/awards", json={"user_id": row["id"], "name": "probe",
-                                     "value": 10, "category": "probe"})
-    if r.status_code == 200:
-        awards.append(r.json()["data"]["id"])
+def sign_in(name, password):
     s = requests.Session()
     s.post(BASE + "/login", timeout=20,
            data={"name": name, "password": password,
                  "nonce": nonce(s, "/login?staff=1"), "_submit": "Submit"})
-    return row["id"], name, s
+    return s
+
+
+def make(name, password, code=None):
+    """An account by the admin API. With a code it carries the field the
+    external door wrote; without, it is how a Jump account looks to
+    everything here: no code."""
+    body = {"name": name, "email": f"{name}@example.invalid",
+            "password": password, "type": "user", "verified": True}
+    if code:
+        body["fields"] = [{"field_id": FIELD, "value": code}]
+    r = api("POST", "/users", json=body)
+    if r.status_code != 200:
+        sys.exit(f"could not create {name}: {r.status_code} {r.text[:200]}")
+    uid = r.json()["data"]["id"]
+    made.append(uid)
+    # A score, so there is something worth hiding on the scoreboard.
+    r = api("POST", "/awards", json={"user_id": uid, "name": "probe",
+                                     "value": 10, "category": "probe"})
+    if r.status_code == 200:
+        awards.append(r.json()["data"]["id"])
+    return uid, name, sign_in(name, password)
 
 
 JUMP_ID, JUMP_NAME, jump = make(f"jump-{RUN}", f"jump-{RUN}-pass")
@@ -196,14 +197,65 @@ check(all(n in board for n in (JUMP_NAME, A_NAME, B_NAME)),
 check(all(admin.get(BASE + f"/api/v1/users/{i}", timeout=20).status_code == 200
           for i in (JUMP_ID, A_ID, B_ID)), "and every account opens")
 
-print("\n== with no external account, nothing is filtered ==")
-for code in codes_added:
-    post(action="remove", code=code)
+print("\n== the door is gone, its accounts are not ==")
+anon = requests.Session()
+got = anon.get(BASE + "/external/join", timeout=20, allow_redirects=False)
+check(got.status_code == 404, f"/external/join is a 404: {got.status_code}")
+got = anon.post(BASE + "/external/join", timeout=20, allow_redirects=False,
+                data={"nonce": nonce(anon, "/login"), "code": CODE_A,
+                      "name": f"late-{RUN}", "email": f"late-{RUN}@example.invalid",
+                      "password": f"late-{RUN}-pass"})
+check(got.status_code == 404, f"and admits nobody: {got.status_code}")
+late = api("GET", f"/users?view=admin&q=late-{RUN}&field=name").json().get("data") or []
+check(late == [], "no account was made by asking")
+got = admin.get(BASE + "/admin/workshop/external", timeout=20,
+                allow_redirects=False)
+check(got.status_code == 404, f"its admin page is a 404: {got.status_code}")
+
+
+def is_in(s):
+    r = s.get(BASE + "/api/v1/users/me", timeout=20, allow_redirects=False)
+    return r.status_code == 200
+
+
+def banned(uid):
+    return api("GET", f"/users/{uid}").json()["data"].get("banned", False)
+
+
+check(is_in(sign_in(A_NAME, f"aud-a-{RUN}-pass")),
+      "an account it made signs in with its password")
+
+print("\n== a cohort of it is shut out from the registration codes' page ==")
+page = admin.get(BASE + PAGE, timeout=20).text
+check("Accounts from the retired external door" in page
+      and CODE_A in page and CODE_B in page,
+      "the page lists both cohorts")
+check(post(action="ban-external", code=CODE_A).status_code == 200
+      and banned(A_ID) and not banned(B_ID) and not banned(JUMP_ID),
+      f"banning {CODE_A} bans its account and no other")
+check(not is_in(alpha) and is_in(beta),
+      "its session is over, the other cohort's is not")
+check(not is_in(sign_in(A_NAME, f"aud-a-{RUN}-pass")),
+      "and it cannot sign in again")
+check(post(action="unban-external", code=CODE_A).status_code == 200
+      and not banned(A_ID), "the same page lets it back")
+check(is_in(sign_in(A_NAME, f"aud-a-{RUN}-pass")), "and it signs in")
+check(post(action="ban-external", code=f"nobody-{RUN}").status_code == 404,
+      "a code nobody carries is a 404")
+got = beta.post(BASE + PAGE, timeout=20, allow_redirects=False,
+                data={"nonce": nonce(beta, "/"), "action": "ban-external",
+                      "code": CODE_A})
+check(got.status_code in (302, 403) and not banned(A_ID),
+      f"a participant cannot do it: {got.status_code}")
+
+print("\n== with no external account, nothing is filtered or shown ==")
 for uid in (A_ID, B_ID):
     api("DELETE", f"/users/{uid}")
     made.remove(uid)
 board = names_on_scoreboard(jump)
 check(JUMP_NAME in board, f"a plain instance behaves as before: {board}")
+check(RUN not in admin.get(BASE + PAGE, timeout=20).text,
+      "and the page no longer names either cohort")
 
 print()
 if fails:

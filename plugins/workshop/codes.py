@@ -78,6 +78,7 @@ from .accounts import ban_accounts
 from .cohorts import CohortProvider
 from .cohorts import register as register_cohorts
 from .doors import sign_in, workshop_is_open
+from .external import accounts_by_code
 from .names import new_name
 
 # Named here and in the migration alike, so a later revision can drop it by
@@ -600,7 +601,7 @@ def _page(form=None, errors=None, status=200):
     content = get_config(CONFIG_CONTENT)
     return render_template(
         "workshop_codes.html",
-        codes=rows, cohorts=cohorts,
+        codes=rows, cohorts=cohorts, external=accounts_by_code(),
         states={row.id: state_of(row, len(cohorts.get(row.id, [])), now)
                 for row in rows},
         form=form or {"code": new_code(),
@@ -613,8 +614,13 @@ def _page(form=None, errors=None, status=200):
 @workshop_codes.route("/admin/workshop/codes", methods=["GET", "POST"])
 @admins_only
 def manage():
-    """`admins_only`, like the external door's page: who may come in is not
-    a supervisor's call."""
+    """`admins_only`: who may come in is not a supervisor's call.
+
+    The cohorts of the retired external door are on this page too (§64), for
+    the one thing still done to them: shutting one out, or letting it back.
+    They are named by their code, a text, where a registration code is named
+    by its id.
+    """
     if request.method != "POST":
         return _page()
 
@@ -627,6 +633,16 @@ def manage():
             return _page(form=request.form, errors=errors, status=400)
         return redirect(url_for("workshop_codes.manage", notice="created",
                                 subject=row.code))
+    if action in ("ban-external", "unban-external"):
+        code = request.form.get("code", "")
+        users = accounts_by_code().get(code)
+        if not users:
+            abort(404)
+        ban_accounts(users, action == "ban-external")
+        return redirect(url_for(
+            "workshop_codes.manage", subject=code,
+            notice="banned-external" if action == "ban-external"
+            else "unbanned"))
 
     row = RegistrationCode.query.filter_by(
         id=request.form.get("id", type=int)).first()

@@ -11,9 +11,9 @@ supervisor and nobody else, and jumpqueue.py deletes the accounts of talents
 Jump has erased and nobody else (PLAN.md §50). Neither guard belongs here,
 which is why there is one function and not two copies of six deletes.
 
-Banning is the same story with two callers of its own: the external door's
-page and the registration codes' (external.py, codes.py). Here the guard is
-shared, so it is in the function.
+Banning is the same story: the registration codes' page calls it for a code's
+cohort and for a cohort of the retired external door (codes.py). The guard is
+the same for both, so it is in the function.
 """
 from CTFd.cache import clear_challenges, clear_standings, clear_user_session
 from CTFd.models import (Awards, Notifications, Solves, Submissions, Tracking,

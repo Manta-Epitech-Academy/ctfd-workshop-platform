@@ -10,11 +10,11 @@
  * left alone rather than wrapped in a menu of one, and a link that is not ours
  * is never swallowed.
  */
-const { chromium } = require("/home/kc/.npm/_npx/bbb8a2c4738e2b0c/node_modules/playwright");
+const { chromium } = require(process.argv[4] || "playwright");
 
 const BASE = (process.argv[2] || "http://localhost:9091").replace(/\/$/, "");
 const PASS = process.argv[3];
-if (!PASS) { console.error("usage: node scripts/admin_menu_check.js <base-url> <admin-pass>"); process.exit(2); }
+if (!PASS) { console.error("usage: node scripts/admin_menu_check.js <base-url> <admin-pass> [playwright-module]"); process.exit(2); }
 
 const fails = [];
 function check(cond, label) {
@@ -76,13 +76,13 @@ function check(cond, label) {
 
   console.log("\n== it opens, and the links work ==");
   await page.click('a.dropdown-toggle:has-text("Workshop")');
-  const shown = await page.isVisible('.dropdown-menu a.dropdown-item:has-text("External access")');
+  const shown = await page.isVisible('.dropdown-menu a.dropdown-item:has-text("Registration codes")');
   check(shown, "clicking it reveals the items");
   await Promise.all([
     page.waitForNavigation(),
-    page.click('.dropdown-menu a.dropdown-item:has-text("External access")'),
+    page.click('.dropdown-menu a.dropdown-item:has-text("Registration codes")'),
   ]);
-  check(page.url().endsWith("/admin/workshop/external"),
+  check(page.url().endsWith("/admin/workshop/codes"),
     `and they navigate: ${page.url()}`);
 
   console.log("\n== it declines to fold a single entry ==");

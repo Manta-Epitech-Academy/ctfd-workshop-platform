@@ -47,6 +47,7 @@ import yaml
 
 sys.path.insert(0, str(Path(__file__).parent))
 from ws_parser import (load_checkpoint_codes, load_flags, load_quiz_answers, lint_all,  # noqa: E402
+                       load_supervisor_notes, supervisor_notes_sealed,
                        parse_subject, rewrite_asset_refs, rewrite_cover_refs)
 
 # The note under a step ("ask the instructor for the code", "paste the token
@@ -333,6 +334,34 @@ def migrate_checkpoints(ctfd, challenge_ids):
                   f"flag to the checkpoint type, ids and solves untouched")
     codes = ctfd.api("GET", "/workshop/checkpoints") or {}
     return {int(cid): code for cid, code in codes.items()}
+
+
+def write_supervisor_notes(ctfd, subject_dir, step_ids, every_id):
+    """Replace the supervisor notes of this subject's steps (PLAN.md §69).
+
+    `step_ids` maps a step id to its challenge, `every_id` is every challenge
+    the subject wrote: their notes are replaced by the file's, so a note taken
+    out of the file goes away too. With only the `.gpg` here (a command-line
+    sync that did not decrypt it), the notes on the instance are left alone:
+    a missing key must not read as "this subject has no notes".
+    """
+    if supervisor_notes_sealed(subject_dir):
+        print("warn supervisor notes: only supervisor_notes.md.gpg is here, so the "
+              "notes on the instance were left as they were; decrypt it to update them")
+        return
+    notes = load_supervisor_notes(subject_dir)
+    payload = {str(step_ids[step]): body for step, body in notes.items()
+               if step in step_ids}
+    try:
+        ctfd.api("POST", "/workshop/notes",
+                 json={"challenge_ids": sorted(set(every_id)), "notes": payload})
+    except RuntimeError:
+        if payload:
+            raise
+        # An instance older than the notes, and nothing to send it: no harm.
+        return
+    if payload:
+        print(f"notes: {len(payload)} supervisor note(s)")
 
 
 def token_secret(ctfd):
@@ -1101,6 +1130,14 @@ def sync(subject_dir, url, admin_user, admin_pass, codes_path=None, *,
     stats["hidden"] = hide_dropped(ctfd, existing, {intro_id, *ex_ids.values(),
                                                     *(cid for cid, _ in quiz_ids.values()),
                                                     *outro_ids.values()})
+
+    # 3b''. The supervisor's note per step (convention §3.5c), kept apart from
+    # every field a participant can read.
+    write_supervisor_notes(
+        ctfd, subject_dir,
+        {**ex_ids, **{qid: cid for qid, (cid, _) in quiz_ids.items()}},
+        [intro_id, *ex_ids.values(), *(cid for cid, _ in quiz_ids.values()),
+         *outro_ids.values()])
 
     # 3c. Which challenge is which exercise *inside the runtime*. Written after
     # the challenges exist, because it is keyed by their ids: the pane uses it

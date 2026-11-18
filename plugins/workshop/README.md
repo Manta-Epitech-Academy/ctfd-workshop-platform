@@ -596,6 +596,11 @@ contract shared with the Jump repository; changing either half means changing bo
   `base_template` is `admin/base.html` for an admin. They are plain Blueprints — nothing about
   them is challenge-type machinery, so they survive a CTFd upgrade as long as the admin theme
   keeps that block.
+- **`notes.py`** (supervisor notes, PLAN.md §69) touches core through `admins_only` on its one
+  write route, a foreign key to `challenges.id` (`ondelete=CASCADE`) on its own table
+  `workshop_supervisor_note`, and `CTFd.utils.config.pages.build_markdown(md, sanitize=True)`
+  to render a note on the answer sheet. If `build_markdown` moves, a note can be rendered with
+  any sanitizing markdown function: it is staff-only text and code.
 - **`templates/workshop_staff_base.html` is a copy of the admin theme's `admin/base.html`** with
   the nav replaced (PLAN.md §32): what a supervisor's page extends, because core's nav is inline
   in that file rather than in a block. It restates the head — the four admin stylesheets, the

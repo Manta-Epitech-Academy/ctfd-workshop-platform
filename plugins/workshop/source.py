@@ -195,12 +195,13 @@ def sidecars_in(directory):
     """Encrypted answer files sitting in a subject, unopened.
 
     `flags.yaml.gpg`, `quiz_answers.yaml.gpg` and `checkpoint_codes.yaml.gpg`
-    (convention §3.3b, §3.7) — any `*.yaml.gpg`, so a new one needs nothing. The
-    plaintext beside one means it is already open and nothing is needed.
+    (convention §3.3b, §3.7) — any `*.yaml.gpg`, so a new one needs nothing —
+    and `supervisor_notes.md.gpg` (§3.5c). The plaintext beside one means it is
+    already open and nothing is needed.
     """
     found = []
     for name in sorted(os.listdir(directory)):
-        if not name.endswith(".yaml.gpg"):
+        if not (name.endswith(".yaml.gpg") or name == "supervisor_notes.md.gpg"):
             continue
         plain = name[:-4]
         if os.path.isfile(os.path.join(directory, plain)):

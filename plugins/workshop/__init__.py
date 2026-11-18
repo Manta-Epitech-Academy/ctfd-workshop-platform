@@ -27,6 +27,7 @@ from .workspace import load_workspace
 from .choices import load_choices
 from .feedback import load_feedback
 from .answers import load_answers
+from .notes import load_notes
 from .mode import load_mode
 from .checkpoint import load_checkpoint
 from .syncpage import load_syncpage
@@ -172,6 +173,9 @@ def load(app):
     # maintainer's laptop, so an instructor in the room had no way to read one.
     # Staff-only: admins and supervisors (§32).
     load_answers(app)
+    # A note per step for the supervisor, shown on that sheet (§69). Written
+    # by the sync, admin-only; read by nothing a participant reaches.
+    load_notes(app)
 
     # What the sync uploads besides PNG and GIF (convention §3.8b, §3.8c): an
     # animated WebP and a glTF scene. Python's mimetypes may not know them,

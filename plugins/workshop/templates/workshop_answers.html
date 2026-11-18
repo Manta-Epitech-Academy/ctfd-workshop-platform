@@ -115,6 +115,16 @@
               {% if row.notes %}
                 <div class="text-muted"><small>{{ row.notes | join(" · ") }}</small></div>
               {% endif %}
+              {% if row.supervisor_note %}
+                {# The subject's note for whoever helps in the room (PLAN.md §69).
+                   Closed until asked for: it is help to give, not an answer to
+                   read out, and the screen may be projected. #}
+                <div class="ws-an-note-wrap">
+                  <button type="button" class="btn btn-sm btn-outline-secondary ws-an-note-toggle"
+                          aria-expanded="false" aria-controls="ws-an-note-{{ row.id }}">Show note</button>
+                  <div class="ws-an-note" id="ws-an-note-{{ row.id }}" hidden>{{ row.supervisor_note }}</div>
+                </div>
+              {% endif %}
             </td>
             <td class="ws-an-num text-muted">{{ row.points }}</td>
             <td class="ws-an-num text-muted">{{ row.solvers }}</td>
@@ -211,6 +221,7 @@
   /* Projected on a classroom wall, the answers are the one thing that must not
      be readable over the instructor's shoulder. */
   body.ws-an-hidden .ws-an-answer,
+  body.ws-an-hidden .ws-an-note,
   /* The label says what the correct letter means, and only the correct ones
      are listed — leaving it readable while the letters are blurred would give
      the answer away just as plainly. */
@@ -221,7 +232,20 @@
   body.ws-an-hidden .ws-an-answer:focus,
   body.ws-an-hidden .ws-an-qs li:hover .ws-an-label,
   body.ws-an-hidden .ws-an-qs-one:hover .ws-an-label,
+  body.ws-an-hidden .ws-an-note:hover,
   body.ws-an-hidden .ws-an-label:hover { filter: none; }
+  /* A supervisor note: help to give somebody stuck, so it reads as prose,
+     set apart from the answer above it. */
+  .ws-an-note-wrap { margin-top: 0.4rem; }
+  .ws-an-note {
+    margin-top: 0.4rem; padding: 0.5rem 0.75rem; font-size: 0.9rem;
+    border-left: 3px solid var(--bs-info, #0dcaf0);
+    background: var(--bs-tertiary-bg, rgba(0, 0, 0, 0.03));
+  }
+  .ws-an-note > :last-child { margin-bottom: 0; }
+  .ws-an-note pre { margin-bottom: 0.5rem; white-space: pre-wrap; }
+  .ws-an-note h1, .ws-an-note h2, .ws-an-note h3,
+  .ws-an-note h4, .ws-an-note h5, .ws-an-note h6 { font-size: 0.95rem; font-weight: 600; }
   @media print {
     .jumbotron, #ws-an-toggle, #ws-an-people-section { display: none; }
     .ws-an-table { font-size: 0.85rem; }
@@ -241,6 +265,18 @@
         toggle.setAttribute("aria-pressed", String(hidden));
       });
     }
+
+    // Supervisor notes open one at a time, on request (§69).
+    document.querySelectorAll(".ws-an-note-toggle").forEach(function (button) {
+      var note = document.getElementById(button.getAttribute("aria-controls"));
+      if (!note) return;
+      button.addEventListener("click", function () {
+        var open = note.hidden;
+        note.hidden = !open;
+        button.textContent = open ? "Hide note" : "Show note";
+        button.setAttribute("aria-expanded", String(open));
+      });
+    });
 
     var filter = document.getElementById("ws-an-filter");
     var table = document.getElementById("ws-an-people");

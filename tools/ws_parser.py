@@ -917,6 +917,119 @@ def load_checkpoint_codes(subject_dir):
 CHECKPOINT_CODES = "checkpoint_codes.yaml"
 
 
+# --------------------------------------------------------------------------
+# Supervisor notes (convention §3.5c)
+# --------------------------------------------------------------------------
+
+SUPERVISOR_NOTES = "supervisor_notes.md"
+NOTE_MARK = re.compile(r"^\s*<!--\s*ws:note\s+(\S+?)\s*-->\s*$")
+
+
+def split_supervisor_notes(text):
+    """[(step id, markdown, line)] for every `ws:note` marker, in file order.
+
+    A note runs from its marker to the next one. The headings sitting right
+    above the next marker are that note's label, for the author reading the
+    file, so they are not part of the note before it. Text before the first
+    marker is the file's own preamble and belongs to no step. A marker inside
+    fenced code is an example, not a marker.
+    """
+    notes, current, in_fence = [], None, False
+    for number, line in enumerate(text.split("\n"), start=1):
+        if FENCE.match(line.strip()):
+            in_fence = not in_fence
+        mark = None if in_fence else NOTE_MARK.match(line)
+        if mark:
+            if current is not None:
+                notes.append(current)
+            current = (mark.group(1), [], number)
+            continue
+        if current is not None:
+            current[1].append(line)
+    if current is not None:
+        notes.append(current)
+
+    out = []
+    for i, (step, lines, number) in enumerate(notes):
+        if i + 1 < len(notes):
+            # Drop the next note's label: blank lines and headings at the end.
+            while lines and (not lines[-1].strip() or HEADING.match(lines[-1])):
+                lines.pop()
+        out.append((step, "\n".join(lines).strip(), number))
+    return out
+
+
+def load_supervisor_notes(subject_dir):
+    """Supervisor notes keyed by step id, from supervisor_notes.md.
+
+    Optional: a subject without the file has no notes, and that is fine.
+    Only the plaintext is read; `supervisor_notes_sealed` says when it exists
+    encrypted only. A duplicated id keeps its last note here, and the linter
+    refuses it.
+    """
+    path = Path(subject_dir) / SUPERVISOR_NOTES
+    if not path.exists():
+        return {}
+    return {step: body for step, body, _ in split_supervisor_notes(path.read_text())}
+
+
+def supervisor_notes_sealed(subject_dir):
+    """True when the notes exist only encrypted: the .gpg, no plaintext."""
+    root = Path(subject_dir)
+    return ((root / (SUPERVISOR_NOTES + ".gpg")).is_file()
+            and not (root / SUPERVISOR_NOTES).is_file())
+
+
+def _notes_checks(subject_dir, subject):
+    """(problems, warnings) about supervisor_notes.md.
+
+    A note can only be filed under a step that is a challenge of its own: an
+    exercise, or a quiz that is not inside a `validation: quiz` step. Notes
+    are text and code: an image, a scene, an animation or a linked file would
+    be uploaded where a participant can fetch it, so it is refused.
+    """
+    if supervisor_notes_sealed(subject_dir):
+        return [], [f"{SUPERVISOR_NOTES}.gpg: the supervisor notes are encrypted, so "
+                    f"they were not checked. Decrypt {SUPERVISOR_NOTES} locally and "
+                    f"lint again before a sync (§3.5c)."]
+    path = Path(subject_dir) / SUPERVISOR_NOTES
+    if not path.exists():
+        return [], []
+    notes = split_supervisor_notes(path.read_text())
+    if not notes:
+        return [], [f"{SUPERVISOR_NOTES}: no `<!-- ws:note <step id> -->` marker, "
+                    f"so it holds no note (§3.5c)"]
+
+    steps = {e.slug for e in subject.exercises}
+    hosts = {q.id: e.slug for e in subject.exercises if e.validation == "quiz"
+             for q in e.quizzes}
+    quizzes = {q.id for q in subject.quizzes} - set(hosts)
+    problems, seen = [], set()
+    for step, body, line in notes:
+        where = f"{SUPERVISOR_NOTES}:{line}"
+        if step in seen:
+            problems.append(f"{where}: a second note for {step!r}; one note per step")
+        seen.add(step)
+        if step in hosts:
+            problems.append(f"{where}: {step!r} is a question inside step "
+                            f"{hosts[step]!r}; file the note under {hosts[step]!r}")
+        elif step not in steps and step not in quizzes:
+            problems.append(f"{where}: {step!r} matches no step id")
+        if not body:
+            problems.append(f"{where}: the note for {step!r} is empty")
+        scannable = _strip_fences(body)
+        if IMAGE_MD.search(scannable) or IMAGE_HTML.search(scannable):
+            problems.append(f"{where}: the note for {step!r} has an image; notes "
+                            f"hold text and code only")
+        if find_scene_markers(body) or find_anim_markers(body):
+            problems.append(f"{where}: the note for {step!r} has a scene or an "
+                            f"animation; notes hold text and code only")
+        if find_attachment_refs(body):
+            problems.append(f"{where}: the note for {step!r} links a file of the "
+                            f"repository; notes hold text and code only")
+    return problems, []
+
+
 def _codes_problems(subject, codes):
     """What makes checkpoint_codes.yaml unusable. Each one refuses the subject.
 
@@ -1209,7 +1322,8 @@ def lint_all(subject_dir):
                       + _scene_checks(subject_dir, subject)[1]
                       + _anim_checks(subject_dir, subject)[1]
                       + _attachment_checks(subject)
-                      + _flags_warnings(subject_dir, subject))
+                      + _flags_warnings(subject_dir, subject)
+                      + _notes_checks(subject_dir, subject)[1])
 
 
 def _flags_sealed(subject_dir):
@@ -1308,6 +1422,7 @@ def _lint_problems(subject_dir):
         if a not in [q.id for q in subject.quizzes]:
             problems.append(f"quiz_answers.yaml: {a!r} matches no quiz marker")
     problems.extend(_lint_prerequisites(subject))
+    problems.extend(_notes_checks(subject_dir, subject)[0])
     return problems, subject
 
 

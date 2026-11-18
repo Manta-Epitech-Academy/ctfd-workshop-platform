@@ -533,6 +533,42 @@ What does **not**: the order of the steps, what gates what, points, hints, the s
 §3.4, `flag` and `token` answers (they already prove themselves), and every solve already
 recorded. Flipping the mode changes what a step asks for, and nothing else.
 
+### 3.5c Supervisor notes — help for the adult in the room
+
+A subject may carry **`supervisor_notes.md`** at its root: for each step, what to look at first
+when a participant is stuck there. Optional; a subject without it imports exactly as before. Only
+admins and supervisors read the notes, on the answer sheet (`/admin/workshop/answers`), where each
+note stays closed behind a « Show note » button until it is asked for (PLAN.md §69).
+
+```markdown
+# Notes encadrant — World Generator
+
+## Étape 1 : Premier bloc
+<!-- ws:note premier-bloc -->
+S'il ne voit aucun bloc, vérifier qu'il a relancé le programme.
+
+### Si ça bloque encore
+
+Faire relire l'outil « Coordonnées ».
+```
+
+- **`<!-- ws:note <step id> -->`**, on its own line, opens a note. The id is a step's `id`: an
+  exercise, or a quiz that is a step of its own. A question inside a `validation: quiz` step has
+  no step of its own; its note goes under the step's id.
+- A note runs **to the next marker**. The headings right above that marker are its label, for
+  whoever reads the file, and are not part of the note before it. Headings inside a note are
+  kept. Text before the first marker belongs to no step.
+- **Same markdown as the subject, text and code only.** No image, scene, animation or linked
+  file: anything uploaded can be fetched by whoever has its URL, and a note is not meant for a
+  participant.
+- **One note per step.** A second note for a step, a step id that does not exist and an empty
+  note are refused by the linter, which stops the sync.
+- **Encrypt it like the answers**: commit `supervisor_notes.md.gpg`, with the subject's
+  passphrase, and gitignore the plaintext. The sync page opens it in the browser along with
+  the `*.yaml.gpg` files. CI cannot read it and says so in a warning. A command-line sync with
+  only the `.gpg` leaves the notes on the instance as they were.
+- A sync **replaces** the notes of the subject's steps: a note taken out of the file goes away.
+
 ### 3.6 Hints — native `<details>`, optional cost
 
 ```markdown

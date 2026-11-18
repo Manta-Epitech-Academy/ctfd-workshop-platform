@@ -6058,3 +6058,17 @@ is stuck there. The format is the subject's own markdown (convention §3.5c).
 
 - The notes in the answer sheet's CSV.
 - A note on the introduction or on a closing step: they have no id.
+
+## 70. PPM images (2026-11-18)
+
+The CTF subject hides its bonus flag in its cover as plain decimal pixel values, so the cover
+has to be a text PPM and has to reach the participant unchanged.
+
+- **Decoded in the browser, not converted at sync.** `plugins/workshop/assets/ppm.js` fetches
+  any `<img>` whose src ends in `.ppm`, paints it on a canvas and swaps the src for a blob. The
+  upload stays the subject's file; `data-ppm-src` on the image keeps its URL.
+- `workshop.css` hides an `<img>` whose src still ends in `.ppm`, so no broken-image icon shows.
+- Loaded on the index and on a part page, the two places a cover is shown. No link to the file
+  is added: finding it is part of that subject's challenge.
+- Checked by hand on the dev instance: the cover shows on both pages and the served file has
+  the same SHA-256 as the one in the subject repo.

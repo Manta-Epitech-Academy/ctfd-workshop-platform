@@ -24,6 +24,21 @@
  * downloading or could not load never looks like a scene that is simply
  * missing.
  *
+ * A failure is retried, because on a poor connection it is usually a download
+ * that broke and a reload was the only cure. RETRY gives the waits before the
+ * next tries; the still stays meanwhile. A try that falls due while the scene
+ * is out of view waits for it to come back. After the last one the still
+ * stays with a « Try again » button, which starts over without a reload.
+ *
+ * The viewer module needs one more step. A browser keeps a failed module
+ * download for the life of the page: `import()` of the same file fails again
+ * without asking the network, and one broken download used to turn every
+ * scene of the page into a still until a reload. So the files of the module
+ * (MODULE_FILES) are first downloaded with `fetch`, which can be tried again,
+ * and imported only once they all arrived: the import then only revalidates
+ * them (`Cache-Control: no-cache`, a 304 each). If the import fails anyway,
+ * nothing but a reload can load it, and « Try again » reloads the page.
+ *
  * Registered globally like zoom.js: `.challenge-desc` is core's own container,
  * so the statements, the hints and the documents' pages are all covered.
  */
@@ -32,7 +47,13 @@
 
   var SELECTOR = ".challenge-desc .ws-scene, .challenge-hints .ws-scene, .ws-summary-body .ws-scene";
   var LIVE = 3;
+  var RETRY = [2000, 5000, 10000];
   var MODULE = "/plugins/workshop/assets/scene-viewer.js";
+  // MODULE and every file it imports, directly or not. Keep in step with the
+  // imports of scene-viewer.js and of the vendored three.js addons.
+  var VENDOR = "/plugins/workshop/assets/vendor/";
+  var MODULE_FILES = [MODULE, VENDOR + "three.module.min.js", VENDOR + "GLTFLoader.js",
+                      VENDOR + "BufferGeometryUtils.js", VENDOR + "OrbitControls.js"];
 
   var supported = null;
   function webgl2() {
@@ -46,9 +67,36 @@
   }
 
   var modulePromise = null;
+  var moduleBroken = false;   // the import itself failed: only a reload helps
+  function download(url) {
+    return fetch(url, { credentials: "same-origin" }).then(function (r) {
+      if (!r.ok) throw new Error(url + " answered " + r.status);
+      return r.arrayBuffer();   // read to the end, so the cache holds all of it
+    });
+  }
   function viewerModule() {
-    if (!modulePromise) modulePromise = import(MODULE);
+    if (!modulePromise) {
+      modulePromise = Promise.all(MODULE_FILES.map(download)).catch(function (err) {
+        modulePromise = null;   // a download failed: the next try starts again
+        throw err;
+      }).then(function () {
+        return import(MODULE).catch(function (err) {
+          moduleBroken = true;
+          throw err;
+        });
+      });
+    }
     return modulePromise;
+  }
+
+  // The page's translated strings (navbar.html), English where there are none.
+  var strings = null;
+  function t(key, fallback) {
+    if (strings === null) {
+      try { strings = JSON.parse(document.getElementById("ws-i18n").textContent); }
+      catch (e) { strings = {}; }
+    }
+    return strings[key] || fallback;
   }
 
   var live = [];   // {figure, viewer}
@@ -111,7 +159,7 @@
     status.className = "ws-scene-status";
     stage.appendChild(status);
     var state = { figure: figure, stage: stage, canvas: canvas, spec: spec, viewer: null, loading: false,
-                  model: null, visible: false, status: status };
+                  model: null, visible: false, status: status, failures: 0, retry: null };
 
     observer.observe(stage);
     stage._wsScene = state;
@@ -119,28 +167,56 @@
 
   function activate(state) {
     if (state.viewer || state.loading) return;
+    if (state.retry) { clearTimeout(state.retry); state.retry = null; }
     state.loading = true;
     state.figure.classList.remove("ws-scene-failed");
     state.figure.classList.add("ws-scene-loading");
-    state.status.textContent = "Loading the 3D scene…";
+    // A retry keeps its own message rather than flashing back to this one.
+    if (!state.failures) state.status.textContent = "Loading the 3D scene…";
     viewerModule().then(function (mod) {
       return (state.model ? Promise.resolve(state.model) : mod.load(state.spec.src)).then(function (model) {
         state.model = model;
         state.viewer = mod.createViewer(state.stage, state.canvas, state.spec, model);
+        state.failures = 0;
         state.figure.classList.add("ws-scene-live");
         live.push(state);
         trim();
       });
     }).catch(function (err) {
-      // The still is already there; say why in the console and leave it.
+      // The still is already there; say why in the console, and try again.
       console.warn("workshop: scene not shown, the still stays:", state.spec.src, err);
-      state.figure.classList.add("ws-scene-failed");
-      state.status.textContent = "The 3D scene could not be loaded; this is the still.";
+      state.failures += 1;
+      if (state.failures <= RETRY.length && !moduleBroken) {
+        state.status.textContent = t("sceneRetry", "The 3D scene did not load. Trying again…");
+        state.retry = setTimeout(function () {
+          state.retry = null;
+          // Out of view: the observer tries again when it is back.
+          if (state.visible) activate(state);
+        }, RETRY[state.failures - 1]);
+        return;
+      }
+      failed(state);
     }).then(function () {
       state.loading = false;
       state.figure.classList.remove("ws-scene-loading");
       if (state.viewer) state.status.textContent = "";
     });
+  }
+
+  function failed(state) {
+    state.figure.classList.add("ws-scene-failed");
+    state.status.textContent = "";
+    state.status.appendChild(label(t("sceneFailed", "The 3D scene could not be loaded.")));
+    var again = document.createElement("button");
+    again.type = "button";
+    again.className = "ws-scene-retry";
+    again.textContent = t("sceneTryAgain", "Try again");
+    again.addEventListener("click", function () {
+      if (moduleBroken) { window.location.reload(); return; }
+      state.failures = 0;
+      activate(state);
+    });
+    state.status.appendChild(again);
   }
 
   function deactivate(state) {

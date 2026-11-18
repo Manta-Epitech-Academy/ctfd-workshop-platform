@@ -80,6 +80,15 @@ msgstr[1] ""
 msgid "Certificate of participation"
 msgstr "Certificat de participation"
 
+msgid "The 3D scene could not be loaded."
+msgstr "Impossible de charger la scène 3D."
+
+msgid "The 3D scene did not load. Trying again…"
+msgstr "La scène 3D ne s'est pas chargée. Nouvel essai…"
+
+msgid "Try again"
+msgstr "Réessayer"
+
 msgid "certificate-%(name)s.pdf"
 msgstr "certificat-%(name)s.pdf"
 

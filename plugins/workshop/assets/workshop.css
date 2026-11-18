@@ -1765,6 +1765,25 @@ main > .container > .row > .col-md-12 > h3.text-muted:only-child::after,
   pointer-events: none;
 }
 .ws-scene-status:empty { display: none; }
+/* « Try again », once the automatic retries are spent (scene.js). The status
+   lets clicks through to the view; this button is the one thing in it to click. */
+.ws-scene-failed .ws-scene-status {
+  /* Text and button on one line: centred at left 50%, the pill would
+     otherwise shrink to half the view and wrap. */
+  display: flex; align-items: center; gap: .5rem;
+  width: max-content;
+}
+.ws-scene-retry {
+  pointer-events: auto;
+  flex: none;
+  padding: .1rem .6rem;
+  font: inherit;
+  color: #000;
+  background: #fff;
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+}
 /* The controls, inside the view (scene-viewer.js). Top left: the cut slider and
    « Reset view ». Bottom right: the pads a touchpad user holds down to turn,
    move and zoom. All on a translucent dark ground, the page's font, kept

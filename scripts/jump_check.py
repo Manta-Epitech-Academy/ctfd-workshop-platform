@@ -50,8 +50,10 @@ is the outage, the idiom scripts/mirror_check.sh already uses.
 """
 import atexit
 import base64
+import csv
 import hashlib
 import hmac
+import io
 import json
 import os
 import re
@@ -1159,7 +1161,7 @@ def check_sessions(admin, base, sink, created):
 
     print("== a step's solvers, the submissions and the feedback follow the room ==")
     # A step of the check's own, since a fresh instance has none: one flag,
-    # solved by both rooms, one wrong try and one review each.
+    # solved by both rooms, one wrong try and one choice of the list each.
     r = admin.api("POST", "/challenges", json={
         "name": "jumpcheck step " + RUN, "category": "jumpcheck", "description": "-",
         "value": 1, "type": "standard", "state": "visible"})
@@ -1170,13 +1172,13 @@ def check_sessions(admin, base, sink, created):
     atexit.register(lambda: admin.api("DELETE", f"/challenges/{step}"))
     admin.api("POST", "/flags", json={"challenge": step, "content": "flag-" + RUN,
                                       "type": "static", "data": "case_insensitive"})
-    for talent, said in ((s1, "review un " + RUN), (s2, "review deux " + RUN)):
+    for talent, said in ((s1, "too_hard"), (s2, "too_easy")):
         headers = {"CSRF-Token": nonce(talent, base), "Content-Type": "application/json"}
         for answer in ("wrong-" + RUN, "flag-" + RUN):
             talent.post(base + "/api/v1/challenges/attempt", headers=headers, timeout=30,
                         json={"challenge_id": step, "submission": answer})
-        talent.put(base + f"/api/v1/challenges/{step}/ratings", headers=headers,
-                   timeout=30, json={"value": 1, "review": said})
+        talent.post(base + f"/api/v1/workshop/feedback/{step}", headers=headers,
+                    timeout=30, json={"choices": [said]})
 
     solvers = {row["account_id"] for row in s1.get(
         base + f"/api/v1/challenges/{step}/solves", timeout=30).json().get("data", [])}
@@ -1191,14 +1193,22 @@ def check_sessions(admin, base, sink, created):
                              params=room).text
     check("Check Un." in page and "Check Deux." not in page,
           "the submissions page lists the session's attempts only")
-    page = admin.session.get(base + "/admin/workshop/feedback", timeout=30,
-                             params=room).text
-    check("review un " + RUN in page and "review deux " + RUN not in page,
-          "the feedback page reads the session's reviews only")
-    page = admin.session.get(base + "/admin/workshop/feedback", timeout=30,
-                             params={"campus": ""}).text
-    check("review un " + RUN in page and "review deux " + RUN in page,
-          "and the whole instance's when no campus is picked")
+
+    def picked(params):
+        """What the feedback export counts for the check's step, in a scope."""
+        text = admin.session.get(base + "/admin/workshop/feedback.csv", timeout=30,
+                                 params=params).text
+        rows = [row for row in csv.DictReader(io.StringIO(text))
+                if row.get("step_slug") == f"#{step}"]
+        return {key: sum(int(row[key] or 0) for row in rows)
+                for key in ("too_hard", "too_easy")}
+
+    got = picked(room)
+    check(got == {"too_hard": 1, "too_easy": 0},
+          f"the feedback export counts the session's choices only ({got})")
+    got = picked({"campus": ""})
+    check(got == {"too_hard": 1, "too_easy": 1},
+          f"and the whole instance's when no campus is picked ({got})")
 
     print("== an erasure Jump reports deletes that account, and only that one ==")
     sink.clear()

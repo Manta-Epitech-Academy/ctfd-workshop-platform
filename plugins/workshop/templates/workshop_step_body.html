@@ -1,3 +1,19 @@
+{# The platform's fixed list (choices.py): toggle buttons, several allowed.
+   Inside one group marked exclusive the page keeps a single choice, since
+   « Trop dur » and « Trop facile » together say nothing. #}
+{% macro choice_list() %}
+  <div class="ws-choices">
+    {% for group, items in ws_feedback_choices() %}
+      <span class="ws-choice-group" role="group"
+            {% if group in ("feeling", "difficulty") %}data-exclusive{% endif %}>
+        {% for key, label in items %}
+          <button type="button" class="ws-choice" data-choice="{{ key }}"
+                  aria-pressed="false">{{ label }}</button>
+        {% endfor %}
+      </span>
+    {% endfor %}
+  </div>
+{% endmacro %}
 {# Body of one workshop step: statement, hints, answer form.
 
    Rendered both inside workshop_page.html and standalone by
@@ -93,35 +109,16 @@
     {# Every part ends with one of these, so only the last may claim to be the
        end of the workshop. The sync names it (`workshop_final_step`). #}
     {% set rating_q = _("How was this workshop?") if step.final else _("How was this part?") %}
-    {# The closing step: the rating IS the submission, so the step is solved at
-       the moment the feedback lands — never before. Going through CTFd's
-       ratings endpoint instead would mean solving first (it refuses a rating
-       for an unsolved challenge), i.e. reaching 100% and only then, maybe,
-       leaving feedback. See plugins/workshop/quiz.py. #}
+    {# The closing step: the list IS the submission, so the step is solved at
+       the moment the feedback lands, never before. What is picked is counted
+       and not kept (choices.py, PLAN.md §67), so once sent there is nothing
+       to show again and nothing to change. #}
     {% if step.solved %}
-      {# Already given — but still editable: someone who clicks 👍 first and
-         thinks of the reason afterwards must be able to add it. Updates go
-         through CTFd's own endpoint, which accepts them now that it is solved. #}
-      <div class="ws-rating ws-rating-final" data-challenge-id="{{ step.id }}"
-           data-value="{{ step.body.rating.value or '' }}">
-        <p class="ws-rating-q">{{ rating_q }}</p>
-        <button type="button" class="ws-rating-btn" data-rating="1" aria-label="{{ _("Good") }}">👍</button>
-        <button type="button" class="ws-rating-btn" data-rating="-1" aria-label="{{ _("Not good") }}">👎</button>
-        <input type="text" class="form-control ws-rating-review" maxlength="2000"
-               value="{{ step.body.rating.review }}"
-               placeholder="{{ _("Anything to add? (optional)") }}">
-        <button type="button" class="btn btn-outline-secondary btn-sm ws-rating-save">{% trans %}Save{% endtrans %}</button>
-        <span class="ws-rating-thanks" role="status" aria-live="polite"></span>
-      </div>
+      <p class="ws-choices-thanks">✓ {% trans %}Thanks for the feedback!{% endtrans %}</p>
     {% else %}
       <form class="ws-form" data-challenge-id="{{ step.id }}" data-answer-kind="rating">
-        <div class="ws-rating ws-rating-final" data-value="">
-          <p class="ws-rating-q">{{ rating_q }}</p>
-          <button type="button" class="ws-rating-btn" data-rating="1" aria-label="{{ _("Good") }}">👍</button>
-          <button type="button" class="ws-rating-btn" data-rating="-1" aria-label="{{ _("Not good") }}">👎</button>
-          <input type="text" class="form-control ws-rating-review" maxlength="2000"
-                 placeholder="{{ _("Anything to add? (optional)") }}">
-        </div>
+        <p class="ws-choices-q">{{ rating_q }}</p>
+        {{ choice_list() }}
         <div class="ws-form-actions">
           <button type="submit" class="btn btn-primary ws-submit-btn">{% trans %}Send feedback{% endtrans %}</button>
           <span class="ws-feedback" role="status" aria-live="polite"></span>
@@ -132,27 +129,24 @@
   {% elif step.solved %}
     <div class="ws-solved-note">
       <span>✓ {% trans %}Completed{% endtrans %}</span>
-      {% if step.body.rating.enabled %}
-        {# A rating of the step's content (it feeds content-quality feedback),
-           kept quiet: one muted line and two buttons until someone actually
-           rates. The reason box is revealed by the rating itself — a thumb
-           alone says which step is weak, never why. Saved on Enter or blur,
-           so revealing it adds no button and no dialog. #}
-        <span class="ws-rating" data-challenge-id="{{ step.id }}"
-              data-value="{{ step.body.rating.value or '' }}"
-              data-review="{{ step.body.rating.review }}">
-          <span class="ws-rating-q">{% trans %}Rate this step{% endtrans %}</span>
-          <button type="button" class="ws-rating-btn" data-rating="1"
-                  aria-label="{{ _("Good") }}">👍</button>
-          <button type="button" class="ws-rating-btn" data-rating="-1"
-                  aria-label="{{ _("Poor") }}">👎</button>
-          <input type="text" class="form-control form-control-sm ws-rating-review"
-                 maxlength="2000" value="{{ step.body.rating.review }}"
-                 placeholder="{{ _("Why? (optional)") }}" hidden>
-          <span class="ws-rating-thanks" role="status" aria-live="polite"></span>
-        </span>
-      {% endif %}
     </div>
+    {% if step.body.rating.enabled %}
+      {# What the participant thinks of the step, kept quiet: one muted line
+         that opens the platform's list (choices.py). Sent once: the choices
+         are counted without the account, so there is no going back to them. #}
+      {% if step.body.rating.given %}
+        <p class="ws-choices-thanks ws-choices-quiet">{% trans %}Thanks for the feedback!{% endtrans %}</p>
+      {% else %}
+        <details class="ws-opinion" data-challenge-id="{{ step.id }}">
+          <summary>{% trans %}Give my opinion{% endtrans %}</summary>
+          {{ choice_list() }}
+          <div class="ws-form-actions">
+            <button type="button" class="btn btn-outline-secondary btn-sm ws-opinion-send">{% trans %}Send{% endtrans %}</button>
+            <span class="ws-opinion-status" role="status" aria-live="polite"></span>
+          </div>
+        </details>
+      {% endif %}
+    {% endif %}
     {% if step.body.quiz_given and step.body.quiz_spec.get("questions") %}
       {# Une etape qui portait des questions les garde consultables : ce qui a
          ete demande, et ce que le participant a repondu. Toujours visible : un

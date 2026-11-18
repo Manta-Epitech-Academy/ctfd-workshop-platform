@@ -31,7 +31,7 @@ from itertools import groupby
 from flask import (Blueprint, abort, current_app, g, jsonify, redirect,
                    render_template, request, url_for)
 
-from CTFd.models import Hints, HintUnlocks, Ratings, Submissions
+from CTFd.models import Hints, HintUnlocks, Submissions
 from flask_babel import lazy_gettext as _l
 
 from CTFd.utils import get_config
@@ -45,6 +45,7 @@ from CTFd.utils.user import get_current_user
 # Aliased to the name this module already used: a local `documents` variable
 # shadows it in three functions, and renaming those would be churn for
 # nothing.
+from . import choices
 from .links import documents as _documents
 from .links import step_href, step_pages
 from .mode import is_self_serve
@@ -108,19 +109,13 @@ def _hints(challenge, account_id):
 
 
 def _rating(challenge, user):
-    """This user's rating of this step, and whether rating is allowed at all.
+    """Whether the feedback list is offered on this step, and already sent.
 
-    CTFd stores ratings per challenge (`PUT /challenges/<id>/ratings`, value
-    +1/-1, solved challenges only) — we reuse it rather than inventing a store.
+    The list is sent once (choices.py): what was picked is counted without
+    the account, so there is nothing to show again or to change.
     """
-    if get_config("challenge_ratings", default="public") == "disabled":
-        return {"enabled": False, "value": None, "review": ""}
-    rating = Ratings.query.filter_by(user_id=user.id, challenge_id=challenge.id).first()
-    return {
-        "enabled": True,
-        "value": rating.value if rating else None,
-        "review": (rating.review if rating else "") or "",
-    }
+    return {"enabled": choices.enabled(),
+            "given": choices.given(user.id, challenge.id)}
 
 
 # The prose a document opens with is carried into its first exercise so an

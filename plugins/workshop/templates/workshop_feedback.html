@@ -1,38 +1,35 @@
 {% extends base_template|default("admin/base.html") %}
 
 {#
-  The feedback report (PLAN.md §17). Instructor-facing, so every string is
-  English like the rest of the platform UI; the comments themselves are the
-  participants' own words, in whatever language they wrote them.
+  The feedback report (PLAN.md §17, §67). Instructor-facing, so every string
+  is English like the rest of the admin UI, the choices' labels included.
 
-  Anonymous by design: counts and comments, never names.
+  Counts of picks from a fixed list: no names, and no written words either.
 #}
 
 {% macro split(row) -%}
   <span class="ws-fb-split">
-    <span class="ws-fb-up">👍 {{ row.up }}</span>
-    <span class="ws-fb-down">👎 {{ row.down }}</span>
+    <span class="ws-fb-up">{{ row.positive }} good</span>
+    <span class="ws-fb-down">{{ row.negative }} problem{{ "" if row.negative == 1 else "s" }}</span>
   </span>
 {%- endmacro %}
 
 {% macro reach(row) -%}
-  {% if row.rated %}
-    <span class="ws-fb-reach">{{ row.rated }} of {{ row.solvers }} who got there
+  {% if row.answered %}
+    <span class="ws-fb-reach">{{ row.answered }} of {{ row.solvers }} who got there
       {%- if row.coverage is not none %} ({{ row.coverage }}%){% endif %}</span>
   {% else %}
-    <span class="ws-fb-reach ws-fb-none">nobody rated it yet
+    <span class="ws-fb-reach ws-fb-none">nobody answered yet
       {%- if row.solvers %} ({{ row.solvers }} could have){% endif %}</span>
   {% endif %}
 {%- endmacro %}
 
-{% macro comments(row) -%}
-  {% if row.comments %}
-    <ul class="ws-fb-comments">
-      {% for c in row.comments %}
-        <li class="{{ 'ws-fb-neg' if c.value < 0 else 'ws-fb-pos' }}">
-          <span aria-hidden="true">{{ "👎" if c.value < 0 else "👍" }}</span>
-          <span class="visually-hidden">{{ "Negative" if c.value < 0 else "Positive" }}:</span>
-          {{ c.text }}
+{% macro picks(row) -%}
+  {% if row.picked %}
+    <ul class="ws-fb-picks">
+      {% for key, label, count, good in row.picked %}
+        <li class="{{ 'ws-fb-pos' if good else 'ws-fb-neg' }}" data-choice="{{ key }}">
+          {{ label }} <strong>{{ count }}</strong>
         </li>
       {% endfor %}
     </ul>
@@ -44,8 +41,8 @@
   <div class="container">
     <h1>Workshop feedback</h1>
     <p class="lead mb-0">
-      What participants said, with no names attached — the useful question is which step is
-      weak, not who said so.
+      What participants picked from the list, with no names attached: the useful question is
+      which step is weak, not who said so.
     </p>
   </div>
 </div>
@@ -54,16 +51,16 @@
   {% include "workshop_scope.html" %}
   {% if ratings_disabled %}
     <div class="alert alert-warning">
-      Ratings are disabled in the CTFd configuration, so nothing new can be collected. Anything
-      below was gathered before that was turned off.
+      Ratings are disabled in the CTFd configuration, so the list is not offered on a completed
+      step. A closing step still asks. Anything below was gathered before that was turned off,
+      or on closing steps.
     </div>
   {% endif %}
 
   <p class="text-muted">
-    {{ totals.ratings }} rating{{ "" if totals.ratings == 1 else "s" }} from
-    {{ totals.participants }} participant{{ "" if totals.participants == 1 else "s" }},
-    {{ totals.comments }} with a written comment.
-    <a href="/admin/workshop/feedback.csv">Download CSV</a>
+    {{ totals.answers }} answer{{ "" if totals.answers == 1 else "s" }}. One answer can hold
+    several choices, so the choices add up to more than the answers.
+    <a href="/admin/workshop/feedback.csv">Download CSV</a> (per cohort and subject version)
   </p>
 
   <h2 class="ws-fb-h">The workshop</h2>
@@ -73,7 +70,7 @@
         <h5 class="card-title">{{ final.scope }} {{ split(final) }}</h5>
         <p class="card-subtitle text-muted mb-1"><small>closed by “{{ final.name }}”</small></p>
         <p class="card-subtitle text-muted mb-2">{{ reach(final) }}</p>
-        {{ comments(final) }}
+        {{ picks(final) }}
       </div>
     </div>
   {% else %}
@@ -96,7 +93,7 @@
             <td>
               {{ row.scope }}
               <div class="text-muted"><small>{{ row.name }}</small></div>
-              {{ comments(row) }}
+              {{ picks(row) }}
             </td>
             <td>{{ split(row) }}</td>
             <td>{{ reach(row) }}</td>
@@ -113,14 +110,14 @@
     </p>
     <table class="table table-striped">
       <thead>
-        <tr><th>Step</th><th>Part</th><th>Rating</th><th>Who answered</th></tr>
+        <tr><th>Step</th><th>Part</th><th>Mood</th><th>Who answered</th></tr>
       </thead>
       <tbody>
         {% for row in steps %}
-          <tr class="{{ 'table-warning' if row.down and row.down >= row.up else '' }}">
+          <tr class="{{ 'table-warning' if row.negative and row.negative >= row.positive else '' }}">
             <td>
               {% if is_admin() %}<a href="/admin/challenges/{{ row.id }}">{{ row.name }}</a>{% else %}{{ row.name }}{% endif %}
-              {{ comments(row) }}
+              {{ picks(row) }}
             </td>
             <td class="text-muted">{{ row.category }}</td>
             <td>{{ split(row) }}</td>
@@ -130,13 +127,13 @@
       </tbody>
     </table>
   {% else %}
-    <p class="text-muted">No step has been rated yet.</p>
+    <p class="text-muted">Nobody has answered on a step yet.</p>
   {% endif %}
 
   {% if unrated %}
     <details class="ws-fb-unrated-box">
       <summary>
-        <span class="ws-fb-h">Solved, never rated</span>
+        <span class="ws-fb-h">Solved, never answered</span>
         <span class="text-muted">— {{ unrated | length }} step{{ "" if unrated | length == 1 else "s" }},
           unmeasured rather than good</span>
       </summary>
@@ -158,13 +155,14 @@
   .ws-fb-up { margin-right: 0.6rem; }
   .ws-fb-reach { font-size: 0.85rem; opacity: 0.75; }
   .ws-fb-none { font-style: italic; }
-  .ws-fb-comments { list-style: none; padding: 0; margin: 0.4rem 0 0; }
-  .ws-fb-comments li {
-    font-size: 0.9rem; padding: 0.25rem 0 0.25rem 0.6rem;
-    border-left: 2px solid var(--bs-border-color, #dee2e6);
+  .ws-fb-down { color: var(--bs-danger, #dc3545); }
+  .ws-fb-picks { list-style: none; padding: 0; margin: 0.4rem 0 0; display: flex; flex-wrap: wrap; gap: 0.3rem; }
+  .ws-fb-picks li {
+    font-size: 0.85rem; padding: 0.1rem 0.6rem; border-radius: 999px;
+    border: 1px solid var(--bs-border-color, #dee2e6);
   }
-  .ws-fb-comments li.ws-fb-neg { border-left-color: var(--bs-danger, #dc3545); }
-  .ws-fb-comments li.ws-fb-pos { border-left-color: var(--bs-success, #198754); }
+  .ws-fb-picks li.ws-fb-neg { border-color: var(--bs-danger, #dc3545); }
+  .ws-fb-picks li.ws-fb-pos { border-color: var(--bs-success, #198754); }
   .ws-fb-unrated { padding-left: 1.1rem; margin-top: 0.5rem; }
   .ws-fb-unrated-box { margin-top: 1.6rem; }
   .ws-fb-unrated-box summary { cursor: pointer; }

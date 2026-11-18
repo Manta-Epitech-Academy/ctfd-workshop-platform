@@ -83,17 +83,9 @@
     // accepts it only while the instance is self-serve (quiz.py, PLAN.md
     // §25.4), so this constant carries no secret either.
     if (kind === "done") return "done";
-    // The closing rating: the feedback IS the submission, so the step cannot
-    // be solved — and the bar cannot reach 100% — without it.
-    if (kind === "rating") {
-      var box = form.querySelector(".ws-rating");
-      if (!box || !box.dataset.value) return "";
-      var note = form.querySelector(".ws-rating-review");
-      return JSON.stringify({
-        value: parseInt(box.dataset.value, 10),
-        review: note ? note.value : "",
-      });
-    }
+    // The closing step: the choices ARE the submission, so the step cannot
+    // be solved, and the bar cannot reach 100%, without them.
+    if (kind === "rating") return chosen(form).join(",");
     if (kind === "single") {
       var picked = form.querySelector("input[type=radio]:checked");
       return picked ? picked.value : "";
@@ -139,7 +131,7 @@
     var answer = skip ? "(admin: validation code skipped)" : collectAnswer(form);
     if (!answer.trim()) {
       feedback(form, "empty", form.dataset.answerKind === "rating"
-        ? t("pickFirst", "Pick 👍 or 👎 first")
+        ? t("pickFirst", "Pick at least one first")
         : t("answerFirst", "Pick or type an answer first."));
       return;
     }
@@ -254,55 +246,63 @@
     else api.part();
   }
 
-  /* ---------- ratings (CTFd's own per-challenge rating) ---------- */
+  /* ---------- what the participant thinks of a step ---------- */
 
-  // Quiet by design: two buttons, one line, no dialog and no interruption of
-  // the flow. This path is CTFd's own endpoint, which only accepts a rating
-  // for a SOLVED challenge — fine here, since it only ever runs on solved
-  // steps. The closing step rates through its submission instead (quiz.py).
-  async function rate(box, value) {
-    var id = parseInt(box.dataset.challengeId, 10);
-    var thanks = box.querySelector(".ws-rating-thanks");
-    var review = box.querySelector(".ws-rating-review");
+  // The platform's fixed list (choices.py, PLAN.md §67): toggle buttons, and
+  // nothing typed. On a closing step they are the submission; on any other
+  // solved step they go to the plugin's endpoint. Sent once either way: what
+  // is picked is counted without the account, so it cannot be changed after.
+  function chosen(box) {
+    return Array.prototype.map.call(
+      box.querySelectorAll('.ws-choice[aria-pressed="true"]'),
+      function (b) { return b.dataset.choice; });
+  }
+
+  function toggleChoice(btn) {
+    var on = btn.getAttribute("aria-pressed") !== "true";
+    var group = btn.closest(".ws-choice-group");
+    if (on && group && group.hasAttribute("data-exclusive")) {
+      group.querySelectorAll(".ws-choice").forEach(function (b) {
+        b.setAttribute("aria-pressed", "false");
+      });
+    }
+    btn.setAttribute("aria-pressed", on ? "true" : "false");
+    // "Pick at least one first" has been answered.
+    var box = btn.closest(".ws-form, .ws-opinion");
+    var said = box && box.querySelector(".ws-feedback, .ws-opinion-status");
+    if (said) said.textContent = "";
+  }
+
+  async function sendOpinion(box) {
+    var status = box.querySelector(".ws-opinion-status");
+    var picked = chosen(box);
+    if (!picked.length) {
+      status.textContent = t("pickFirst", "Pick at least one first");
+      return;
+    }
+    var button = box.querySelector(".ws-opinion-send");
+    button.disabled = true;
     try {
-      var r = await api("/api/v1/challenges/" + id + "/ratings", {
-        method: "PUT",
-        body: JSON.stringify({ value: value, review: review ? review.value : "" }),
+      var r = await api("/api/v1/workshop/feedback/" + box.dataset.challengeId, {
+        method: "POST",
+        body: JSON.stringify({ choices: picked }),
       });
       if (refused(r)) {
-        if (thanks) thanks.textContent = STALE;
+        status.textContent = STALE;
+        button.disabled = false;
         return;
       }
-      if (!r.ok) throw new Error("rating refused");
-      box.dataset.value = String(value);
-      box.dataset.review = review ? review.value : "";
-      markRating(box);
-      if (thanks) thanks.textContent = t("thanks", "Thanks!");
-      // Revealed by this very click: put the cursor where the reason goes.
-      if (review && !review.value) review.focus();
+      // 409: already sent, from another tab. Same thing to say.
+      if (!r.ok && r.status !== 409) throw new Error("feedback refused");
+      var done = document.createElement("p");
+      done.className = "ws-choices-thanks ws-choices-quiet";
+      done.setAttribute("role", "status");
+      done.textContent = t("thanks", "Thanks for the feedback!");
+      box.replaceWith(done);
     } catch (e) {
-      if (thanks) thanks.textContent = t("saveError", "Could not save that — try again.");
+      status.textContent = t("saveError", "Could not save that — try again.");
+      button.disabled = false;
     }
-  }
-
-  function markRating(box) {
-    var chosen = box.dataset.value;
-    box.querySelectorAll(".ws-rating-btn").forEach(function (b) {
-      b.classList.toggle("ws-rating-chosen", b.dataset.rating === chosen);
-    });
-    // Progressive disclosure: the reason box shows up once there is a rating
-    // to explain, and stays visible on later visits.
-    var note = box.querySelector(".ws-rating-review");
-    if (note && chosen) note.hidden = false;
-  }
-
-  // Inline rating only: save the reason on Enter or on leaving the field, so
-  // no extra button clutters the completed line.
-  function saveReview(box) {
-    var note = box.querySelector(".ws-rating-review");
-    if (!note || note.value === (box.dataset.review || "")) return;
-    var value = parseInt(box.dataset.value, 10);
-    if (value === 1 || value === -1) rate(box, value);
   }
 
   /* ---------- hints (native unlock, so usage stays tracked) ---------- */
@@ -503,7 +503,6 @@
       highlight(step);
       var name = step.querySelector(".ws-step-name");
       if (name) name.textContent = payload.data.name;
-      step.querySelectorAll(".ws-rating").forEach(markRating);
     }
   }
 
@@ -769,28 +768,13 @@
   function start() {
     ROOT = document.querySelector("#ws-workshop");
     if (!ROOT) return;
-    ROOT.querySelectorAll(".ws-rating").forEach(markRating);
     rememberLeads();
 
     ROOT.addEventListener("click", function (ev) {
-      var save = ev.target.closest(".ws-rating-save");
-      if (save) {
-        var saveBox = save.closest(".ws-rating");
-        var current = parseInt(saveBox.dataset.value, 10);
-        if (current === 1 || current === -1) rate(saveBox, current);
-        return;
-      }
-      var btn = ev.target.closest(".ws-rating-btn");
-      if (!btn) return;
-      var box = btn.closest(".ws-rating");
-      if (btn.closest(".ws-form")) {
-        // Part of the closing step: choosing only selects. Sending it is what
-        // submits the step, so the two can never come apart.
-        box.dataset.value = btn.dataset.rating;
-        markRating(box);
-        return;
-      }
-      rate(box, parseInt(btn.dataset.rating, 10));   // already-solved step: CTFd's endpoint
+      var choice = ev.target.closest(".ws-choice");
+      if (choice) { toggleChoice(choice); return; }
+      var send = ev.target.closest(".ws-opinion-send");
+      if (send) sendOpinion(send.closest(".ws-opinion"));
     });
 
     ROOT.addEventListener("submit", function (ev) {
@@ -817,25 +801,6 @@
       if (step) step.open = true;
       history.replaceState(null, "", chip.getAttribute("href"));
       scrollTo(target);
-    });
-
-    ROOT.addEventListener("keydown", function (ev) {
-      if (ev.key !== "Enter" || !ev.target.classList.contains("ws-rating-review")) return;
-      var box = ev.target.closest(".ws-rating");
-      ev.preventDefault();
-      var btn = box.querySelector(".ws-rating-save");
-      var form = box.closest(".ws-form");
-      if (btn) btn.click();                 // closing step, already rated
-      else if (form) form.requestSubmit();  // closing step, not yet sent
-      else saveReview(box);                 // inline rating on a solved step
-    });
-
-    // Leaving the field saves it too — typing a reason and clicking away must
-    // not silently discard it.
-    ROOT.addEventListener("focusout", function (ev) {
-      if (!ev.target.classList || !ev.target.classList.contains("ws-rating-review")) return;
-      var box = ev.target.closest(".ws-rating");
-      if (box && !box.closest(".ws-form")) saveReview(box);
     });
 
     // `toggle` does not bubble, so listen in the capture phase.

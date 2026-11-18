@@ -5698,8 +5698,8 @@ For the quiz type, `fail()` and `ratelimited()` are overridden to store, in `pro
 A right answer is still stored as given: it is the answer sheet's content, not the
 participant's. Old rows are untouched (out of scope in #80).
 
-**Still stored until §67 (#81):** the comment of a rating step, in core's `ratings` table and
-in the `provided` of its solve.
+**The comment of a rating step** was the last free text kept (core's `ratings` table, and the
+`provided` of its solve). §67 removes it.
 
 ### 65.3 Rejected
 
@@ -5780,3 +5780,116 @@ through the admin page and from GitHub each time:
 
 The composed-workshop path (`sync_workshop.py`) makes the same call and was not run: no
 workshop repository was synced for this.
+
+## 67. Feedback is a pick from a fixed list (2026-11-12)
+
+Issue #81. A step was rated with 👍/👎 and a comment box. The comment is free text: it can hold
+anything, a name included, and it was stored against the account. It is replaced by a fixed
+list, and what is kept is a count that names nobody.
+
+### 67.1 The list
+
+Eight choices in four groups, several allowed. The key is what is stored; the label is an
+English msgid, French in the catalogue.
+
+| Group | Key | What the participant reads |
+|---|---|---|
+| feeling | `great`, `good` | « Super », « Bien » |
+| difficulty | `too_hard`, `too_easy` | « Trop dur », « Trop facile » |
+| clarity | `unclear_task`, `unclear_explanation` | « J'ai pas compris ce qu'il fallait faire », « L'explication n'est pas claire » |
+| problem | `statement_error`, `not_working` | « Il y a une erreur dans l'énoncé », « Ça ne marche pas » |
+
+- **The list is the platform's** (`choices.py`), the same on every step of every subject. A
+  subject cannot add to it.
+- **A key is forever**: a label can be reworded, a key cannot be renamed without splitting its
+  counts.
+- **In `feeling` and in `difficulty` one choice replaces the other** on the page (nobody means
+  both « Trop dur » and « Trop facile »). That is the page being helpful; the server takes any
+  set of keys.
+
+### 67.2 What is kept
+
+`workshop_step_feedback`, one row per **cohort + content + step + subject version + choice**,
+holding a count. No user id, no date.
+
+| Column | Where it comes from |
+|---|---|
+| `cohort` | the audience key of the account (`audience_of`, §43, §59): `cohort:<code id>` for a registration code. Empty for an account in no cohort |
+| `content` | the step's `ws-content:` topic (§66); the instance's content if the step has none |
+| `step` | the step's `ws:` topic; `#<challenge id>` for a step made by hand |
+| `version` | the commit of the last sync (`source.last_sync`); empty for a CLI sync |
+| `choice` | a key of the list, or `answered` |
+
+`answered` counts the people who sent the list, since one person can pick three things. It is
+what the report divides by.
+
+### 67.3 Once per step
+
+With no account on the counts, an answer cannot be found again to be changed or removed. So:
+
+- **It is sent once.** On a closing step what says so is the solve. On any other step it is a
+  row of `workshop_feedback_given` (account + step, and not one choice).
+- **Only participants are counted.** An admin's or a hidden account's answer completes the step
+  and writes nothing, because a test answer could not be taken out afterwards the way `scope.py`
+  leaves staff out of every other report.
+- **Resetting or deleting an account leaves the counts as they are.** The admin's reset (§47)
+  clears their marker rows; an admin was never counted.
+
+### 67.4 Two ways in
+
+- **The closing step** (`quiz_type = 'rating'`): the list is the submission (`good,too_hard`),
+  any valid choice completes the step, and nothing else does. `QuizChallenge.solve` counts the
+  choices once the solve is in, then replaces the solve's `provided` by `-`: left as sent, the
+  submission row would tie the choices to the account.
+- **Any other solved step**: one muted line, « Donner mon avis », opens the same list.
+  `POST /api/v1/workshop/feedback/<challenge id>` with `{"choices": [...]}`: 403 before the step
+  is solved, 400 for anything not on the list, 409 the second time.
+
+**Core's `PUT /api/v1/challenges/<id>/ratings` is refused** to anyone but an admin
+(`before_request` in `choices.py`): it takes a `review`, so leaving it open would leave a way
+to write a comment around the list.
+
+**`challenge_ratings = disabled`** removes the list from the ordinary steps. A closing step
+still asks: it has to stay completable, and asking is what it is for.
+
+### 67.5 The report
+
+`/admin/workshop/feedback` reads the new table. A step's mood is derived: `great` and `good`
+are good signs, the six others name a problem, and the page shows both numbers with the
+choices picked, steps with the most problems first. The page adds cohorts and versions up; the
+CSV export has one line per step, cohort and version, a column per choice.
+
+**The scope** (§50) is applied as a set of cohort keys: the cohorts of the participants the
+scope covers. A count cannot be split finer than its cohort.
+
+### 67.6 What is left behind
+
+- **Core's `ratings` table is untouched.** Rows written before this change stay where they
+  are, comments included, and no page shows them any more. Old rows are out of scope, as in
+  §65; deleting them is a decision for each instance.
+- **The thumbs' value is not converted** into counts: an old row has an account and no cohort
+  key that can be trusted to be the one it had then.
+
+### 67.7 Rejected
+
+- **A row per answer with no user id.** With a date or an order, a small cohort can be read
+  back to people. A count has neither.
+- **Core's `Ratings` with the review left empty.** One value per account, and a user id on
+  every row.
+- **Letting the answer be changed.** It needs the choices kept against the account.
+- **A list per subject.** Counts could not be compared across subjects, and a subject's own
+  wording is free text by another road.
+
+### 67.8 Checked
+
+`scripts/feedback_check.py <base-url> <admin-pass>`, 52 assertions on a local instance: two
+registration codes, a participant in each through the token door, three steps made for the
+run. It reads core's own export to show the counts carry no account and the marker no choice.
+It deletes what it made except the count rows, which nothing in the plugin deletes; they are
+filed under steps that no longer exist and no page reads them.
+
+`scripts/jump_check.py` holds the report's scope to two Jump sessions, and
+`scripts/phase2_validate.py` carries the same assertions for a synced subject (not runnable
+from this checkout, see CLAUDE.md).
+
+**Rollout:** migration `f3b7c9d2a815` (two new tables, runs at start-up). No re-sync.

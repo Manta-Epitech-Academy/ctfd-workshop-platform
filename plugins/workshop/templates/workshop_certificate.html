@@ -1,0 +1,28 @@
+{#
+  The certificate button, in the band of the workshop's pages (certificate.py,
+  PLAN.md §63). Included by workshop_index.html and workshop_page.html.
+
+  Only for an account made at the token door, whose name the platform chose.
+  Drawn but hidden until a first step is done: the step that makes it worth
+  having is solved on this page without a reload, and assets/certificate.js
+  shows it then.
+
+  The scripts come with it, so a page that does not offer the certificate
+  does not download them. The QR library is optional, as on the door.
+#}
+{% set cert = certificate_state() %}
+{% if cert %}
+  <p class="ws-head-actions ws-cert" data-ws-cert{% if cert != "ready" %} hidden{% endif %}
+     data-url="{{ url_for('workshop_certificate.certificate') }}"
+     data-brand="/plugins/workshop/assets/pdf-brand.json"
+     data-brand-light="/plugins/workshop/assets/pdf-brand-light.json"
+     data-failed="{{ _('Something went wrong. Try again.') }}">
+    <button type="button" class="btn btn-sm ws-cert-btn">
+      <i class="fas fa-award" aria-hidden="true"></i>{% trans %}Download my certificate{% endtrans %}
+    </button>
+    <span class="ws-cert-error" data-ws-cert-error role="alert" hidden></span>
+  </p>
+  <script defer src="/plugins/workshop/assets/vendor/qrcode.js"></script>
+  <script defer src="/plugins/workshop/assets/pdf.js"></script>
+  <script defer src="/plugins/workshop/assets/certificate.js"></script>
+{% endif %}

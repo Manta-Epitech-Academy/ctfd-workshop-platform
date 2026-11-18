@@ -27,6 +27,9 @@ msgstr[1] ""
 msgid "%(n)s XP"
 msgstr ""
 
+msgid "Address"
+msgstr ""
+
 msgid "Admin Panel"
 msgstr ""
 
@@ -60,6 +63,23 @@ msgstr ""
 msgid "Bonus"
 msgstr ""
 
+msgid "Certificate no. %(serial)s"
+msgstr ""
+
+#, python-format
+msgid ""
+"and earned %(points)s XP by completing %(num)s step out of %(total)s."
+msgid_plural ""
+"and earned %(points)s XP by completing %(num)s steps out of %(total)s."
+msgstr[0] ""
+msgstr[1] ""
+
+msgid "Certificate of participation"
+msgstr ""
+
+msgid "certificate-%(name)s.pdf"
+msgstr ""
+
 msgid "Challenges"
 msgstr ""
 
@@ -82,6 +102,12 @@ msgstr ""
 msgid "Continue with Jump (%(label)s)"
 msgstr ""
 
+msgid "Copied!"
+msgstr ""
+
+msgid "Copy"
+msgstr ""
+
 msgid "Correct"
 msgstr ""
 
@@ -97,18 +123,38 @@ msgstr ""
 msgid "Could not save that — try again."
 msgstr ""
 
+msgid "Digitally signed by %(address)s"
+msgstr ""
+
+msgid "Do not leave this file on the classroom computer."
+msgstr ""
+
 msgid ""
 "Don't have a supervisor account yet? You can create one with the "
 "supervisor code."
 msgstr ""
 
+msgid "Download my certificate"
+msgstr ""
+
+msgid "Download the file"
+msgstr ""
+
 msgid "Email"
+msgstr ""
+
+msgid "Enter your code"
 msgstr ""
 
 msgid "Everything the workshop has given you so far, in one place."
 msgstr ""
 
 msgid "Finish"
+msgstr ""
+
+msgid ""
+"First time? Enter the code your supervisor gave you. Coming back? Enter "
+"your personal code."
 msgstr ""
 
 msgid ""
@@ -124,6 +170,9 @@ msgid "Go back to Jump and click the activity again to get a new one."
 msgstr ""
 
 msgid "Good"
+msgstr ""
+
+msgid "Here is your personal code"
 msgstr ""
 
 #, python-format
@@ -143,7 +192,16 @@ msgstr ""
 msgid "How was this workshop?"
 msgstr ""
 
+msgid "I have a code file"
+msgstr ""
+
 msgid "I have read this"
+msgstr ""
+
+msgid "I have saved my code"
+msgstr ""
+
+msgid "If you lose it, nobody can give it back to you."
 msgstr ""
 
 msgid "In progress"
@@ -158,6 +216,17 @@ msgstr ""
 msgid "Introduction"
 msgstr ""
 
+msgid "is hereby awarded this certificate"
+msgstr ""
+
+msgid "Issued on %(date)s"
+msgstr ""
+
+msgid ""
+"It is what lets you come back. Nobody can give it back to you: if you "
+"lose it, you start over."
+msgstr ""
+
 msgid "Join"
 msgstr ""
 
@@ -165,6 +234,9 @@ msgid "Join as a supervisor"
 msgstr ""
 
 msgid "Just something to read"
+msgstr ""
+
+msgid "Keep this file to yourself: anyone who has this code can come in as you."
 msgstr ""
 
 msgid "Loading…"
@@ -191,8 +263,14 @@ msgstr ""
 msgid "Misconfigured quiz, please report it"
 msgstr ""
 
+msgid "my-workshop-code.pdf"
+msgstr ""
+
 #, python-format
 msgid "Next part: %(title)s"
+msgstr ""
+
+msgid "No code was found in this file."
 msgstr ""
 
 msgid "No longer part of the subject"
@@ -240,6 +318,14 @@ msgid "Open the toolbox in a new tab"
 msgstr ""
 
 msgid "Optional — it does not count towards your progress"
+msgstr ""
+
+msgid "or"
+msgstr ""
+
+msgid ""
+"Or take a picture of this screen with your phone: scanning the QR code "
+"brings you back here."
 msgstr ""
 
 msgid "Part"
@@ -330,6 +416,9 @@ msgstr ""
 msgid "Skip validation code"
 msgstr ""
 
+msgid "Something went wrong. Try again."
+msgstr ""
+
 msgid "Staff area: sign in with your username or email."
 msgstr ""
 
@@ -391,15 +480,30 @@ msgstr ""
 msgid "The workshop is not open yet"
 msgstr ""
 
+msgid "This code is not valid. Check it or ask your supervisor for the right one."
+msgstr ""
+
 msgid ""
 "This creates a local supervisor account, not a Jump one. To sign in again "
 "later, go to %(link)s."
+msgstr ""
+
+msgid "This event has not started yet. Come back when it starts."
+msgstr ""
+
+msgid "This event has not started yet. Your code will work from {when}."
 msgstr ""
 
 msgid "This link is no longer valid"
 msgstr ""
 
 msgid "This page is out of date. Reload it, then try again."
+msgstr ""
+
+msgid "This page needs a secure connection (https). Tell your supervisor."
+msgstr ""
+
+msgid "This page needs JavaScript."
 msgstr ""
 
 msgid "This step is just something to read"
@@ -416,6 +520,11 @@ msgid ""
 " can close this one."
 msgstr ""
 
+msgid ""
+"To come back: open the address above, then drop this file on the page or "
+"type the code."
+msgstr ""
+
 msgid "Toggle navigation"
 msgstr ""
 
@@ -423,6 +532,18 @@ msgid "Toggle theme"
 msgstr ""
 
 msgid "Token"
+msgstr ""
+
+msgid "took part in the workshop “%(title)s” at Epitech %(campus)s,"
+msgstr ""
+
+msgid "took part in the workshop “%(title)s” on %(date)s at Epitech %(campus)s,"
+msgstr ""
+
+msgid "took part in the workshop “%(title)s” on %(date)s,"
+msgstr ""
+
+msgid "took part in the workshop “%(title)s”,"
 msgstr ""
 
 msgid "Toolbox"
@@ -482,6 +603,9 @@ msgstr ""
 msgid "Your browser blocked the new tab, so it opened beside the subject instead."
 msgstr ""
 
+msgid "Your code"
+msgstr ""
+
 msgid "Your email address is not from an allowed domain"
 msgstr ""
 
@@ -507,6 +631,9 @@ msgid "to unlock this step."
 msgstr ""
 
 msgid "your path"
+msgstr ""
+
+msgid "Your personal code"
 msgstr ""
 
 msgid "your pick"

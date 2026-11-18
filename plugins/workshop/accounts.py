@@ -1,4 +1,4 @@
-"""Deleting an account outright: the one way this plugin does it.
+"""Deleting an account outright, and banning a cohort: one way each.
 
 The way core's own DELETE /api/v1/users does it (api/v1/users.py
 `UserPublic.delete`): every table that names the user, then the user. What
@@ -10,6 +10,10 @@ Two callers, each with its own guard in front of this: staff.py deletes a
 supervisor and nobody else, and jumpqueue.py deletes the accounts of talents
 Jump has erased and nobody else (PLAN.md §50). Neither guard belongs here,
 which is why there is one function and not two copies of six deletes.
+
+Banning is the same story with two callers of its own: the external door's
+page and the registration codes' (external.py, codes.py). Here the guard is
+shared, so it is in the function.
 """
 from CTFd.cache import clear_challenges, clear_standings, clear_user_session
 from CTFd.models import (Awards, Notifications, Solves, Submissions, Tracking,
@@ -38,3 +42,30 @@ def delete_accounts(user_ids):
     clear_standings()
     clear_challenges()
     return deleted
+
+
+def ban_accounts(users, banned):
+    """Ban, or un-ban, these accounts. Returns how many were changed.
+
+    **Ban and not delete.** Shutting a cohort out is a decision made in a
+    hurry, and deleting takes their solves and their history with them,
+    irreversibly. Banning stops them signing in and is undone from the same
+    page. Deleting one account stays where it already is, under
+    `/admin/users`, where the confirmation names the account.
+
+    An account that has since become an admin or a supervisor is skipped: a
+    bulk action aimed at participants must not be able to lock out the room's
+    staff.
+    """
+    # Imported here: staff.py imports this module for `delete_accounts`.
+    from .staff import WorkshopStaff
+
+    staff = {row.user_id for row in db.session.query(WorkshopStaff.user_id).all()}
+    users = [u for u in users if u.type != "admin" and u.id not in staff]
+    for user in users:
+        user.banned = banned
+    db.session.commit()
+    for user in users:
+        clear_user_session(user_id=user.id)
+    clear_standings()
+    return len(users)

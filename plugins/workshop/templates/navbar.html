@@ -120,8 +120,8 @@
     </a>
 
     {# Nothing in the nav is reachable before signing in — /workshop is
-       `@authed_only`, every Page the sync writes is `auth_required`, and these
-       instances are all registration-code gated — so an anonymous visitor
+       `@authed_only`, every Page the sync writes is `auth_required`, and
+       nobody comes in without a registration code (PLAN.md §62) — so an anonymous visitor
        would get a row of links that all bounce off the login wall. jump's own login screen carries
        no nav either, so hiding it is both the correct and the faithful call. #}
     {% if authed() %}
@@ -268,11 +268,16 @@
                 </a>
               </li>
             {% endif %}
-            <li>
-              <a class="dropdown-item" href="{{ url_for('views.settings') }}">
-                <i class="fas fa-cogs"></i>{% trans %}Settings{% endtrans %}
-              </a>
-            </li>
+            {# Not for an account made at the token door: the settings page
+               is a name box and a password box, and that account has neither
+               on purpose (tokendoor.py, PLAN.md §61.6). #}
+            {% if not token_account() %}
+              <li>
+                <a class="dropdown-item" href="{{ url_for('views.settings') }}">
+                  <i class="fas fa-cogs"></i>{% trans %}Settings{% endtrans %}
+                </a>
+              </li>
+            {% endif %}
             {% if is_admin() %}
               <li><hr class="dropdown-divider"></li>
               <li>

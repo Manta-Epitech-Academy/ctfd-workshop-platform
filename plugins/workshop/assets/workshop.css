@@ -1147,6 +1147,27 @@ body.ws-has-pane { overflow-x: hidden; }
   display: inline-flex; align-items: center; gap: 0.5rem;
 }
 
+/* The certificate button (templates/workshop_certificate.html). On the band
+   too, and quiet: an outline in the band's own white, so it never competes
+   with the green button above, which is the one that starts the work. */
+.ws-cert { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; flex: 1 1 100%; }
+.ws-cert[hidden] { display: none; }
+.ws-cert-btn.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  --bs-btn-color: #ffffff;
+  --bs-btn-border-color: rgb(255 255 255 / 0.55);
+  --bs-btn-hover-color: #ffffff;
+  --bs-btn-hover-bg: rgb(255 255 255 / 0.14);
+  --bs-btn-hover-border-color: #ffffff;
+  --bs-btn-active-color: #ffffff;
+  --bs-btn-active-bg: rgb(255 255 255 / 0.22);
+  --bs-btn-active-border-color: #ffffff;
+  --bs-btn-disabled-color: rgb(255 255 255 / 0.6);
+  --bs-btn-disabled-border-color: rgb(255 255 255 / 0.3);
+  font-weight: 600;
+}
+.ws-cert-error { color: #ffffff; font-size: 0.9rem; }
+
 .ws-runtime-handle {
   position: fixed; right: 0; bottom: 2.5rem; z-index: 1025;
   display: inline-flex; align-items: center; gap: 0.45rem;

@@ -5,8 +5,7 @@ by design (§32): staff are the people who have to answer "where is everyone".
 On an instance that serves several events, "everyone" is every Coding Club
 that ever ran the subject, and the supervisor standing in today's room wants
 today's.
-So the pages take a scope: a campus, then optionally one of its sessions, as
-Jump named them in the tickets (jump.py `JumpSession`).
+So the pages take a scope: a campus, then optionally one of its sessions.
 
 **One population, read by every page.** `participant_criteria(scope)` is the
 filter each of the four applies to `Users`: participants only (no admin, no
@@ -14,12 +13,12 @@ hidden account, the §32 rule) and, when a scope is set, only accounts filed
 under it. `per_challenge` is the per-step count the three reports share. The
 pages cannot disagree about who is in the room because none of them decides.
 
-**A campus is a Jump's campus.** One instance can serve a development and a
-production Jump, whose ids are unrelated (jump.py `JumpSession`), so a campus
-is named by its key id and its campus id together, `<kid>/<campus>` in the
-query string: two Jumps that both call a campus `1` are two campuses here. A
-key id is `[A-Za-z0-9_-]` (jump.py `KID_RE`), so the first `/` is the
-separator whatever the campus id holds.
+**Campuses and sessions come from the cohort providers** (cohorts.py, §59),
+and this module names none of them. A campus is a `ref`, the provider's own
+text, opaque here and unique across providers; Jump's is `<kid>/<campus>`
+(jump.py `JumpCohorts`), because one instance can serve a development and a
+production Jump whose ids are unrelated. A session is an id that means
+something only inside its campus.
 
 **Remembered, not repeated.** A choice made with `?campus=&session=` is kept
 in the Flask session, so the supervisor picks their campus once and every
@@ -27,17 +26,15 @@ page, link and CSV export follows it; `?campus=` with no value goes back to
 the whole instance.
 
 **A scope names a room somebody is in, or it falls back.** The rooms that
-exist, for the pages as for the picker, are the rooms somebody is filed in
-(`_filed`): a link follows the session its latest ticket names
-(`jump.file_session`), so a room its talents have left for the next content
-keeps its row and empties out. A stored scope that names no such room (one
-emptied since it was picked, a session of another campus, an id that never
-existed) falls back to the campus, and a campus with none to the whole
-instance. Filtering on it instead would show an empty room under a picker that
-cannot name it.
+exist, for the pages as for the picker, are the rooms a provider lists, and a
+provider lists only rooms somebody is filed in. A stored scope that names no
+such room (one emptied since it was picked, a session of another campus, an
+id that never existed) falls back to the campus, and a campus with none to
+the whole instance. Filtering on it instead would show an empty room under a
+picker that cannot name it.
 
-An account with no session (anyone who did not come in through Jump, or a Jump
-account that has not entered since tickets started naming one) is in no
+An account no provider has filed (an admin's hand-made account, a Jump
+account that has not entered since tickets started naming a session) is in no
 campus, so it is counted only when no scope is set.
 """
 from dataclasses import dataclass
@@ -47,78 +44,77 @@ from flask import request, session
 
 from CTFd.models import Users, db
 
-from .jump import JumpLink, JumpSession
+from .cohorts import providers
 
 SESSION_KEY = "ws_staff_scope"
 
 
 @dataclass(frozen=True)
 class Scope:
-    kid: Optional[str] = None
+    # The campus, as the ref its provider handed out and the picker submits,
+    # or None for the whole instance.
     campus: Optional[str] = None
     session_id: Optional[int] = None
-
-    @property
-    def campus_ref(self):
-        """`<kid>/<campus>`, what the picker submits, or None for no campus."""
-        return f"{self.kid}/{self.campus}" if self.campus is not None else None
 
 
 WHOLE_INSTANCE = Scope()
 
 
-def _filed():
-    """The ids of the rooms somebody is filed in, as a subquery."""
-    return db.session.query(JumpLink.session_id).filter(
-        JumpLink.session_id.isnot(None))
+def _owner(ref):
+    """The provider that lists this campus, or None."""
+    if not ref:
+        return None
+    for provider in providers():
+        if any(ref == known for known, _label in provider.groups()):
+            return provider
+    return None
 
 
-def _rooms(kid, campus):
-    return JumpSession.query.filter(JumpSession.jump_kid == kid,
-                                    JumpSession.campus_key == campus,
-                                    JumpSession.id.in_(_filed()))
-
-
-def _checked(kid, campus, session_id):
+def _checked(ref, session_id):
     """The scope these values name, or the nearest one somebody is in."""
-    if not kid or not campus or not _rooms(kid, campus).first():
+    owner = _owner(ref)
+    if owner is None:
         return WHOLE_INSTANCE
-    if session_id is not None and not _rooms(kid, campus).filter_by(
-            id=session_id).first():
+    if session_id is not None and not any(
+            session_id == known for known, _label in owner.rooms(ref)):
         session_id = None
-    return Scope(kid, campus, session_id)
+    return Scope(ref, session_id)
 
 
-def _parse_ref(ref):
-    """`(kid, campus)` from `<kid>/<campus>`, or `(None, None)`."""
-    kid, sep, campus = (ref or "").strip().partition("/")
-    return (kid, campus) if sep and kid and campus else (None, None)
+def _stored():
+    """`(ref, session_id)` as the Flask session holds it.
+
+    A session written before §59 holds `[kid, campus, session_id]`, the two
+    halves of Jump's ref apart. It is read as what it meant, so a supervisor
+    signed in across the upgrade keeps their room.
+    """
+    stored = session.get(SESSION_KEY) or [None, None]
+    if len(stored) == 3:
+        kid, campus, session_id = stored
+        return (f"{kid}/{campus}" if kid and campus else None), session_id
+    if len(stored) == 2:
+        return stored[0], stored[1]
+    return None, None
 
 
 def current_scope():
     """The scope this request is about, recording a new choice if it makes one."""
     args = request.args
     if "campus" in args:
-        scope = _checked(*_parse_ref(args.get("campus")),
+        scope = _checked((args.get("campus") or "").strip(),
                          args.get("session", type=int))
-        session[SESSION_KEY] = [scope.kid, scope.campus, scope.session_id]
+        session[SESSION_KEY] = [scope.campus, scope.session_id]
         return scope
-    stored = session.get(SESSION_KEY) or [None, None, None]
-    return _checked(*stored)
+    return _checked(*_stored())
 
 
 def participant_criteria(scope):
     """The `Users` filter every supervision page applies. See the docstring."""
     criteria = [Users.type != "admin", Users.hidden == False]  # noqa: E712
-    if scope.campus is not None:
-        rooms = db.session.query(JumpSession.id).filter(
-            JumpSession.jump_kid == scope.kid,
-            JumpSession.campus_key == scope.campus)
-        if scope.session_id is not None:
-            rooms = rooms.filter(JumpSession.id == scope.session_id)
-        filed = db.session.query(JumpLink.user_id).filter(
-            JumpLink.session_id.in_(rooms))
-        criteria.append(Users.id.in_(filed))
+    owner = _owner(scope.campus)
+    if owner is not None:
+        criteria.append(Users.id.in_(
+            owner.members(scope.campus, scope.session_id)))
     return criteria
 
 
@@ -139,31 +135,21 @@ def per_challenge(model, scope):
 def picker():
     """What `workshop_scope.html` draws: the choices, and which one is current.
 
-    Campuses are listed by name and sessions newest first, which is the order
-    a supervisor looks for today's room in. Nothing to draw (an instance no
-    ticket has named a session on) is an empty list, and the template then
-    draws nothing at all.
-
-    A campus is labelled with its key id only on an instance that has heard
-    from more than one Jump, where two campuses can share a name. One Jump is
-    the normal case, and its picker reads as it always did.
+    Campuses are listed by name, and a campus's sessions in the order its
+    provider gives them, newest first: the order a supervisor looks for
+    today's room in. Nothing to draw (an instance where no provider has filed
+    anybody) is an empty list, and the template then draws nothing at all.
 
     Only rooms somebody is filed in, the same rooms `_checked` accepts, so
     the current scope is always one of the choices drawn.
     """
     scope = current_scope()
-    rows = (JumpSession.query.filter(JumpSession.id.in_(_filed()))
-            .order_by(JumpSession.created.desc()).all())
-    several = len({row.jump_kid for row in rows}) > 1
-    campuses = {}
-    for row in rows:
-        label = f"{row.campus_label} ({row.jump_kid})" if several else row.campus_label
-        campuses.setdefault(f"{row.jump_kid}/{row.campus_key}", label)
+    campuses = [group for provider in providers() for group in provider.groups()]
+    owner = _owner(scope.campus)
     return {
         "scope": scope,
-        "campuses": sorted(campuses.items(), key=lambda kv: kv[1].lower()),
-        "sessions": [(row.id, row.label) for row in rows
-                     if row.jump_kid == scope.kid and row.campus_key == scope.campus],
+        "campuses": sorted(campuses, key=lambda kv: kv[1].lower()),
+        "sessions": owner.rooms(scope.campus) if owner is not None else [],
     }
 
 

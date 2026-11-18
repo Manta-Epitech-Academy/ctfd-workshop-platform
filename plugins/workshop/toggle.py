@@ -124,6 +124,6 @@ def guard_routes(app):
 def load_toggle(app):
     app.register_blueprint(workshop_toggle)
     # Templates ask; the navbar drops the workshop entries and shows Challenges
-    # to everyone, and login.html loses the Jump button through `jump_enabled`.
+    # to everyone, and login.html loses its doors through `open_doors` (doors.py).
     app.jinja_env.globals["workshop_enabled"] = workshop_enabled
     app.admin_plugin_menu_bar = _MenuWhenEnabled(app.admin_plugin_menu_bar)

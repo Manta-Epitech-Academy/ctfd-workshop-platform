@@ -290,7 +290,7 @@ def join():
         if user is not None:
             login_user(user)
             log("registrations",
-                format="[{date}] {ip} - {name} joined as a supervisor with {email}",
+                format="[{date}] {name} joined as a supervisor with {email}",
                 name=user.name, email=user.email)
             # `joined` asks the statistics page to say, once, where this
             # account signs in again: the join page is read before the

@@ -45,6 +45,7 @@ from .scope import load_scope
 from .stats import load_stats
 from .submissions import load_submissions
 from .quiz import QuizChallenge
+from .privacy import load_privacy
 
 
 def _load_translations(app):
@@ -77,6 +78,10 @@ def load(app):
     # upgrade_plugin below). Registered first so every blueprint below renders
     # through it.
     _load_translations(app)
+    # No address in a row or a log line, no submitted text in a log line
+    # (PLAN.md §65). Before the migrations and before any blueprint, so there
+    # is no request, and no row, that it does not cover.
+    load_privacy(app)
     # Creates the plugin's missing tables (quiz, workspace, the Jump tables,
     # the registration codes). Idempotent — existing tables are untouched —
     # and kept even though migrations now exist, because the quiz and

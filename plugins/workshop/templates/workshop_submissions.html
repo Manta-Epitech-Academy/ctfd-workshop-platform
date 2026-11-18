@@ -11,7 +11,13 @@
   <div class="container">
     <h1>{% if kind %}{{ kind | title }} submissions{% else %}Submissions{% endif %}</h1>
     <p class="lead mb-0">
-      Everything participants typed at a step, newest first.
+      What participants answered at a step, newest first.
+    </p>
+    <p class="mb-0 mt-2" id="ws-sb-distance-note">
+      <small>A wrong typed answer is not kept. <code>~3</code> says how far it
+      was from the right one: three characters to add, remove or change.
+      <code>~?</code> means there was nothing to compare it with. A chosen
+      option is shown as chosen.</small>
     </p>
   </div>
 </div>

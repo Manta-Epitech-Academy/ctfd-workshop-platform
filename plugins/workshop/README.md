@@ -156,6 +156,30 @@ What is left, in `external.py`:
 `scripts/audience_check.py <base-url> <admin-pass>` covers the wall and the retirement, and puts
 the instance back.
 
+## What is not kept: addresses and wrong answers (PLAN.md §65)
+
+`privacy.py`, loaded first. Nothing of CTFd is edited; three things are hooked:
+
+- **No IP address in a row.** A SQLAlchemy `before_insert` listener on `Submissions` and
+  `Tracking` (and their subclasses) blanks `ip`, whatever wrote the row. Migration
+  `e2a94b6d1c73` blanks the ones already stored.
+- **No IP address in a log line, no submitted text either.** `get_ip` is rebound in
+  `CTFd.utils.logging`, so `{ip}` prints `-`; a filter on the `submissions` logger replaces the
+  submitted text by `-`.
+- **One tracking row per account.** `get_ip` is rebound in `CTFd.utils.initialization` too,
+  otherwise core's tracker would not find its row and would insert one per request.
+
+`CTFd.utils.user.get_ip` is untouched: the rate limits use it for a short-lived cache key.
+Gunicorn's access log and the proxy's are the deployment's, not the plugin's.
+
+A wrong answer to a quiz step is stored without its text (`quiz.py`, `fail()` and
+`ratelimited()`): a typed answer becomes `~N`, its Levenshtein distance to the nearest accepted
+answer, compared the way the answer is matched; a choice stays a choice; `~?` when there is
+nothing to compare with. The staff's submissions page explains the notation.
+
+`scripts/privacy_check.py <base-url> <admin-pass> [log-folder]` covers both and puts the
+instance back.
+
 ## Several audiences on one instance (PLAN.md §43, §50)
 
 A participant who came through Jump and one who came through another door are in the same
@@ -470,6 +494,11 @@ contract shared with the Jump repository; changing either half means changing bo
     door) and on core's footer being `body > .footer`, which `epitech-theme.css` hides on the pages
     built on `workshop_login_layout.html` — this one and the supervisor's join page — whose foot
     carries the credit instead.
+- **`privacy.py` rebinds one name in two core modules** (PLAN.md §65): `get_ip` in
+  `CTFd.utils.initialization` (the `before_request` tracker) and in `CTFd.utils.logging`
+  (`log()`). Both must still look the name up at module level. Its log filter expects core's
+  line `submitted <text> on <id> with kpm`. `scripts/privacy_check.py` fails when any of the
+  three moved: run it after a CTFd upgrade.
 - **The runtime pop-out renders its own page, not `base.html`** (`templates/workshop_runtime.html`,
   PLAN.md §30). It carries one frame and one bar, so inheriting the shell only to hide a header, a
   hero and a footer would be more markup rather than less. It therefore restates three things

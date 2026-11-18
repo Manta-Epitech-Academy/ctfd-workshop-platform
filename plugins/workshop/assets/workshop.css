@@ -315,6 +315,10 @@
   display: block; width: 100%; height: auto;
   aspect-ratio: 16 / 10; object-fit: cover;
 }
+/* A PPM is not a format a browser draws: assets/ppm.js paints it and swaps the
+   src. Until then the `<img>` would be the broken-image icon, so it is kept
+   out of sight; the swap changes the src and this stops matching. */
+img[src$=".ppm"] { visibility: hidden; }
 /* Only one of the two frames is ever shown. A GIF has no pause, so honouring a
    reduced-motion preference means showing a different file, not stopping this
    one — and a `<picture>` cannot switch on that media feature, so the swap is

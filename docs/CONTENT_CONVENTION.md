@@ -676,6 +676,12 @@ exception and worth a comment when used.
 The linter fails on a referenced image that does not exist, so a typo or a file that was never
 committed is caught in CI rather than discovered as a broken image mid-workshop.
 
+**A PPM image is shown as it is.** No browser draws a PPM, so the page paints it itself
+(`plugins/workshop/assets/ppm.js`, P3 and P6, 8 bits per channel). The file the instance serves
+is still your PPM, byte for byte: nothing is converted at import. Use it when the bytes are the
+point, as in a CTF subject whose image holds a message a participant reads in a text editor.
+A text PPM is large (about 1.4 MB for 600 x 315), so it is not a format for ordinary pictures.
+
 > Known debt: `content/pypong` hotlinks three images back at `pypong_new` on `main`, inherited
 > from the conversion. It works, and it is exactly the pattern this section argues against —
 > vendoring them into `content/pypong/img/` is a small cleanup nobody has done yet.

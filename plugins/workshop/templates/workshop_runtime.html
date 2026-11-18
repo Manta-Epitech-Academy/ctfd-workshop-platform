@@ -75,7 +75,8 @@
         with the subject page showing the same part and with no other. #}
      data-runtime-doc="{{ doc.slug }}"
      data-label-close="{% trans %}This tab cannot close itself. The subject is open beside it again, so you can close this one.{% endtrans %}"
-     data-label-stale="{% trans %}Your work is no longer being saved. Reload the page.{% endtrans %}">
+     data-label-stale="{% trans %}Your work is no longer being saved. Reload the page.{% endtrans %}"
+         data-label-unsaved="{% trans %}Your work is not being saved. Reload the page and enter your code to save it.{% endtrans %}">
   <div class="ws-runtime-bar">
     {# Somebody who reloads this tab, or finds it the next morning, has to be
        able to get back to the subject without guessing a URL. #}
@@ -97,10 +98,13 @@
       <span>{% trans %}Side by side{% endtrans %}</span>
     </button>
   </div>
-  <div class="ws-runtime-body"></div>
+  <div class="ws-runtime-body">
+    {% include "workshop_runtime_lock.html" %}
+  </div>
   <p class="ws-runtime-note" role="status" aria-live="polite" hidden></p>
 </div>
 
+<script defer src="/plugins/workshop/assets/token.js"></script>
 <script defer src="/plugins/workshop/assets/runtime.js"></script>
 </body>
 </html>

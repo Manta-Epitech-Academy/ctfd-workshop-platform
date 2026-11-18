@@ -271,6 +271,7 @@
          {# Said when the server refuses a save: this page's session has moved
             on, and only a reload gets saving going again. #}
          data-label-stale="{% trans %}Your work is no longer being saved. Reload the page.{% endtrans %}"
+         data-label-unsaved="{% trans %}Your work is not being saved. Reload the page and enter your code to save it.{% endtrans %}"
          data-runtime-id="{{ runtime.id }}"
          data-runtime-src="{{ runtime.src }}"
          data-runtime-adapter="{{ runtime.adapter }}"
@@ -304,7 +305,9 @@
         <i class="fas fa-xmark" aria-hidden="true"></i>
       </button>
     </div>
-    <div class="ws-runtime-body"></div>
+    <div class="ws-runtime-body">
+      {% include "workshop_runtime_lock.html" %}
+    </div>
     <p class="ws-runtime-note" role="status" aria-live="polite" hidden></p>
   </aside>
 {% endif %}
@@ -338,5 +341,6 @@
   <script defer src="/plugins/workshop/assets/vendor/lolight.min.js"></script>
   <script defer src="/plugins/workshop/assets/celebrate.js"></script>
   <script defer src="/plugins/workshop/assets/workshop_page.js"></script>
-  {% if runtime %}<script defer src="/plugins/workshop/assets/runtime.js"></script>{% endif %}
+  {% if runtime %}<script defer src="/plugins/workshop/assets/token.js"></script>
+  <script defer src="/plugins/workshop/assets/runtime.js"></script>{% endif %}
 {% endblock %}

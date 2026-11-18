@@ -13,8 +13,23 @@ starts from nothing. The client-side rules that decide which copy wins live in
 
 Endpoints (both `authed_only`, both scoped to the session user):
 
-    GET  /api/v1/workshop/workspace   -> {runtime, keys, updated}
-    POST /api/v1/workshop/workspace   -> upsert, returns {updated}
+    GET  /api/v1/workshop/workspace   -> {runtime, keys, sealed, seal, updated}
+    POST /api/v1/workshop/workspace   -> upsert, returns the same
+
+**An account made at the token door never sends its work in clear (PLAN.md
+§68).** Its browser encrypts the keys with a key derived from the token, which
+the server has never seen, and sends one opaque string: `sealed`. That string
+is all this module stores for such an account. It cannot read it, so it cannot
+count its keys or check their type any more: the only thing left to check is
+its size. `seal` in the answer tells the browser that this account seals, and
+whose key it needs (the first characters of the account's stored sign-in
+digest, the same ones assets/token.js derives from the token).
+
+The two shapes share the `data` column: an object is work in clear, a string
+is sealed work. An account with no token (staff, an account from Jump) has no
+key to seal with and keeps the clear shape, as before. A token account is
+refused the clear shape, so nothing readable is written for it even by a page
+that would try.
 
 **The user id comes from the session, never from the body.** A body-supplied id
 would turn this into "read another student's work in progress".
@@ -29,6 +44,7 @@ from CTFd.models import db
 from CTFd.utils.decorators import authed_only, ratelimit
 from CTFd.utils.user import get_current_user
 
+from .codes import TokenAccount
 from .runtime import declared_runtime
 
 # Caps. A TIC-80 cart with sprite and map data is tens of KB, so this is
@@ -40,7 +56,12 @@ MAX_BYTES = 512 * 1024
 # The largest body we are willing to pull off the wire: the keys plus the JSON
 # envelope around them. The check has to happen *before* the parse (see write),
 # so it is a bound on bytes read, not on the decoded object.
-MAX_BODY = MAX_BYTES + 8 * 1024
+# The same work once sealed: base64 of the encrypted keys, plus the wrapped
+# data key and the framing around them.
+MAX_SEALED = MAX_BYTES * 4 // 3 + 1024
+# How many characters of the sign-in digest name a key's owner (token.js).
+OWNER_CHARS = 16
+MAX_BODY = MAX_SEALED + 8 * 1024
 
 
 class WorkspaceState(db.Model):
@@ -71,12 +92,27 @@ def _runtime_id():
     return (rt or {}).get("id")
 
 
-def _payload(row):
+def _seal(user_id):
+    """Whose key seals this account's work, or None when it does not seal."""
+    link = TokenAccount.query.filter_by(user_id=user_id).first()
+    return link.signin_hash[:OWNER_CHARS] if link else None
+
+
+def _payload(row, seal):
+    data = row.data if row else None
     return {
         "runtime": row.runtime_id if row else _runtime_id(),
-        "keys": (row.data if row else None) or {},
+        # Work in clear. Also what a token account saved before its work was
+        # sealed: its browser reads it once and seals it at the next save.
+        "keys": data if isinstance(data, dict) else {},
+        "sealed": data if isinstance(data, str) else None,
+        "seal": seal,
         "updated": row.updated.isoformat() + "Z" if row and row.updated else None,
     }
+
+
+def _refuse(status, field, reason):
+    return {"success": False, "errors": {field: [reason]}}, status
 
 
 @workshop_workspace.route("/api/v1/workshop/workspace", methods=["GET"])
@@ -88,7 +124,36 @@ def read():
     if runtime_id:
         row = WorkspaceState.query.filter_by(
             user_id=user.id, runtime_id=runtime_id).first()
-    return {"success": True, "data": _payload(row)}
+    return {"success": True, "data": _payload(row, _seal(user.id))}
+
+
+def _clear(body):
+    """The keys of a body in clear, or a refusal."""
+    keys = body.get("keys")
+    if "sealed" in body:
+        return None, _refuse(400, "sealed", "this account does not seal its work")
+    if not isinstance(keys, dict) or len(keys) > MAX_KEYS:
+        return None, _refuse(400, "keys", "expected a small object")
+    if not all(isinstance(k, str) and isinstance(v, str) for k, v in keys.items()):
+        return None, _refuse(400, "keys", "expected strings")
+    if len(json.dumps(keys)) > MAX_BYTES:
+        return None, _refuse(413, "keys", "workspace too large to save")
+    return keys, None
+
+
+def _sealed(body):
+    """The opaque string of a sealed body, or a refusal.
+
+    Its size is the only thing checked: what is in it is the browser's.
+    """
+    sealed = body.get("sealed")
+    if "keys" in body:
+        return None, _refuse(400, "keys", "this account's work is sent sealed")
+    if not isinstance(sealed, str) or not sealed:
+        return None, _refuse(400, "sealed", "expected a string")
+    if len(sealed) > MAX_SEALED:
+        return None, _refuse(413, "sealed", "workspace too large to save")
+    return sealed, None
 
 
 @workshop_workspace.route("/api/v1/workshop/workspace", methods=["POST"])
@@ -102,7 +167,7 @@ def write():
     user = get_current_user()
     runtime_id = _runtime_id()
     if not runtime_id:
-        return {"success": False, "errors": {"": ["no runtime declared"]}}, 400
+        return _refuse(400, "", "no runtime declared")
 
     # Read the body bounded instead of through `request.get_json()`, which
     # materializes all of it first: checking the size after the parse means an
@@ -111,33 +176,28 @@ def write():
     # covers a body that understates its Content-Length or sends none at all.
     raw = request.stream.read(MAX_BODY + 1)
     if len(raw) > MAX_BODY:
-        return {"success": False,
-                "errors": {"keys": ["workspace too large to save"]}}, 413
+        return _refuse(413, "keys", "workspace too large to save")
     try:
         body = json.loads(raw or b"{}")
     except ValueError:
         body = {}
     if not isinstance(body, dict):
         body = {}
-    keys = body.get("keys")
     # Only the instance's own runtime, so a stray client cannot accumulate rows
     # for runtimes this instance has never heard of.
     if body.get("runtime") != runtime_id:
-        return {"success": False, "errors": {"runtime": ["unknown runtime"]}}, 400
-    if not isinstance(keys, dict) or len(keys) > MAX_KEYS:
-        return {"success": False, "errors": {"keys": ["expected a small object"]}}, 400
-    if not all(isinstance(k, str) and isinstance(v, str) for k, v in keys.items()):
-        return {"success": False, "errors": {"keys": ["expected strings"]}}, 400
-    if len(json.dumps(keys)) > MAX_BYTES:
-        return {"success": False,
-                "errors": {"keys": ["workspace too large to save"]}}, 413
+        return _refuse(400, "runtime", "unknown runtime")
+    seal = _seal(user.id)
+    data, refusal = _sealed(body) if seal else _clear(body)
+    if refusal:
+        return refusal
 
     row = WorkspaceState.query.filter_by(
         user_id=user.id, runtime_id=runtime_id).first()
     if row is None:
         row = WorkspaceState(user_id=user.id, runtime_id=runtime_id)
         db.session.add(row)
-    row.data = keys
+    row.data = data
     row.updated = datetime.utcnow()
     try:
         db.session.commit()
@@ -147,7 +207,7 @@ def write():
         db.session.rollback()
         row = WorkspaceState.query.filter_by(
             user_id=user.id, runtime_id=runtime_id).first()
-    return {"success": True, "data": _payload(row)}
+    return {"success": True, "data": _payload(row, seal)}
 
 
 def load_workspace(app):

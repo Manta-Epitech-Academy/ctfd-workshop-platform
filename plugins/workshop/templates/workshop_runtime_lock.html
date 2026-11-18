@@ -1,0 +1,22 @@
+{# What the runtime shows instead of booting when it cannot open the saved
+   work (PLAN.md §68): the work is encrypted with a key derived from the
+   personal code, the browser keeps that key, and this browser has lost it
+   (its site data was cleared while the session stayed). assets/runtime.js
+   shows this, checks what is typed against the account without sending it
+   anywhere, and then boots the runtime.
+
+   Included by both pages that hold a runtime, inside `.ws-runtime-body`.
+   The second button is the way out for somebody whose browser cannot keep a
+   key at all: the runtime opens, and says that nothing is saved. #}
+<form class="ws-runtime-lock" hidden novalidate
+      data-label-wrong="{% trans %}This is not your personal code. Check it and try again.{% endtrans %}">
+  <i class="fas fa-lock ws-runtime-lock-glyph" aria-hidden="true"></i>
+  <label class="ws-runtime-lock-title" for="ws-runtime-lock-code">{% trans %}Enter your code to get your work back.{% endtrans %}</label>
+  <p class="ws-runtime-lock-why">{% trans %}Your work is saved encrypted. Only your personal code can open it.{% endtrans %}</p>
+  <input class="form-control ws-runtime-lock-code" id="ws-runtime-lock-code" type="text"
+         autocomplete="off" autocapitalize="characters" spellcheck="false"
+         aria-describedby="ws-runtime-lock-error">
+  <p class="ws-runtime-lock-error" id="ws-runtime-lock-error" role="alert" hidden></p>
+  <button type="submit" class="btn btn-primary">{% trans %}Get my work back{% endtrans %}</button>
+  <button type="button" class="btn btn-link ws-runtime-lock-skip">{% trans %}Continue without saving{% endtrans %}</button>
+</form>

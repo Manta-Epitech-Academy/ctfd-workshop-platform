@@ -60,7 +60,9 @@ def reset():
     # from its own storage, and has no use for the code it is about to erase.
     runtime_keys = set()
     for row in WorkspaceState.query.filter_by(user_id=user.id).all():
-        runtime_keys.update((row.data or {}).keys())
+        # Sealed work (workspace.py) names no key: the browser knows its own.
+        if isinstance(row.data, dict):
+            runtime_keys.update(row.data.keys())
         db.session.delete(row)
         removed["runtime"] = removed.get("runtime", 0) + 1
     removed.setdefault("runtime", 0)

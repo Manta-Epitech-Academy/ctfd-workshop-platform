@@ -7,12 +7,13 @@ and no password, so there is nothing else to sign in with, and nobody can
 give a lost one back (§61).
 
 **The server never sees the token.** The browser makes it
-(assets/door.js) and derives two values from it with HKDF:
+(assets/door.js, with the arithmetic in assets/token.js) and derives two
+values from it with HKDF:
 
   * a **sign-in value**, which it sends. This module stores only its SHA-256
     (`TokenAccount.signin_hash`), so a copy of the database signs nobody in;
-  * an **encryption key**, which never leaves the browser. Nothing uses it
-    yet: it is what saved code will be encrypted with.
+  * an **encryption key**, which never leaves the browser. Saved code is
+    encrypted with it (workspace.py, PLAN.md §68).
 
 So this module is small. Making the account is codes.py's
 (`/api/v1/workshop/door/register`), because an account is made by a code.

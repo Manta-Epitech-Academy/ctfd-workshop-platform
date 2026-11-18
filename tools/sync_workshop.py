@@ -50,7 +50,8 @@ from pathlib import Path
 import yaml
 
 sys.path.insert(0, str(Path(__file__).parent))
-from sync_subject import (CTFdAdmin, entry_document, hide_strangers, sync,  # noqa: E402
+from sync_subject import (CTFdAdmin, current_content, entry_document,  # noqa: E402
+                          hide_strangers, record_content, sync,  # noqa: E402
                           upsert_page, write_instance_config)
 from ws_parser import lint_all  # noqa: E402
 
@@ -291,11 +292,15 @@ def sync_workshop(workshop_dir, url, admin_user, admin_pass, codes_dir=None, *,
         print(f"runtime: {runtime['id']}@{runtime['version']} "
               f"({len(runtime_params)} subject-specific parameter sets)")
 
+    content = str(workshop["slug"]).strip()
+    previous = current_content(ctfd)
     write_instance_config(ctfd, documents, optional_ids, free_ids, final_step,
                           subjects_cfg=subjects_cfg, intro_step=intro_step,
-                          content=str(workshop["slug"]).strip())
+                          content=content)
     # Subjects a previous source held and this manifest does not.
     hide_strangers(ctfd, set(subjects_cfg))
+    # Each step says which content it belongs to, the hidden ones included.
+    record_content(ctfd, content, previous)
     print(f"workshop done: {len(subjects)} subjects, {len(documents)} parts, "
           f"{len(optional_ids)} optional and {len(free_ids)} free steps, "
           f"closing on challenge {final_step}")

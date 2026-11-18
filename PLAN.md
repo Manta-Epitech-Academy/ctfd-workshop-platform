@@ -5698,7 +5698,7 @@ For the quiz type, `fail()` and `ratelimited()` are overridden to store, in `pro
 A right answer is still stored as given: it is the answer sheet's content, not the
 participant's. Old rows are untouched (out of scope in #80).
 
-**Still stored until §66 (#81):** the comment of a rating step, in core's `ratings` table and
+**Still stored until §67 (#81):** the comment of a rating step, in core's `ratings` table and
 in the `provided` of its solve.
 
 ### 65.3 Rejected
@@ -5716,3 +5716,67 @@ right answers of each kind, the rate limit. No submission has an address, the ac
 list is empty, typed wrong answers are `~N`, choices are kept, a text sent to a choice step is
 `~?`, and what the run added to `submissions.log` and `logins.log` has neither an address nor
 any submitted text. It fails if core's tracker or log line changes shape.
+
+## 66. Each step says which content it belongs to (2026-11-12)
+
+Issue #73. XP earned on old content is never erased: a rotation hides the old steps and keeps
+their solves (`hide_dropped`, `hide_strangers`). But the content's name was stored once, for the
+whole instance (`workshop_content`, §51.1), and a rotation replaces it. After one, a hidden step
+with solves no longer said which content those solves were earned on. The XP export (§63) is to
+list XP per content, old content included, and had nothing to read.
+
+### 66.1 What is written
+
+Each step carries a second admin-only Topic, `ws-content:<content slug>`, next to the
+`ws:<subject>:<step>` one that keys it. `record_content` (`tools/sync_subject.py`) writes it, and
+both syncs call it last, once what they drop is hidden:
+
+| The step, after the sync | What it carries |
+|---|---|
+| visible | the content just synced, in place of whatever it carried |
+| hidden, already carrying a content | unchanged |
+| hidden, carrying none | the content the instance served **before** this sync |
+
+The third line is how an instance synced before this change catches up: the first sync that
+touches it reads `workshop_content` before replacing it, and the steps this very sync hides get
+that name. A step that was already hidden before the instance ever recorded a content stays
+bare: nothing knows where it came from, and nothing is invented.
+
+A subject two successive workshops share stays visible across the rotation, so its steps move to
+the second content. That is §51.1's accepted cost, unchanged: such a subject counts under the
+content being served.
+
+### 66.2 Why a Topic
+
+- **The sync works through the admin API**, from the CLI or in-process from the admin page, and
+  a Topic is what it already keys a step with. No column, no migration, no plugin endpoint.
+- **Admin-only.** Core serves topics to admins and to nobody else.
+- **Not `ws:`-prefixed**, because `existing_by_slug` and `hide_strangers` read every `ws:` topic
+  as a step's key.
+
+Rejected: a column on a plugin table keyed by challenge id (a second write path the CLI cannot
+reach without a new endpoint); stamping at enqueue or solve time (the solve is core's row).
+
+### 66.3 What does not change
+
+Progress on the page, the scoreboard and the certificate count the visible steps, so the current
+content, as before. Nothing reads the new topic yet: #81 keys a rating by it, and the export of
+XP per content will list the old ones from it.
+
+**Rollout:** one re-sync on each instance. Nothing breaks without it; the steps are just not
+named until then.
+
+### 66.4 Checked
+
+`scripts/content_slug_check.py <base-url> <admin-pass> [content ...]` reads an instance after a
+sync and changes nothing. Run on a local instance holding Pacman, synced before this change,
+through the admin page and from GitHub each time:
+
+1. sync Lua Pong: its 12 steps carry `luapong`, and the 21 Pacman steps, now hidden and bare
+   until then, carry `pacman`;
+2. sync Pacman again: its 21 steps are visible and carry `pacman`, the 12 hidden ones still
+   carry `luapong`;
+3. sync Pacman once more: nothing is written.
+
+The composed-workshop path (`sync_workshop.py`) makes the same call and was not run: no
+workshop repository was synced for this.

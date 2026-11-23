@@ -1,0 +1,56 @@
+name: Archive a subject repository into the content bucket
+description: >
+  Puts the checked-out commit of a subject (or workshop) repository under
+  subjects/<owner>/<name>/ in the content bucket — the tree as a tar.gz, a
+  record with the sha and the submodule pins, and refs/<ref>.json for the
+  branch — where a CTFd instance set to WORKSHOP_SUBJECTS_URL syncs from
+  without GitHub. Skips with a notice when no bucket is configured. Wraps
+  tools/upload_subject.sh of this repository.
+
+inputs:
+  repository:
+    description: owner/name of the subject repository
+    required: false
+    default: ${{ github.repository }}
+  ref-name:
+    description: The branch or tag name the commit is published under (refs/<name>.json)
+    required: false
+    default: ${{ github.ref_name }}
+  endpoint:
+    description: S3 endpoint URL (an org variable, RUNTIMES_S3_ENDPOINT)
+    required: false
+    default: ""
+  bucket:
+    description: Bucket name (an org variable, RUNTIMES_S3_BUCKET)
+    required: false
+    default: ""
+  region:
+    description: Region string the endpoint wants (an org variable, RUNTIMES_S3_REGION)
+    required: false
+    default: "us-east-1"
+  access-key-id:
+    description: Key limited to the content bucket (an org secret)
+    required: false
+    default: ""
+  secret-access-key:
+    description: Its secret (an org secret)
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Upload
+      shell: bash
+      env:
+        RUNTIMES_S3_ENDPOINT: ${{ inputs.endpoint }}
+        RUNTIMES_S3_BUCKET: ${{ inputs.bucket }}
+        RUNTIMES_S3_REGION: ${{ inputs.region }}
+        AWS_ACCESS_KEY_ID: ${{ inputs.access-key-id }}
+        AWS_SECRET_ACCESS_KEY: ${{ inputs.secret-access-key }}
+      run: |
+        if [ -z "$RUNTIMES_S3_BUCKET" ] || [ -z "$RUNTIMES_S3_ENDPOINT" ] || [ -z "$AWS_ACCESS_KEY_ID" ]; then
+          echo "::notice title=content bucket::RUNTIMES_S3_* not configured on this repository or organisation — subject not archived"
+          exit 0
+        fi
+        "${{ github.action_path }}/../../../tools/upload_subject.sh" "${{ inputs.repository }}" "${{ inputs.ref-name }}"

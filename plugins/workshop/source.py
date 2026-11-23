@@ -8,6 +8,19 @@ repo.
     workshop_source     {"repo": "kevin-cazal/pypong_subject", "ref": "main"}
     workshop_last_sync  what the last import brought in, and from which commit
 
+**Two places the repo can be fetched from, one shape.** By default the GitHub
+API. With `WORKSHOP_SUBJECTS_URL` set, the content bucket instead: each
+subject repository's CI archives every commit of main there
+(tools/upload_subject.sh, docs/DEPLOY.md "Subjects in the bucket"), as
+
+    subjects/<owner>/<name>/<sha>.tar.gz    the tree, like GitHub's tarball
+    subjects/<owner>/<name>/<sha>.json      {sha, message, ref, submodules}
+    subjects/<owner>/<name>/refs/<ref>.json the same record, for a branch or tag
+
+so a sync needs neither GitHub nor a token, and imports the sha it names. The
+three functions that touch GitHub — resolve_ref, submodule_pin, fetch_tree —
+are the three that read the bucket instead; materialize() does not know.
+
 One shape covers both cases (§26.4): the fetched tree is a **subject** if its
 root holds `subject.yaml` and a **workshop** if it holds `workshop.yaml`, so a
 single-subject instance is a workshop of one and there is no second code path.
@@ -44,6 +57,19 @@ TIMEOUT = 30
 MAX_TARBALL = 64 * 1024 * 1024
 
 REPO_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
+SHA_RE = re.compile(r"^[0-9a-f]{40}$")
+
+# The content bucket, when this instance syncs from it rather than from
+# GitHub: the anonymous-read base ending in /subjects/, and the Host header
+# that bucket answers to when its endpoint routes by bucket name (a
+# website-style endpoint; empty for a path-style one).
+SUBJECTS_URL = os.environ.get("WORKSHOP_SUBJECTS_URL", "").strip()
+SUBJECTS_HOST = os.environ.get("WORKSHOP_SUBJECTS_HOST", "").strip()
+
+
+def source_kind():
+    """"bucket" or "github": where resolve_ref and fetch_tree read."""
+    return "bucket" if SUBJECTS_URL else "github"
 
 
 class SourceError(Exception):
@@ -117,12 +143,53 @@ def _get(url, **kw):
     return r
 
 
+# --------------------------------------------------------------------------
+# the content bucket, read-only, anonymous
+# --------------------------------------------------------------------------
+
+def _bucket_url(repo, path):
+    return SUBJECTS_URL.rstrip("/") + "/" + repo + "/" + path
+
+
+def _bucket_get(url, **kw):
+    headers = {"User-Agent": HEADERS["User-Agent"]}
+    if SUBJECTS_HOST:
+        headers["Host"] = SUBJECTS_HOST
+    try:
+        r = requests.get(url, headers=headers, timeout=TIMEOUT, **kw)
+    except requests.RequestException as exc:
+        raise SourceError(f"could not reach the content bucket: {exc}") from exc
+    shown = url[len(SUBJECTS_URL.rstrip("/")):]
+    if r.status_code == 404:
+        raise SourceError(f"not in the content bucket: {shown} — has that repository's "
+                          f"CI uploaded this commit? (a commit is named by its full sha "
+                          f"here, a branch or a tag by its name)")
+    if r.status_code >= 400:
+        raise SourceError(f"the content bucket answered {r.status_code} for {shown}")
+    return r
+
+
+def _bucket_record(repo, ref):
+    """The archive's record for `ref`: `<sha>.json` for a full sha, else `refs/<ref>.json`."""
+    path = f"{ref}.json" if SHA_RE.match(ref) else f"refs/{ref}.json"
+    try:
+        data = _bucket_get(_bucket_url(repo, path)).json()
+    except ValueError as exc:
+        raise SourceError(f"{repo}: {path} in the content bucket is not JSON") from exc
+    if not isinstance(data, dict) or not SHA_RE.match(str(data.get("sha", ""))):
+        raise SourceError(f"{repo}: {path} in the content bucket carries no commit sha")
+    return data
+
+
 def resolve_ref(repo, ref):
     """(sha, subject line) for a branch, a tag or a sha.
 
     Resolved before fetching so the import records the commit it actually took,
     not the name of a branch that has moved since.
     """
+    if source_kind() == "bucket":
+        record = _bucket_record(repo, ref)
+        return record["sha"], str(record.get("message") or "").split("\n")[0]
     data = _get(f"{GITHUB_API}/repos/{repo}/commits/{ref}").json()
     message = ((data.get("commit") or {}).get("message") or "").split("\n")[0]
     return data["sha"], message
@@ -135,6 +202,15 @@ def submodule_pin(repo, sha, path):
     this platform's own repo — but the contents API reports the entry as
     `type: submodule` with the sha and the git URL, which is the pin.
     """
+    if source_kind() == "bucket":
+        # The uploader recorded `git submodule status` beside the archive —
+        # the tree itself carries the submodule as an empty directory.
+        pin = (_bucket_record(repo, sha).get("submodules") or {}).get(path) or {}
+        if not (REPO_RE.match(str(pin.get("repo", ""))) and SHA_RE.match(str(pin.get("sha", "")))):
+            raise SourceError(f"{repo}@{sha[:7]}: {path} is not a submodule the content "
+                              f"bucket knows, so `ref: submodule` has nothing to follow "
+                              f"— name a branch or a tag")
+        return pin["repo"], pin["sha"]
     data = _get(f"{GITHUB_API}/repos/{repo}/contents/{path}",
                 params={"ref": sha}).json()
     if data.get("type") != "submodule":
@@ -164,8 +240,10 @@ def _safe_extract(tar, dest):
 
 def fetch_tree(repo, sha, dest):
     """Download `repo` at `sha` into `dest`; return the unpacked root."""
-    url = f"{GITHUB_API}/repos/{repo}/tarball/{sha}"
-    r = _get(url, stream=True)
+    if source_kind() == "bucket":
+        r = _bucket_get(_bucket_url(repo, f"{sha}.tar.gz"), stream=True)
+    else:
+        r = _get(f"{GITHUB_API}/repos/{repo}/tarball/{sha}", stream=True)
     blob, size = io.BytesIO(), 0
     for chunk in r.iter_content(64 * 1024):
         size += len(chunk)

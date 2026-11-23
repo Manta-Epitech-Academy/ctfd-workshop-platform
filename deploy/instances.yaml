@@ -35,6 +35,14 @@ domain: ealab.duckdns.org
 #     url: https://storage.example/prefix-runtimes/runtimes/
 #     host: prefix-runtimes.web.storage.example   # only for a website-style
 #                                                 # endpoint routed by bucket name
+#
+# Where the admin sync page reads the subjects from. With a `url`, the
+# archives each *_subject repository's CI puts in the content bucket
+# (docs/DEPLOY.md, "Subjects in the bucket"); without, the GitHub API.
+#
+#   subjects:
+#     url: https://storage.example/prefix-runtimes/subjects/
+#     host: prefix-runtimes.web.storage.example   # same rule as above
 
 # Applied to every instance at setup, overridable per instance below.
 defaults:

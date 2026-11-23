@@ -59,6 +59,18 @@ patches:
         value:
           name: WORKSHOP_TOOLS
           value: /opt/workshop/tools
+      # The content bucket the sync reads the subjects from (docs/DEPLOY.md,
+      # "Subjects in the bucket"); drop both to sync from GitHub.
+      - op: add
+        path: /spec/template/spec/containers/0/env/-
+        value:
+          name: WORKSHOP_SUBJECTS_URL
+          value: https://storage.CHANGE/prefix-runtimes/subjects/
+      - op: add
+        path: /spec/template/spec/containers/0/env/-
+        value:
+          name: WORKSHOP_SUBJECTS_HOST
+          value: ""
   - target:
       kind: Deployment
     patch: |-

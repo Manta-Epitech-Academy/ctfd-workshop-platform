@@ -16,13 +16,9 @@
 # on CTFd's own origin (docs/DEPLOY.md, "Runtimes in the bucket"); nothing
 # here is a URL a browser sees.
 #
-# Storage is any S3-compatible service, named by environment:
-#   RUNTIMES_S3_ENDPOINT    https://… (required)
-#   RUNTIMES_S3_BUCKET      bucket name (required)
-#   RUNTIMES_S3_REGION      region string the endpoint wants (default us-east-1)
-#   AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY   a key limited to that bucket
-# Uses the `aws` CLI when present (GitHub runners have it); otherwise runs
-# amazon/aws-cli in Docker, like the rest of tools/ runs in Docker.
+# Storage is any S3-compatible service, named by the RUNTIMES_S3_* and AWS_*
+# environment tools/s3_cli.sh documents; that file also picks the `aws` CLI
+# or amazon/aws-cli in Docker, like the rest of tools/ runs in Docker.
 set -euo pipefail
 
 RUNTIME_ID="${1:?usage: upload_runtime.sh <runtime-id> <version> [<dist-dir>] [--latest <dist-dir>] [--dry-run]}"
@@ -47,41 +43,16 @@ SAFE='^[A-Za-z0-9][A-Za-z0-9._-]*$'
 [ "$VERSION" != "latest" ] || { echo "'latest' is written with --latest, not as the version" >&2; exit 2; }
 [ -f "$DIST/index.html" ] || { echo "no index.html in $DIST — build the runtime first" >&2; exit 2; }
 [ -z "$LATEST" ] || [ -f "$LATEST/index.html" ] || { echo "no index.html in $LATEST" >&2; exit 2; }
-: "${RUNTIMES_S3_ENDPOINT:?set RUNTIMES_S3_ENDPOINT}"
-: "${RUNTIMES_S3_BUCKET:?set RUNTIMES_S3_BUCKET}"
-: "${AWS_ACCESS_KEY_ID:?set AWS_ACCESS_KEY_ID}"
-: "${AWS_SECRET_ACCESS_KEY:?set AWS_SECRET_ACCESS_KEY}"
-export AWS_DEFAULT_REGION="${RUNTIMES_S3_REGION:-us-east-1}"
-# Path-style requests: every S3-compatible service accepts them, and a
-# bucket name with a dot breaks virtual-host TLS otherwise.
-export AWS_EC2_METADATA_DISABLED=true
-
 DIST="$(cd "$DIST" && pwd)"
 [ -z "$LATEST" ] || LATEST="$(cd "$LATEST" && pwd)"
 
-# Path-style requests, which every S3-compatible service accepts (a bucket
-# name with a dot breaks virtual-host TLS otherwise). The CLI reads that from
-# its config file only, so write a private one rather than touch ~/.aws.
-CONF="$(mktemp)"
-trap 'rm -f "$CONF"' EXIT
-printf '[default]\ns3 =\n  addressing_style = path\n' > "$CONF"
-
-if command -v aws >/dev/null 2>&1; then
-  aws() { AWS_CONFIG_FILE="$CONF" command aws --endpoint-url "$RUNTIMES_S3_ENDPOINT" "$@"; }
-  IN_DIST="$DIST"; IN_LATEST="$LATEST"
+# shellcheck source=tools/s3_cli.sh
+. "$(dirname "$0")/s3_cli.sh"
+if [ "$S3_IN_DOCKER" = 1 ]; then
+  s3_mount "$DIST" /dist; IN_DIST=/dist
+  [ -z "$LATEST" ] || { s3_mount "$LATEST" /latest; IN_LATEST=/latest; }
 else
-  # Only the two dists and the config are mounted, read-only; the container
-  # sees nothing else. Values are passed explicitly: a `docker` that goes
-  # through sudo does not forward the caller's environment.
-  MOUNTS=(-v "$DIST:/dist:ro" -v "$CONF:/aws-config:ro")
-  [ -z "$LATEST" ] || MOUNTS+=(-v "$LATEST:/latest:ro")
-  aws() {
-    docker run --rm --network host "${MOUNTS[@]}" \
-      -e "AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID" -e "AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY" \
-      -e "AWS_DEFAULT_REGION=$AWS_DEFAULT_REGION" -e AWS_EC2_METADATA_DISABLED=true -e AWS_CONFIG_FILE=/aws-config \
-      amazon/aws-cli --endpoint-url "$RUNTIMES_S3_ENDPOINT" "$@"
-  }
-  IN_DIST="/dist"; IN_LATEST="/latest"
+  IN_DIST="$DIST"; IN_LATEST="$LATEST"
 fi
 
 upload() {  # upload <host-dir> <dir-as-the-cli-sees-it> <prefix> <cache-control>

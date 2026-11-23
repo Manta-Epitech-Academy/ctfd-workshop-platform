@@ -812,6 +812,51 @@ once an overlay uses this version of the component.
 changes is the upstream: a small signing proxy (a read-only key) sits
 between nginx and the bucket, and `RUNTIMES_URL` points at it.
 
+## Subjects in the bucket
+
+The admin sync page fetches a subject repository from the GitHub API by
+default. An instance can read the **content bucket** instead — the same bucket
+as the runtimes, one prefix beside them — so a sync needs neither GitHub nor a
+token and imports exactly the sha it names:
+
+```
+subjects/<owner>/<name>/<sha>.tar.gz     the tree (git archive), immutable
+subjects/<owner>/<name>/<sha>.json       {sha, message, ref, submodules}
+subjects/<owner>/<name>/refs/<ref>.json  the record for a branch or tag, cached a minute
+```
+
+**Filling it.** Copy `deploy/ci/subject-bucket.yml` to
+`.github/workflows/bucket.yml` of each `*_subject` / `*_subjects` repository:
+every push to `main` (and every `v*` tag) archives the commit through this
+repository's `upload-subject` action, with the same organisation variables and
+secrets as the runtimes. By hand, from a checkout:
+
+```bash
+tools/upload_subject.sh Manta-Epitech-Academy/pypong_subject main   # inside the clone
+```
+
+A workshop of several subjects needs each subject repository archived too: the
+sync resolves them one by one, and `ref: submodule` reads the pin the
+uploader recorded beside the wrapper's archive.
+
+**Reading it.** Set on the CTFd container:
+
+```
+WORKSHOP_SUBJECTS_URL=https://storage.example/prefix-runtimes/subjects/   # anonymous read
+WORKSHOP_SUBJECTS_HOST=                                                   # website-style endpoints only
+```
+
+`provision.py` sets both from `subjects: {url, host?}` in `deploy/instances.yaml`;
+the k8s overlay example carries them. The sync page then says it reads the
+bucket, and the source field keeps its `owner/name` meaning: it names the
+prefix. A commit must be given as its full 40-character sha there (a branch or
+a tag by its name); a short sha cannot be resolved without GitHub.
+
+The archives are as public as the bucket. The subject repositories are public
+on GitHub today and their answers travel encrypted (`*.yaml.gpg`), so nothing
+changes; a private subject would need a private prefix and a read key on the
+instance, which is not built.
+
 ## The `ctfd-standalone` test image
 
 The `standalone` branch of ctfd-custom builds

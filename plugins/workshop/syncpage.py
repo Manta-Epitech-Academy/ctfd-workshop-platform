@@ -37,8 +37,9 @@ from CTFd.utils.decorators import admins_only
 from CTFd.utils.user import get_current_user
 
 from .runtime import missing_dist
-from .source import (SourceError, current_source, last_sync, materialize,
-                     record_sync, resolve_ref, set_source)
+from .source import (SUBJECTS_URL, SourceError, current_source, last_sync,
+                     materialize, record_sync, resolve_ref, set_source,
+                     source_kind)
 
 workshop_sync = Blueprint("workshop_sync", __name__, template_folder="templates")
 
@@ -312,6 +313,7 @@ def page():
     return render_template("workshop_sync.html", source=source, last=last_sync(),
                            tip=_tip(source), problems=missing_pieces(),
                            runtime_gap=missing_dist(),
+                           source_kind=source_kind(), subjects_url=SUBJECTS_URL,
                            job=_job.snapshot() if _job else None)
 
 

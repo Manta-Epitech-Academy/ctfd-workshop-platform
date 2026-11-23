@@ -1,0 +1,29 @@
+# Copy to .github/workflows/bucket.yml of a *_subject (or *_subjects)
+# repository: every push to main archives the commit into the content bucket,
+# where an instance set to sync from the bucket imports it
+# (ctfd-workshop-platform docs/DEPLOY.md, "Subjects in the bucket"). Needs the
+# organisation's RUNTIMES_S3_* variables and secrets; passes with a notice
+# until they exist.
+name: Content bucket
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bucket:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Manta-Epitech-Academy/ctfd-workshop-platform/.github/actions/upload-subject@main
+        with:
+          endpoint: ${{ vars.RUNTIMES_S3_ENDPOINT }}
+          bucket: ${{ vars.RUNTIMES_S3_BUCKET }}
+          region: ${{ vars.RUNTIMES_S3_REGION }}
+          access-key-id: ${{ secrets.RUNTIMES_S3_ACCESS_KEY_ID }}
+          secret-access-key: ${{ secrets.RUNTIMES_S3_SECRET_ACCESS_KEY }}

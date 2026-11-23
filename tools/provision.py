@@ -275,6 +275,11 @@ def cmd_render(manifest, sec, args):
     else:
         runtimes_loc = (NGINX_DIR / "runtimes-disk.conf.tmpl").read_text()
     tls_tmpl = tls_tmpl.replace("@@RUNTIMES_LOCATION@@", runtimes_loc.rstrip("\n"))
+    # Where the sync reads the subjects: the content bucket when the manifest
+    # names one (`subjects: {url: …}`), GitHub otherwise.
+    subjects = manifest.get("subjects") or {}
+    subjects_url = (subjects.get("url") or "").rstrip("/") + "/" if subjects.get("url") else ""
+    subjects_host = subjects.get("host") or ""
 
     for inst in select(manifest, args.instances):
         s = sec["instances"][inst["name"]]
@@ -297,6 +302,8 @@ WS_ADMIN_EMAIL={admin_email(inst)}
 WS_ADMIN_PASSWORD={s['admin_password']}
 WS_ADMIN_TOKEN={s['admin_token']}
 WS_RUNTIMES_ON_PROXY={'1' if bucket.get('url') else ''}
+WS_SUBJECTS_URL={subjects_url}
+WS_SUBJECTS_HOST={subjects_host}
 """)
         env.chmod(0o600)
 

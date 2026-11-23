@@ -98,6 +98,10 @@ services:
       # takes the subject's declaration on trust. provision.py sets it from
       # `runtimes:` in deploy/instances.yaml; empty keeps the on-disk check.
       - WORKSHOP_RUNTIMES_ON_PROXY=${WS_RUNTIMES_ON_PROXY:-}
+      # The content bucket the sync reads the subjects from, when set
+      # (docs/DEPLOY.md, "Subjects in the bucket"); empty syncs from GitHub.
+      - WORKSHOP_SUBJECTS_URL=${WS_SUBJECTS_URL:-}
+      - WORKSHOP_SUBJECTS_HOST=${WS_SUBJECTS_HOST:-}
     logging:
       driver: json-file
       options: {max-size: "10m", max-file: "3"}

@@ -58,8 +58,15 @@
       </form>
       <p class="text-muted">
         A subject repository (<code>subject.yaml</code> at its root) or a workshop
-        (<code>workshop.yaml</code> naming its subjects). Public repositories only —
+        (<code>workshop.yaml</code> naming its subjects).
+        {% if source_kind == "bucket" %}
+        <strong>Read from the content bucket</strong> (<code>{{ subjects_url }}</code>),
+        not from GitHub: the repository's CI must have archived the commit there, and a
+        commit is named by its full sha, a branch or a tag by its name.
+        {% else %}
+        Public repositories only —
         this instance fetches them with no credentials.
+        {% endif %}
       </p>
     </div>
 

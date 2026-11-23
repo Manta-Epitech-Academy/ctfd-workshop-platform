@@ -511,6 +511,9 @@ msgstr "Ce nom d'utilisateur est déjà pris"
 msgid "The code you were given by whoever set this instance up."
 msgstr "Le code que vous a donné la personne qui a mis en place cette instance."
 
+msgid "The event is not open yet"
+msgstr "L'événement n'est pas encore ouvert"
+
 msgid "The explanation is not clear"
 msgstr "L'explication n'est pas claire"
 
@@ -661,6 +664,9 @@ msgstr "Parties de l'atelier"
 
 msgid "XP"
 msgstr "XP"
+
+msgid "You are signed in. Come back when it opens."
+msgstr "Tu es connecté. Reviens quand il sera ouvert."
 
 msgid "You are signed in. Come back when your instructor opens it."
 msgstr "Tu es connecté. Reviens quand ton encadrant l'ouvrira."

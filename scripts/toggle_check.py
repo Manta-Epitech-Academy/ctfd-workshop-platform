@@ -77,8 +77,17 @@ def switch(to):
            data={"nonce": nonce(PLUGIN), "enabled": to})
 
 
-WAS = enabled()
-atexit.register(lambda: switch("on" if WAS else "off"))
+def state():
+    """Which of the three states (PLAN.md §71), read off the page's form."""
+    html = s.get(BASE + PLUGIN, timeout=20).text
+    m = re.search(r'name="state"\s+id="ws-state-\w+"\s+value="(\w+)"\s+checked', html)
+    return m.group(1) if m else ("workshop" if "badge-success" in html else "off")
+
+
+WAS = state()
+atexit.register(lambda: s.post(BASE + PLUGIN, timeout=20,
+                               data={"nonce": nonce(PLUGIN), "state": WAS,
+                                     "enabled": "on" if WAS == "workshop" else "off"}))
 
 
 def codes(paths):

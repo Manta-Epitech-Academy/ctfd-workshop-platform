@@ -34,7 +34,7 @@ from CTFd.utils import get_config
 from CTFd.utils.security import signing
 from CTFd.utils.security.auth import login_user
 
-from .toggle import workshop_enabled
+from .toggle import door_enabled
 
 _DOORS = {}
 
@@ -66,8 +66,9 @@ def register(door):
 
 def open_doors():
     """The doors to draw, in registration order. None while the plugin is off:
-    switched off, CTFd's login page is CTFd's again (toggle.py, §39)."""
-    if not workshop_enabled():
+    switched off, CTFd's login page is CTFd's again (toggle.py, §39). A board
+    that keeps its codes (§71) keeps the doors; Jump's closes itself there."""
+    if not door_enabled():
         return []
     return [door for door in _DOORS.values() if door.open()]
 

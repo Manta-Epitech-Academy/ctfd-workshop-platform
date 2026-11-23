@@ -489,6 +489,9 @@ msgstr ""
 msgid "The code you were given by whoever set this instance up."
 msgstr ""
 
+msgid "The event is not open yet"
+msgstr ""
+
 msgid "The explanation is not clear"
 msgstr ""
 
@@ -622,6 +625,9 @@ msgid "Workshop parts"
 msgstr ""
 
 msgid "XP"
+msgstr ""
+
+msgid "You are signed in. Come back when it opens."
 msgstr ""
 
 msgid "You are signed in. Come back when your instructor opens it."

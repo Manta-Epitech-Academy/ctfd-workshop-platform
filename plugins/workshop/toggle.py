@@ -37,6 +37,21 @@ The guard is one `before_request`, and the set it checks is computed from the
 app rather than typed out: every blueprint whose `import_name` is inside this
 package, minus this module's own. A new blueprint is therefore covered the day
 it is written, with nothing to remember.
+
+**A third state: the board, with codes** (PLAN.md §71). An ordinary CTF can
+still want what the token door gives: nobody types a name, and each
+registration code is a cohort that sees only itself. So off comes in two
+kinds, told apart by a second key, `workshop_board_codes`:
+
+  board  everything above stays off, except the way in. The token door is on
+         the login page, `/` sends an anonymous visitor to it, and the two
+         blueprints behind it answer (`BOARD_BLUEPRINTS`). The admin bar
+         keeps "Registration codes" beside this page. Whoever comes in lands
+         on the challenge board.
+
+`workshop_enabled()` is false in that state too. Everything that asks it is
+asking "is there a workshop here", and there is not; the few places that ask
+about the door instead ask `door_enabled()`.
 """
 from flask import Blueprint, abort, redirect, render_template, request, url_for
 
@@ -44,7 +59,14 @@ from CTFd.utils import get_config, set_config
 from CTFd.utils.decorators import admins_only
 
 CONFIG_KEY = "workshop_enabled"
+BOARD_KEY = "workshop_board_codes"
 ROUTE = "/admin/workshop/plugin"
+CODES_ROUTE = "/admin/workshop/codes"
+
+WORKSHOP, BOARD, OFF = "workshop", "board", "off"
+# What still answers in the board state: the token door's three requests, the
+# waiting page and the codes' admin page (codes.py, tokendoor.py).
+BOARD_BLUEPRINTS = frozenset({"workshop_codes", "workshop_tokendoor"})
 
 workshop_toggle = Blueprint("workshop_toggle", __name__,
                             template_folder="templates")
@@ -61,10 +83,35 @@ def workshop_enabled():
     return True if value is None else bool(value)
 
 
-def set_workshop_enabled(on):
+def board_with_codes():
+    """Is this a plain board that keeps the token door (PLAN.md §71)?
+
+    Only ever true with the workshop off: the second key is not read while the
+    first one says on, so an instance that never saw this state is unchanged.
+    """
+    return not workshop_enabled() and bool(get_config(BOARD_KEY))
+
+
+def door_enabled():
+    """Does the login page have a participant side at all?"""
+    return workshop_enabled() or board_with_codes()
+
+
+def plugin_state():
+    if workshop_enabled():
+        return WORKSHOP
+    return BOARD if board_with_codes() else OFF
+
+
+def set_plugin_state(state):
     # "true"/"false", because `_get_config` turns exactly those two strings back
     # into booleans (CTFd/utils/__init__.py) and an int would read back as 1/0.
-    set_config(CONFIG_KEY, "true" if on else "false")
+    set_config(CONFIG_KEY, "true" if state == WORKSHOP else "false")
+    set_config(BOARD_KEY, "true" if state == BOARD else "false")
+
+
+def set_workshop_enabled(on):
+    set_plugin_state(WORKSHOP if on else OFF)
 
 
 class _MenuWhenEnabled(list):
@@ -82,9 +129,10 @@ class _MenuWhenEnabled(list):
         entries = list(list.__iter__(self))
         if workshop_enabled():
             return iter(entries)
+        kept = {ROUTE, CODES_ROUTE} if board_with_codes() else {ROUTE}
         return iter([m for m in entries
                      if not m.route.startswith("/admin/workshop/")
-                     or m.route == ROUTE])
+                     or m.route in kept])
 
 
 @workshop_toggle.route(ROUTE, methods=["GET", "POST"])
@@ -96,10 +144,16 @@ def plugin():
     the room exists at all is not theirs to decide.
     """
     if request.method == "POST":
-        set_workshop_enabled(request.form.get("enabled") == "on")
+        state = request.form.get("state")
+        if state in (WORKSHOP, BOARD, OFF):
+            set_plugin_state(state)
+        else:
+            # The form this page had while there were two states. Scripts
+            # still post it (scripts/toggle_check.py).
+            set_workshop_enabled(request.form.get("enabled") == "on")
         return redirect(url_for("workshop_toggle.plugin", saved=1))
     return render_template("workshop_plugin.html",
-                           enabled=workshop_enabled(),
+                           state=plugin_state(),
                            saved=request.args.get("saved"))
 
 
@@ -117,8 +171,11 @@ def guard_routes(app):
     def _workshop_off():
         # Blueprint first: this runs on every request in the instance, and a
         # core one must not pay for a config lookup to learn it is not ours.
-        if request.blueprint in blocked and not workshop_enabled():
-            abort(404)
+        if request.blueprint not in blocked or workshop_enabled():
+            return
+        if request.blueprint in BOARD_BLUEPRINTS and board_with_codes():
+            return
+        abort(404)
 
 
 def load_toggle(app):
@@ -126,4 +183,5 @@ def load_toggle(app):
     # Templates ask; the navbar drops the workshop entries and shows Challenges
     # to everyone, and login.html loses its doors through `open_doors` (doors.py).
     app.jinja_env.globals["workshop_enabled"] = workshop_enabled
+    app.jinja_env.globals["workshop_board_codes"] = board_with_codes
     app.admin_plugin_menu_bar = _MenuWhenEnabled(app.admin_plugin_menu_bar)

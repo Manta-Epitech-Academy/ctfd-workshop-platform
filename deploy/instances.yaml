@@ -25,6 +25,17 @@
 # deploy/nginx/default-server.conf refuses anything that is not a real vhost.
 domain: ealab.duckdns.org
 
+# Where nginx serves /runtime/<id>/<version>/ from (docs/DEPLOY.md, "Runtimes
+# in the bucket"). With a `url`, the vhosts proxy that prefix of the runtimes
+# bucket — anonymous read, the CI of each *_runtime repository fills it — and
+# cache it on disk. Without this block, the dists built on this server by
+# `provision.py sync` are served from plugins/workshop/runtimes/ as before.
+#
+#   runtimes:
+#     url: https://storage.example/prefix-runtimes/runtimes/
+#     host: prefix-runtimes.web.storage.example   # only for a website-style
+#                                                 # endpoint routed by bucket name
+
 # Applied to every instance at setup, overridable per instance below.
 defaults:
   user_mode: users          # individuals, not teams

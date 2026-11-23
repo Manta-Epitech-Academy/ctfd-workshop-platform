@@ -1,6 +1,6 @@
 # A second Ingress beside the instance's `ctfd-ingress`, on the same host:
 # Traefik merges them and the longest prefix wins, so /runtime/… reaches the
-# runtime and everything else still reaches CTFd. Its own object rather than
+# proxy and everything else still reaches CTFd. Its own object rather than
 # a patch on `ctfd-ingress` because a component's patches run before the
 # overlay's, when that Ingress has no rules yet.
 #
@@ -20,31 +20,10 @@ spec:
     - host: runtimes.invalid
       http:
         paths:
-          - path: /runtime/tic80
+          - path: /runtime
             pathType: Prefix
             backend:
               service:
-                name: rt-tic80
-                port:
-                  number: 80
-          - path: /runtime/v86
-            pathType: Prefix
-            backend:
-              service:
-                name: rt-v86
-                port:
-                  number: 80
-          - path: /runtime/miniasm
-            pathType: Prefix
-            backend:
-              service:
-                name: rt-miniasm
-                port:
-                  number: 80
-          - path: /runtime/pacman
-            pathType: Prefix
-            backend:
-              service:
-                name: rt-pacman
+                name: rt-proxy
                 port:
                   number: 80

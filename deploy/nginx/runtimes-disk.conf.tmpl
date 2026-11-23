@@ -1,0 +1,14 @@
+    # Runtime dists are static, and large: 14 MB per cold visitor for TIC-80.
+    # Flask would stream every byte of that through the one gunicorn worker
+    # (plugins/workshop/runtime.py serves them in development). Off disk
+    # instead, and cacheable forever — the URL carries the build's commit sha,
+    # so a given path never changes content. The bucket-backed alternative is
+    # runtimes-bucket.conf.tmpl, chosen by `runtimes:` in deploy/instances.yaml.
+    location /runtime/ {
+        alias @@RUNTIMES@@/;
+        index index.html;
+        access_log off;
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        try_files $uri $uri/ =404;
+    }

@@ -9,20 +9,23 @@ resources:
   - secret.yml
 components:
   - ../../components/runtimes     # copied from workshop_platform/deploy/k8s/components/runtimes
-# Pin per session: the runtimes' CIs publish :latest and :<sha> on every push
-# to main, and a session should not change under its participants.
-images:
-  - name: ghcr.io/kevin-cazal/tic80-web-editor_runtime
-    newTag: CHANGE
-  - name: ghcr.io/kevin-cazal/shell-rpg
-    newTag: CHANGE
-  - name: ghcr.io/kevin-cazal/miniasm_runtime
-    newTag: CHANGE
-  - name: ghcr.io/kevin-cazal/pacman-ghost-ai_runtime
-    newTag: CHANGE
+# No image pins: the runtimes come from the bucket (docs/DEPLOY.md, "Runtimes
+# in the bucket"), where a subject's pinned version is one prefix.
 patches:
   - path: ingress-patch.yml
   # The runtimes' Ingress answers on the same host.
+  # Where the runtimes come from: the anonymous-read base of the bucket,
+  # ending in /runtimes/, and the Host header it answers to.
+  - target:
+      kind: ConfigMap
+      name: rt-proxy
+    patch: |-
+      - op: replace
+        path: /data/RUNTIMES_URL
+        value: https://storage.CHANGE/prefix-runtimes/runtimes/
+      - op: replace
+        path: /data/RUNTIMES_HOST
+        value: storage.CHANGE
   - target:
       kind: Ingress
       name: ctfd-runtimes-ingress

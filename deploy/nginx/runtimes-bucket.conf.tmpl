@@ -1,0 +1,62 @@
+    # Runtime dists, served from the runtimes bucket on CTFd's own origin
+    # (docs/DEPLOY.md, "Runtimes in the bucket"; S3_PLAN.md block 4). The
+    # browser never sees the bucket: same origin is what lets the workshop page
+    # and the runtime frame share localStorage (plugins/workshop/workspace.py).
+    #
+    # @@RUNTIMES_URL@@ is the anonymous-read base of the bucket, ending in
+    # /runtimes/ — e.g. https://storage.example/prefix-runtimes/runtimes/ —
+    # and @@RUNTIMES_HOST@@ the Host header that bucket answers to (a
+    # path-style endpoint: the endpoint's host; a website endpoint: the
+    # bucket's own name). provision.py fills both from `runtimes:` in
+    # deploy/instances.yaml.
+    location /runtime/ {
+        # A folder URL is that folder's index.html, as `index` did on disk and
+        # as a runtime expects when it frames a sub-app by its folder (tic80's
+        # REPL loads `repl/lua/`). A bucket has no folders, so say it here.
+        rewrite ^(/runtime/.*)/$ $1/index.html last;
+
+        proxy_pass @@RUNTIMES_URL@@;
+        proxy_set_header Host @@RUNTIMES_HOST@@;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_ssl_server_name on;
+
+        # One fetch per object per server, then disk: a classroom of 30 pulls
+        # the 14 MB of TIC-80 from the bucket once. Freshness follows the
+        # Cache-Control the upload set — a year under <sha>/, five minutes
+        # under latest/ — and a miss on the bucket is remembered one minute.
+        proxy_cache runtimes;
+        proxy_cache_valid 404 1m;
+        proxy_cache_lock on;
+        proxy_cache_revalidate on;
+        proxy_cache_use_stale error timeout updating http_500 http_502 http_503 http_504;
+        add_header X-Cache-Status $upstream_cache_status always;
+
+        # What the storage cannot set. SAMEORIGIN, never DENY: the pane is a
+        # same-origin iframe. The bucket's own Cache-Control passes through.
+        add_header X-Frame-Options SAMEORIGIN always;
+        add_header X-Content-Type-Options nosniff always;
+        proxy_hide_header x-amz-request-id;
+        proxy_hide_header x-amz-id-2;
+        proxy_hide_header x-amz-meta-server-side-encryption;
+        proxy_hide_header Strict-Transport-Security;
+
+        # A version the bucket does not hold falls back to latest/, as the
+        # per-runtime images did on Kubernetes: a subject that pins a sha
+        # nobody uploaded still gets a runtime rather than a blank pane.
+        proxy_intercept_errors on;
+        error_page 404 = @runtime_latest;
+        access_log off;
+    }
+
+    location @runtime_latest {
+        # A relative Location: this nginx may sit behind a TLS terminator
+        # (Traefik, Cloudflare) and must not guess the scheme or the port.
+        absolute_redirect off;
+        # Only from a version that is not already latest, or a missing file
+        # under latest/ would redirect to itself forever.
+        if ($uri ~ "^/runtime/([^/]+)/(?!latest/)[^/]+/(.*)$") {
+            return 302 /runtime/$1/latest/$2;
+        }
+        return 404;
+    }

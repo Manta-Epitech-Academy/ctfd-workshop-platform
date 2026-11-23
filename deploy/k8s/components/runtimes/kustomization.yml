@@ -1,16 +1,17 @@
 # The runtimes, for a CTFd instance on Kubernetes (docs/DEPLOY.md, "Runtimes
-# on Kubernetes"). A kustomize Component: an instance overlay lists it under
-# `components:` and gets one Service per runtime, a second Ingress on the
-# instance's host that routes /runtime/<id>/ to each, and the CTFd variable
-# that makes the plugin trust the declaration instead of looking for the
-# dist on its own disk.
+# in the bucket"). A kustomize Component: an instance overlay lists it under
+# `components:` and gets one nginx that serves /runtime/<id>/<version>/ from
+# the runtimes bucket, a second Ingress on the instance's host that routes
+# /runtime to it, and the CTFd variable that makes the plugin trust the
+# declaration instead of looking for the dist on its own disk.
 #
-# Each image is that runtime's own, published by its repository's CI, and
-# serves its app at /runtime/<id>/latest/ — the same-origin path the pane
-# embeds. The overlay sets two things (see ../../overlay-example):
+# The overlay sets three things (see ../../overlay-example):
 #
 #   - the host of `ctfd-runtimes-ingress` (one JSON patch line)
-#   - the image tags, pinned per session with kustomize's `images:`
+#   - RUNTIMES_URL and RUNTIMES_HOST in the `rt-proxy` ConfigMap
+#
+# No image to pin any more: a subject pins a version in its subject.yaml,
+# and the bucket holds every version the CIs ever uploaded.
 apiVersion: kustomize.config.k8s.io/v1alpha1
 kind: Component
 resources:

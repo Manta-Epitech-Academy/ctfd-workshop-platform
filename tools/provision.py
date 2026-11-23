@@ -31,6 +31,7 @@ import os
 import re
 import secrets as pysecrets
 import subprocess
+from urllib.parse import urlparse
 import sys
 import time
 from pathlib import Path
@@ -260,6 +261,20 @@ def cmd_render(manifest, sec, args):
     SITES_DIR.mkdir(parents=True, exist_ok=True)
     tmpl = (NGINX_DIR / "vhost.conf.tmpl").read_text()
     tls_tmpl = (NGINX_DIR / "vhost-tls.conf.tmpl").read_text()
+    # Where /runtime/ comes from: the runtimes bucket when the manifest names
+    # one (`runtimes: {url: …}`), the dists on this disk otherwise. The bucket
+    # needs anonymous read on that prefix; the Host header defaults to the
+    # URL's own host and `host:` overrides it for a website-style endpoint
+    # that routes by bucket name.
+    bucket = manifest.get("runtimes") or {}
+    if bucket.get("url"):
+        url = bucket["url"].rstrip("/") + "/"
+        host = bucket.get("host") or urlparse(url).netloc
+        runtimes_loc = ((NGINX_DIR / "runtimes-bucket.conf.tmpl").read_text()
+                        .replace("@@RUNTIMES_URL@@", url).replace("@@RUNTIMES_HOST@@", host))
+    else:
+        runtimes_loc = (NGINX_DIR / "runtimes-disk.conf.tmpl").read_text()
+    tls_tmpl = tls_tmpl.replace("@@RUNTIMES_LOCATION@@", runtimes_loc.rstrip("\n"))
 
     for inst in select(manifest, args.instances):
         s = sec["instances"][inst["name"]]
@@ -281,6 +296,7 @@ WS_ADMIN_NAME=admin
 WS_ADMIN_EMAIL={admin_email(inst)}
 WS_ADMIN_PASSWORD={s['admin_password']}
 WS_ADMIN_TOKEN={s['admin_token']}
+WS_RUNTIMES_ON_PROXY={'1' if bucket.get('url') else ''}
 """)
         env.chmod(0o600)
 

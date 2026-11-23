@@ -34,19 +34,7 @@ server {
     gzip_types text/css application/javascript application/json image/svg+xml application/wasm;
     gzip_min_length 1024;
 
-    # Runtime dists are static, and large: 14 MB per cold visitor for TIC-80.
-    # Flask would stream every byte of that through the one gunicorn worker
-    # (plugins/workshop/runtime.py serves them in development). Off disk
-    # instead, and cacheable forever — the URL carries the build's commit sha,
-    # so a given path never changes content.
-    location /runtime/ {
-        alias @@RUNTIMES@@/;
-        index index.html;
-        access_log off;
-        expires 1y;
-        add_header Cache-Control "public, immutable";
-        try_files $uri $uri/ =404;
-    }
+@@RUNTIMES_LOCATION@@
 
     location / {
         proxy_pass http://127.0.0.1:@@PORT@@;

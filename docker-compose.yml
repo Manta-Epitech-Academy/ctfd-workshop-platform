@@ -93,6 +93,11 @@ services:
       # Where the mount above lands. The plugin puts it on sys.path; without
       # it the sync page says so instead of failing at import time.
       - WORKSHOP_TOOLS=/opt/workshop/tools
+      # "1" when nginx serves /runtime/ from the runtimes bucket (docs/DEPLOY.md,
+      # "Runtimes in the bucket"): the dist is not on this disk, so the plugin
+      # takes the subject's declaration on trust. provision.py sets it from
+      # `runtimes:` in deploy/instances.yaml; empty keeps the on-disk check.
+      - WORKSHOP_RUNTIMES_ON_PROXY=${WS_RUNTIMES_ON_PROXY:-}
     logging:
       driver: json-file
       options: {max-size: "10m", max-file: "3"}

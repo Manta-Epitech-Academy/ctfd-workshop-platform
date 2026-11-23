@@ -703,11 +703,11 @@ sync page — the example overlay carries it.
 ## Runtimes in the bucket
 
 The dists are moving off the servers' disks to an S3-compatible bucket
-(`S3_PLAN.md` in the storage task, block 3 of 6). Every runtime's CI uploads
-its build there on each push to `main`, and a proxy in front of CTFd serves
-`/runtime/<id>/<version>/` from it on CTFd's own origin (the proxy is block 4:
-until it exists, the sections above still describe how a server serves the
-dists, and nothing below changes them).
+(`S3_PLAN.md` in the storage task). Every runtime's CI uploads its build
+there on each push to `main`, and the nginx in front of CTFd serves
+`/runtime/<id>/<version>/` from it on CTFd's own origin, with a disk cache.
+The browser never sees the bucket, which is what keeps `localStorage` shared
+between the workshop page and the runtime frame.
 
 Layout in the bucket, one prefix per runtime:
 
@@ -774,6 +774,43 @@ change bucket settings, and must not be able to.
 
 **Locally**, the `test/` stack of the storage task runs a Garage with such a
 bucket; `garage-init.sh` creates it, the key, and turns website mode on.
+
+### Serving them: the proxy
+
+**Compose (ealab).** Name the bucket in `deploy/instances.yaml`:
+
+```yaml
+runtimes:
+  url: https://storage.example/prefix-runtimes/runtimes/   # anonymous read, ends in /runtimes/
+  # host: prefix-runtimes.web.storage.example   # only for a website-style endpoint
+```
+
+and re-render (`provision.py render --tls`, then §3 to install). The vhost's
+`location /runtime/` becomes `deploy/nginx/runtimes-bucket.conf.tmpl`: a
+`proxy_pass` to that URL, a `proxy_cache` on `/var/cache/nginx/runtimes`
+(declared in `workshop-shared.conf`, 2 GB, so a classroom pulls each dist from
+the bucket once), the headers the storage cannot set (`X-Frame-Options:
+SAMEORIGIN`, `nosniff`), a folder URL mapped to its `index.html`, and a
+version the bucket does not hold redirected to `latest/` — what the
+per-runtime images did on Kubernetes. Without the `runtimes:` block the
+vhost keeps serving the dists built on the server's disk
+(`runtimes-disk.conf.tmpl`), so nothing changes for an instance until the
+bucket exists. Set `WORKSHOP_RUNTIMES_ON_PROXY=1` on the CTFd containers
+served this way (`compose/prod/<name>.env`): CTFd no longer has the dist on
+its disk and must take the subject's declaration on trust.
+
+**Kubernetes.** `deploy/k8s/components/runtimes/` is now one `rt-proxy`
+nginx Deployment with the same configuration in a ConfigMap, one Ingress path
+`/runtime` to it, and the `WORKSHOP_RUNTIMES_ON_PROXY` variable on CTFd. The
+overlay sets `RUNTIMES_URL` and `RUNTIMES_HOST` in that ConfigMap (two JSON
+patch lines, see `overlay-example`) and no longer pins any runtime image: a
+subject pins a version in its `subject.yaml`, the bucket holds every version
+the CIs uploaded. The four per-runtime images and Services are not needed
+once an overlay uses this version of the component.
+
+**If the owner's bucket cannot be read anonymously**, the one thing that
+changes is the upstream: a small signing proxy (a read-only key) sits
+between nginx and the bucket, and `RUNTIMES_URL` points at it.
 
 ## The `ctfd-standalone` test image
 

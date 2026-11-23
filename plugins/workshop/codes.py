@@ -80,6 +80,7 @@ from .cohorts import register as register_cohorts
 from .doors import sign_in, workshop_is_open
 from .external import accounts_by_code
 from .names import new_name
+from .toggle import workshop_enabled
 
 # Named here and in the migration alike, so a later revision can drop it by
 # name (the same rule as jump.py's).
@@ -406,10 +407,13 @@ def text_field(payload, field):
 
 
 def after_entry():
-    """Where a participant goes once signed in."""
-    if workshop_is_open():
+    """Where a participant goes once signed in: the workshop, or the challenge
+    board on an instance that keeps the door without one (PLAN.md §71)."""
+    if not workshop_is_open():
+        return url_for("workshop_codes.waiting")
+    if workshop_enabled():
         return url_for("workshop_page.workshop")
-    return url_for("workshop_codes.waiting")
+    return url_for("challenges.listing")
 
 
 @workshop_codes.route("/api/v1/workshop/door/code", methods=["POST"])
@@ -466,7 +470,13 @@ def waiting():
     if not authed():
         return redirect(url_for("auth.login"))
     if workshop_is_open():
-        return redirect(url_for("workshop_page.workshop"))
+        return redirect(after_entry())
+    if not workshop_enabled():
+        # A plain board (PLAN.md §71): there is no workshop to name.
+        return render_template(
+            "workshop_jump_notice.html",
+            notice_title=_("The event is not open yet"),
+            notice_message=_("You are signed in. Come back when it opens."))
     return render_template(
         "workshop_jump_notice.html",
         notice_title=_("The workshop is not open yet"),

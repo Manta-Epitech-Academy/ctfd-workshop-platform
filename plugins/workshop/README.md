@@ -122,6 +122,21 @@ switch.
 
 `scripts/toggle_check.py <base-url> <admin-pass>` walks both states and puts the instance back.
 
+### A third state: the board, with codes (PLAN.md §71)
+
+The same page has a third choice, "CTF with codes": the workshop is off as above, and the way in
+stays. A second key, `workshop_board_codes`, tells the two kinds of off apart;
+`workshop_enabled()` is false in both, and what asks about the door asks `door_enabled()`.
+
+In that state the token door is on the login page, an anonymous `/` goes to it, `/admin` goes to
+the staff form, and the two blueprints behind the door answer (`toggle.py:BOARD_BLUEPRINTS`:
+the door's three requests, the waiting page, `/admin/workshop/codes`). A participant lands on
+`/challenges`. Each registration code is still a cohort, and the privacy rules still hold: neither
+ever read the switch. There is no supervisor page, no certificate and no Jump, and the challenges
+are created by hand in the admin panel.
+
+`scripts/board_codes_check.py <base-url> <admin-pass>` walks it and puts the instance back.
+
 ## The instance's mode (PLAN.md §25)
 
 `workshop_mode` — `instructor_led` (default) or `self_serve` — is a CTFd config key, set at

@@ -34,13 +34,17 @@ accounts sign in there.
 
 Each hook reads the switch itself: `guard_routes` (toggle.py) only covers the
 plugin's blueprints, and switched off, CTFd is CTFd again (§39).
+
+On a board that keeps its codes (§71) the two hooks about the door stay: an
+anonymous `/` goes to it and `/admin` to the staff form. The two about
+`/workshop` do not, so whoever signs in lands on the board, as core sends them.
 """
 from flask import redirect, request, url_for
 
 from CTFd.models import Challenges
 from CTFd.utils.user import authed
 
-from .toggle import workshop_enabled
+from .toggle import door_enabled, workshop_enabled
 
 # Endpoints whose default post-authentication redirect we retarget.
 AUTH_ENDPOINTS = ("auth.login", "auth.register")
@@ -69,7 +73,8 @@ def load_landing(app):
         if request.method != "GET" or request.path != "/" or authed():
             return None
         # Switched off, `/` is CTFd's own front door again (toggle.py, §39).
-        if not workshop_enabled():
+        # A board that keeps its codes keeps the door as its front (§71).
+        if not door_enabled():
             return None
         return redirect(url_for("auth.login"))
 
@@ -77,7 +82,7 @@ def load_landing(app):
     def admin_to_staff_door():
         if request.endpoint != "admin.view" or authed():
             return None
-        if not workshop_enabled():
+        if not door_enabled():
             return None
         # No `next=/admin`: a supervisor is staff without being an admin, and
         # core's `/admin` sends a signed-in non-admin back to the login page.

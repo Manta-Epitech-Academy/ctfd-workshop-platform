@@ -1,19 +1,33 @@
 {% extends "admin/base.html" %}
 
 {#
-  The workshop switch (PLAN.md §39). Admin-facing, so every string is English
-  like the rest of the platform UI.
+  The workshop switch (PLAN.md §39, and its third state, §71). Admin-facing,
+  so every string is English like the rest of the platform UI.
 
-  This page answers in both states — it is the way back — so it says plainly
-  what the other state looks like before anybody presses the button.
+  This page answers in every state — it is the way back — so it says plainly
+  what each state looks like before anybody presses a button.
 #}
+
+{% set states = [
+  ("workshop", "Workshop",
+   "Participants land on /workshop, the navbar leads to the subject and the
+    toolbox, and the admin bar carries the workshop tools."),
+  ("board", "CTF with codes",
+   "A plain challenge board, with the workshop's way in: participants type a
+    registration code at the door, get a personal code and no name to fill
+    in, and each registration code is a cohort that sees only itself."),
+  ("off", "Off",
+   "A plain CTFd. Participants register and sign in the way CTFd does it, and
+    land on the challenge board."),
+] %}
 
 {% block content %}
 <div class="jumbotron">
   <div class="container">
     <h1>Workshop plugin</h1>
     <p class="lead mb-0">
-      Whether this instance runs a workshop, or behaves as a plain CTFd.
+      Whether this instance runs a workshop, a CTF behind registration codes,
+      or behaves as a plain CTFd.
     </p>
   </div>
 </div>
@@ -21,9 +35,13 @@
 <div class="container">
   {% if saved %}
     <div class="alert alert-success">
-      Saved. {% if enabled %}The workshop is back: the pages, the runtime, Jump
-      and the admin tools all answer again.{% else %}The workshop is off. This
-      page is the way back.{% endif %}
+      Saved.
+      {% if state == "workshop" %}The workshop is on: the pages, the runtime,
+      Jump and the admin tools all answer.
+      {% elif state == "board" %}The workshop is off and the door stays:
+      participants come in with a registration code and land on the challenge
+      board.
+      {% else %}The workshop is off. This page is the way back.{% endif %}
     </div>
   {% endif %}
 
@@ -31,41 +49,41 @@
     <div class="card-body">
       <h2 class="h5 card-title">
         Status:
-        {% if enabled %}
+        {% if state == "workshop" %}
           <span class="badge badge-success">enabled</span>
+        {% elif state == "board" %}
+          <span class="badge badge-info">CTF with codes</span>
         {% else %}
           <span class="badge badge-secondary">disabled</span>
         {% endif %}
       </h2>
 
-      <p class="card-text">
-        {% if enabled %}
-          Participants land on <code>/workshop</code>, the navbar leads to the
-          subject and the toolbox, and the admin bar carries the workshop tools.
-        {% else %}
-          Participants land on the challenge board. Every workshop route answers
-          404, and this is the only workshop page left in the admin bar.
-        {% endif %}
-      </p>
-
       <form method="POST">
         <input type="hidden" name="nonce" value="{{ Session.nonce }}">
-        <input type="hidden" name="enabled" value="{{ "off" if enabled else "on" }}">
-        <button type="submit"
-                class="btn {{ 'btn-outline-danger' if enabled else 'btn-primary' }}">
-          {{ "Disable the workshop" if enabled else "Enable the workshop" }}
-        </button>
+        {% for value, label, text in states %}
+          <div class="form-check mb-3">
+            <input class="form-check-input" type="radio" name="state"
+                   id="ws-state-{{ value }}" value="{{ value }}"
+                   {% if state == value %}checked{% endif %}>
+            <label class="form-check-label" for="ws-state-{{ value }}">
+              <strong>{{ label }}</strong><br>
+              <span class="text-muted">{{ text }}</span>
+            </label>
+          </div>
+        {% endfor %}
+        <button type="submit" class="btn btn-primary">Save</button>
       </form>
     </div>
   </div>
 
-  <h2 class="h5">What disabling turns off</h2>
+  <h2 class="h5">What "Off" turns off</h2>
   <ul>
     <li>The workshop pages: <code>/workshop</code>, each part, the toolbox and
       the runtime pop-out.</li>
     <li>The landing redirect. <code>/</code> serves the index Page again and
       login goes to <code>/challenges</code>.</li>
     <li>The runtime dist, the saved work-in-progress API and the path graph.</li>
+    <li>The code door on the login page, and the registration codes' page.</li>
     <li>Jump: the button on the login page, <code>/jump/enter</code> and the
       queue that posts solves back.</li>
     <li>The supervisor tier: <code>/supervisor/join</code> and the room's
@@ -74,7 +92,25 @@
       sync and Jump.</li>
   </ul>
 
-  <h2 class="h5">What it deliberately leaves alone</h2>
+  <h2 class="h5">What "CTF with codes" keeps from that list</h2>
+  <ul>
+    <li><strong>The code door.</strong> The login page opens on it, and
+      <code>/</code> sends a visitor who is not signed in there. Staff sign in
+      at <code>/login?staff=1</code>.</li>
+    <li><strong>Registration codes</strong>, in the admin bar: each code is a
+      cohort, with its own scoreboard and participant list.</li>
+    <li>Nothing else. There is no supervisor page, no certificate and no Jump
+      in this state, and the challenges are the ones you create in the admin
+      panel. Whether the board is open is CTFd's own start time and challenge
+      visibility; a participant who comes in before that is told to come
+      back.</li>
+    <li>CTFd's own registration page is not changed by this switch. Set
+      "Registration visibility" to private in CTFd's settings if the codes
+      must be the only way in: an account made there is behind no code, and
+      shares one scoreboard with every other account of that kind.</li>
+  </ul>
+
+  <h2 class="h5">What no state touches</h2>
   <ul>
     <li><strong>The Epitech theme.</strong> The shell and the stylesheets stay.
       Turning the workshop off is not a request for CTFd's own navbar back.</li>
@@ -84,6 +120,8 @@
       gone; a switch that deleted content would not be a switch.</li>
     <li><strong>Quiz challenges.</strong> They keep working on the board: taking
       the challenge type away would break every quiz already imported.</li>
+    <li><strong>What is not kept.</strong> No address is stored and no
+      submitted text is written to the logs, in any state.</li>
   </ul>
 </div>
 {% endblock %}

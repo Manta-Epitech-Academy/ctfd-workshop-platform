@@ -6072,3 +6072,34 @@ has to be a text PPM and has to reach the participant unchanged.
   is added: finding it is part of that subject's challenge.
 - Checked by hand on the dev instance: the cover shows on both pages and the served file has
   the same SHA-256 as the one in the subject repo.
+
+## 71. A plain board that keeps the code door (2026-11-23)
+
+Asked for: use the cohorts on an ordinary CTF, with the workshop pages off. Before this the
+cohort wall and the privacy rules already held with the switch off (they never read it), but
+the only way to be filed under a code is the token door, and off closed it.
+
+- **A third state on the switch (§39), not a second switch.** `/admin/workshop/plugin` offers
+  "Workshop", "CTF with codes" and "Off". Two switches would have allowed "workshop on, door
+  off", which means nothing.
+- **Stored as a second key.** `workshop_enabled` keeps its meaning and is false in the new
+  state; `workshop_board_codes` tells the two kinds of off apart and is not read while the
+  workshop is on. An instance that never opens the page behaves as before, and the old form
+  (`enabled=on|off`) still posts.
+- **What the state keeps:** the token door on the login page, `/` to the door for an anonymous
+  visitor, `/admin` to the staff form, the two blueprints behind the door
+  (`workshop_codes`, `workshop_tokendoor`), and "Registration codes" in the admin bar.
+- **What it does not:** the workshop pages, the runtime, Jump, the sync, the certificate, and
+  the whole supervisor tier (decided: no supervisor on a board). The login page no longer links
+  to `/supervisor/join` when that route is a 404, which it also did in the off state.
+- **Where a participant lands:** `/challenges`. While the board is closed (CTFd's start time,
+  or challenge visibility set to admins) they get the waiting page, with a sentence that says
+  "event" and not "workshop". Two French strings added.
+- **Challenges are made by hand** in the admin panel. Nothing is synced in this state.
+- **CTFd's own `/register` is left to CTFd's setting.** An account made there is behind no
+  code and falls in the default audience (§43); the switch page says to set registration to
+  private if the codes must be the only way in.
+- **Privacy (§65) is unchanged**: no address stored, no submitted text in the logs, in every
+  state.
+- Checks: `scripts/board_codes_check.py` (new, 33 checks), and `toggle_check.py` now restores
+  any of the three states.

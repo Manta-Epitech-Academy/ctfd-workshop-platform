@@ -54,6 +54,7 @@ from CTFd.utils.security.auth import login_user
 from CTFd.utils.user import authed, is_admin
 
 from .accounts import delete_accounts
+from .toggle import workshop_enabled
 
 CODE_KEY = "workshop_supervisor_code"
 SUPERVISOR = "supervisor"
@@ -95,8 +96,10 @@ def supervisor_code():
 
 
 def joining_open():
-    """Whether /supervisor/join answers at all. Empty code, closed door."""
-    return bool(supervisor_code())
+    """Whether /supervisor/join answers at all. Empty code, closed door. And
+    no door without a workshop: the route is a 404 then (toggle.py), so the
+    login page must not link to it."""
+    return workshop_enabled() and bool(supervisor_code())
 
 
 def is_supervisor():

@@ -1,0 +1,62 @@
+name: Upload a runtime dist to the runtimes bucket
+description: >
+  Puts a built runtime under runtimes/<id>/<version>/ (immutable) and, if given,
+  a second build under runtimes/<id>/latest/ in the S3-compatible bucket the
+  workshop platform's proxy serves at /runtime/<id>/<version>/. Skips with a
+  notice when no bucket is configured, so a runtime's CI keeps passing before
+  the storage exists. Wraps tools/upload_runtime.sh of this repository.
+
+inputs:
+  runtime-id:
+    description: The runtime id the subjects declare (tic80, pacman, miniasm, voxel-world, python-turtle, v86)
+    required: true
+  version:
+    description: The version the dist was built for — the short commit sha subjects pin
+    required: true
+  dist:
+    description: Directory of the dist built for /runtime/<id>/<version>/
+    required: true
+  latest-dist:
+    description: Directory of the dist built for /runtime/<id>/latest/ (same dir as `dist` for a runtime with relative URLs); empty skips latest/
+    required: false
+    default: ""
+  endpoint:
+    description: S3 endpoint URL (an org variable, RUNTIMES_S3_ENDPOINT)
+    required: false
+    default: ""
+  bucket:
+    description: Bucket name (an org variable, RUNTIMES_S3_BUCKET)
+    required: false
+    default: ""
+  region:
+    description: Region string the endpoint wants (an org variable, RUNTIMES_S3_REGION)
+    required: false
+    default: "us-east-1"
+  access-key-id:
+    description: Key limited to the runtimes bucket (an org secret)
+    required: false
+    default: ""
+  secret-access-key:
+    description: Its secret (an org secret)
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Upload
+      shell: bash
+      env:
+        RUNTIMES_S3_ENDPOINT: ${{ inputs.endpoint }}
+        RUNTIMES_S3_BUCKET: ${{ inputs.bucket }}
+        RUNTIMES_S3_REGION: ${{ inputs.region }}
+        AWS_ACCESS_KEY_ID: ${{ inputs.access-key-id }}
+        AWS_SECRET_ACCESS_KEY: ${{ inputs.secret-access-key }}
+      run: |
+        if [ -z "$RUNTIMES_S3_BUCKET" ] || [ -z "$RUNTIMES_S3_ENDPOINT" ] || [ -z "$AWS_ACCESS_KEY_ID" ]; then
+          echo "::notice title=runtimes bucket::RUNTIMES_S3_* not configured on this repository or organisation — dist not uploaded"
+          exit 0
+        fi
+        args=("${{ inputs.runtime-id }}" "${{ inputs.version }}" "${{ inputs.dist }}")
+        [ -z "${{ inputs.latest-dist }}" ] || args+=(--latest "${{ inputs.latest-dist }}")
+        "${{ github.action_path }}/../../../tools/upload_runtime.sh" "${args[@]}"

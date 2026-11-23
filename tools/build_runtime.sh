@@ -26,16 +26,17 @@ WORK="${WORK_DIR:-${TMPDIR:-/tmp}/ws-runtime-build}"
 case "$RUNTIME_ID" in
   tic80)
     KIND="vite"
-    # The `_runtime` repository, not kevin-cazal/tic80-web-editor: that one
-    # is archived (2026-09-15), this one is what production builds from.
-    SOURCE="https://github.com/kevin-cazal/tic80-web-editor_runtime.git"
+    # The `_runtime` repository under the organisation, which is canonical
+    # since 2026-11-23 (kevin-cazal/tic80-web-editor is archived, and the
+    # kevin-cazal mirror of this one no longer receives the builds).
+    SOURCE="https://github.com/Manta-Epitech-Academy/tic80-web-editor_runtime.git"
     # TIC-80 PRO must be compiled from source with Emscripten to get the
     # patched embed API — 20-40 minutes and several GB (see the repo's
     # docker/tic80.Dockerfile). The image its CI publishes already contains
     # that artifact, so the two WASM files are copied out of it instead of
     # recompiling. Set TIC80_WASM_FROM=local to use your own public/tic80/
     # build instead.
-    WASM_IMAGE="ghcr.io/kevin-cazal/tic80-web-editor_runtime:latest"
+    WASM_IMAGE="ghcr.io/manta-epitech-academy/tic80-web-editor_runtime:latest"
     WASM_IMAGE_DIR="/usr/share/nginx/html/runtime/tic80/latest/tic80"
     WASM_FILES="tic80.js tic80.wasm"
     ;;
@@ -77,7 +78,7 @@ case "$RUNTIME_ID" in
     # (PLAN.md §21). This is the *port* — same app, plus the completion token it
     # reveals when a platform supplies a secret; upstream kevin-cazal/miniasm is
     # untouched and still runs standalone.
-    SOURCE="https://github.com/kevin-cazal/miniasm_runtime.git"
+    SOURCE="https://github.com/Manta-Epitech-Academy/miniasm_runtime.git"
     # No bundler: the repo root is the site. Its own script fetches Monaco and
     # Blockly into vendor/ — the port loads them relatively, so the workshop
     # keeps its editor in a room with no internet, and the dist works under any
@@ -88,10 +89,10 @@ case "$RUNTIME_ID" in
     ;;
   pacman)
     KIND="static"
-    # Runtime only — the workshop text lives in pacman-ghost-ai_new and is
-    # rendered by CTFd. While this repo is private, cloning over https needs
-    # `gh auth setup-git`; RUNTIME_SOURCE overrides it with an ssh URL.
-    SOURCE="https://github.com/kevin-cazal/pacman-ghost-ai_runtime.git"
+    # Runtime only — the workshop text lives in pacman-ghost-ai_subject and is
+    # rendered by CTFd. The organisation's repository is the canonical one;
+    # RUNTIME_SOURCE overrides it (an ssh URL, a fork).
+    SOURCE="https://github.com/Manta-Epitech-Academy/pacman-ghost-ai_runtime.git"
     # No bundler: the repo root is the site, and every URL in index.html is
     # relative, so it works unchanged under /runtime/<id>/<version>/. Monaco
     # and Fengari are not vendored — the same two scripts the repo's own Pages
@@ -103,6 +104,16 @@ case "$RUNTIME_ID" in
     STATIC_EXCLUDE=(.git .github node_modules tests scripts
                     playwright.config.js package.json package-lock.json
                     Dockerfile .dockerignore README.md)
+    ;;
+  python-turtle)
+    KIND="static"
+    # Tortue Python (subject tortue_subject): a Skulpt turtle playground, no
+    # bundler, the repo root is the site. Its own script fetches Skulpt and
+    # Monaco into vendor/, loaded relatively, so the dist works under any
+    # path prefix. The exclude list mirrors the repo's Dockerfile.
+    SOURCE="https://github.com/Manta-Epitech-Academy/python-turtle_runtime.git"
+    PREPARE="sh scripts/vendor.sh"
+    STATIC_EXCLUDE=(.git .github scripts README.md Dockerfile .dockerignore docker)
     ;;
   voxel-world)
     KIND="vite"

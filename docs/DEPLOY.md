@@ -700,6 +700,81 @@ with `PRESET_CONFIGS {"setup": true}` never ran the wizard), and
 `WORKSHOP_TOOLS=/opt/workshop/tools` is set on the container for the admin
 sync page — the example overlay carries it.
 
+## Runtimes in the bucket
+
+The dists are moving off the servers' disks to an S3-compatible bucket
+(`S3_PLAN.md` in the storage task, block 3 of 6). Every runtime's CI uploads
+its build there on each push to `main`, and a proxy in front of CTFd serves
+`/runtime/<id>/<version>/` from it on CTFd's own origin (the proxy is block 4:
+until it exists, the sections above still describe how a server serves the
+dists, and nothing below changes them).
+
+Layout in the bucket, one prefix per runtime:
+
+```
+runtimes/<id>/<sha>/...     the build for that commit — immutable,
+                            Cache-Control: public, max-age=31536000, immutable
+runtimes/<id>/latest/...    the build of main — Cache-Control: public, max-age=300
+```
+
+A Vite dist is built for one base URL (`VITE_BASE`), so `<sha>/` and
+`latest/` are two builds of the same commit, not a copy: `<sha>/index.html`
+loads `/runtime/<id>/<sha>/assets/…` and `latest/index.html` loads
+`/runtime/<id>/latest/assets/…`. A static runtime (pacman, miniasm,
+python-turtle) and voxel-world (`base: "./"`) use relative URLs, so the same
+files go to both prefixes. Subjects pin `<sha>` (`runtime.version` in
+`subject.yaml`); `latest/` is what the k8s images served and stays for the
+instances that follow main.
+
+**From CI.** Each `Manta-Epitech-Academy/*_runtime` repository has a `bucket`
+job in its `docker.yml` that builds the dist(s) and calls this repository's
+composite action:
+
+```yaml
+      - uses: Manta-Epitech-Academy/ctfd-workshop-platform/.github/actions/upload-runtime@main
+        with:
+          runtime-id: tic80
+          version: ${{ steps.sha.outputs.short }}
+          dist: dist-sha
+          latest-dist: dist-latest
+          endpoint: ${{ vars.RUNTIMES_S3_ENDPOINT }}
+          bucket: ${{ vars.RUNTIMES_S3_BUCKET }}
+          region: ${{ vars.RUNTIMES_S3_REGION }}
+          access-key-id: ${{ secrets.RUNTIMES_S3_ACCESS_KEY_ID }}
+          secret-access-key: ${{ secrets.RUNTIMES_S3_SECRET_ACCESS_KEY }}
+```
+
+The three `vars.` and two `secrets.` are set **once at the organisation
+level** (Settings → Secrets and variables → Actions), from what the storage
+owner provides: the endpoint URL, the bucket name, its region string, and a
+key limited to that bucket. Until they exist the job logs a notice and
+passes, so the workflows can merge before the storage does.
+
+**By hand**, for a dist built with `tools/build_runtime.sh` (the same objects,
+the same headers):
+
+```bash
+export RUNTIMES_S3_ENDPOINT=https://…  RUNTIMES_S3_BUCKET=…  RUNTIMES_S3_REGION=…
+export AWS_ACCESS_KEY_ID=…  AWS_SECRET_ACCESS_KEY=…
+tools/build_runtime.sh voxel-world                       # -> plugins/workshop/runtimes/voxel-world/<sha>
+tools/upload_runtime.sh voxel-world <sha>                # immutable, under <sha>/
+tools/upload_runtime.sh voxel-world <sha> --latest plugins/workshop/runtimes/voxel-world/<sha>
+```
+
+`upload_runtime.sh` uses the `aws` CLI when it is installed and
+`amazon/aws-cli` in Docker otherwise; `--dry-run` shows what would change.
+Content types are the CLI's guesses plus an explicit pass for `.wasm`
+(`application/wasm`, which `WebAssembly.instantiateStreaming` requires) and
+`.mjs`.
+
+**Anonymous read.** The proxy reads the bucket without a key, so the bucket
+(or the prefix) needs anonymous read — a bucket policy, or "website" mode on
+Garage/MinIO. The upload key is read/write on that bucket only; it cannot
+change bucket settings, and must not be able to.
+
+**Locally**, the `test/` stack of the storage task runs a Garage with such a
+bucket; `garage-init.sh` creates it, the key, and turns website mode on.
+
 ## The `ctfd-standalone` test image
 
 The `standalone` branch of ctfd-custom builds

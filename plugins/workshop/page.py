@@ -544,6 +544,18 @@ def _subjects():
     return subjects if isinstance(subjects, dict) else {}
 
 
+def subject_styles():
+    """The stylesheets the synced subjects ship (`workshop_subjects[*].style`, §3.2c).
+
+    Every subject's, on every workshop page: a workshop of several subjects
+    reads them side by side, and an author scopes their rules under their own
+    class names, so two sheets do not fight. Empty for a subject that declares
+    none, or an instance synced before the key existed.
+    """
+    return [s["style"] for s in _subjects().values()
+            if isinstance(s, dict) and isinstance(s.get("style"), str) and s["style"]]
+
+
 def instance_title():
     """What this instance calls itself, on every page that has no title of its own.
 
@@ -1127,6 +1139,10 @@ def load_page(app):
     # `page_title` still has to name something, and `Configs.ctf_name` was that
     # something until a subject was synced onto the instance.
     app.jinja_env.globals["workshop_title"] = instance_title
+    # The subject's own stylesheet (§3.2c), linked by the templates' `stylesheets`
+    # block. A global, like the title: read at render time, so a sync shows up on
+    # the next request without a restart.
+    app.jinja_env.globals["workshop_subject_styles"] = subject_styles
 
     @app.context_processor
     def _title_default():

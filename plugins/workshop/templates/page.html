@@ -12,6 +12,16 @@
   for how this is registered without touching CTFd/.
 #}
 
+{% block stylesheets %}
+  {{ super() }}
+  {# The subject's own stylesheet (CONTENT_CONVENTION §3.2c): colours for the
+     names of its prose, drawn from its repo, linked here so the platform
+     needs no code for them. #}
+  {% for href in workshop_subject_styles() %}
+  <link rel="stylesheet" href="{{ href }}">
+  {% endfor %}
+{% endblock %}
+
 {% block content %}
   {# ToS and privacy render through this template with no `title` (see
      CTFd/views.py); they get the page body and no band rather than an empty

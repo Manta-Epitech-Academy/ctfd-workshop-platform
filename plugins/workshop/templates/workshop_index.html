@@ -83,6 +83,16 @@
   </div>
 {%- endmacro %}
 
+{% block stylesheets %}
+  {{ super() }}
+  {# The subject's own stylesheet (CONTENT_CONVENTION §3.2c): colours for the
+     names of its prose, drawn from its repo, linked here so the platform
+     needs no code for them. #}
+  {% for href in workshop_subject_styles() %}
+  <link rel="stylesheet" href="{{ href }}">
+  {% endfor %}
+{% endblock %}
+
 {% block content %}
 {# `#ws-workshop` for the same reason as workshop_page.html: it is the scope
    assets/workshop_page.js binds to, and it has to wrap the band as well as the

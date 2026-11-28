@@ -178,6 +178,44 @@ The one thing that *is* refused is a `cover` path pointing at a file that is not
 there. That is §3.8's rule, not a new one: a broken image is a hole in the page,
 and the whole point of linting paths is to find it before a session does.
 
+### 3.2c `style:` — a subject brings its own colours
+
+A subject sometimes wants a rule the platform has no reason to know: Santa
+Shooter colours every variable name in its prose with the colour of the sprite
+it belongs to, the same colour its animations use. That is content, so it
+ships with the content:
+
+```yaml
+style: style.css        # repo-relative, like a cover image
+```
+
+```html
+Son objectif : <var class="ennemi">ex</var>, <var class="ennemi">ey</var>.
+```
+
+```css
+/* style.css — scope your rules under .challenge-desc and your own class names */
+.challenge-desc var.ennemi { color: #2f9a52; }
+[data-bs-theme="dark"] .challenge-desc var.ennemi { color: #a7f070; }
+```
+
+The importer uploads the file with the other assets and the workshop pages
+link it after the platform's own sheets. On GitHub the `<var>` renders in
+italics and the stylesheet does nothing, which is a readable fallback. The
+markdown renderer keeps `class` and `style` attributes on inline elements and
+drops `<style>` blocks: write your rules in the file, never inside a page.
+
+**Scope your rules.** Every subject's sheet is linked on every workshop page
+of the instance, so a workshop made of two subjects reads both. Rules written
+against `.challenge-desc` (the platform's class for rendered subject markdown)
+and your own class names cannot restyle the shell or another subject; a bare
+`var { color: red }` would. `<var>x</var>` with no class is the platform's
+own, for the axes of a 3D scene (§3.8b).
+
+**The linter advises, except on a missing file.** A `style:` that is not a
+repo-relative path, or not a `.css`, prints as `warn` and imports anyway; a
+path pointing at a file that is not there is refused, like any asset (§3.8).
+
 ### 3.3 Section metadata — HTML comments anchored to headings
 
 HTML comments are invisible in GitHub, GitLab, VS Code preview, pandoc — every mainstream

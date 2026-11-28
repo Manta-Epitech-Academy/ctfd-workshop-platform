@@ -220,6 +220,7 @@ class Subject:
     documents: list = field(default_factory=list)
     assets: list = field(default_factory=list)      # Asset, in first-seen order
     cover: dict = field(default_factory=dict)       # §3.2b, {} when undeclared
+    style: str = ""                                 # §3.2c, "" when undeclared
 
     @property
     def exercises(self):
@@ -661,8 +662,12 @@ def parse_subject(subject_dir):
                                                        "checkpoint"),
     }
     cover = manifest.get("cover") or {}
+    # §3.2c: the subject's own stylesheet, a repo-relative path like a cover
+    # image. Anything that is not a plain local path is left for the linter.
+    style = manifest.get("style")
+    style = style if isinstance(style, str) and _is_local_asset(style) else ""
     subject = Subject(slug=project["slug"], name=project["name"],
-                      manifest=manifest, cover=cover)
+                      manifest=manifest, cover=cover, style=style)
 
     order = 0  # subject-wide source-reading counter (1-based positions)
 
@@ -682,6 +687,11 @@ def parse_subject(subject_dir):
     for ref in cover_asset_refs(cover):
         collect(Asset(ref=ref, path=subject_dir / ref, documents=["subject.yaml"],
                       key=cover_asset_key(ref)))
+    # The stylesheet travels like a cover image: same root, same namespaced key,
+    # uploaded by the same loop, refused by the same check when it is missing.
+    if style:
+        collect(Asset(ref=style, path=subject_dir / style, documents=["subject.yaml"],
+                      key=cover_asset_key(style), kind="file"))
     # Subject-wide, not per document: the importer keys challenges on
     # `ws:<subject>:<slug>`, so the same slug in two documents would upsert one
     # challenge twice and silently lose a step.
@@ -1076,6 +1086,21 @@ def _codes_warnings(codes):
 TAGLINE_MAX = 90
 
 
+def _style_warnings(subject):
+    """Advice about `style:` (§3.2c). A missing file is refused elsewhere, with
+    every other asset; this is only about what was declared."""
+    raw = (subject.manifest or {}).get("style")
+    if raw is None:
+        return []
+    if not subject.style:
+        return ["subject.yaml: `style:` is not a repo-relative path to a file "
+                "(`style: style.css`). A URL or a list is ignored (§3.2c)."]
+    if not subject.style.lower().endswith(".css"):
+        return [f"subject.yaml: `style: {subject.style}` is linked as a stylesheet "
+                "but is not a .css file. The browser will ignore it."]
+    return []
+
+
 def _cover_warnings(subject):
     """Advice about the `cover:` block. Never fatal — see `lint_all`.
 
@@ -1317,7 +1342,8 @@ def lint_all(subject_dir):
         # Nothing parsed, or parsed and failed: advice about a cover would be
         # noise next to a real error, and may not even be computable.
         return problems, []
-    return problems, (_cover_warnings(subject) + _toolbox_warnings(subject_dir, subject)
+    return problems, (_cover_warnings(subject) + _style_warnings(subject)
+                      + _toolbox_warnings(subject_dir, subject)
                       + _codes_warnings(load_checkpoint_codes(subject_dir))
                       + _scene_checks(subject_dir, subject)[1]
                       + _anim_checks(subject_dir, subject)[1]

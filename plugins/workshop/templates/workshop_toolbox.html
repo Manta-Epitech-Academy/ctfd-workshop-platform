@@ -38,6 +38,16 @@
   </h3>
 {%- endmacro %}
 
+{% block stylesheets %}
+  {{ super() }}
+  {# The subject's own stylesheet (CONTENT_CONVENTION §3.2c): colours for the
+     names of its prose, drawn from its repo, linked here so the platform
+     needs no code for them. #}
+  {% for href in workshop_subject_styles() %}
+  <link rel="stylesheet" href="{{ href }}">
+  {% endfor %}
+{% endblock %}
+
 {% block content %}
 <div id="ws-workshop">
 

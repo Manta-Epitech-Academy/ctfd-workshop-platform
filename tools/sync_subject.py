@@ -46,8 +46,8 @@ import requests
 import yaml
 
 sys.path.insert(0, str(Path(__file__).parent))
-from ws_parser import (load_checkpoint_codes, load_flags, load_quiz_answers, lint_all,  # noqa: E402
-                       load_supervisor_notes, supervisor_notes_sealed,
+from ws_parser import (cover_asset_key, load_checkpoint_codes, load_flags, load_quiz_answers,  # noqa: E402
+                       lint_all, load_supervisor_notes, supervisor_notes_sealed,
                        parse_subject, rewrite_asset_refs, rewrite_cover_refs)
 
 # The note under a step ("ask the instructor for the code", "paste the token
@@ -1309,6 +1309,10 @@ def sync(subject_dir, url, admin_user, admin_pass, codes_path=None, *,
         "summary": (subject.manifest.get("project") or {}).get("summary") or "",
         **cover,
     }
+    # §3.2c: the subject's stylesheet, already uploaded with the other assets;
+    # the pages link it (plugins/workshop/page.py, `subject_styles`).
+    if subject.style and asset_urls.get(cover_asset_key(subject.style)):
+        subject_cfg["style"] = asset_urls[cover_asset_key(subject.style)]
     if standalone:
         previous = current_content(ctfd)
         write_instance_config(ctfd, documents_cfg, optional_ids, free_ids, final,
